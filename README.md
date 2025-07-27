@@ -39,6 +39,13 @@ DocuSense AI est une plateforme moderne et robuste d'analyse intelligente de doc
 - **Miniatures** : Génération automatique de miniatures pour tous les types de fichiers
 - **Visualisation** : Lecteurs intégrés pour images, vidéos et audio
 - **API multimédia** : Endpoints dédiés pour l'analyse et la génération de miniatures
+
+### 🔐 Accès Distant Sécurisé
+- **Authentification simple** : Mot de passe unique pour l'accès distant
+- **Interface web** : Navigation intuitive des fichiers depuis n'importe où
+- **Téléchargement flexible** : Fichiers individuels ou dossiers complets en ZIP
+- **Sécurité renforcée** : Sessions avec timeout, protection contre les attaques
+- **API REST** : Endpoints sécurisés pour l'intégration avec d'autres applications
 - **Statuts en temps réel** avec indicateurs visuels colorés
 - **Navigation intuitive** avec sélecteur de disque et bouton retour parent
 
@@ -212,6 +219,29 @@ Pour activer le support complet des fichiers multimédia (images, vidéos, audio
 .\scripts\install_multimedia_deps.ps1 -SkipFrontend  # Backend uniquement
 .\scripts\install_multimedia_deps.ps1 -SkipBackend   # Frontend uniquement
 ```
+
+### 🔐 Configuration de l'Accès Distant
+
+Pour configurer l'accès distant sécurisé à vos fichiers :
+
+```powershell
+# Configuration initiale
+.\scripts\setup_remote_access.ps1
+
+# Changer le mot de passe
+.\scripts\setup_remote_access.ps1 -ChangePassword
+
+# Voir le statut
+.\scripts\setup_remote_access.ps1 -ShowStatus
+
+# Aide
+.\scripts\setup_remote_access.ps1 -ShowHelp
+```
+
+**Accès distant :**
+- **Interface web** : http://localhost:8000/remote
+- **Mot de passe par défaut** : `admin123`
+- **Fonctionnalités** : Navigation, téléchargement individuel et par dossiers (ZIP)
 
 **Formats supportés après installation :**
 - **Images** : JPG, PNG, GIF, BMP, TIFF, WebP, ICO, RAW, HEIC, HEIF

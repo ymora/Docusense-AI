@@ -28,7 +28,9 @@ from app.api import (
     queue_router,
     config_router,
     prompts_router,
-    multimedia_router
+    multimedia_router,
+    auth_router,
+    download_router
 )
 
 # Setup logging
@@ -189,6 +191,8 @@ app.include_router(queue_router, prefix="/api")
 app.include_router(config_router, prefix="/api")
 app.include_router(prompts_router, prefix="/api")
 app.include_router(multimedia_router, prefix="/api")
+app.include_router(auth_router, prefix="/api")
+app.include_router(download_router, prefix="/api")
 
 # Root endpoint
 @app.get("/")
@@ -201,8 +205,18 @@ async def root():
         "version": settings.app_version,
         "environment": settings.environment,
         "docs": "/docs",
-        "health": "/api/health"
+        "health": "/api/health",
+        "remote_access": "/remote"
     }
+
+# Remote access endpoint
+@app.get("/remote")
+async def remote_access():
+    """
+    Interface d'accès distant
+    """
+    from fastapi.responses import FileResponse
+    return FileResponse("backend/remote_access.html")
 
 # API info endpoint
 @app.get("/api/info")
