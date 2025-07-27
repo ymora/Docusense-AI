@@ -43,6 +43,10 @@ class File(Base):
     error_message = Column(Text, nullable=True)
     is_selected = Column(Boolean, default=False)
     parent_directory = Column(String(1000), nullable=True, index=True)
+    # Dates du fichier lui-même (pas de la base de données)
+    file_created_at = Column(DateTime(timezone=True), nullable=True)
+    file_modified_at = Column(DateTime(timezone=True), nullable=True)
+    file_accessed_at = Column(DateTime(timezone=True), nullable=True)
 
     # Relationships - CORRECTION: Ajout des relations manquantes
     analyses = relationship(
@@ -87,6 +91,9 @@ class FileBase(BaseModel):
     mime_type: str
     status: FileStatus = FileStatus.PENDING
     parent_directory: Optional[str] = None
+    file_created_at: Optional[datetime] = None
+    file_modified_at: Optional[datetime] = None
+    file_accessed_at: Optional[datetime] = None
 
 
 class FileCreate(FileBase):
@@ -112,6 +119,9 @@ class FileResponse(FileBase):
     analysis_metadata: Optional[Dict[str, Any]] = None
     error_message: Optional[str] = None
     is_selected: bool = False
+    file_created_at: Optional[datetime] = None
+    file_modified_at: Optional[datetime] = None
+    file_accessed_at: Optional[datetime] = None
 
     class Config:
         from_attributes = True

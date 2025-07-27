@@ -245,6 +245,10 @@ class QueueService:
             if not file:
                 raise ValueError(f"File {analysis.file_id} not found")
 
+            # Mark analysis as started
+            analysis.started_at = datetime.now()
+            self.db.commit()
+
             # Update progress
             queue_item.progress = 0.33
             queue_item.current_step = "Extracting text"
@@ -292,7 +296,9 @@ class QueueService:
                     "processing_time": result.get("processing_time"),
                     "tokens_used": result.get("tokens_used"),
                     "estimated_cost": result.get("estimated_cost"),
-                    "timestamp": result.get("timestamp")
+                    "timestamp": result.get("timestamp"),
+                    "started_at": analysis.started_at.isoformat() if analysis.started_at else None,
+                    "completed_at": analysis.completed_at.isoformat() if analysis.completed_at else None
                 }
 
                 # Update queue item

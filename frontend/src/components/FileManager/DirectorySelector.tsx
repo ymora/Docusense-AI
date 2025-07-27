@@ -9,10 +9,12 @@ interface DirectorySelectorProps {
 
 const DirectorySelector: React.FC<DirectorySelectorProps> = ({
   onDirectorySelect,
+  currentDirectory = '',
   className = '',
 }) => {
   const [showDrives, setShowDrives] = useState(false);
   const [availableDrives, setAvailableDrives] = useState<string[]>([]);
+  const [isInitialized, setIsInitialized] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
   // Charger la liste réelle des lecteurs accessibles depuis l'API backend
@@ -22,12 +24,20 @@ const DirectorySelector: React.FC<DirectorySelectorProps> = ({
         const res = await fetch('/api/files/drives');
         const data = await res.json();
         setAvailableDrives(data.drives || []);
+        
+        // Démarrer automatiquement dans le répertoire du projet DocuSense AI seulement si aucun répertoire n'est déjà sélectionné
+        if (data.drives && data.drives.length > 0 && !isInitialized && !currentDirectory) {
+          const projectPath = 'C:\\Users\\ymora\\Desktop\\Docusense AI';
+          onDirectorySelect(projectPath);
+          setIsInitialized(true);
+        }
       } catch (e) {
+        console.error('Erreur lors du chargement des disques:', e);
         setAvailableDrives([]);
       }
     };
     fetchDrives();
-  }, []);
+  }, [onDirectorySelect, currentDirectory, isInitialized]);
 
   // Fermer le menu si clic à l'extérieur
   useEffect(() => {
@@ -48,6 +58,7 @@ const DirectorySelector: React.FC<DirectorySelectorProps> = ({
 
   const handleDriveSelect = (drivePath: string) => {
     setShowDrives(false);
+    // Navigation libre vers le disque sélectionné
     onDirectorySelect(drivePath);
   };
 

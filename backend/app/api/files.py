@@ -10,6 +10,7 @@ from pydantic import BaseModel
 import logging
 import os
 import psutil
+from pathlib import Path
 
 from ..core.database import get_db
 from ..services.file_service import FileService
@@ -738,4 +739,60 @@ async def download_file(
         raise
     except Exception as e:
         logger.error(f"Error downloading file {file_id}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/download-by-path/{file_path:path}")
+async def download_file_by_path(
+    file_path: str
+) -> FileResponse:
+    """
+    Download a file by its path
+    """
+    try:
+        from ..services.download_service import download_service
+        from pathlib import Path
+        
+        file_path_obj = Path(file_path)
+        return download_service.download_file(file_path_obj)
+        
+    except Exception as e:
+        logger.error(f"Error downloading file by path: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/download-selected")
+async def download_selected_files(
+    zip_name: Optional[str] = None,
+    db: Session = Depends(get_db)
+) -> FileResponse:
+    """
+    Download all selected files as a ZIP archive
+    """
+    try:
+        from ..services.download_service import download_service
+        
+        # Récupérer les fichiers sélectionnés
+        file_service = FileService(db)
+        selected_files = file_service.get_selected_files()
+        
+        if not selected_files:
+            raise HTTPException(status_code=400, detail="Aucun fichier sélectionné")
+        
+        # Convertir en chemins de fichiers
+        file_paths = [Path(file.path) for file in selected_files]
+        
+        # Générer un nom de ZIP par défaut si non fourni
+        if not zip_name:
+            from datetime import datetime
+            zip_name = f"selected_files_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+        
+        logger.info(f"Téléchargement de {len(file_paths)} fichiers sélectionnés")
+        
+        return download_service.download_multiple_files(file_paths, zip_name)
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error downloading selected files: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

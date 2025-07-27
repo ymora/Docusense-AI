@@ -6,6 +6,7 @@ import mimetypes
 import logging
 from pathlib import Path
 from typing import Dict, Any, Optional, List
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -162,7 +163,11 @@ class FileInfoExtractor:
                 "extension": extension,
                 "format_category": format_category,
                 "parent_directory": str(file_path.parent),
-                "is_supported": True
+                "is_supported": True,
+                # Ajout des dates de création et modification du fichier
+                "file_created_at": datetime.fromtimestamp(stat.st_ctime).isoformat() if hasattr(stat, 'st_ctime') else None,
+                "file_modified_at": datetime.fromtimestamp(stat.st_mtime).isoformat() if hasattr(stat, 'st_mtime') else None,
+                "file_accessed_at": datetime.fromtimestamp(stat.st_atime).isoformat() if hasattr(stat, 'st_atime') else None
             }
 
             return file_info

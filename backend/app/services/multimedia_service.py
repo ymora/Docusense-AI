@@ -10,7 +10,7 @@ import mimetypes
 from PIL import Image, ImageOps
 import cv2
 import numpy as np
-from moviepy.editor import VideoFileClip, AudioFileClip
+from moviepy import VideoFileClip, AudioFileClip
 import librosa
 import librosa.display
 import json

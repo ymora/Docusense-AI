@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { MinusIcon, XMarkIcon } from '@heroicons/react/24/outline';
+import { useColors } from '../../hooks/useColors';
 
 interface ConfigWindowProps {
   onClose?: () => void;
@@ -14,6 +15,7 @@ interface ConfigContentProps {
 
 // Composant de contenu sans header pour utilisation dans MainPanel
 export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimize, isStandalone = false }) => {
+  const { colors, colorMode } = useColors();
   const [activeTab, setActiveTab] = useState<'providers' | 'strategy' | 'metrics'>('providers');
   const [providers, setProviders] = useState<any[]>([]);
   const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
@@ -235,15 +237,26 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
 
   return (
     <div className={isStandalone ? "h-full" : "flex-1 overflow-y-auto p-2"}>
-      {/* Tabs (compact) */}
-      <div className="flex border-b border-slate-600 bg-slate-700 mb-4">
+      {/* Tabs avec couleurs centralisées */}
+      <div 
+        className="flex border-b mb-4"
+        style={{
+          borderColor: colors.border,
+          backgroundColor: colors.surface
+        }}
+      >
         <button
           onClick={() => setActiveTab('providers')}
           className={`px-2 py-1 text-xs font-medium transition-colors ${
             activeTab === 'providers'
-              ? 'bg-slate-800 text-slate-100 border-b-2 border-blue-500'
-              : 'text-slate-400 hover:text-slate-100'
+              ? 'text-white border-b-2'
+              : 'hover:text-white'
           }`}
+          style={{
+            backgroundColor: activeTab === 'providers' ? colors.surface : 'transparent',
+            color: activeTab === 'providers' ? colors.text : colors.textSecondary,
+            borderBottomColor: activeTab === 'providers' ? colors.config : 'transparent'
+          }}
         >
           Providers
         </button>
@@ -251,9 +264,14 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
           onClick={() => setActiveTab('strategy')}
           className={`px-2 py-1 text-xs font-medium transition-colors ${
             activeTab === 'strategy'
-              ? 'bg-slate-800 text-slate-100 border-b-2 border-blue-500'
-              : 'text-slate-400 hover:text-slate-100'
+              ? 'text-white border-b-2'
+              : 'hover:text-white'
           }`}
+          style={{
+            backgroundColor: activeTab === 'strategy' ? colors.surface : 'transparent',
+            color: activeTab === 'strategy' ? colors.text : colors.textSecondary,
+            borderBottomColor: activeTab === 'strategy' ? colors.config : 'transparent'
+          }}
         >
           Stratégie
         </button>
@@ -261,59 +279,113 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
           onClick={() => setActiveTab('metrics')}
           className={`px-2 py-1 text-xs font-medium transition-colors ${
             activeTab === 'metrics'
-              ? 'bg-slate-800 text-slate-100 border-b-2 border-blue-500'
-              : 'text-slate-400 hover:text-slate-100'
+              ? 'text-white border-b-2'
+              : 'hover:text-white'
           }`}
+          style={{
+            backgroundColor: activeTab === 'metrics' ? colors.surface : 'transparent',
+            color: activeTab === 'metrics' ? colors.text : colors.textSecondary,
+            borderBottomColor: activeTab === 'metrics' ? colors.config : 'transparent'
+          }}
         >
           Métriques
         </button>
       </div>
 
-      {/* Contenu compact */}
+      {/* Contenu compact avec couleurs centralisées */}
       <div className="space-y-2">
         {activeTab === 'providers' && (
           <div className="space-y-2">
             {loading ? (
-              <div className="text-center py-4 text-xs text-slate-400">Chargement...</div>
+              <div 
+                className="text-center py-4 text-xs"
+                style={{ color: colors.textSecondary }}
+              >
+                Chargement...
+              </div>
             ) : (
               providers.map((provider) => {
                 const status = getProviderStatus(provider);
                 const isActive = isProviderActive(provider);
                 const currentPriority = priority[provider.name] || 0;
                 return (
-                  <div key={provider.name} className="bg-slate-700 rounded-lg p-2 border border-slate-600 flex flex-col text-xs mb-1">
+                  <div 
+                    key={provider.name} 
+                    className="rounded-lg p-2 border flex flex-col text-xs mb-1"
+                    style={{
+                      backgroundColor: colors.surface,
+                      borderColor: colors.border
+                    }}
+                  >
                     {/* Ligne 1 : icône, nom, statut */}
                     <div className="flex items-center mb-1">
                       <span className={`w-6 h-6 rounded flex items-center justify-center text-white text-base mr-2 ${getProviderColor(provider.name)}`}>{getProviderIcon(provider.name)}</span>
-                      <span className="font-medium capitalize mr-2 truncate" style={{ fontSize: '13px' }}>{provider.name}</span>
-                      <span className={`w-2 h-2 rounded-full ml-1 ${
-                        status === 'connected' ? 'bg-green-500' :
-                          status === 'configured' ? 'bg-yellow-500' : 'bg-red-500'
-                      }`} title={status === 'connected' ? 'Connecté' : status === 'configured' ? 'Clé configurée' : 'Non configuré'}></span>
+                      <span 
+                        className="font-medium capitalize mr-2 truncate" 
+                        style={{ 
+                          fontSize: '13px',
+                          color: colors.text
+                        }}
+                      >
+                        {provider.name}
+                      </span>
+                      <span 
+                        className={`w-2 h-2 rounded-full ml-1`}
+                        style={{
+                          backgroundColor: status === 'connected' ? colors.success :
+                            status === 'configured' ? colors.warning : colors.error
+                        }}
+                        title={status === 'connected' ? 'Connecté' : status === 'configured' ? 'Clé configurée' : 'Non configuré'}
+                      ></span>
                       {currentPriority === 1 && isActive && (
-                        <span className="text-green-400 text-xs ml-1" title="Provider principal">🥇</span>
+                        <span 
+                          className="text-xs ml-1" 
+                          style={{ color: colors.success }}
+                          title="Provider principal"
+                        >
+                          🥇
+                        </span>
                       )}
                     </div>
                     {/* Ligne 2 : champ clé API compact */}
                     <div className="flex items-center space-x-1 mb-1">
-                      <span className="text-slate-400 text-xs">🔑</span>
+                      <span 
+                        className="text-xs"
+                        style={{ color: colors.textSecondary }}
+                      >
+                        🔑
+                      </span>
                       <input
                         type="password"
                         value={apiKeys[provider.name] || ''}
                         onChange={(e) => handleApiKeyChange(provider.name, e.target.value)}
                         placeholder="Clé API"
-                        className="flex-1 bg-slate-600 text-white text-xs px-2 py-1 rounded border border-slate-500 focus:border-blue-500 focus:outline-none"
-                        style={{ fontSize: '12px' }}
+                        className="flex-1 text-xs px-2 py-1 rounded border focus:outline-none"
+                        style={{
+                          backgroundColor: colorMode === 'dark' ? '#475569' : '#e2e8f0',
+                          color: colors.text,
+                          borderColor: colors.border,
+                          fontSize: '12px'
+                        }}
                       />
                       <button
                         onClick={() => handleTestProvider(provider.name)}
                         disabled={testing[provider.name]}
-                        className="p-1 text-blue-500 hover:text-blue-700 disabled:text-slate-500"
+                        className="p-1 disabled:opacity-50"
+                        style={{
+                          color: testing[provider.name] ? colors.textSecondary : colors.config
+                        }}
                         title="Tester la clé"
                         tabIndex={-1}
                       >
                         {testing[provider.name] ? (
-                          <div className="w-3 h-3 border border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                          <div 
+                            className="w-3 h-3 border border-t-transparent rounded-full animate-spin"
+                            style={{
+                              borderColor: colors.config,
+                              borderTopColor: 'transparent'
+                            }}
+                          ></div>
                         ) : (
                           <span className="text-xs">✓</span>
                         )}
@@ -321,12 +393,22 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                     </div>
                     {/* Ligne 3 : priorité */}
                     <div className="flex items-center space-x-1">
-                      <span className="text-slate-400 text-xs">🎯</span>
+                      <span 
+                        className="text-xs"
+                        style={{ color: colors.textSecondary }}
+                      >
+                        🎯
+                      </span>
                       <select
                         value={currentPriority}
                         onChange={(e) => handlePriorityChange(provider.name, parseInt(e.target.value))}
-                        className="flex-1 bg-slate-600 text-white text-xs px-2 py-1 rounded border border-slate-500 focus:border-blue-500 focus:outline-none"
-                        style={{ fontSize: '12px' }}
+                        className="flex-1 text-xs px-2 py-1 rounded border focus:outline-none"
+                        style={{
+                          backgroundColor: colorMode === 'dark' ? '#475569' : '#e2e8f0',
+                          color: colors.text,
+                          borderColor: colors.border,
+                          fontSize: '12px'
+                        }}
                       >
                         <option value={0}>Désactivé</option>
                         <option value={1}>Priorité 1</option>
@@ -343,12 +425,28 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
 
         {activeTab === 'strategy' && (
           <div className="space-y-4">
-            <div className="bg-slate-700 rounded-lg p-3 border border-slate-600">
-              <h4 className="text-sm font-medium text-slate-200 mb-2">Stratégie de sélection</h4>
+            <div 
+              className="rounded-lg p-3 border"
+              style={{
+                backgroundColor: colors.surface,
+                borderColor: colors.border
+              }}
+            >
+              <h4 
+                className="text-sm font-medium mb-2"
+                style={{ color: colors.text }}
+              >
+                Stratégie de sélection
+              </h4>
               <select
                 value={strategy}
                 onChange={(e) => handleStrategyChange(e.target.value)}
-                className="w-full bg-slate-600 text-white text-sm px-3 py-2 rounded border border-slate-500 focus:border-blue-500 focus:outline-none"
+                className="w-full text-sm px-3 py-2 rounded border focus:outline-none"
+                style={{
+                  backgroundColor: colorMode === 'dark' ? '#475569' : '#e2e8f0',
+                  color: colors.text,
+                  borderColor: colors.border
+                }}
               >
                 <option value="priority">Priority (Ordre de priorité)</option>
                 <option value="cost">Cost (Coût le plus bas)</option>
@@ -357,7 +455,10 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                 <option value="quality">Quality (Meilleure qualité)</option>
                 <option value="speed">Speed (Plus rapide)</option>
               </select>
-              <p className="text-xs text-slate-400 mt-2">
+              <p 
+                className="text-xs mt-2"
+                style={{ color: colors.textSecondary }}
+              >
                 {strategy === 'priority' && 'Utilise les providers dans l\'ordre de priorité défini'}
                 {strategy === 'cost' && 'Sélectionne le provider avec le coût le plus bas'}
                 {strategy === 'performance' && 'Sélectionne le provider avec les meilleures performances'}
@@ -367,9 +468,23 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
               </p>
             </div>
 
-            <div className="bg-slate-700 rounded-lg p-3 border border-slate-600">
-              <h4 className="text-sm font-medium text-slate-200 mb-2">Providers actifs</h4>
-              <p className="text-xs text-slate-400">
+            <div 
+              className="rounded-lg p-3 border"
+              style={{
+                backgroundColor: colors.surface,
+                borderColor: colors.border
+              }}
+            >
+              <h4 
+                className="text-sm font-medium mb-2"
+                style={{ color: colors.text }}
+              >
+                Providers actifs
+              </h4>
+              <p 
+                className="text-xs"
+                style={{ color: colors.textSecondary }}
+              >
                 {getActiveProvidersCount()} provider(s) configuré(s) sur {providers.length}
               </p>
             </div>
@@ -378,36 +493,58 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
 
         {activeTab === 'metrics' && (
           <div className="space-y-4">
-            <div className="bg-slate-700 rounded-lg p-3 border border-slate-600">
-              <h4 className="text-sm font-medium text-slate-200 mb-2">Statistiques d'utilisation</h4>
+            <div 
+              className="rounded-lg p-3 border"
+              style={{
+                backgroundColor: colors.surface,
+                borderColor: colors.border
+              }}
+            >
+              <h4 
+                className="text-sm font-medium mb-2"
+                style={{ color: colors.text }}
+              >
+                Statistiques d'utilisation
+              </h4>
               <div className="space-y-2 text-xs">
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Requêtes totales:</span>
-                  <span className="text-slate-200">{metrics.total_requests || 0}</span>
+                  <span style={{ color: colors.textSecondary }}>Requêtes totales:</span>
+                  <span style={{ color: colors.text }}>{metrics.total_requests || 0}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Requêtes réussies:</span>
-                  <span className="text-slate-200">{metrics.successful_requests || 0}</span>
+                  <span style={{ color: colors.textSecondary }}>Requêtes réussies:</span>
+                  <span style={{ color: colors.text }}>{metrics.successful_requests || 0}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Taux de succès:</span>
-                  <span className="text-slate-200">
+                  <span style={{ color: colors.textSecondary }}>Taux de succès:</span>
+                  <span style={{ color: colors.text }}>
                     {metrics.total_requests ? ((metrics.successful_requests || 0) / metrics.total_requests * 100).toFixed(1) : 0}%
                   </span>
                 </div>
               </div>
             </div>
 
-            <div className="bg-slate-700 rounded-lg p-3 border border-slate-600">
-              <h4 className="text-sm font-medium text-slate-200 mb-2">Coûts estimés</h4>
+            <div 
+              className="rounded-lg p-3 border"
+              style={{
+                backgroundColor: colors.surface,
+                borderColor: colors.border
+              }}
+            >
+              <h4 
+                className="text-sm font-medium mb-2"
+                style={{ color: colors.text }}
+              >
+                Coûts estimés
+              </h4>
               <div className="space-y-2 text-xs">
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Coût total:</span>
-                  <span className="text-slate-200">${metrics.total_cost || 0}</span>
+                  <span style={{ color: colors.textSecondary }}>Coût total:</span>
+                  <span style={{ color: colors.text }}>${metrics.total_cost || 0}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Coût moyen par requête:</span>
-                  <span className="text-slate-200">
+                  <span style={{ color: colors.textSecondary }}>Coût moyen par requête:</span>
+                  <span style={{ color: colors.text }}>
                     ${metrics.total_requests ? ((metrics.total_cost || 0) / metrics.total_requests).toFixed(4) : 0}
                   </span>
                 </div>
@@ -422,22 +559,55 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
 
 // Composant original avec header pour utilisation standalone
 const ConfigWindow: React.FC<ConfigWindowProps> = ({ onClose, onMinimize }) => {
+  const { colors } = useColors();
+  
   return (
     <div
-      className="fixed right-0 top-0 h-full z-40 bg-slate-800 border-l border-slate-700 shadow-xl flex flex-col"
-      style={{ width: 360, minWidth: 260, maxWidth: 400 }}
+      className="fixed right-0 top-0 h-full z-40 shadow-xl flex flex-col"
+      style={{ 
+        width: 360, 
+        minWidth: 260, 
+        maxWidth: 400,
+        backgroundColor: colors.surface,
+        borderLeft: `1px solid ${colors.border}`
+      }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between p-2 bg-slate-700 border-b border-slate-600">
-        <h3 className="text-xs font-semibold" style={{ color: 'var(--config-color)' }}>Configuration IA</h3>
+      <div 
+        className="flex items-center justify-between p-2 border-b"
+        style={{
+          backgroundColor: colors.surface,
+          borderColor: colors.border
+        }}
+      >
+        <h3 
+          className="text-xs font-semibold"
+          style={{ color: colors.config }}
+        >
+          Configuration IA
+        </h3>
         <div className="flex items-center space-x-1">
           {onMinimize && (
-            <button onClick={onMinimize} className="p-1 text-slate-400 hover:text-slate-100 transition-colors" title="Minimiser">
+            <button 
+              onClick={onMinimize} 
+              className="p-1 transition-colors" 
+              style={{
+                color: colors.textSecondary
+              }}
+              title="Minimiser"
+            >
               <MinusIcon className="h-4 w-4" />
             </button>
           )}
           {onClose && (
-            <button onClick={onClose} className="p-1 text-slate-400 hover:text-red-400 transition-colors" title="Fermer">
+            <button 
+              onClick={onClose} 
+              className="p-1 transition-colors" 
+              style={{
+                color: colors.textSecondary
+              }}
+              title="Fermer"
+            >
               <XMarkIcon className="h-4 w-4" />
             </button>
           )}

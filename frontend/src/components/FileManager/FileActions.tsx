@@ -117,6 +117,42 @@ const FileActions: React.FC<FileActionsProps> = ({
     }
   };
 
+  // Action de téléchargement ZIP
+  const handleDownloadZip = async () => {
+    if (!canClear) return;
+
+    try {
+      setIsBulkProcessing(true);
+      
+      // Utiliser l'endpoint pour télécharger les fichiers sélectionnés
+      const response = await fetch('/api/files/download-selected', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `selected_files_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+        console.log(`✅ Téléchargement ZIP lancé pour ${selectedCount} fichiers`);
+      } else {
+        console.error('❌ Erreur lors du téléchargement ZIP:', response.status, response.statusText);
+        const errorText = await response.text();
+        console.error('📋 Détails:', errorText);
+      }
+    } catch (error) {
+      console.error('❌ Erreur lors du téléchargement ZIP:', error);
+    } finally {
+      setIsBulkProcessing(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       {/* Actions principales */}
@@ -164,6 +200,22 @@ const FileActions: React.FC<FileActionsProps> = ({
             <DocumentMagnifyingGlassIcon className="h-4 w-4 mr-2" />
             Comparer
             <span className="ml-2 bg-purple-700 text-white text-xs px-2 py-1 rounded-full">
+              {selectedCount}
+            </span>
+          </button>
+        )}
+
+        {/* Action de téléchargement ZIP */}
+        {canClear && (
+          <button
+            onClick={handleDownloadZip}
+            disabled={isProcessing || isBulkProcessing}
+            className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-green-800 disabled:cursor-not-allowed transition-colors focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 focus:ring-offset-slate-800"
+            title={`Télécharger ${selectedCount} fichier(s) sélectionné(s) en ZIP`}
+          >
+            <span className="mr-2">📦</span>
+            Télécharger ZIP
+            <span className="ml-2 bg-green-700 text-white text-xs px-2 py-1 rounded-full">
               {selectedCount}
             </span>
           </button>

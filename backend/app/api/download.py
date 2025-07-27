@@ -79,6 +79,9 @@ async def download_file(
         raise HTTPException(status_code=500, detail=f"Erreur interne: {str(e)}")
 
 
+
+
+
 @router.get("/directory/{directory_path:path}")
 async def download_directory(
     directory_path: str,

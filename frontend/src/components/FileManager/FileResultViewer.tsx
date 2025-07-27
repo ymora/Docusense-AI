@@ -1,6 +1,20 @@
 import React, { useState } from 'react';
 import { File } from '../../stores/fileStore';
 
+interface AnalysisData {
+  id: number;
+  created_at: string;
+  started_at?: string;
+  completed_at?: string;
+  provider: string;
+  model: string;
+  analysis_type: string;
+  status: string;
+  result?: string;
+  error_message?: string;
+  analysis_metadata?: any;
+}
+
 interface FileResultViewerProps {
   selectedFile: File | null;
   onClose: () => void;
@@ -56,8 +70,8 @@ const FileResultViewer: React.FC<FileResultViewerProps> = ({ selectedFile, onClo
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-slate-800 rounded-lg shadow-2xl w-full max-w-4xl h-5/6 flex flex-col">
+    <div className="h-full flex flex-col">
+      <div className="bg-slate-800 rounded-lg shadow-2xl w-full h-full flex flex-col">
         {/* Header */}
         <div className="flex items-center justify-between p-6 border-b border-slate-700">
           <div className="flex items-center space-x-4">
@@ -131,7 +145,7 @@ const FileResultViewer: React.FC<FileResultViewerProps> = ({ selectedFile, onClo
                 : 'text-slate-400 hover:text-white'
             }`}
           >
-            📊 Métadonnées
+            📊 Informations
           </button>
         </div>
 
@@ -223,7 +237,7 @@ const FileResultViewer: React.FC<FileResultViewerProps> = ({ selectedFile, onClo
                     <span className="text-white ml-2">{selectedFile.mime_type}</span>
                   </div>
                   <div>
-                    <span className="text-slate-400">Statut :</span>
+                    <span className="text-slate-400">Statut d'analyse IA :</span>
                     <span className="text-white ml-2">{getStatusText(selectedFile.status)}</span>
                   </div>
                   <div>
@@ -316,6 +330,43 @@ const FileResultViewer: React.FC<FileResultViewerProps> = ({ selectedFile, onClo
                     {selectedFile.analysis_metadata.timestamp && (
                       <div>
                         <span className="text-slate-400">Analysé le :</span>
+                        <span className="text-white ml-2">{formatDate(new Date(selectedFile.analysis_metadata.timestamp * 1000).toISOString())}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Nouvelle section pour les dates d'analyse */}
+              {selectedFile.analysis_result && (
+                <div className="bg-slate-700 rounded-lg p-4">
+                  <h3 className="text-lg font-semibold text-white mb-3">Dates d'Analyse IA</h3>
+                  <div className="grid grid-cols-1 gap-4 text-sm">
+                    <div>
+                      <span className="text-slate-400">Analyse demandée :</span>
+                      <span className="text-white ml-2">{formatDate(selectedFile.created_at)}</span>
+                    </div>
+                    {selectedFile.analysis_metadata?.started_at && (
+                      <div>
+                        <span className="text-slate-400">Analyse débutée :</span>
+                        <span className="text-white ml-2">{formatDate(selectedFile.analysis_metadata.started_at)}</span>
+                      </div>
+                    )}
+                    {selectedFile.analysis_metadata?.completed_at && (
+                      <div>
+                        <span className="text-slate-400">Analyse terminée :</span>
+                        <span className="text-white ml-2">{formatDate(selectedFile.analysis_metadata.completed_at)}</span>
+                      </div>
+                    )}
+                    {selectedFile.analysis_metadata?.processing_time && (
+                      <div>
+                        <span className="text-slate-400">Durée totale :</span>
+                        <span className="text-white ml-2">{selectedFile.analysis_metadata.processing_time.toFixed(2)} secondes</span>
+                      </div>
+                    )}
+                    {selectedFile.analysis_metadata?.timestamp && (
+                      <div>
+                        <span className="text-slate-400">Timestamp d'analyse :</span>
                         <span className="text-white ml-2">{formatDate(new Date(selectedFile.analysis_metadata.timestamp * 1000).toISOString())}</span>
                       </div>
                     )}

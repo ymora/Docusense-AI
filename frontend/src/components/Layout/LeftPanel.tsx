@@ -15,6 +15,8 @@ const LeftPanel: React.FC = () => {
   const [currentPath, setCurrentPath] = useState<string>('');
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [activePanel, setActivePanel] = useState<'main' | 'config' | 'queue' | 'analyses'>('main');
+  const [navigationHistory, setNavigationHistory] = useState<string[]>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
 
   // Fonction pour basculer le thème jour/nuit
   const toggleTheme = () => {
@@ -58,61 +60,78 @@ const LeftPanel: React.FC = () => {
     loadPrompts();
   }, []);
 
-  // Synchronisation automatique intelligente
-  useEffect(() => {
-    const interval = setInterval(async () => {
-      if (currentPath) {
-        try {
-          await loadQueueItems();
-          await loadQueueStatus();
-          
-          // Vérifier s'il y a des actions en cours pour ajuster la fréquence
-          const hasActiveItems = queueItems.some((item: any) => 
-            ['pending', 'processing'].includes(item.status)
-          );
-          
-          // Si des actions sont en cours, synchroniser plus fréquemment
-          if (hasActiveItems) {
-            // Synchronisation rapide toutes les 2 secondes
-            setTimeout(async () => {
-              await loadQueueItems();
-              await loadQueueStatus();
-            }, 2000);
-          }
-        } catch (error) {
-          console.error('Erreur lors de la synchronisation:', error);
-        }
-      }
-    }, 8000); // Synchronisation de base toutes les 8 secondes
+  // Synchronisation automatique intelligente - DÉSACTIVÉE pour éviter le scan permanent
+  // useEffect(() => {
+  //   const interval = setInterval(async () => {
+  //     if (currentPath) {
+  //       try {
+  //         await loadQueueItems();
+  //         await loadQueueStatus();
+  //         
+  //         // Vérifier s'il y a des actions en cours pour ajuster la fréquence
+  //         const hasActiveItems = queueItems.some((item: any) => 
+  //           ['pending', 'processing'].includes(item.status)
+  //         );
+  //         
+  //         // Si des actions sont en cours, synchroniser plus fréquemment
+  //         if (hasActiveItems) {
+  //           // Synchronisation rapide toutes les 2 secondes
+  //           setTimeout(async () => {
+  //             await loadQueueItems();
+  //             await loadQueueStatus();
+  //           }, 2000);
+  //         }
+  //       } catch (error) {
+  //         console.error('Erreur lors de la synchronisation:', error);
+  //       }
+  //     }
+  //   }, 8000); // Synchronisation de base toutes les 8 secondes
 
-    return () => {
-      if (interval) {
-        clearInterval(interval);
-      }
-    };
-  }, [currentPath, loadQueueItems, loadQueueStatus, queueItems]);
+  //   return () => {
+  //     if (interval) {
+  //       clearInterval(interval);
+  //     }
+  //   };
+  // }, [currentPath, loadQueueItems, loadQueueStatus, queueItems]);
 
   const handleDirectorySelect = async (directory: string) => {
+    console.log('🔄 Navigation vers:', directory);
+    
+    // Ajouter à l'historique de navigation
+    setNavigationHistory(prev => {
+      const newHistory = [...prev.slice(0, historyIndex + 1), directory];
+      setHistoryIndex(newHistory.length - 1);
+      return newHistory;
+    });
+    
     setCurrentPath(directory);
+    
+    // Déclencher la navigation dans l'arborescence
+    try {
+      const encodedDirectory = encodeURIComponent(directory.replace(/\\/g, '/'));
+      const response = await fetch(`/api/files/list/${encodedDirectory}`);
+      if (response.ok) {
+        console.log('✅ Navigation réussie vers:', directory);
+      } else {
+        console.error('❌ Erreur lors de la navigation vers:', directory);
+      }
+    } catch (error) {
+      console.error('❌ Erreur lors de la navigation:', error);
+    }
   };
 
   const navigateToParent = () => {
-    if (!currentPath) return;
-    
-    // Si on est à la racine d'un disque (ex: 'C:'), ne rien faire
-    if (/^[A-Z]:$/i.test(currentPath)) {
-      return;
-    }
-    
-    // Sinon, remonter d'un niveau
-    const parts = currentPath.split(/[/\\]/).filter(Boolean);
-    if (parts.length > 1) {
-      let parentPath = parts.slice(0, -1).join('\\');
-      // Si on arrive à un disque (ex: 'C:'), garder le format
-      if (/^[A-Z]:$/i.test(parentPath)) {
-        parentPath = parentPath.toUpperCase();
-      }
-      setCurrentPath(parentPath);
+    // Utiliser l'historique de navigation pour revenir en arrière
+    if (historyIndex > 0) {
+      const previousPath = navigationHistory[historyIndex - 1];
+      setHistoryIndex(historyIndex - 1);
+      setCurrentPath(previousPath);
+      
+      // Déclencher la navigation dans l'arborescence
+      const encodedDirectory = encodeURIComponent(previousPath.replace(/\\/g, '/'));
+      fetch(`/api/files/list/${encodedDirectory}`).catch(error => {
+        console.error('❌ Erreur lors de la navigation:', error);
+      });
     }
   };
 
@@ -273,17 +292,28 @@ const LeftPanel: React.FC = () => {
             />
           </div>
 
-          {/* Bouton retour au parent si pas à la racine */}
-          {currentPath && currentPath !== '/' && !/^[A-Z]:$/i.test(currentPath) && (
+          {/* Bouton retour au parent - désactivé si à la racine */}
+          {currentPath && currentPath !== '/' && (
             <button
-              className="flex items-center px-2 py-1 hover:bg-slate-700 cursor-pointer rounded transition-colors flex-shrink-0 bg-slate-800 border border-slate-600"
+              className={`flex items-center px-2 py-1 rounded transition-colors flex-shrink-0 border focus:outline-none focus:ring-2 focus:ring-opacity-50 ${
+                historyIndex <= 0
+                  ? 'bg-slate-700 border-slate-600 text-slate-500 cursor-not-allowed opacity-50'
+                  : 'bg-slate-800 border-slate-600 text-slate-300 hover:text-slate-100 hover:bg-slate-700 active:bg-slate-600 focus:ring-blue-500 cursor-pointer'
+              }`}
               onClick={navigateToParent}
-              title="Retour au dossier parent"
+              disabled={historyIndex <= 0}
+              title={
+                historyIndex <= 0
+                  ? "Aucun historique de navigation"
+                  : "Retour au dossier précédent"
+              }
             >
-              <svg className="w-3 h-3 text-blue-400 mr-1 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className={`w-3 h-3 mr-1 flex-shrink-0 ${
+                historyIndex <= 0 ? 'text-slate-500' : 'text-blue-400'
+              }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
-              <span className="text-xs text-slate-300 whitespace-nowrap">Parent</span>
+              <span className="text-xs whitespace-nowrap">Parent</span>
             </button>
           )}
         </div>

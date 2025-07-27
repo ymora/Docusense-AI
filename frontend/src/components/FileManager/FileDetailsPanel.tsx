@@ -25,6 +25,10 @@ interface FileDetails {
   error_message?: string;
   analysis_results?: any;
   metadata?: any;
+  // Dates du fichier lui-même
+  file_created_at?: string;
+  file_modified_at?: string;
+  file_accessed_at?: string;
 }
 
 interface FileDetailsPanelProps {
@@ -153,7 +157,7 @@ const FileDetailsPanel: React.FC<FileDetailsPanelProps> = ({ selectedFile, onClo
                   <span className="text-slate-200">{selectedFile.mime_type}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Statut:</span>
+                  <span className="text-slate-400">Statut d'analyse IA:</span>
                   <div className="flex items-center">
                     {getStatusIcon(selectedFile.status)}
                     <span className="ml-2 text-slate-200">{getStatusText(selectedFile.status)}</span>
@@ -169,12 +173,39 @@ const FileDetailsPanel: React.FC<FileDetailsPanelProps> = ({ selectedFile, onClo
                 Dates
               </h4>
               <div className="space-y-2 text-base">
+                {/* Dates du fichier lui-même */}
+                {selectedFile.file_created_at && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Fichier créé:</span>
+                    <span className="text-slate-200">{formatDate(selectedFile.file_created_at)}</span>
+                  </div>
+                )}
+                {selectedFile.file_modified_at && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Fichier modifié:</span>
+                    <span className="text-slate-200">{formatDate(selectedFile.file_modified_at)}</span>
+                  </div>
+                )}
+                {selectedFile.file_accessed_at && (
+                  <div className="flex justify-between">
+                    <span className="text-slate-400">Dernier accès:</span>
+                    <span className="text-slate-200">{formatDate(selectedFile.file_accessed_at)}</span>
+                  </div>
+                )}
+                
+                {/* Séparateur si les deux types de dates sont présents */}
+                {(selectedFile.file_created_at || selectedFile.file_modified_at || selectedFile.file_accessed_at) && 
+                 (selectedFile.created_at || selectedFile.updated_at) && (
+                  <div className="border-t border-slate-600 my-3"></div>
+                )}
+                
+                {/* Dates de la base de données */}
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Créé:</span>
+                  <span className="text-slate-400">Ajouté en base:</span>
                   <span className="text-slate-200">{formatDate(selectedFile.created_at)}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-slate-400">Modifié:</span>
+                  <span className="text-slate-400">Modifié en base:</span>
                   <span className="text-slate-200">{formatDate(selectedFile.updated_at)}</span>
                 </div>
                 {selectedFile.analysis_started_at && (

@@ -1,16 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   EyeIcon,
   XMarkIcon,
   ChartBarIcon,
+  ChevronLeftIcon,
+  ChevronRightIcon,
 } from '@heroicons/react/24/outline';
 import { useFileStore } from '../../stores/fileStore';
 import { useQueueStore } from '../../stores/queueStore';
 import FileDetailsPanel from '../FileManager/FileDetailsPanel';
+import FileViewer from '../FileManager/FileViewer';
+import FileResultViewer from '../FileManager/FileResultViewer';
 import { ConfigContent } from '../Config/ConfigWindow';
 import { QueueContent } from '../Queue/QueuePanel';
-import FileResultViewer from '../FileManager/FileResultViewer';
-import FileViewer from '../FileManager/FileViewer';
 
 interface MainPanelProps {
   children: React.ReactNode;
@@ -18,18 +20,14 @@ interface MainPanelProps {
   setActivePanel: (panel: 'main' | 'config' | 'queue' | 'analyses') => void;
 }
 
-const MainPanel: React.FC<MainPanelProps> = ({ children, activePanel, setActivePanel }) => {
-  const { selectedFile, files, markFileAsViewed, getAnalysisStats } = useFileStore();
-  const { queueStatus } = useQueueStore();
-  const [showDetailsPanel, setShowDetailsPanel] = useState(false);
-  const [showResultViewer, setShowResultViewer] = useState(false);
-  const [showFileViewer, setShowFileViewer] = useState(false);
-  const [viewingFile, setViewingFile] = useState<any>(null);
+const MainPanel: React.FC<MainPanelProps> = ({ activePanel, setActivePanel }) => {
+  const { selectedFile, files, markFileAsViewed, getAnalysisStats, selectFile } = useFileStore();
+  const [viewMode, setViewMode] = useState<'details' | 'file' | 'results'>('details');
 
   // Afficher automatiquement le panneau de détails quand un fichier est sélectionné
   React.useEffect(() => {
     if (selectedFile) {
-      setShowDetailsPanel(true);
+      setViewMode('details'); // Changed from setShowDetailsPanel to setViewMode
     }
   }, [selectedFile]);
 
@@ -39,30 +37,117 @@ const MainPanel: React.FC<MainPanelProps> = ({ children, activePanel, setActiveP
     file.status === 'completed' && file.analysis_result,
   );
 
+  // Écouter les événements de visualisation depuis le FileTree
+  useEffect(() => {
+    const handleViewFileEvent = (event: CustomEvent) => {
+      const { file } = event.detail;
+      if (file) {
+        selectFile(file);
+        setViewMode('file'); // Changement direct vers le mode visualisation
+      }
+    };
+
+    window.addEventListener('viewFileInMainPanel', handleViewFileEvent as EventListener);
+
+    return () => {
+      window.removeEventListener('viewFileInMainPanel', handleViewFileEvent as EventListener);
+    };
+  }, [selectFile]);
+
+  // Navigation entre fichiers
+  const navigateToFile = (direction: 'prev' | 'next') => {
+    if (!selectedFile || !files.length) return;
+    
+    const currentIndex = files.findIndex(file => file.id === selectedFile.id);
+    if (currentIndex === -1) return;
+    
+    let newIndex;
+    if (direction === 'prev') {
+      newIndex = currentIndex > 0 ? currentIndex - 1 : files.length - 1;
+    } else {
+      newIndex = currentIndex < files.length - 1 ? currentIndex + 1 : 0;
+    }
+    
+    selectFile(files[newIndex]);
+  };
+
+  // Navigation par flèches dans le viewer
+  const navigateInViewer = (direction: 'prev' | 'next') => {
+    if (!selectedFile || !files.length) return;
+    
+    const currentIndex = files.findIndex(file => file.id === selectedFile.id);
+    if (currentIndex === -1) return;
+    
+    let newIndex;
+    if (direction === 'prev') {
+      newIndex = currentIndex > 0 ? currentIndex - 1 : files.length - 1;
+    } else {
+      newIndex = currentIndex < files.length - 1 ? currentIndex + 1 : 0;
+    }
+    
+    const newFile = files[newIndex];
+    selectFile(newFile);
+  };
+
+  // Gestion des touches clavier
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (viewMode === 'file') { // Changed from showFileViewer to viewMode
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          navigateInViewer('prev');
+        } else if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          navigateInViewer('next');
+        } else if (e.key === 'Escape') {
+          e.preventDefault();
+          setViewMode('details'); // Changed from handleCloseFileViewer to setViewMode
+        }
+      } else if (activePanel === 'main' && selectedFile) {
+        if (e.key === 'ArrowLeft') {
+          e.preventDefault();
+          navigateToFile('prev');
+        } else if (e.key === 'ArrowRight') {
+          e.preventDefault();
+          navigateToFile('next');
+        }
+      }
+    };
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [viewMode, activePanel, selectedFile, files]); // Changed from showFileViewer to viewMode
+
   // Fermeture du viewer de résultats
   const handleCloseResultViewer = () => {
-    setShowResultViewer(false);
-    setViewingFile(null);
+    setViewMode('details');
   };
 
-  // Fermeture du viewer de fichiers
+  // Fermeture du viewer de fichier
   const handleCloseFileViewer = () => {
-    setShowFileViewer(false);
-    setViewingFile(null);
+    setViewMode('details');
   };
 
-  // Gestion de l'affichage des résultats
+  // Gestion de l'affichage des résultats d'analyse
   const handleViewResults = (file: any) => {
-    setViewingFile(file);
-    setShowResultViewer(true);
+    if (!file || !file.id) {
+      console.warn('Tentative de visualisation des résultats sans fichier sélectionné');
+      return;
+    }
+    selectFile(file);
+    setViewMode('results');
     // Marquer le fichier comme consulté
     markFileAsViewed(file.id);
   };
 
   // Gestion de l'affichage des fichiers originaux
   const handleViewFile = (file: any) => {
-    setViewingFile(file);
-    setShowFileViewer(true);
+    if (!file || !file.id) {
+      console.warn('Tentative de visualisation de fichier sans fichier sélectionné');
+      return;
+    }
+    selectFile(file);
+    setViewMode('file');
   };
 
   // Fermer le panneau actuel
@@ -83,12 +168,110 @@ const MainPanel: React.FC<MainPanelProps> = ({ children, activePanel, setActiveP
         <div className="w-full overflow-hidden relative">
           {activePanel === 'main' && (
             <>
+              {/* Titre du panneau principal */}
+              <div className="bg-slate-800 border-b border-slate-600 px-4 py-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <h2 className="text-lg font-semibold text-slate-200">
+                      {selectedFile ? `Fichier : ${selectedFile.name}` : 'Aperçu des fichiers'}
+                    </h2>
+                    <div className="flex items-center space-x-2">
+                      <button
+                        onClick={() => {
+                          if (selectedFile && selectedFile.id) {
+                            setViewMode('details');
+                          }
+                        }}
+                        disabled={!selectedFile || !selectedFile.id}
+                        className={`px-3 py-1 text-sm rounded transition-colors ${
+                          !selectedFile || !selectedFile.id
+                            ? 'bg-slate-600 text-slate-500 cursor-not-allowed'
+                            : viewMode === 'details'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                        }`}
+                        title={!selectedFile || !selectedFile.id ? 'Sélectionnez un fichier d\'abord' : 'Voir les détails'}
+                      >
+                        Détails
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (selectedFile && selectedFile.id) {
+                            handleViewFile(selectedFile);
+                          }
+                        }}
+                        disabled={!selectedFile || !selectedFile.id}
+                        className={`px-3 py-1 text-sm rounded transition-colors ${
+                          !selectedFile || !selectedFile.id
+                            ? 'bg-slate-600 text-slate-500 cursor-not-allowed'
+                            : viewMode === 'file'
+                            ? 'bg-blue-600 text-white'
+                            : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                        }`}
+                        title={!selectedFile || !selectedFile.id ? 'Sélectionnez un fichier d\'abord' : 'Visualiser le fichier'}
+                      >
+                        Visualiser
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (selectedFile && selectedFile.id && selectedFile.analysis_result) {
+                            handleViewResults(selectedFile);
+                          }
+                        }}
+                        disabled={!selectedFile || !selectedFile.id || !selectedFile.analysis_result}
+                        className={`px-3 py-1 text-sm rounded transition-colors ${
+                          !selectedFile || !selectedFile.id || !selectedFile.analysis_result
+                            ? 'bg-slate-600 text-slate-500 cursor-not-allowed'
+                            : viewMode === 'results'
+                            ? 'bg-green-600 text-white'
+                            : 'bg-slate-700 text-slate-300 hover:bg-slate-600'
+                        }`}
+                        title={
+                          !selectedFile || !selectedFile.id 
+                            ? 'Sélectionnez un fichier d\'abord' 
+                            : !selectedFile.analysis_result 
+                            ? 'Aucun résultat d\'analyse disponible' 
+                            : 'Voir l\'analyse IA'
+                        }
+                      >
+                        Analyse IA
+                      </button>
+                    </div>
+                  </div>
+                  {selectedFile && selectedFile.id && files.length > 1 && (
+                    <div className="flex items-center space-x-2">
+                      <span className="text-sm text-slate-400">
+                        {files.findIndex(f => f.id === selectedFile.id) + 1} / {files.length}
+                      </span>
+                      <button
+                        onClick={() => navigateToFile('prev')}
+                        className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition-colors"
+                        title="Fichier précédent (←)"
+                      >
+                        <ChevronLeftIcon className="h-5 w-5" />
+                      </button>
+                      <button
+                        onClick={() => navigateToFile('next')}
+                        className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition-colors"
+                        title="Fichier suivant (→)"
+                      >
+                        <ChevronRightIcon className="h-5 w-5" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
               {!selectedFile ? (
                 <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400 text-center px-4">
                   <span className="text-6xl mb-6">📄</span>
-                  <p className="text-lg max-w-md leading-relaxed">
+                  <p className="text-lg max-w-md leading-relaxed mb-4">
                     Sélectionnez un fichier dans l'arborescence pour voir ses détails ou résultats d'analyse.
                   </p>
+                  <div className="flex items-center space-x-2 text-sm text-slate-500">
+                    <div className="w-2 h-2 bg-slate-600 rounded-full"></div>
+                    <span>Les boutons d'action seront activés une fois un fichier sélectionné</span>
+                  </div>
                 </div>
               ) : !selectedFile.id ? (
                 // Message informatif pour les fichiers sans ID
@@ -124,7 +307,7 @@ const MainPanel: React.FC<MainPanelProps> = ({ children, activePanel, setActiveP
                               </span>
                             </div>
                             <div className="flex justify-between">
-                              <span className="text-slate-400">Statut :</span>
+                              <span className="text-slate-400">Statut d'analyse IA :</span>
                               <span className="text-yellow-400 font-medium">En attente d'analyse</span>
                             </div>
                           </div>
@@ -155,149 +338,150 @@ const MainPanel: React.FC<MainPanelProps> = ({ children, activePanel, setActiveP
                     </div>
                   </div>
                 </div>
+              ) : viewMode === 'file' ? (
+                // Mode visualisation du fichier
+                <div className="h-full bg-slate-900 overflow-hidden">
+                  <FileViewer
+                    file={selectedFile}
+                    onClose={handleCloseFileViewer}
+                    currentIndex={files.findIndex(f => f.id === selectedFile.id)}
+                    totalFiles={files.length}
+                  />
+                </div>
+              ) : viewMode === 'results' ? (
+                // Mode résultats d'analyse
+                <div className="h-full bg-slate-900 overflow-hidden">
+                  <FileResultViewer
+                    selectedFile={selectedFile}
+                    onClose={handleCloseResultViewer}
+                  />
+                </div>
               ) : (
-                <FileDetailsPanel onViewFile={handleViewFile} />
+                // Mode détails par défaut
+                <FileDetailsPanel 
+                  selectedFile={selectedFile} 
+                  onClose={() => {}} 
+                  onViewFile={handleViewFile} 
+                />
               )}
             </>
           )}
+
           {activePanel === 'config' && (
-            <div className="h-full p-4 overflow-y-auto">
-              <div className="bg-slate-800 rounded-lg border border-slate-700 h-full overflow-hidden">
-                {/* Header */}
-                <div className="bg-slate-700 px-4 py-3 border-b border-slate-600">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-slate-200 flex items-center space-x-2">
-                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--config-color)' }}>
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                      <span style={{ color: 'var(--config-color)' }}>Configuration IA</span>
-                    </h3>
-                    <button
-                      onClick={closePanel}
-                      className="p-2 hover:bg-slate-600 rounded transition-colors"
-                      title="Fermer"
-                    >
-                      <XMarkIcon className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-                {/* Contenu */}
-                <div className="p-4 overflow-y-auto max-h-full">
-                  <ConfigContent
-                    onClose={closePanel}
-                    onMinimize={closePanel}
-                    isStandalone={true}
-                  />
-                </div>
-              </div>
-            </div>
+            <ConfigContent onClose={closePanel} />
           )}
+
           {activePanel === 'queue' && (
-            <div className="h-full p-4 overflow-y-auto">
-              <div className="bg-slate-800 rounded-lg border border-slate-700 h-full overflow-hidden">
-                {/* Header */}
-                <div className="bg-slate-700 px-4 py-3 border-b border-slate-600">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-slate-200 flex items-center space-x-2">
-                      <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" style={{ color: 'var(--queue-color)' }}>
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                      </svg>
-                      <span style={{ color: 'var(--queue-color)' }}>Queue d'Analyse</span>
-                    </h3>
-                    <button
-                      onClick={closePanel}
-                      className="p-2 hover:bg-slate-600 rounded transition-colors"
-                      title="Fermer"
-                    >
-                      <XMarkIcon className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
-                {/* Contenu */}
-                <div className="p-4 overflow-y-auto max-h-full">
-                  <QueueContent
-                    onClose={closePanel}
-                    onMinimize={closePanel}
-                    isStandalone={true}
-                  />
-                </div>
-              </div>
-            </div>
+            <QueueContent onClose={closePanel} />
           )}
+
           {activePanel === 'analyses' && (
-            <div className="h-full p-4 overflow-y-auto">
-              <div className="bg-slate-800 rounded-lg border border-slate-700 h-full overflow-hidden">
-                {/* Header */}
-                <div className="bg-slate-700 px-4 py-3 border-b border-slate-600">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-lg font-semibold text-slate-200 flex items-center space-x-2">
-                      <ChartBarIcon className="h-5 w-5" style={{ color: 'var(--analyses-color)' }} />
-                      <span style={{ color: 'var(--analyses-color)' }}>Analyses Terminées</span>
-                      <span className="text-sm text-slate-400">({analysisStats.completed})</span>
-                      {analysisStats.unviewed > 0 && (
-                        <span className="px-2 py-1 bg-orange-500 text-white text-xs rounded-full">
-                          {analysisStats.unviewed} non consultées
-                        </span>
-                      )}
-                    </h3>
-                    <button
-                      onClick={closePanel}
-                      className="p-2 hover:bg-slate-600 rounded transition-colors"
-                      title="Fermer"
-                    >
-                      <XMarkIcon className="h-4 w-4" />
-                    </button>
+            <div className="h-full bg-slate-900 p-6 overflow-y-auto">
+              <div className="max-w-6xl mx-auto">
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h2 className="text-2xl font-bold text-slate-200 mb-2">Analyses Terminées</h2>
+                    <p className="text-slate-400">
+                      {completedAnalyses.length} analyse{completedAnalyses.length !== 1 ? 's' : ''} terminée{completedAnalyses.length !== 1 ? 's' : ''}
+                    </p>
+                  </div>
+                  <button
+                    onClick={closePanel}
+                    className="p-2 rounded-lg hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition-colors"
+                  >
+                    <XMarkIcon className="h-6 w-6" />
+                  </button>
+                </div>
+
+                {/* Statistiques */}
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+                  <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 bg-green-500/20 rounded-lg flex items-center justify-center mr-3">
+                        <ChartBarIcon className="h-5 w-5 text-green-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-slate-400">Analyses réussies</p>
+                        <p className="text-xl font-semibold text-slate-200">{analysisStats.completed}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 bg-red-500/20 rounded-lg flex items-center justify-center mr-3">
+                        <ChartBarIcon className="h-5 w-5 text-red-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-slate-400">Analyses échouées</p>
+                        <p className="text-xl font-semibold text-slate-200">{analysisStats.total - analysisStats.completed}</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 bg-blue-500/20 rounded-lg flex items-center justify-center mr-3">
+                        <ChartBarIcon className="h-5 w-5 text-blue-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-slate-400">Temps moyen</p>
+                        <p className="text-xl font-semibold text-slate-200">-</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-800 rounded-lg border border-slate-700 p-4">
+                    <div className="flex items-center">
+                      <div className="w-10 h-10 bg-purple-500/20 rounded-lg flex items-center justify-center mr-3">
+                        <ChartBarIcon className="h-5 w-5 text-purple-400" />
+                      </div>
+                      <div>
+                        <p className="text-sm text-slate-400">Taux de réussite</p>
+                        <p className="text-xl font-semibold text-slate-200">{analysisStats.total > 0 ? Math.round((analysisStats.completed / analysisStats.total) * 100) : 0}%</p>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                {/* Contenu */}
-                <div className="p-4 overflow-y-auto max-h-full">
+                {/* Liste des analyses */}
+                <div className="space-y-4">
                   {completedAnalyses.length === 0 ? (
-                    <div className="text-center py-8 text-slate-400">
-                      <ChartBarIcon className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                      <p className="text-lg font-medium mb-2">Aucune analyse terminée</p>
-                      <p className="text-sm">Lancez des analyses pour voir les résultats ici</p>
+                    <div className="text-center py-12">
+                      <div className="text-slate-500 text-6xl mb-4">📊</div>
+                      <h3 className="text-lg font-medium text-slate-300 mb-2">Aucune analyse terminée</h3>
+                      <p className="text-slate-400">
+                        Les analyses terminées apparaîtront ici une fois qu'elles seront complétées.
+                      </p>
                     </div>
                   ) : (
-                    <div className="space-y-3">
-                      {completedAnalyses.map((file) => (
-                        <div key={file.id} className="bg-slate-700 rounded-lg p-4 border border-slate-600">
-                          <div className="flex items-center justify-between mb-3">
-                            <div className="flex items-center space-x-3">
-                              <div className={`w-3 h-3 rounded-full ${file.has_been_viewed ? 'bg-green-500' : 'bg-orange-500 animate-pulse'}`}></div>
-                              <h4 className="font-medium text-slate-200">{file.name}</h4>
-                              {!file.has_been_viewed && (
-                                <span className="px-2 py-1 bg-orange-500 text-white text-xs rounded-full">
-                                  Nouveau
-                                </span>
-                              )}
+                    completedAnalyses.map((file) => (
+                      <div
+                        key={file.id}
+                        className="bg-slate-800 rounded-lg border border-slate-700 p-4 hover:bg-slate-750 transition-colors cursor-pointer"
+                        onClick={() => handleViewResults(file)}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-4">
+                            <div className="w-12 h-12 bg-green-500/20 rounded-lg flex items-center justify-center">
+                              <span className="text-green-400 text-xl">✅</span>
                             </div>
-                            <button
-                              onClick={() => handleViewResults(file)}
-                              className="flex items-center space-x-2 px-3 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors"
-                              title="Voir les résultats"
-                            >
-                              <EyeIcon className="h-4 w-4" />
-                              <span className="text-sm">Voir Résultats</span>
-                            </button>
+                            <div>
+                              <h3 className="text-lg font-medium text-slate-200">{file.name}</h3>
+                              <p className="text-sm text-slate-400">
+                                Analysé le {new Date(file.updated_at).toLocaleDateString('fr-FR')}
+                              </p>
+                            </div>
                           </div>
-
-                          {file.analysis_result && (
-                            <div className="text-sm text-slate-400">
-                              <div className="line-clamp-3">
-                                {file.analysis_result.substring(0, 200)}...
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="mt-3 flex items-center justify-between text-xs text-slate-500">
-                            <span>Taille: {(file.size / 1024).toFixed(1)} KB</span>
-                            <span>Terminé le {new Date(file.updated_at).toLocaleDateString('fr-FR')}</span>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm text-green-400 bg-green-500/10 px-2 py-1 rounded">
+                              Terminé
+                            </span>
+                            <EyeIcon className="h-5 w-5 text-slate-400" />
                           </div>
                         </div>
-                      ))}
-                    </div>
+                      </div>
+                    ))
                   )}
                 </div>
               </div>
@@ -305,23 +489,6 @@ const MainPanel: React.FC<MainPanelProps> = ({ children, activePanel, setActiveP
           )}
         </div>
       </div>
-
-      {/* Modal pour afficher les résultats */}
-      {showResultViewer && viewingFile && (
-        <FileResultViewer
-          selectedFile={viewingFile}
-          onClose={handleCloseResultViewer}
-        />
-      )}
-
-      {/* Modal pour afficher les fichiers originaux */}
-      {showFileViewer && viewingFile && (
-        <FileViewer
-          file={viewingFile}
-          onClose={handleCloseFileViewer}
-        />
-      )}
-
     </div>
   );
 };

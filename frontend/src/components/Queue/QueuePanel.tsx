@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useQueueStore } from '../../stores/queueStore';
+import { useColors } from '../../hooks/useColors';
 import { XMarkIcon, MinusIcon, FunnelIcon, ArrowPathIcon, PlayIcon, PauseIcon, TrashIcon, ViewColumnsIcon, Squares2X2Icon } from '@heroicons/react/24/outline';
 
 interface QueuePanelProps {
@@ -15,6 +16,7 @@ interface QueueContentProps {
 
 // Composant de contenu sans header pour utilisation dans MainPanel
 export const QueueContent: React.FC<QueueContentProps> = ({ onClose, onMinimize, isStandalone = false }) => {
+  const { colors, colorMode } = useColors();
   const {
     queueItems,
     queueStatus,
@@ -66,11 +68,11 @@ export const QueueContent: React.FC<QueueContentProps> = ({ onClose, onMinimize,
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'pending': return 'text-yellow-400';
-      case 'processing': return 'text-blue-400';
-      case 'completed': return 'text-green-400';
-      case 'failed': return 'text-red-400';
-      default: return 'text-slate-400';
+      case 'pending': return colors.status.pending;
+      case 'processing': return colors.status.processing;
+      case 'completed': return colors.status.completed;
+      case 'failed': return colors.status.failed;
+      default: return colors.textSecondary;
     }
   };
 
@@ -159,39 +161,90 @@ export const QueueContent: React.FC<QueueContentProps> = ({ onClose, onMinimize,
 
   // Rendu d'un élément de queue compact
   const renderQueueItemCompact = (item: any) => (
-    <div key={item.id} className="bg-slate-700 rounded-lg p-2 border border-slate-600 text-xs">
+    <div 
+      key={item.id} 
+      className="rounded-lg p-2 border text-xs"
+      style={{
+        backgroundColor: colors.surface,
+        borderColor: colors.border
+      }}
+    >
       {/* Ligne 1 : nom du fichier et statut */}
       <div className="flex items-center justify-between mb-1">
-        <span className="font-medium text-slate-200 truncate flex-1 mr-2">{item.file_name}</span>
-        <span className={`${getStatusColor(item.status)} text-xs`}>
+        <span 
+          className="font-medium truncate flex-1 mr-2"
+          style={{ color: colors.text }}
+        >
+          {item.file_name}
+        </span>
+        <span 
+          className="text-xs"
+          style={{ color: getStatusColor(item.status) }}
+        >
           {getStatusIcon(item.status)}
         </span>
       </div>
       {/* Ligne 2 : type d'analyse et taille */}
       <div className="flex items-center justify-between mb-1">
-        <span className={`px-1 py-0.5 rounded text-xs ${getAnalysisTypeColor(item.analysis_type)}`}>
+        <span 
+          className="px-1 py-0.5 rounded text-xs"
+          style={{
+            backgroundColor: colorMode === 'dark' ? '#475569' : '#e2e8f0',
+            color: colors.text
+          }}
+        >
           {getAnalysisTypeName(item.analysis_type)}
         </span>
-        <span className="text-slate-400 text-xs">
+        <span 
+          className="text-xs"
+          style={{ color: colors.textSecondary }}
+        >
           {formatFileSize(item.file_size || 0)}
         </span>
       </div>
       {/* Ligne 3 : provider et actions */}
       <div className="flex items-center justify-between">
-        <span className="text-slate-400 text-xs truncate" style={{ fontSize: '11px' }}>
+        <span 
+          className="text-xs truncate"
+          style={{ 
+            color: colors.textSecondary,
+            fontSize: '11px' 
+          }}
+        >
           {item.analysis_provider && item.analysis_model && (
             <>{item.analysis_provider} • {item.analysis_model}</>
           )}
         </span>
         <div className="flex items-center space-x-1 ml-2">
-          <button onClick={() => handleRetryType(item.analysis_type)} className="p-1 text-blue-500 hover:text-blue-700" title="Relancer"><ArrowPathIcon className="h-3 w-3" /></button>
-          <button onClick={() => handleDeleteType(item.analysis_type)} className="p-1 text-red-500 hover:text-red-700" title="Supprimer"><TrashIcon className="h-3 w-3" /></button>
+          <button 
+            onClick={() => handleRetryType(item.analysis_type)} 
+            className="p-1 hover:opacity-70" 
+            style={{ color: colors.queue }}
+            title="Relancer"
+          >
+            <ArrowPathIcon className="h-3 w-3" />
+          </button>
+          <button 
+            onClick={() => handleDeleteType(item.analysis_type)} 
+            className="p-1 hover:opacity-70" 
+            style={{ color: colors.error }}
+            title="Supprimer"
+          >
+            <TrashIcon className="h-3 w-3" />
+          </button>
         </div>
       </div>
       {/* Message d'erreur */}
       {item.error_message && (
-        <div className="mt-1 p-1 bg-red-900/30 border border-red-700 rounded text-xs text-red-300">
-          <strong>Erreur :</strong> {item.error_message}
+        <div 
+          className="mt-1 p-1 border rounded text-xs"
+          style={{
+            backgroundColor: colorMode === 'dark' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(239, 68, 68, 0.05)',
+            borderColor: colors.error
+          }}
+        >
+          <strong style={{ color: colors.error }}>Erreur :</strong> 
+          <span style={{ color: colors.textSecondary }}> {item.error_message}</span>
         </div>
       )}
     </div>
@@ -205,8 +258,21 @@ export const QueueContent: React.FC<QueueContentProps> = ({ onClose, onMinimize,
         {/* Titre de section */}
         <div className="flex items-center mb-1 px-1">
           <span className="text-lg mr-2">{getAnalysisTypeIcon(type)}</span>
-          <span className="font-semibold text-slate-200 text-xs capitalize mr-2">{getAnalysisTypeName(type)}</span>
-          <span className="text-xs bg-slate-600 text-slate-300 rounded px-1 py-0.5 ml-1">{groupedItems[type].length}</span>
+          <span 
+            className="font-semibold text-xs capitalize mr-2"
+            style={{ color: colors.text }}
+          >
+            {getAnalysisTypeName(type)}
+          </span>
+          <span 
+            className="text-xs rounded px-1 py-0.5 ml-1"
+            style={{
+              backgroundColor: colorMode === 'dark' ? '#475569' : '#e2e8f0',
+              color: colors.text
+            }}
+          >
+            {groupedItems[type].length}
+          </span>
         </div>
         {/* Liste compacte des tâches de ce type */}
         <div className="space-y-1">
@@ -219,18 +285,43 @@ export const QueueContent: React.FC<QueueContentProps> = ({ onClose, onMinimize,
   return (
     <div className={isStandalone ? "h-full" : "flex-1 overflow-y-auto p-2"}>
       {/* Progression globale */}
-      <div className="mb-3 p-2 bg-slate-700 rounded-lg border border-slate-600">
+      <div 
+        className="mb-3 p-2 rounded-lg border"
+        style={{
+          backgroundColor: colors.surface,
+          borderColor: colors.border
+        }}
+      >
         <div className="flex items-center justify-between mb-1">
-          <span className="text-xs font-medium text-slate-200">Progression</span>
-          <span className="text-xs text-slate-400">{queueStatus.completed_items}/{queueStatus.total_items}</span>
+          <span 
+            className="text-xs font-medium"
+            style={{ color: colors.text }}
+          >
+            Progression
+          </span>
+          <span 
+            className="text-xs"
+            style={{ color: colors.textSecondary }}
+          >
+            {queueStatus.completed_items}/{queueStatus.total_items}
+          </span>
         </div>
-        <div className="w-full bg-slate-600 rounded-full h-1 mb-1">
+        <div 
+          className="w-full rounded-full h-1 mb-1"
+          style={{ backgroundColor: colorMode === 'dark' ? '#475569' : '#e2e8f0' }}
+        >
           <div
-            className="bg-blue-500 h-1 rounded-full transition-all duration-300"
-            style={{ width: `${queueStatus.total_items > 0 ? (queueStatus.completed_items / queueStatus.total_items) * 100 : 0}%` }}
+            className="h-1 rounded-full transition-all duration-300"
+            style={{ 
+              width: `${queueStatus.total_items > 0 ? (queueStatus.completed_items / queueStatus.total_items) * 100 : 0}%`,
+              backgroundColor: colors.queue
+            }}
           ></div>
         </div>
-        <div className="flex justify-between text-[10px] text-slate-400">
+        <div 
+          className="flex justify-between text-[10px]"
+          style={{ color: colors.textSecondary }}
+        >
           <span>En cours: {queueStatus.processing_items}</span>
           <span>En attente: {queueStatus.pending_items}</span>
           <span>Terminées: {queueStatus.completed_items}</span>
@@ -238,11 +329,22 @@ export const QueueContent: React.FC<QueueContentProps> = ({ onClose, onMinimize,
       </div>
       {/* Liste par type d'analyse */}
       {queueItems.length === 0 ? (
-        <div className="text-center py-8 text-slate-400 text-xs">
-          <div className="w-10 h-10 mx-auto mb-2 bg-slate-700 rounded-full flex items-center justify-center">
+        <div 
+          className="text-center py-8 text-xs"
+          style={{ color: colors.textSecondary }}
+        >
+          <div 
+            className="w-10 h-10 mx-auto mb-2 rounded-full flex items-center justify-center"
+            style={{ backgroundColor: colors.surface }}
+          >
             <ArrowPathIcon className="h-5 w-5" />
           </div>
-          <p className="text-base font-medium mb-1">Queue vide</p>
+          <p 
+            className="text-base font-medium mb-1"
+            style={{ color: colors.text }}
+          >
+            Queue vide
+          </p>
           <p className="text-xs">Aucun fichier en attente d'analyse</p>
         </div>
       ) : (
@@ -256,24 +358,53 @@ export const QueueContent: React.FC<QueueContentProps> = ({ onClose, onMinimize,
 
 // Composant original avec header pour utilisation standalone
 const QueuePanel: React.FC<QueuePanelProps> = ({ onClose, onMinimize }) => {
+  const { colors } = useColors();
   const { queueItems } = useQueueStore();
   
   return (
     <div
-      className="fixed right-0 top-0 h-full z-40 bg-slate-800 border-l border-slate-700 shadow-xl flex flex-col"
-      style={{ width: 360, minWidth: 260, maxWidth: 400 }}
+      className="fixed right-0 top-0 h-full z-40 shadow-xl flex flex-col"
+      style={{ 
+        width: 360, 
+        minWidth: 260, 
+        maxWidth: 400,
+        backgroundColor: colors.surface,
+        borderLeft: `1px solid ${colors.border}`
+      }}
     >
       {/* Header compact */}
-      <div className="flex items-center justify-between p-2 bg-slate-700 border-b border-slate-600">
-        <h3 className="text-xs font-semibold" style={{ color: 'var(--queue-color)' }}>Queue d'Analyse <span className="text-slate-400">({queueItems.length})</span></h3>
+      <div 
+        className="flex items-center justify-between p-2 border-b"
+        style={{
+          backgroundColor: colors.surface,
+          borderColor: colors.border
+        }}
+      >
+        <h3 
+          className="text-xs font-semibold"
+          style={{ color: colors.queue }}
+        >
+          Queue d'Analyse 
+          <span style={{ color: colors.textSecondary }}> ({queueItems.length})</span>
+        </h3>
         <div className="flex items-center space-x-1">
           {onMinimize && (
-            <button onClick={onMinimize} className="p-1 text-slate-400 hover:text-slate-100 transition-colors" title="Minimiser">
+            <button 
+              onClick={onMinimize} 
+              className="p-1 transition-colors" 
+              style={{ color: colors.textSecondary }}
+              title="Minimiser"
+            >
               <MinusIcon className="h-4 w-4" />
             </button>
           )}
           {onClose && (
-            <button onClick={onClose} className="p-1 text-slate-400 hover:text-red-400 transition-colors" title="Fermer">
+            <button 
+              onClick={onClose} 
+              className="p-1 transition-colors" 
+              style={{ color: colors.textSecondary }}
+              title="Fermer"
+            >
               <XMarkIcon className="h-4 w-4" />
             </button>
           )}

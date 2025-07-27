@@ -58,6 +58,12 @@ const DirectoryNavigator: React.FC<DirectoryNavigatorProps> = ({
       // Ajouter au historique de navigation
       if (!pathHistory.includes(path)) {
         setPathHistory(prev => [...prev, path]);
+      } else {
+        // Si le chemin existe déjà, retirer tous les chemins après celui-ci
+        setPathHistory(prev => {
+          const index = prev.indexOf(path);
+          return prev.slice(0, index + 1);
+        });
       }
 
     } catch (err) {
@@ -82,11 +88,24 @@ const DirectoryNavigator: React.FC<DirectoryNavigatorProps> = ({
 
   // Navigation vers le dossier parent
   const navigateToParent = () => {
-    if (currentPath) {
-      const parentPath = currentPath.split('\\').slice(0, -1).join('\\');
-      if (parentPath) {
-        onPathChange(parentPath);
+    if (!currentPath) return;
+    
+    // Si on est à la racine d'un disque (ex: 'C:'), ne rien faire
+    if (/^[A-Z]:$/i.test(currentPath)) {
+      console.log('📍 Déjà à la racine du disque, impossible de remonter');
+      return;
+    }
+    
+    // Sinon, remonter d'un niveau
+    const parts = currentPath.split(/[/\\]/).filter(Boolean);
+    if (parts.length > 1) {
+      let parentPath = parts.slice(0, -1).join('\\');
+      // Si on arrive à un disque (ex: 'C:'), garder le format
+      if (/^[A-Z]:$/i.test(parentPath)) {
+        parentPath = parentPath.toUpperCase();
       }
+      console.log('⬆️ Remontée vers le dossier parent:', parentPath);
+      onPathChange(parentPath);
     }
   };
 
@@ -98,6 +117,9 @@ const DirectoryNavigator: React.FC<DirectoryNavigatorProps> = ({
       const previousPath = newHistory[newHistory.length - 1];
       setPathHistory(newHistory);
       onPathChange(previousPath);
+    } else if (currentPath) {
+      // Si pas d'historique, utiliser la logique de remontée vers le parent
+      navigateToParent();
     }
   };
 
@@ -128,9 +150,9 @@ const DirectoryNavigator: React.FC<DirectoryNavigatorProps> = ({
         <div className="flex items-center space-x-2 mb-2">
           <button
             onClick={navigateToPrevious}
-            disabled={pathHistory.length <= 1}
+            disabled={!currentPath || (pathHistory.length <= 1 && /^[A-Z]:$/i.test(currentPath))}
             className="p-1 rounded hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Retour"
+            title={pathHistory.length > 1 ? "Retour au dossier précédent" : "Retour au dossier parent"}
           >
             <ChevronLeftIcon className="h-4 w-4" />
           </button>

@@ -16,6 +16,7 @@ router = APIRouter(prefix="/api/auth", tags=["authentication"])
 
 # Modèles Pydantic
 class LoginRequest(BaseModel):
+    username: str
     password: str
 
 class LoginResponse(BaseModel):
@@ -53,12 +54,19 @@ async def login(request: LoginRequest):
     Authentification utilisateur
     
     Args:
-        request: Requête contenant le mot de passe
+        request: Requête contenant le nom d'utilisateur et le mot de passe
         
     Returns:
         LoginResponse: Token de session si authentification réussie
     """
     try:
+        # Vérifier les identifiants
+        if request.username != "avocat" or request.password != "2025*":
+            return LoginResponse(
+                success=False,
+                message="Nom d'utilisateur ou mot de passe incorrect"
+            )
+        
         session_token = security_manager.login(request.password)
         
         if session_token:
@@ -70,7 +78,7 @@ async def login(request: LoginRequest):
         else:
             return LoginResponse(
                 success=False,
-                message="Mot de passe incorrect"
+                message="Erreur lors de la création de la session"
             )
             
     except Exception as e:

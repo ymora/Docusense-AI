@@ -28,6 +28,7 @@ from app.api import (
     queue_router,
     config_router,
     prompts_router,
+    multimedia_router,
     auth_router,
     download_router
 )
@@ -189,7 +190,7 @@ app.include_router(analysis_router, prefix="/api")
 app.include_router(queue_router, prefix="/api")
 app.include_router(config_router, prefix="/api")
 app.include_router(prompts_router, prefix="/api")
-# app.include_router(multimedia_router, prefix="/api")
+app.include_router(multimedia_router)
 app.include_router(auth_router, prefix="/api")
 app.include_router(download_router, prefix="/api")
 
@@ -204,21 +205,10 @@ async def root():
         "version": settings.app_version,
         "environment": settings.environment,
         "docs": "/docs",
-        "health": "/api/health",
-        "remote_access": "/remote"
+        "health": "/api/health"
     }
 
-# Remote access endpoint
-@app.get("/remote")
-async def remote_access():
-    """
-    Interface d'accès distant
-    """
-    from fastapi.responses import FileResponse
-    from pathlib import Path
-    # Utiliser un chemin absolu depuis le répertoire backend
-    html_path = Path(__file__).parent / "remote_access.html"
-    return FileResponse(str(html_path))
+
 
 # API info endpoint
 @app.get("/api/info")

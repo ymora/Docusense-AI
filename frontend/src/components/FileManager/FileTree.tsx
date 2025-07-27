@@ -3,6 +3,8 @@ import { FolderIcon, DocumentIcon, ChevronRightIcon, ChevronDownIcon } from '@he
 import { useFileStore, File } from '../../stores/fileStore';
 import { useQueueStore } from '../../stores/queueStore';
 import { promptService, PromptContext } from '../../services/promptService';
+import { authService } from '../../services/authService';
+import AuthModal from '../UI/AuthModal';
 
 interface FileTreeProps {
   onDirectorySelect: (directory: string) => void;
@@ -90,6 +92,86 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ visible, x, y, file, onClose,
 
   const isFileInAction = file.id && selectedFiles.includes(file.id);
   const fileStatus = file.status || 'none';
+  const isFileSelected = selectedFiles.includes(file.id);
+
+  // Fonctions pour déterminer le libellé et l'icône selon le type de fichier
+  const getFileType = (fileName: string, mimeType?: string) => {
+    const extension = fileName.split('.').pop()?.toLowerCase();
+
+    // Images
+    if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'].includes(extension || '') ||
+        mimeType?.startsWith('image/')) {
+      return 'image';
+    }
+
+    // Audio
+    if (['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a'].includes(extension || '') ||
+        mimeType?.startsWith('audio/')) {
+      return 'audio';
+    }
+
+    // Vidéo
+    if (['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv'].includes(extension || '') ||
+        mimeType?.startsWith('video/')) {
+      return 'video';
+    }
+
+    // Texte
+    if (['txt', 'md', 'json', 'xml', 'html', 'css', 'js', 'ts', 'py', 'java', 'cpp', 'c', 'php', 'rb', 'go', 'rs'].includes(extension || '') ||
+        mimeType?.startsWith('text/')) {
+      return 'text';
+    }
+
+    return 'other';
+  };
+
+  const getViewActionLabel = (file: any) => {
+    const fileType = getFileType(file.name, file.mime_type);
+    switch (fileType) {
+      case 'image':
+        return 'Voir l\'image dans le panneau principal';
+      case 'audio':
+        return 'Écouter l\'audio dans le panneau principal';
+      case 'video':
+        return 'Regarder la vidéo dans le panneau principal';
+      case 'text':
+        return 'Lire le contenu du fichier texte dans le panneau principal';
+      default:
+        return 'Visualiser le fichier dans le panneau principal';
+    }
+  };
+
+  const getViewActionIcon = (file: any) => {
+    const fileType = getFileType(file.name, file.mime_type);
+    switch (fileType) {
+      case 'image':
+        return '🖼️';
+      case 'audio':
+        return '🎵';
+      case 'video':
+        return '🎬';
+      case 'text':
+        return '📄';
+      default:
+        return '👁️';
+    }
+  };
+
+  const getViewActionTitle = (file: any) => {
+    const fileType = getFileType(file.name, file.mime_type);
+    switch (fileType) {
+      case 'image':
+        return 'Voir l\'image dans le panneau principal';
+      case 'audio':
+        return 'Écouter l\'audio dans le panneau principal';
+      case 'video':
+        return 'Regarder la vidéo dans le panneau principal';
+      case 'text':
+        return 'Lire le contenu du fichier texte dans le panneau principal';
+      default:
+        return 'Visualiser le fichier dans le panneau principal';
+    }
+  };
 
   return (
     <div
@@ -118,14 +200,44 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ visible, x, y, file, onClose,
         <button
           onClick={() => handleAction('view')}
           className={`w-full px-3 py-1.5 text-left text-xs flex items-center ${
-            selectedFiles.length > 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-600'
+            !isFileSelected || selectedFiles.length > 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-600'
           }`}
-          disabled={selectedFiles.length > 1}
-          title={selectedFiles.length > 1 ? 'Visualisation impossible en sélection multiple' : 'Visualiser le fichier'}
+          disabled={!isFileSelected || selectedFiles.length > 1}
+          title={
+            !isFileSelected 
+              ? 'Sélectionnez le fichier d\'abord' 
+              : selectedFiles.length > 1 
+              ? 'Visualisation impossible en sélection multiple' 
+              : getViewActionTitle(file)
+          }
         >
-          <span className="mr-2">👁️</span>
-          Visualiser le fichier
+          <span className="mr-2">{getViewActionIcon(file)}</span>
+          {getViewActionLabel(file)}
         </button>
+
+        <button
+          onClick={() => handleAction('save')}
+          className={`w-full px-3 py-1.5 text-left text-xs flex items-center ${
+            !isFileSelected ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-600'
+          }`}
+          disabled={!isFileSelected}
+          title={!isFileSelected ? 'Sélectionnez le fichier d\'abord' : 'Télécharger le fichier'}
+        >
+          <span className="mr-2">💾</span>
+          Sauvegarder (télécharger)
+        </button>
+
+        {/* Téléchargement ZIP pour plusieurs fichiers sélectionnés */}
+        {selectedFiles.length > 1 && (
+          <button
+            onClick={() => handleAction('download_zip')}
+            className="w-full px-3 py-1.5 text-left text-xs flex items-center hover:bg-slate-600"
+            title={`Télécharger ${selectedFiles.length} fichiers en ZIP`}
+          >
+            <span className="mr-2">📦</span>
+            Télécharger ZIP ({selectedFiles.length} fichiers)
+          </button>
+        )}
 
         {file.id ? (
           <>
@@ -172,8 +284,12 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ visible, x, y, file, onClose,
                   </div>
 
                   {domainPrompts.map(({ prompt, disabled, reason }) => {
-                    const isActionDisabled = disabled || isFileInAction;
-                    const actionReason = isFileInAction ? 'Action en cours...' : reason;
+                    const isActionDisabled = disabled || isFileInAction || !isFileSelected;
+                    const actionReason = !isFileSelected 
+                      ? 'Sélectionnez le fichier d\'abord' 
+                      : isFileInAction 
+                      ? 'Action en cours...' 
+                      : reason;
 
                     return (
                       <button
@@ -194,10 +310,18 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ visible, x, y, file, onClose,
             {/* Retry pour les fichiers en échec */}
             {fileStatus === 'failed' && (
               <button
-                onClick={() => !isFileInAction && handleAction('retry')}
-                className={`w-full px-3 py-1.5 text-left text-xs flex items-center ${isFileInAction ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-600'}`}
-                disabled={isFileInAction}
-                title={isFileInAction ? 'Action en cours...' : 'Relancer l\'analyse'}
+                onClick={() => !isFileInAction && isFileSelected && handleAction('retry')}
+                className={`w-full px-3 py-1.5 text-left text-xs flex items-center ${
+                  isFileInAction || !isFileSelected ? 'opacity-50 cursor-not-allowed' : 'hover:bg-slate-600'
+                }`}
+                disabled={isFileInAction || !isFileSelected}
+                title={
+                  !isFileSelected 
+                    ? 'Sélectionnez le fichier d\'abord' 
+                    : isFileInAction 
+                    ? 'Action en cours...' 
+                    : 'Relancer l\'analyse'
+                }
               >
                 <span className="mr-2">🔄</span>
                 Réessayer
@@ -245,6 +369,10 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
   // Détecter le thème actuel pour l'encadrement
   const [isDarkMode, setIsDarkMode] = useState(true);
   
+  // État pour l'authentification
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [pendingAction, setPendingAction] = useState<{ action: string; file: any } | null>(null);
+  
   useEffect(() => {
     const checkTheme = () => {
       const theme = document.body.getAttribute('data-theme');
@@ -259,7 +387,7 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
     return () => observer.disconnect();
   }, []);
 
-  const { files, toggleFileSelection } = useFileStore();
+  const { toggleFileSelection } = useFileStore();
   const { queueItems, loadQueueItems, loadQueueStatus } = useQueueStore();
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [filesystemData, setFilesystemData] = useState<any>(null);
@@ -348,7 +476,7 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
   };
 
   // Fonction pour obtenir le statut d'un fichier depuis la queue
-  const getFileStatusFromQueue = (filePath: string): string => {
+  const getFileStatusFromQueue = (filePath: string): File['status'] | 'none' => {
     const queueItem = queueItems.find(item => {
       const itemPath = item.queue_metadata?.file_path ||
                       item.queue_metadata?.filename ||
@@ -357,7 +485,7 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
     });
 
     if (queueItem && queueItem.status !== 'none') {
-      return queueItem.status;
+      return queueItem.status as File['status'];
     }
     return 'none';
   };
@@ -423,11 +551,142 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
     setContextMenu(prev => ({ ...prev, x, y }));
   };
 
+  // Fonction pour gérer le téléchargement authentifié
+  const handleAuthenticatedDownload = async (file: any) => {
+    try {
+      const token = authService.getToken();
+      if (!token) {
+        console.error('Token d\'authentification manquant');
+        return;
+      }
+
+      const encodedPath = encodeURIComponent(file.path);
+      const response = await fetch(`/api/download/file/${encodedPath}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = file.name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      } else {
+        console.error('Erreur lors du téléchargement authentifié');
+      }
+    } catch (error) {
+      console.error('Erreur lors du téléchargement authentifié:', error);
+    }
+  };
+
+  // Fonction appelée après authentification réussie
+  const handleAuthSuccess = async () => {
+    if (pendingAction) {
+      if (pendingAction.action === 'save') {
+        await handleAuthenticatedDownload(pendingAction.file);
+      }
+      setPendingAction(null);
+    }
+  };
+
+  // Fonction pour fermer la modal d'authentification
+  const handleAuthModalClose = () => {
+    setShowAuthModal(false);
+    setPendingAction(null);
+  };
+
   // Gestion des actions du menu contextuel
   const handleContextMenuAction = async (action: string, file: any) => {
     try {
       if (action === 'view') {
-        onFileSelect(file);
+        // Émettre un événement pour la visualisation dans le MainPanel
+        window.dispatchEvent(new CustomEvent('viewFileInMainPanel', { 
+          detail: { file } 
+        }));
+        // Le fichier sera sélectionné et visualisé directement dans le MainPanel
+      } else if (action === 'save') {
+        // Vérifier si l'utilisateur est local ou distant
+        const isLocal = authService.isLocalUser();
+        
+        if (isLocal) {
+          // Utilisateur local : téléchargement direct
+          const encodedPath = encodeURIComponent(file.path);
+          const downloadUrl = `/api/files/download-by-path/${encodedPath}`;
+          
+          // Créer un lien temporaire pour le téléchargement
+          const link = document.createElement('a');
+          link.href = downloadUrl;
+          link.download = file.name;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        } else {
+          // Utilisateur distant : vérifier l'authentification
+          if (!authService.getAuthStatus()) {
+            // Pas authentifié : afficher la modal
+            setPendingAction({ action, file });
+            setShowAuthModal(true);
+            return;
+          }
+          
+          // Authentifié : téléchargement avec token
+          await handleAuthenticatedDownload(file);
+        }
+      } else if (action === 'download_zip') {
+        // Téléchargement ZIP pour plusieurs fichiers sélectionnés
+        const isLocal = authService.isLocalUser();
+        
+        try {
+          let response;
+          
+          if (isLocal) {
+            // Utilisateur local : téléchargement direct
+            response = await fetch('/api/files/download-selected', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' }
+            });
+          } else {
+            // Utilisateur distant : vérifier l'authentification
+            if (!authService.getAuthStatus()) {
+              // Pas authentifié : afficher la modal
+              setPendingAction({ action, file });
+              setShowAuthModal(true);
+              return;
+            }
+            
+            // Authentifié : téléchargement avec token
+            const token = authService.getAuthToken();
+            response = await fetch('/api/files/download-selected', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            });
+          }
+          
+          if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `selected_files_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.zip`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+          } else {
+            console.error('Erreur lors du téléchargement ZIP:', response.statusText);
+          }
+        } catch (error) {
+          console.error('Erreur lors du téléchargement ZIP:', error);
+        }
       } else if (action.startsWith('prompt_')) {
         const type = action.replace('prompt_', '');
         if (file.id) {
@@ -627,8 +886,8 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
               <ChevronRightIcon className="h-3 w-3" />
             )}
           </div>
-          <div className={`w-2 h-2 rounded-full mr-2 ${getStatusColor(status)}`}></div>
-          <span className="font-medium capitalize">{getStatusText(status)}</span>
+          <div className={`w-2 h-2 rounded-full mr-2 ${status === 'none' ? 'bg-gray-400' : getStatusColor(status as File['status'])}`}></div>
+          <span className="font-medium capitalize">{status === 'none' ? 'Non analysé' : getStatusText(status as File['status'])}</span>
           <span className="text-xs text-slate-400 ml-2">({files.length})</span>
         </div>
         
@@ -807,6 +1066,13 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
         onAction={handleContextMenuAction}
         selectedFiles={selectedFiles}
         onPositionChange={updateContextMenuPosition}
+      />
+
+      {/* Modal d'authentification */}
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={handleAuthModalClose}
+        onSuccess={handleAuthSuccess}
       />
     </div>
   );

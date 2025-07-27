@@ -210,7 +210,22 @@ class FileService:
         """
         Create a new file record
         """
-        db_file = File(**file_create.dict())
+        file_data = file_create.dict()
+        
+        # Convertir les dates ISO en objets datetime si elles existent
+        if file_data.get('file_created_at') and isinstance(file_data['file_created_at'], str):
+            from datetime import datetime
+            file_data['file_created_at'] = datetime.fromisoformat(file_data['file_created_at'])
+        
+        if file_data.get('file_modified_at') and isinstance(file_data['file_modified_at'], str):
+            from datetime import datetime
+            file_data['file_modified_at'] = datetime.fromisoformat(file_data['file_modified_at'])
+        
+        if file_data.get('file_accessed_at') and isinstance(file_data['file_accessed_at'], str):
+            from datetime import datetime
+            file_data['file_accessed_at'] = datetime.fromisoformat(file_data['file_accessed_at'])
+        
+        db_file = File(**file_data)
         self.db.add(db_file)
         self.db.flush()  # Use flush instead of commit to keep transaction open
         self.db.refresh(db_file)
@@ -276,7 +291,10 @@ class FileService:
                 analysis_result=file.analysis_result,
                 analysis_metadata=file.analysis_metadata,
                 error_message=file.error_message,
-                is_selected=file.is_selected
+                is_selected=file.is_selected,
+                file_created_at=file.file_created_at,
+                file_modified_at=file.file_modified_at,
+                file_accessed_at=file.file_accessed_at
             )
             file_responses.append(file_response)
 

@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import FileList from './FileList';
 import FileActions from './FileActions';
-import FileResultViewer from './FileResultViewer';
 import { useFileStore, File } from '../../stores/fileStore';
+import { useColors } from '../../hooks/useColors';
 
 const FileManager: React.FC = () => {
+  const { colors, colorMode } = useColors();
   const {
     files,
     selectedFiles,
@@ -17,8 +18,6 @@ const FileManager: React.FC = () => {
   } = useFileStore();
 
   const [isProcessing, setIsProcessing] = useState(false);
-  const [showResultViewer, setShowResultViewer] = useState(false);
-  const [viewingFile, setViewingFile] = useState<File | null>(null);
 
   // Charger les fichiers au montage
   useEffect(() => {
@@ -54,35 +53,44 @@ const FileManager: React.FC = () => {
     }
   };
 
-  // Gestion de l'affichage des résultats
-  const handleViewResults = (file: File) => {
-    setViewingFile(file);
-    setShowResultViewer(true);
-  };
-
-  // Fermeture du viewer de résultats
-  const handleCloseResultViewer = () => {
-    setShowResultViewer(false);
-    setViewingFile(null);
-  };
-
   return (
     <div className="h-full flex flex-col">
       {/* Header simplifié */}
-      <div className="bg-slate-800 border-b border-slate-700 p-4">
+      <div 
+        className="border-b p-4"
+        style={{
+          backgroundColor: colors.surface,
+          borderColor: colors.border
+        }}
+      >
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-slate-100">
+          <h2 
+            className="text-xl font-semibold"
+            style={{ color: colors.text }}
+          >
             Gestionnaire de Fichiers
           </h2>
-          <div className="text-sm text-slate-400">
+          <div 
+            className="text-sm"
+            style={{ color: colors.textSecondary }}
+          >
             {files.length} fichier{files.length > 1 ? 's' : ''} chargé{files.length > 1 ? 's' : ''}
           </div>
         </div>
 
         {/* Instructions */}
-        <div className="bg-blue-900/20 border border-blue-700/50 rounded-lg p-3 mb-4">
-          <div className="flex items-center text-sm text-blue-300">
-            <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+        <div 
+          className="border rounded-lg p-3 mb-4"
+          style={{
+            backgroundColor: colorMode === 'dark' ? 'rgba(59, 130, 246, 0.1)' : 'rgba(59, 130, 246, 0.05)',
+            borderColor: colors.config
+          }}
+        >
+          <div className="flex items-center text-sm" style={{ color: colors.config }}>
+            <div 
+              className="w-2 h-2 rounded-full mr-2"
+              style={{ backgroundColor: colors.config }}
+            ></div>
             <span>
               <strong>Astuce :</strong> Utilisez le panneau de gauche pour naviguer et sélectionner des fichiers à analyser
             </span>
@@ -95,19 +103,23 @@ const FileManager: React.FC = () => {
         {loading ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-              <p className="text-slate-400">Chargement des fichiers...</p>
+              <div 
+                className="animate-spin rounded-full h-12 w-12 border-b-2 mx-auto mb-4"
+                style={{ borderColor: colors.config }}
+              ></div>
+              <p style={{ color: colors.textSecondary }}>Chargement des fichiers...</p>
             </div>
           </div>
         ) : error ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
-              <div className="text-red-500 text-2xl mb-4">⚠️</div>
-              <p className="text-red-400 mb-2">Erreur lors du chargement</p>
-              <p className="text-slate-400 text-sm">{error}</p>
+              <div className="text-2xl mb-4" style={{ color: colors.error }}>⚠️</div>
+              <p className="mb-2" style={{ color: colors.error }}>Erreur lors du chargement</p>
+              <p className="text-sm" style={{ color: colors.textSecondary }}>{error}</p>
               <button
                 onClick={() => loadFiles()}
-                className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                className="mt-4 px-4 py-2 text-white rounded-lg transition-colors"
+                style={{ backgroundColor: colors.config }}
               >
                 Réessayer
               </button>
@@ -117,16 +129,30 @@ const FileManager: React.FC = () => {
           <div className="flex items-center justify-center h-full">
             <div className="text-center">
               <div className="text-6xl mb-4">📁</div>
-              <h3 className="text-xl font-semibold text-slate-200 mb-2">Aucun fichier chargé</h3>
-              <p className="text-slate-400 mb-4">
+              <h3 
+                className="text-xl font-semibold mb-2"
+                style={{ color: colors.text }}
+              >
+                Aucun fichier chargé
+              </h3>
+              <p 
+                className="mb-4"
+                style={{ color: colors.textSecondary }}
+              >
                 Cliquez sur l'icône 📁 dans le panneau de gauche pour sélectionner un répertoire
               </p>
-              <div className="bg-slate-700 rounded-lg p-4 max-w-md mx-auto">
-                <div className="flex items-center text-sm text-slate-300 mb-2">
-                  <div className="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+              <div 
+                className="rounded-lg p-4 max-w-md mx-auto"
+                style={{ backgroundColor: colors.surface }}
+              >
+                <div className="flex items-center text-sm mb-2" style={{ color: colors.text }}>
+                  <div 
+                    className="w-2 h-2 rounded-full mr-2"
+                    style={{ backgroundColor: colors.config }}
+                  ></div>
                   <span>Comment procéder :</span>
                 </div>
-                <ol className="text-sm text-slate-400 space-y-1 ml-4">
+                <ol className="text-sm space-y-1 ml-4" style={{ color: colors.textSecondary }}>
                   <li>1. Cliquez sur l'icône 📁 "Aucun fichier chargé" dans le panneau de gauche</li>
                   <li>2. Sélectionnez le répertoire contenant vos documents</li>
                   <li>3. Pendant le scan, l'icône devient ⏳ "Scan en cours..."</li>
@@ -140,7 +166,13 @@ const FileManager: React.FC = () => {
           <div className="flex flex-col h-full">
             {/* Actions pour les fichiers sélectionnés */}
             {selectedFiles.length > 0 && (
-              <div className="bg-slate-700 border-b border-slate-600 p-3">
+              <div 
+                className="border-b p-3"
+                style={{
+                  backgroundColor: colors.surface,
+                  borderColor: colors.border
+                }}
+              >
                 <FileActions
                   selectedFiles={selectedFiles}
                   onClearSelection={handleClearSelection}
@@ -152,16 +184,28 @@ const FileManager: React.FC = () => {
 
             {/* Actions pour les fichiers en échec */}
             {hasFailedFiles && (
-              <div className="bg-red-900/20 border-b border-red-700/50 p-3">
+              <div 
+                className="border-b p-3"
+                style={{
+                  backgroundColor: colorMode === 'dark' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(239, 68, 68, 0.05)',
+                  borderColor: colors.error
+                }}
+              >
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center text-sm text-red-300">
-                    <div className="w-2 h-2 bg-red-500 rounded-full mr-2"></div>
+                  <div className="flex items-center text-sm" style={{ color: colors.error }}>
+                    <div 
+                      className="w-2 h-2 rounded-full mr-2"
+                      style={{ backgroundColor: colors.error }}
+                    ></div>
                     <span>Des fichiers sont en échec d'analyse</span>
                   </div>
                   <button
                     onClick={handleRetryFailed}
                     disabled={isProcessing}
-                    className="px-3 py-1 bg-red-600 hover:bg-red-700 disabled:bg-red-800 text-white text-sm rounded transition-colors"
+                    className="px-3 py-1 text-white text-sm rounded transition-colors"
+                    style={{ 
+                      backgroundColor: isProcessing ? colorMode === 'dark' ? '#991b1b' : '#fecaca' : colors.error 
+                    }}
                   >
                     {isProcessing ? 'Retry en cours...' : 'Retry échecs'}
                   </button>
@@ -171,28 +215,52 @@ const FileManager: React.FC = () => {
 
             {/* Aperçu des analyses terminées */}
             {completedAnalyses.length > 0 && (
-              <div className="bg-green-900/20 border-b border-green-700/50 p-3">
+              <div 
+                className="border-b p-3"
+                style={{
+                  backgroundColor: colorMode === 'dark' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(34, 197, 94, 0.05)',
+                  borderColor: colors.analyses
+                }}
+              >
                 <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center text-sm text-green-300">
-                    <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                  <div className="flex items-center text-sm" style={{ color: colors.analyses }}>
+                    <div 
+                      className="w-2 h-2 rounded-full mr-2"
+                      style={{ backgroundColor: colors.analyses }}
+                    ></div>
                     <span>Analyses terminées ({completedAnalyses.length})</span>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                   {completedAnalyses.slice(0, 6).map((file) => (
-                    <div key={file.id} className="bg-slate-700/50 rounded p-2 text-xs">
+                    <div 
+                      key={file.id} 
+                      className="rounded p-2 text-xs"
+                      style={{
+                        backgroundColor: colorMode === 'dark' ? 'rgba(30, 41, 59, 0.5)' : 'rgba(241, 245, 249, 0.5)'
+                      }}
+                    >
                       <div className="flex items-center justify-between mb-1">
-                        <span className="text-slate-200 truncate">{file.name}</span>
+                        <span 
+                          className="truncate"
+                          style={{ color: colors.text }}
+                        >
+                          {file.name}
+                        </span>
                         <button
-                          onClick={() => handleViewResults(file)}
-                          className="text-green-400 hover:text-green-300 transition-colors"
+                          onClick={() => {}} // Placeholder - la visualisation se fait dans MainPanel
+                          className="transition-colors"
+                          style={{ color: colors.analyses }}
                           title="Voir les résultats"
                         >
                           👁️
                         </button>
                       </div>
                       {file.analysis_result && (
-                        <div className="text-slate-400 truncate">
+                        <div 
+                          className="truncate"
+                          style={{ color: colors.textSecondary }}
+                        >
                           {file.analysis_result.substring(0, 60)}...
                         </div>
                       )}
@@ -200,7 +268,10 @@ const FileManager: React.FC = () => {
                   ))}
                 </div>
                 {completedAnalyses.length > 6 && (
-                  <div className="text-center text-xs text-slate-400 mt-2">
+                  <div 
+                    className="text-center text-xs mt-2"
+                    style={{ color: colors.textSecondary }}
+                  >
                     +{completedAnalyses.length - 6} autres analyses terminées
                   </div>
                 )}
@@ -213,7 +284,8 @@ const FileManager: React.FC = () => {
                 files={files}
                 selectedFiles={selectedFiles}
                 onFileSelect={handleFileSelect}
-                onViewResults={handleViewResults}
+                onViewResults={() => {}} // Placeholder - la visualisation se fait dans MainPanel
+                onViewFile={() => {}} // Placeholder - la visualisation se fait dans MainPanel
               />
             </div>
           </div>
@@ -221,8 +293,14 @@ const FileManager: React.FC = () => {
       </div>
 
       {/* Footer avec statistiques */}
-      <div className="bg-slate-800 border-t border-slate-700 p-3">
-        <div className="flex items-center justify-between text-sm text-slate-400">
+      <div 
+        className="border-t p-3"
+        style={{
+          backgroundColor: colors.surface,
+          borderColor: colors.border
+        }}
+      >
+        <div className="flex items-center justify-between text-sm" style={{ color: colors.textSecondary }}>
           <div className="flex items-center space-x-4">
             <span>Fichiers chargés: {files.length}</span>
             <span>Sélectionnés: {selectedFiles.length}</span>
@@ -232,7 +310,7 @@ const FileManager: React.FC = () => {
           </div>
           <div>
             {isProcessing && (
-              <span className="text-blue-400">
+              <span style={{ color: colors.config }}>
                 <span className="animate-pulse">●</span> Traitement en cours
               </span>
             )}
@@ -240,13 +318,8 @@ const FileManager: React.FC = () => {
         </div>
       </div>
 
-      {/* Modal pour afficher les résultats */}
-      {showResultViewer && viewingFile && (
-        <FileResultViewer
-          selectedFile={viewingFile}
-          onClose={handleCloseResultViewer}
-        />
-      )}
+      {/* File Result Viewer Modal */}
+      {/* This block is removed as viewingFile and showResultViewer are removed */}
     </div>
   );
 };

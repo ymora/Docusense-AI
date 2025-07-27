@@ -13,9 +13,10 @@ interface FileListProps {
   selectedFiles: (number | string)[];
   onFileSelect: (fileId: number | string) => void;
   onViewResults?: (file: File) => void;
+  onViewFile?: (file: File) => void;
 }
 
-const FileList: React.FC<FileListProps> = ({ files, selectedFiles, onFileSelect, onViewResults }) => {
+const FileList: React.FC<FileListProps> = ({ files, selectedFiles, onFileSelect, onViewResults, onViewFile }) => {
   const getStatusColor = (status: File['status']) => {
     switch (status) {
       case 'pending': return 'bg-yellow-500';
@@ -79,7 +80,7 @@ const FileList: React.FC<FileListProps> = ({ files, selectedFiles, onFileSelect,
           }
             `}
             onClick={() => onFileSelect(file.id)}
-            onDoubleClick={() => onViewResults && onViewResults(file)}
+            onDoubleClick={() => onViewFile && onViewFile(file)}
             onKeyDown={(e) => handleKeyDown(e, file.id)}
             tabIndex={0}
             role="button"
@@ -147,6 +148,22 @@ const FileList: React.FC<FileListProps> = ({ files, selectedFiles, onFileSelect,
 
             {/* Action buttons */}
             <div className="ml-4 flex items-center space-x-2">
+              {/* View file button - only visible when not selected */}
+              {!selectedFiles.includes(file.id) && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onViewFile && onViewFile(file);
+                  }}
+                  className="p-1.5 bg-blue-600 hover:bg-blue-700 text-white rounded transition-colors"
+                  title="Voir le fichier"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                </button>
+              )}
+
               {/* View results button for completed analyses */}
               {file.status === 'completed' && file.analysis_result && (
                 <button
