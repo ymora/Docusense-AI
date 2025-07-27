@@ -9,6 +9,7 @@ from .queue import router as queue_router
 from .config import router as config_router
 from .health import router as health_router
 from .prompts import router as prompts_router
+from .multimedia import router as multimedia_router
 
 __all__ = [
     "files_router",
@@ -16,5 +17,6 @@ __all__ = [
     "queue_router",
     "config_router",
     "health_router",
-    "prompts_router"
+    "prompts_router",
+    "multimedia_router"
 ]

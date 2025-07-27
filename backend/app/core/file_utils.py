@@ -17,16 +17,41 @@ class FileFormatManager:
 
     # Formats supportés centralisés - source unique de vérité
     SUPPORTED_FORMATS = [
-        "pdf", "docx", "doc", "txt", "eml", "msg",
-        "xlsx", "xls", "csv", "jpg", "jpeg", "png", "html"
+        # Documents
+        "pdf", "docx", "doc", "txt", "html", "rtf", "odt", "pages",
+        # Emails
+        "eml", "msg", "pst", "ost",
+        # Tableurs
+        "xlsx", "xls", "csv", "ods", "numbers",
+        # Images
+        "jpg", "jpeg", "png", "gif", "bmp", "tiff", "svg", "webp", "ico", "raw", "heic", "heif",
+        # Vidéos
+        "mp4", "avi", "mov", "wmv", "flv", "webm", "mkv", "m4v", "3gp", "ogv", "ts", "mts", "m2ts",
+        # Audio
+        "mp3", "wav", "flac", "aac", "ogg", "wma", "m4a", "opus", "aiff", "alac",
+        # Archives
+        "zip", "rar", "7z", "tar", "gz", "bz2",
+        # Présentations
+        "ppt", "pptx", "odp", "key",
+        # Code source
+        "py", "js", "ts", "java", "cpp", "c", "cs", "php", "rb", "go", "rs", "swift", "kt",
+        "html", "css", "xml", "json", "yaml", "yml", "sql", "sh", "bat", "ps1",
+        # Autres
+        "md", "tex", "log", "ini", "cfg", "conf"
     ]
 
     # Catégories de formats pour organisation
     FORMAT_CATEGORIES = {
-        "documents": ["pdf", "docx", "doc", "txt", "html"],
-        "emails": ["eml", "msg"],
-        "spreadsheets": ["xlsx", "xls", "csv"],
-        "images": ["jpg", "jpeg", "png"]
+        "documents": ["pdf", "docx", "doc", "txt", "html", "rtf", "odt", "pages", "md", "tex"],
+        "emails": ["eml", "msg", "pst", "ost"],
+        "spreadsheets": ["xlsx", "xls", "csv", "ods", "numbers"],
+        "presentations": ["ppt", "pptx", "odp", "key"],
+        "images": ["jpg", "jpeg", "png", "gif", "bmp", "tiff", "svg", "webp", "ico", "raw", "heic", "heif"],
+        "videos": ["mp4", "avi", "mov", "wmv", "flv", "webm", "mkv", "m4v", "3gp", "ogv", "ts", "mts", "m2ts"],
+        "audio": ["mp3", "wav", "flac", "aac", "ogg", "wma", "m4a", "opus", "aiff", "alac"],
+        "archives": ["zip", "rar", "7z", "tar", "gz", "bz2"],
+        "code": ["py", "js", "ts", "java", "cpp", "c", "cs", "php", "rb", "go", "rs", "swift", "kt", "html", "css", "xml", "json", "yaml", "yml", "sql", "sh", "bat", "ps1"],
+        "logs": ["log", "ini", "cfg", "conf"]
     }
 
     @classmethod

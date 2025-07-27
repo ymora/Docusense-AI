@@ -27,7 +27,8 @@ from app.api import (
     analysis_router,
     queue_router,
     config_router,
-    prompts_router
+    prompts_router,
+    multimedia_router
 )
 
 # Setup logging
@@ -187,6 +188,7 @@ app.include_router(analysis_router, prefix="/api")
 app.include_router(queue_router, prefix="/api")
 app.include_router(config_router, prefix="/api")
 app.include_router(prompts_router, prefix="/api")
+app.include_router(multimedia_router, prefix="/api")
 
 # Root endpoint
 @app.get("/")

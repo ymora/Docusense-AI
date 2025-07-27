@@ -28,9 +28,17 @@ DocuSense AI est une plateforme moderne et robuste d'analyse intelligente de doc
 - **Queue d'analyse** avec reprise automatique
 
 ### 📁 Gestion Avancée des Fichiers
-- **Formats supportés** : pdf, docx, doc, txt, eml, msg, xlsx, xls, csv, jpg, jpeg, png, html
+- **Formats supportés** : Documents (PDF, DOCX, PPTX, XLSX), Images (JPG, PNG, GIF, WebP, HEIC), Vidéos (MP4, AVI, MOV, MKV), Audio (MP3, WAV, FLAC), Archives (ZIP, RAR, 7Z), Code (Python, JS, TS, Java, C++), et plus de 50 formats au total
 - **Visualisation intégrée** : Texte, images, audio, vidéo, documents
 - **OCR intégré** pour documents scannés (en développement)
+
+### 🎬 Support Multimédia Avancé
+- **Analyse d'images** : Extraction de métadonnées EXIF, couleurs dominantes, dimensions
+- **Analyse vidéo** : Durée, FPS, codec, informations audio, génération de miniatures
+- **Analyse audio** : Durée, fréquence d'échantillonnage, tempo, analyse spectrale
+- **Miniatures** : Génération automatique de miniatures pour tous les types de fichiers
+- **Visualisation** : Lecteurs intégrés pour images, vidéos et audio
+- **API multimédia** : Endpoints dédiés pour l'analyse et la génération de miniatures
 - **Statuts en temps réel** avec indicateurs visuels colorés
 - **Navigation intuitive** avec sélecteur de disque et bouton retour parent
 
@@ -191,6 +199,27 @@ cd docusense-ai
 
 # Démarrer les serveurs automatiquement avec gestion intelligente des processus
 .\scripts\dev_start.ps1
+
+### 🎬 Installation des Dépendances Multimédia
+
+Pour activer le support complet des fichiers multimédia (images, vidéos, audio), exécutez :
+
+```powershell
+# Installation complète des dépendances multimédia
+.\scripts\install_multimedia_deps.ps1
+
+# Ou installation sélective
+.\scripts\install_multimedia_deps.ps1 -SkipFrontend  # Backend uniquement
+.\scripts\install_multimedia_deps.ps1 -SkipBackend   # Frontend uniquement
+```
+
+**Formats supportés après installation :**
+- **Images** : JPG, PNG, GIF, BMP, TIFF, WebP, ICO, RAW, HEIC, HEIF
+- **Vidéos** : MP4, AVI, MOV, WMV, FLV, WebM, MKV, M4V, 3GP, OGV, TS, MTS, M2TS
+- **Audio** : MP3, WAV, FLAC, AAC, OGG, WMA, M4A, Opus, AIFF, ALAC
+- **Archives** : ZIP, RAR, 7Z, TAR, GZ, BZ2
+- **Documents** : PDF, DOCX, PPTX, XLSX, RTF, ODT, Pages, Numbers, Key
+- **Code** : Python, JavaScript, TypeScript, Java, C++, C#, PHP, Ruby, Go, Rust, Swift, Kotlin, HTML, CSS, XML, JSON, YAML, SQL, Shell, PowerShell
 ```
 
 #### Option 2 : Démarrage Manuel avec Gestion Intelligente
