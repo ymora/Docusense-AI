@@ -803,7 +803,7 @@ async def stream_file(
     file_id: int,
     range: Optional[str] = Header(None, alias="Range"),
     db: Session = Depends(get_db)
-) -> Response:
+) -> FileResponse:
     """
     Stream a file directly from disk for audio/video playback
     Supports range requests for seeking in media files
@@ -821,56 +821,16 @@ async def stream_file(
                 status_code=404,
                 detail="File not found on disk")
 
-        # Obtenir la taille du fichier
-        file_size = os.path.getsize(file_info.path)
-        
-        # Gérer les range requests pour le seeking
-        start = 0
-        end = file_size - 1
-        
-        if range:
-            try:
-                # Parser le header Range: bytes=start-end
-                range_str = range.replace('bytes=', '')
-                if '-' in range_str:
-                    start_str, end_str = range_str.split('-')
-                    start = int(start_str) if start_str else 0
-                    end = int(end_str) if end_str else file_size - 1
-            except ValueError:
-                pass
-        
-        # Calculer la taille du chunk
-        chunk_size = end - start + 1
-        
-        # Lire seulement la partie demandée du fichier
-        with open(file_info.path, 'rb') as f:
-            f.seek(start)
-            content = f.read(chunk_size)
-        
-        # Headers de base
-        headers = {
-            "Accept-Ranges": "bytes",
-            "Content-Length": str(chunk_size),
-            "Content-Disposition": f"inline; filename=\"{file_info.name}\"",
-            "Cache-Control": "public, max-age=3600",  # Cache pour 1 heure
-        }
-        
-        # Si c'est une range request, ajouter les headers appropriés
-        if range:
-            headers["Content-Range"] = f"bytes {start}-{end}/{file_size}"
-            status_code = 206  # Partial Content
-        else:
-            status_code = 200
-        
-        # Créer la réponse avec les headers appropriés pour le streaming
-        response = Response(
-            content=content,
+        # Utiliser FileResponse qui gère automatiquement les range requests
+        return FileResponse(
+            path=file_info.path,
+            filename=file_info.name,
             media_type=file_info.mime_type,
-            status_code=status_code,
-            headers=headers
+            headers={
+                "Accept-Ranges": "bytes",
+                "Cache-Control": "public, max-age=3600",  # Cache pour 1 heure
+            }
         )
-        
-        return response
 
     except HTTPException:
         raise
@@ -882,7 +842,7 @@ async def stream_file(
 @router.get("/stream-by-path/{file_path:path}")
 async def stream_file_by_path(
     file_path: str
-) -> Response:
+) -> FileResponse:
     """
     Stream a file by its path directly from disk
     """
@@ -894,32 +854,22 @@ async def stream_file_by_path(
         if not file_path_obj.exists():
             raise HTTPException(status_code=404, detail="File not found on disk")
         
-        # Obtenir les informations du fichier
-        file_size = file_path_obj.stat().st_size
-        
         # Déterminer le type MIME
         import mimetypes
         mime_type, _ = mimetypes.guess_type(str(file_path_obj))
         if not mime_type:
             mime_type = "application/octet-stream"
         
-        # Lire le fichier
-        with open(file_path_obj, 'rb') as f:
-            content = f.read()
-        
-        # Créer la réponse
-        response = Response(
-            content=content,
+        # Utiliser FileResponse pour un streaming optimisé
+        return FileResponse(
+            path=str(file_path_obj),
+            filename=file_path_obj.name,
             media_type=mime_type,
             headers={
                 "Accept-Ranges": "bytes",
-                "Content-Length": str(file_size),
-                "Content-Disposition": f"inline; filename=\"{file_path_obj.name}\"",
                 "Cache-Control": "public, max-age=3600",
             }
         )
-        
-        return response
         
     except HTTPException:
         raise
