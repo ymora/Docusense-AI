@@ -4,10 +4,12 @@ import { useFileStore } from '../../stores/fileStore';
 import { useQueueStore } from '../../stores/queueStore';
 import { promptService } from '../../services/promptService';
 import FileTree from '../FileManager/FileTree';
+import { useBackendStatus } from '../../hooks/useBackendStatus';
 
 const LeftPanel: React.FC = () => {
   const { selectedFiles, toggleFileSelection, selectFile } = useFileStore();
   const { queueItems, loadQueueItems, loadQueueStatus } = useQueueStore();
+  const { isOnline, lastCheck, errorMessage, responseTime, forceCheck } = useBackendStatus();
 
   // État local pour la navigation
   const [currentPath, setCurrentPath] = useState<string>('');
@@ -157,10 +159,19 @@ const LeftPanel: React.FC = () => {
         {/* Header avec titre et boutons */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-3">
-            <div
-              className="w-2 h-2 bg-green-500 rounded-full animate-pulse cursor-help"
-              title="Connecté au backend"
-            ></div>
+            <button
+              onClick={forceCheck}
+              className={`w-2 h-2 rounded-full cursor-help transition-all duration-200 hover:scale-110 ${
+                isOnline 
+                  ? 'bg-green-500' 
+                  : 'bg-red-500 animate-pulse'
+              }`}
+              title={
+                isOnline
+                  ? `🟢 Backend connecté\n⏱️ Temps de réponse: ${responseTime ? responseTime + 'ms' : 'N/A'}\n🕐 Dernière vérification: ${lastCheck ? 'Il y a ' + Math.floor((Date.now() - lastCheck.getTime()) / 1000) + 's' : 'Jamais'}\n💡 Cliquez pour vérifier manuellement`
+                  : `🔴 Backend déconnecté\n❌ Erreur: ${errorMessage}\n🕐 Dernière vérification: ${lastCheck ? 'Il y a ' + Math.floor((Date.now() - lastCheck.getTime()) / 1000) + 's' : 'Jamais'}\n🔄 Cliquez pour réessayer`
+              }
+            />
             <div className="flex flex-col">
               <h1 className="text-lg font-bold text-blue-400">DocuSense AI</h1>
               <span className="text-xs text-slate-400">Analyse intelligente</span>

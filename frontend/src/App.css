@@ -7,6 +7,7 @@
   --background-color: #000000; /* Noir pur pour le mode nuit */
   --surface-color: #18181b;     /* Panel nuit */
   --text-color: #ffffff;         /* Blanc pur */
+  --text-muted-color: #94a3b8;   /* Texte atténué */
   --border-color: #27272a;
   --primary-color: #60a5fa;
   --primary-hover: #2563eb;
@@ -24,6 +25,7 @@ body[data-theme="light"], [data-theme="light"] body, [data-theme="light"] {
   --background-color: #ffffff; /* Blanc pur pour le mode jour */
   --surface-color: #f4faff;    /* Panel jour */
   --text-color: #18181b;       /* Noir pur */
+  --text-muted-color: #64748b; /* Texte atténué mode clair */
   --border-color: #b6c6e3;
   --primary-color: #2563eb;
   --primary-hover: #1d4ed8;
@@ -35,6 +37,20 @@ body[data-theme="light"], [data-theme="light"] body, [data-theme="light"] {
   --config-color: #2563eb; /* blue-600 pour plus de contraste */
   --queue-color: #ca8a04; /* yellow-600 pour plus de contraste */
   --analyses-color: #16a34a; /* green-600 pour plus de contraste */
+}
+
+/* Animation personnalisée pour l'indicateur de statut */
+@keyframes pulse-slow {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
 body, html, #root, .App {
