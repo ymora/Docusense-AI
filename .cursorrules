@@ -1,0 +1,84 @@
+# Configuration Cursor - DocuSense AI
+
+## 🚀 Règles Critiques
+
+### Environnement Virtuel (OBLIGATOIRE)
+- **TOUJOURS** : `venv\Scripts\python.exe main.py`
+- **JAMAIS** : `python main.py`
+
+### Démarrage Intelligent (RECOMMANDÉ)
+```powershell
+# Démarrage automatique avec surveillance
+.\scripts\dev_start.ps1
+
+# Options disponibles
+.\scripts\dev_start.ps1 -BackendOnly    # Backend uniquement
+.\scripts\dev_start.ps1 -FrontendOnly   # Frontend uniquement
+.\scripts\dev_start.ps1 -Force          # Nettoyer avant démarrage
+```
+
+### Démarrage Manuel
+```powershell
+# Backend
+cd backend
+venv\Scripts\python.exe main.py
+
+# Frontend (forcer port 3000)
+taskkill /F /IM node.exe /T
+cd frontend
+npm run dev
+```
+
+## 🎯 Ports
+- Backend : 8000
+- Frontend : 3000 (TOUJOURS utiliser ce port)
+- API Docs : http://localhost:8000/docs
+
+## ⚠️ Points Clés
+1. Environnement virtuel obligatoire
+2. Script intelligent gère automatiquement les ports et répertoires
+3. Surveillance continue des services
+4. Documenter changements
+
+## 📚 Cohérence README-Code (OBLIGATOIRE)
+
+### 🔄 Mise à Jour Automatique du README
+- **TOUJOURS** : Vérifier la cohérence README ↔ Code après chaque modification
+- **OBLIGATOIRE** : Mettre à jour le README si modification de :
+  - Interface utilisateur (nouveaux composants, changements visuels)
+  - Fonctionnalités (nouvelles features, changements de comportement)
+  - Architecture (nouveaux endpoints, services, modèles)
+  - Configuration (variables d'environnement, paramètres)
+  - Commandes de démarrage ou scripts
+
+### ✅ Processus de Validation
+1. **Détection d'écart** : Identifier les différences entre README et code
+2. **Analyse de l'écart** : Déterminer si c'est :
+   - ❌ **Code en avance** : README obsolète → Mettre à jour README
+   - ❌ **README en avance** : Code obsolète → Corriger le code
+   - ✅ **Évolution voulue** : Valider et maintenir la cohérence
+3. **Proposition de correction** : Présenter les options à l'utilisateur
+4. **Validation utilisateur** : Attendre confirmation avant modification
+
+### 🎯 Règles de Cohérence
+- **Interface** : Tous les composants UI décrits dans README
+- **Fonctionnalités** : Toutes les features documentées et à jour
+- **Architecture** : Structure technique reflétée fidèlement
+- **Commandes** : Instructions de démarrage exactes et fonctionnelles
+- **Configuration** : Variables d'environnement et paramètres documentés
+
+### 📝 Format de Validation
+```
+🔍 DÉTECTION D'ÉCART README ↔ CODE
+
+❌ Écart détecté : [Description de l'écart]
+📋 Code actuel : [Ce qui est dans le code]
+📖 README actuel : [Ce qui est dans le README]
+
+🤔 Question : Voulez-vous :
+A) Mettre à jour le README pour refléter le code actuel
+B) Corriger le code pour correspondre au README
+C) Garder l'évolution actuelle et documenter le changement
+
+💡 Recommandation : [Mon avis sur la meilleure option]
+``` 
