@@ -4,6 +4,7 @@ API endpoints pour le téléchargement de fichiers et dossiers
 
 from fastapi import APIRouter, HTTPException, Depends, Query, Request
 from fastapi.responses import FileResponse
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 from pathlib import Path

@@ -21,7 +21,8 @@ class SecurityManager:
     
     def __init__(self):
         self.sessions: Dict[str, Dict[str, Any]] = {}
-        self.config_file = Path("backend/security_config.json")
+        # Utiliser un chemin absolu depuis le répertoire backend
+        self.config_file = Path(__file__).parent.parent.parent / "security_config.json"
         self.load_config()
     
     def load_config(self):

@@ -1,0 +1,1 @@
+{"admin_password": "admin123", "session_timeout": 3600, "max_login_attempts": 5, "lockout_duration": 300}

@@ -6,6 +6,39 @@
 - **TOUJOURS** : `venv\Scripts\python.exe main.py`
 - **JAMAIS** : `python main.py`
 
+### 📦 Installation de Packages (OBLIGATOIRE)
+- **TOUJOURS** : `venv\Scripts\pip.exe install nom_du_package`
+- **JAMAIS** : `pip install nom_du_package`
+
+#### Exemples d'Installation
+```powershell
+# ✅ CORRECT - Installation dans venv
+cd backend
+venv\Scripts\pip.exe install moviepy pillow opencv-python
+
+# ✅ CORRECT - Mise à jour dans venv
+venv\Scripts\pip.exe install --upgrade nom_du_package
+
+# ✅ CORRECT - Liste des packages installés
+venv\Scripts\pip.exe list
+
+# ❌ INCORRECT - Installation globale
+pip install nom_du_package
+```
+
+#### 🔧 Vérification de l'Environnement
+```powershell
+# Vérifier que venv fonctionne
+cd backend
+venv\Scripts\python.exe --version
+
+# Vérifier les packages installés
+venv\Scripts\pip.exe list
+
+# Vérifier le chemin Python
+venv\Scripts\python.exe -c "import sys; print(sys.executable)"
+```
+
 ### Démarrage Intelligent (RECOMMANDÉ)
 ```powershell
 # Démarrage automatique avec surveillance

@@ -1,5 +1,53 @@
 # DocuSense AI - Plateforme d'Analyse Intelligente de Documents
 
+## 🎯 Règles Cursor - Environnement Virtuel (OBLIGATOIRE)
+
+### ⚠️ **RÈGLE CRITIQUE : TOUJOURS UTILISER L'ENVIRONNEMENT VIRTUEL**
+
+**🚨 OBLIGATOIRE** : Toutes les commandes Python et pip DOIVENT utiliser l'environnement virtuel `venv` !
+
+#### 📦 **Installation de Packages**
+```bash
+# ✅ CORRECT - Toujours utiliser venv
+cd backend
+venv\Scripts\pip.exe install nom_du_package
+
+# ❌ INCORRECT - Ne jamais utiliser pip global
+pip install nom_du_package
+```
+
+#### 🚀 **Démarrage des Services**
+```bash
+# ✅ CORRECT - Backend avec venv
+cd backend
+venv\Scripts\python.exe main.py
+
+# ✅ CORRECT - Frontend (pas de venv nécessaire)
+cd frontend
+npm run dev
+
+# ❌ INCORRECT - Ne jamais utiliser python global
+python main.py
+```
+
+#### 🔧 **Vérification de l'Environnement**
+```bash
+# Vérifier que venv fonctionne
+cd backend
+venv\Scripts\python.exe --version
+
+# Vérifier les packages installés
+venv\Scripts\pip.exe list
+```
+
+#### 🎯 **Raison de cette Règle**
+- **Isolation** : Éviter les conflits de dépendances
+- **Cohérence** : Même environnement pour tous les développeurs
+- **Fiabilité** : Éviter les erreurs "ModuleNotFoundError"
+- **Reproductibilité** : Environnement identique en production
+
+---
+
 ## 🚀 Vue d'ensemble
 
 DocuSense AI est une plateforme moderne et robuste d'analyse intelligente de documents, conçue avec une architecture propre, maintenable et performante. Elle combine des technologies de pointe pour offrir une expérience utilisateur exceptionnelle.
