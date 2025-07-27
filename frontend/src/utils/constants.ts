@@ -115,3 +115,12 @@ export const LIMITS = {
   MAX_FILES_PER_ANALYSIS: 10,
   MAX_QUEUE_SIZE: 100,
 } as const;
+
+export const FILE_STATUS_LABELS = {
+  [FILE_STATUSES.COMPLETED]: 'Analysé par IA',
+  [FILE_STATUSES.FAILED]: 'Échec d\'analyse IA',
+  [FILE_STATUSES.PROCESSING]: 'Analyse IA en cours',
+  [FILE_STATUSES.PENDING]: 'Non analysé par IA',
+  [FILE_STATUSES.PAUSED]: 'Analyse IA en pause',
+  [FILE_STATUSES.UNSUPPORTED]: 'Format non supporté',
+};

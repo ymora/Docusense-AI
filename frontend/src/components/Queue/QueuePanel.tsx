@@ -322,9 +322,9 @@ export const QueueContent: React.FC<QueueContentProps> = ({ onClose, onMinimize,
           className="flex justify-between text-[10px]"
           style={{ color: colors.textSecondary }}
         >
-          <span>En cours: {queueStatus.processing_items}</span>
-          <span>En attente: {queueStatus.pending_items}</span>
-          <span>Terminées: {queueStatus.completed_items}</span>
+          <span>Analyse IA en cours: {queueStatus.processing_items}</span>
+          <span>Non analysés par IA: {queueStatus.pending_items}</span>
+          <span>Analysés par IA: {queueStatus.completed_items}</span>
         </div>
       </div>
       {/* Liste par type d'analyse */}
@@ -345,7 +345,7 @@ export const QueueContent: React.FC<QueueContentProps> = ({ onClose, onMinimize,
           >
             Queue vide
           </p>
-          <p className="text-xs">Aucun fichier en attente d'analyse</p>
+          <p className="text-xs">Aucun fichier non analysé par IA</p>
         </div>
       ) : (
         <div>

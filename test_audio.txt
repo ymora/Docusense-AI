@@ -1,0 +1,5 @@
+Ceci est un fichier de test pour DocuSense AI.
+Il permet de vérifier que la navigation fonctionne correctement.
+
+Pour tester la barre multimédia, nous avons besoin de fichiers audio ou vidéo.
+Ce fichier texte servira à tester la navigation de base.

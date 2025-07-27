@@ -100,7 +100,68 @@ DocuSense AI est une plateforme moderne et robuste d'analyse intelligente de doc
 - **Visualisation** : Lecteurs intégrés pour images, vidéos et audio
 - **API multimédia** : Endpoints dédiés pour l'analyse et la génération de miniatures
 
-### 🔍 Nouvelles Fonctionnalités (Dernière Mise à Jour)
+### 🔍 Nouvelles Fonctionnalités et Améliorations Récentes
+
+#### 🎵 Contrôles Multimédia Avancés - Fonctionnels et Robustes
+- **Tous les boutons fonctionnels** : Play, Pause, Stop, Seek, Volume, Mute
+- **Gestion d'erreurs complète** : Try/catch pour toutes les opérations multimédia
+- **Validation des valeurs** : Volume clampé entre 0 et 1, temps validé
+- **Toggle mute intelligent** : Sauvegarde du volume précédent avec restauration
+- **États cohérents** : Interface synchronisée avec l'état de lecture
+- **Support audio/vidéo** : Même interface pour les deux types de média
+- **Gestionnaires d'erreurs** : `handleAudioError` et `handleVideoError` pour la robustesse
+- **Validation des données** : Vérification `isFinite()` pour duration et currentTime
+- **Logs détaillés** : Messages d'erreur informatifs pour le débogage
+
+#### 🎯 Barre Multimédia - Positionnement Optimisé
+- **Centrage dans le panneau principal** : Position relative au conteneur principal (pas la fenêtre)
+- **Z-index élevé** : `z-50` pour rester au-dessus du contenu
+- **Position absolue** : `absolute bottom-4 left-1/2 transform -translate-x-1/2`
+- **Isolation des panneaux** : Visible uniquement dans le panneau principal
+- **Responsive** : S'adapte à la taille du panneau principal
+- **Suppression de l'ancienne barre** : Évite la duplication et les conflits
+
+#### ❌ Icônes de Statut - SVG Cohérentes
+- **Remplacement des caractères Unicode** : Plus de rectangles rouges malformés
+- **Icônes SVG fiables** : Croix rouge SVG (12px x 12px) pour "Non pris en charge"
+- **Compatibilité garantie** : Fonctionne sur tous les navigateurs et systèmes
+- **Taille et couleur contrôlables** : `w-3 h-3 text-red-500`
+- **Accessibilité améliorée** : Support des lecteurs d'écran
+- **Cohérence visuelle** : Même style partout (légende, arborescence, liste)
+
+#### 🎨 Interface de Navigation - Clarification
+- **Sélecteur de disque amélioré** : Bouton explicite "Choisir un disque" avec icône et flèche
+- **Séparation claire** : "Sélectionner un disque :" et "Navigation :" avec labels explicites
+- **Bouton parent renommé** : "Dossier parent" au lieu de "Parent"
+- **Interface élargie** : Dropdown plein large avec header "Disques disponibles :"
+- **Suppression de la confusion** : Plus de perception de "deux sélecteurs"
+
+#### 🔧 Fonctionnalités Techniques Robustes
+- **Gestion async/await** : `handlePlay` avec gestion d'erreurs pour `play()`
+- **Validation stricte** : Temps clampé entre 0 et duration pour `handleSeek`
+- **Volume intelligent** : Désactivation automatique du mute si volume > 0
+- **Restauration de volume** : Valeur par défaut 0.5 si volume précédent = 0
+- **États UI cohérents** : Boutons désactivés avec opacité et couleurs grisées
+- **Feedback utilisateur** : Tooltips informatifs et états visuels clairs
+
+#### 📊 Améliorations de l'Expérience Utilisateur
+- **Interface plus claire** : Labels explicites et séparation visuelle
+- **Navigation intuitive** : Boutons et icônes plus compréhensibles
+- **Feedback visuel** : États clairement indiqués pour tous les contrôles
+- **Cohérence** : Même style et comportement partout
+- **Robustesse** : Gestion d'erreurs complète pour éviter les plantages
+
+#### 🐛 Corrections de Bugs et Optimisations
+- **Bouton volume fonctionnel** : Correction du toggle mute/unmute avec sauvegarde du volume
+- **Suppression des icônes redondantes** : Plus d'icône haut-parleur avant le nom du fichier
+- **Positionnement de la barre multimédia** : Centrage correct dans le panneau principal
+- **Icônes de statut cohérentes** : Remplacement des caractères Unicode par SVG
+- **Clarification de la navigation** : Séparation claire entre sélecteur de disque et navigation
+- **Gestion d'erreurs robuste** : Try/catch pour toutes les opérations multimédia
+- **Validation des données** : Vérification des valeurs numériques avec `isFinite()`
+- **États UI synchronisés** : Interface cohérente avec l'état de lecture
+- **Logs informatifs** : Messages d'erreur détaillés pour le débogage
+- **Performance optimisée** : Gestion efficace des événements et des états
 
 #### 📊 Suivi Temporel Complet
 - **Dates d'analyse IA** : Demande, début, fin et durée de traitement
@@ -108,11 +169,32 @@ DocuSense AI est une plateforme moderne et robuste d'analyse intelligente de doc
 - **Horodatage précis** : Timestamps ISO pour traçabilité complète
 - **Interface dédiée** : Onglet "Analyse IA" avec section "Dates d'Analyse IA"
 
+#### 🔧 Détails Techniques des Améliorations
+- **Gestion async/await** : `handlePlay` converti en fonction async avec try/catch
+- **Validation des valeurs** : `Math.max(0, Math.min(1, newVolume))` pour le volume
+- **Clampage des temps** : `Math.max(0, Math.min(duration, time))` pour le seek
+- **Gestion d'erreurs** : `handleAudioError` et `handleVideoError` pour la robustesse
+- **Validation des données** : `isFinite()` pour vérifier duration et currentTime
+- **Positionnement CSS** : `absolute bottom-4 left-1/2 transform -translate-x-1/2 z-50`
+- **Icônes SVG** : `<svg className="w-3 h-3 text-red-500" fill="currentColor" viewBox="0 0 20 20">`
+- **États UI** : `disabled:opacity-50` et couleurs adaptatives pour les boutons
+- **Logs détaillés** : `console.error` et `console.warn` pour le débogage
+- **Performance** : Gestion optimisée des événements et des re-renders
+
 #### 📅 Métadonnées Temporelles des Fichiers
 - **Dates système** : Création, modification et dernier accès du fichier
 - **Dates base de données** : Ajout et modification en base
 - **Extraction automatique** : Récupération des timestamps système
 - **Affichage différencié** : Séparation claire entre dates fichier et dates base
+
+#### 📁 Fichiers Modifiés et Améliorations
+- **`MainPanel.tsx`** : Positionnement de la barre multimédia dans le conteneur principal
+- **`FileViewer.tsx`** : Contrôles multimédia robustes avec gestion d'erreurs complète
+- **`LeftPanel.tsx`** : Icônes SVG pour le statut "Non pris en charge" dans la légende
+- **`FileTree.tsx`** : Icônes SVG pour les indicateurs de statut dans l'arborescence
+- **`FileList.tsx`** : Icônes SVG pour les statuts et messages d'erreur
+- **`DirectorySelector.tsx`** : Interface clarifiée avec labels explicites
+- **`README.md`** : Documentation complète de toutes les améliorations
 
 #### 🎯 Interface Améliorée
 - **Visualisation intégrée** : Affichage direct dans le panneau principal sans nouvelle page
@@ -120,6 +202,18 @@ DocuSense AI est une plateforme moderne et robuste d'analyse intelligente de doc
 - **Protection des actions** : Actions désactivées quand aucun fichier n'est sélectionné
 - **Labels clarifiés** : "Résultats" → "Analyse IA", "Métadonnées" → "Informations"
 - **Statut d'analyse IA** : Label plus précis pour le statut des analyses
+
+#### ✅ Résultats et Bénéfices des Améliorations
+- **Expérience utilisateur améliorée** : Interface plus intuitive et cohérente
+- **Robustesse accrue** : Gestion d'erreurs complète pour éviter les plantages
+- **Compatibilité garantie** : Fonctionne sur tous les navigateurs et systèmes
+- **Performance optimisée** : Gestion efficace des événements et des états
+- **Maintenabilité** : Code plus propre avec gestion d'erreurs structurée
+- **Accessibilité** : Support des lecteurs d'écran avec icônes SVG
+- **Cohérence visuelle** : Même style et comportement partout
+- **Feedback utilisateur** : États clairement indiqués pour tous les contrôles
+- **Débogage facilité** : Logs détaillés pour identifier les problèmes
+- **Évolutivité** : Architecture modulaire pour les futures améliorations
 
 ### 🔐 Accès Distant Sécurisé - Interface Unifiée
 - **Interface React unifiée** : Même interface moderne pour usage local et distant
@@ -136,7 +230,7 @@ DocuSense AI est une plateforme moderne et robuste d'analyse intelligente de doc
 - **Sécurité renforcée** : Sessions avec timeout, protection contre les attaques
 - **API REST** : Endpoints sécurisés pour l'intégration avec d'autres applications
 - **Statuts en temps réel** avec indicateurs visuels colorés
-- **Navigation intuitive** avec sélecteur de disque et bouton retour parent
+- **Navigation intuitive** avec sélecteur de disque clair et bouton retour parent
 
 ## 🎨 Interface Utilisateur
 
@@ -150,7 +244,7 @@ DocuSense AI est une plateforme moderne et robuste d'analyse intelligente de doc
   - **Protection logique** : Vérifications conditionnelles pour éviter les erreurs
 
 ### 📂 Navigation des Fichiers
-- **Sélecteur de disque** : Choix du disque physique à explorer
+- **Sélecteur de disque clair** : Interface explicite avec icône et texte pour choisir le disque
 - **Bouton retour parent** : Navigation vers le dossier parent avec synchronisation automatique
 - **Arborescence interactive** : Navigation intelligente avec séparation des actions
   - **Clic sur chevron** : Expansion/réduction du dossier pour voir son contenu
@@ -161,31 +255,51 @@ DocuSense AI est une plateforme moderne et robuste d'analyse intelligente de doc
   - **Apparition automatique** : L'ascenseur n'apparaît que si le contenu dépasse la hauteur disponible
   - **Espace optimisé** : Suppression des paddings redondants pour maximiser l'espace d'affichage
 
-### 🎯 Actions sur les Fichiers
-- **Menu contextuel** : Clic droit pour accéder aux actions
-  - **🖼️ Voir l'image** : Affichage des images dans le navigateur
-  - **🎵 Écouter l'audio** : Lecteur audio intégré pour MP3, WAV, etc.
-  - **🎬 Regarder la vidéo** : Lecteur vidéo intégré pour MP4, AVI, etc.
-  - **📄 Lire le texte** : Affichage du contenu des fichiers texte
-  - **👁️ Visualiser le fichier** : Pour les autres types de fichiers
-  - **💾 Sauvegarder (télécharger)** : Téléchargement du fichier sur le PC distant
-  - **🤖 Analyse IA** : Prompts spécialisés par domaine (Juridique, Technique, Administratif, Général)
-  - **🔄 Réessayer** : Relancer l'analyse pour les fichiers en échec
-- **Visualisation intégrée** : Affichage direct dans le panneau principal sans nouvelle page
-  - **Navigation directe** : Clic droit → "Voir l'image/vidéo/audio dans le panneau principal"
-  - **Événements personnalisés** : Communication directe entre FileTree et MainPanel
-  - **Sélection automatique** : Le fichier est automatiquement sélectionné lors de la visualisation
-  - **Mode de vue intégré** : Basculement automatique vers le mode visualisation
-- **Protection des actions** : Actions désactivées quand aucun fichier n'est sélectionné
-  - **Double protection** : UI (boutons grisés) + Logique (vérifications conditionnelles)
-  - **Tooltips informatifs** : Messages explicatifs pour les actions désactivées
-  - **Cohérence interface** : Actions inaccessibles dans le menu contextuel si fichier non sélectionné
+### 📁 Actions sur les Fichiers
+- **Indicateur de fichiers sélectionnés** : Interface de suivi des sélections
+  - **Position** : Coin supérieur droit de l'écran avec design discret
+  - **Affichage** : Nombre de fichiers sélectionnés avec point animé
+  - **Détails au clic** : Liste organisée par répertoire avec noms de fichiers
+  - **Actions** : Désélection globale ou individuelle avec boutons "X"
+  - **Persistance** : La sélection reste active lors de la navigation
+  - **Design adaptatif** : Fond semi-transparent avec effet de flou et couleurs du thème
+- **Visualisation intégrée** : Affichage direct dans le panneau principal sans modales
+  - **Images** : Affichage avec zoom et navigation
+  - **Vidéos** : Lecteur vidéo avec contrôles multimédia personnalisés
+  - **Audios** : Lecteur audio avec contrôles avancés en bas du panneau
+  - **Textes** : Affichage du contenu avec formatage préservé
+  - **PDF** : Prévisualisation intégrée avec iframe
+  - **Documents** : Téléchargement pour visualisation externe (DOC, DOCX, etc.)
+  - **Tableurs** : Téléchargement pour visualisation externe
+  - **Emails** : Téléchargement pour visualisation externe
+- **Contrôles multimédia avancés** : Interface de lecture audio et vidéo complète
+  - **Affichage conditionnel** : Barre de contrôle pour les fichiers audio et vidéo, centrée dans le panneau principal
+  - **Adaptation automatique** : Icône et interface adaptées au type de média
+  - **Barre de contrôle fixe** : Contrôles en bas du panneau principal
+  - **Boutons de lecture** : Play, Pause, Stop avec états visuels
+  - **Barre de progression** : Navigation temporelle avec slider interactif
+  - **Contrôle du volume** : Slider de volume avec bouton mute/unmute fonctionnel et sauvegarde du volume précédent
+  - **Affichage temporel** : Format MM:SS pour temps actuel et total
+  - **Informations du fichier** : Nom du fichier dans la barre de contrôle
+  - **Thème adaptatif** : Couleurs qui s'adaptent au mode jour/nuit
+  - **États visuels** : Boutons désactivés selon l'état de lecture avec gestion d'erreurs complète
+- **Protection des actions** : Vérifications conditionnelles pour éviter les erreurs
+  - **Validation côté client** : Désactivation des boutons selon la sélection
+  - **Validation côté serveur** : Vérifications dans les endpoints API
+  - **Gestion d'erreurs robuste** : Messages d'erreur informatifs et fallbacks gracieux
 - **Analyse IA** : Prompts spécialisés par domaine (Juridique, Technique, Administratif, Général)
 - **Sélection multiple** : Clic pour sélectionner/désélectionner plusieurs fichiers
 - **Actions de masse** : Boutons pour analyser, comparer ou retry tous les fichiers sélectionnés
 - **Visualisation** : Un seul fichier à la fois (désactivée en sélection multiple)
 - **Feedback visuel** : Encadrement fin, compteurs et messages d'aide contextuels
-- **Visualisation** : Affichage intégré des fichiers
+- **Types de fichiers supportés** : Reconnaissance complète et cohérente
+  - **Documents** : PDF, DOCX, DOC, RTF, ODT, PAGES, PPT, PPTX, ODP, KEY
+  - **Tableurs** : XLSX, XLS, CSV, ODS, NUMBERS
+  - **Images** : JPG, JPEG, PNG, GIF, BMP, TIFF, SVG, WEBP, ICO, RAW, HEIC, HEIF, CR2, NEF, ARW
+  - **Vidéos** : MP4, AVI, MOV, WMV, FLV, WEBM, MKV, M4V, 3GP, OGV, TS, MTS, M2TS
+  - **Audio** : MP3, WAV, FLAC, AAC, OGG, WMA, M4A, OPUS, AIFF, ALAC
+  - **Emails** : EML, MSG, PST, OST
+  - **Texte** : TXT, MD, JSON, XML, HTML, CSS, JS, TS, PY, JAVA, CPP, C, PHP, RB, GO, RS, TEX, LOG, INI, CFG, CONF, YAML, YML, SQL, SH, BAT, PS1
 
 ### 🎬 Visualisation Multimédia Avancée
 - **Titre dynamique** : Affichage du nom du fichier et navigation dans le panneau principal
@@ -230,17 +344,23 @@ DocuSense AI est une plateforme moderne et robuste d'analyse intelligente de doc
   - **Messages d'erreur** : Couleurs adaptatives pour les erreurs
   - **Interface compacte** : Design optimisé pour l'espace disponible
 - **Gestionnaire de fichiers** : Interface unifiée avec couleurs centralisées
-  - **Analyses terminées** : Aperçu avec couleurs d'accent (`colors.analyses`)
+  - **Analyses IA** : Aperçu avec couleurs d'accent (`colors.analyses`)
   - **Statistiques en temps réel** : Compteurs avec couleurs harmonisées
   - **Actions contextuelles** : Boutons avec couleurs d'accent
-  - **États d'erreur** : Couleurs adaptatives pour les fichiers en échec
+  - **États d'erreur** : Couleurs adaptatives pour les fichiers en échec d'analyse IA
   - **Instructions** : Couleurs d'accent pour les guides utilisateur
 - **Statuts visuels** : Points colorés pour indiquer l'état des fichiers
-  - **Vert** : Analyse terminée
-  - **Jaune** : En attente de traitement ou en pause (avec effet pulsant)
-  - **Bleu** : En cours de traitement (avec effet pulsant)
-  - **Rouge** : Échec
-  - **Noir** : Format non supporté
+  - **Vert** : Analysé par IA
+  - **Jaune** : Non analysé par IA ou en pause (avec effet pulsant)
+  - **Bleu** : Analyse IA en cours (avec effet pulsant)
+  - **Rouge** : Échec d'analyse IA
+  - **Croix rouge** : Format non supporté
+- **Légende discrète** : Indicateurs visuels en bas du panneau gauche avec icônes SVG cohérentes
+  - **Analysé** : Point vert pour les fichiers analysés avec succès
+  - **Non analysé** : Point jaune pour les fichiers en attente d'analyse
+  - **En cours** : Point bleu animé pour les analyses en cours
+  - **Échec** : Point rouge pour les analyses échouées
+  - **Non pris en charge** : Croix rouge SVG (12px x 12px) pour les formats non supportés
 - **Couleurs cohérentes** : Palette harmonieuse avec icônes colorées
 - **Responsive design** : Adaptation mobile et desktop
 
@@ -258,8 +378,8 @@ DocuSense AI est une plateforme moderne et robuste d'analyse intelligente de doc
   - **Statuts colorés** : Points de statut avec couleurs centralisées
   - **Actions harmonisées** : Boutons avec couleurs d'accent et d'erreur
   - **Groupement par type** : Interface organisée par type d'analyse
-- **Analyses terminées** (Vert) : Consultation des résultats
-  - **Gestionnaire de fichiers** : Interface unifiée pour les analyses terminées
+- **Analyses IA** (Vert) : Consultation des résultats
+- **Gestionnaire de fichiers** : Interface unifiée pour les analyses effectuées
   - **Couleurs adaptatives** : Fond, texte et bordures selon le thème
   - **Aperçu des résultats** : Cartes compactes avec couleurs centralisées
   - **Statistiques en temps réel** : Compteurs avec couleurs harmonisées
@@ -368,6 +488,10 @@ DocuSense AI est une plateforme moderne et robuste d'analyse intelligente de doc
 - `components/FileManager/` : Gestion des fichiers (FileTree avec navigation intégrée, FileViewer)
   - **FileTree** : Menu contextuel avec actions conditionnelles selon la sélection
   - **FileViewer** : Visualisation intégrée sans modal, protection du téléchargement
+  - **Support multimédia** : Images, vidéos, audios, textes avec contrôles adaptés
+  - **Contrôles audio avancés** : Interface de lecture complète avec barre de contrôle fixe
+  - **Navigation directe** : Intégration dans le panneau principal
+  - **Téléchargement sécurisé** : Bouton de téléchargement avec validation
   - **FileResultViewer** : Onglet "Analyse IA" avec section "Dates d'Analyse IA"
   - **FileDetailsPanel** : Affichage des dates système et base de données
 - `components/Config/` : Configuration IA (ConfigWindow, ConfigContent)

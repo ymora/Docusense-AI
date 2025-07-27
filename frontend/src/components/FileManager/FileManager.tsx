@@ -228,7 +228,7 @@ const FileManager: React.FC = () => {
                       className="w-2 h-2 rounded-full mr-2"
                       style={{ backgroundColor: colors.analyses }}
                     ></div>
-                    <span>Analyses terminées ({completedAnalyses.length})</span>
+                    <span>Analyses IA effectuées ({completedAnalyses.length})</span>
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
@@ -272,7 +272,7 @@ const FileManager: React.FC = () => {
                     className="text-center text-xs mt-2"
                     style={{ color: colors.textSecondary }}
                   >
-                    +{completedAnalyses.length - 6} autres analyses terminées
+                    +{completedAnalyses.length - 6} autres analyses IA effectuées
                   </div>
                 )}
               </div>
@@ -304,9 +304,9 @@ const FileManager: React.FC = () => {
           <div className="flex items-center space-x-4">
             <span>Fichiers chargés: {files.length}</span>
             <span>Sélectionnés: {selectedFiles.length}</span>
-            <span>Analyses en cours: {files.filter(f => f.status === 'processing').length}</span>
-            <span>Analyses terminées: {files.filter(f => f.status === 'completed').length}</span>
-            <span>Échecs: {files.filter(f => f.status === 'failed').length}</span>
+            <span>Analyses IA en cours: {files.filter(f => f.status === 'processing').length}</span>
+            <span>Analyses IA terminées: {files.filter(f => f.status === 'completed').length}</span>
+            <span>Échecs d'analyse IA: {files.filter(f => f.status === 'failed').length}</span>
           </div>
           <div>
             {isProcessing && (

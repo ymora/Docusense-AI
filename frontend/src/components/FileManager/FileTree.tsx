@@ -99,25 +99,44 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ visible, x, y, file, onClose,
     const extension = fileName.split('.').pop()?.toLowerCase();
 
     // Images
-    if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'].includes(extension || '') ||
+    if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'tiff', 'ico', 'raw', 'heic', 'heif', 'cr2', 'nef', 'arw'].includes(extension || '') ||
         mimeType?.startsWith('image/')) {
       return 'image';
     }
 
     // Audio
-    if (['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a'].includes(extension || '') ||
+    if (['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a', 'wma', 'opus', 'aiff', 'alac'].includes(extension || '') ||
         mimeType?.startsWith('audio/')) {
       return 'audio';
     }
 
     // Vidéo
-    if (['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv'].includes(extension || '') ||
+    if (['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv', 'm4v', '3gp', 'ogv', 'ts', 'mts', 'm2ts'].includes(extension || '') ||
         mimeType?.startsWith('video/')) {
       return 'video';
     }
 
+    // Documents
+    if (['pdf', 'docx', 'doc', 'rtf', 'odt', 'pages', 'ppt', 'pptx', 'odp', 'key'].includes(extension || '') ||
+        mimeType?.startsWith('application/pdf') || mimeType?.startsWith('application/vnd.openxmlformats') || 
+        mimeType?.startsWith('application/msword') || mimeType?.startsWith('application/vnd.ms-powerpoint')) {
+      return 'document';
+    }
+
+    // Tableurs
+    if (['xlsx', 'xls', 'csv', 'ods', 'numbers'].includes(extension || '') ||
+        mimeType?.startsWith('application/vnd.ms-excel') || mimeType?.startsWith('application/vnd.openxmlformats-officedocument.spreadsheetml')) {
+      return 'spreadsheet';
+    }
+
+    // Emails
+    if (['eml', 'msg', 'pst', 'ost'].includes(extension || '') ||
+        mimeType?.startsWith('message/')) {
+      return 'email';
+    }
+
     // Texte
-    if (['txt', 'md', 'json', 'xml', 'html', 'css', 'js', 'ts', 'py', 'java', 'cpp', 'c', 'php', 'rb', 'go', 'rs'].includes(extension || '') ||
+    if (['txt', 'md', 'json', 'xml', 'html', 'css', 'js', 'ts', 'py', 'java', 'cpp', 'c', 'php', 'rb', 'go', 'rs', 'tex', 'log', 'ini', 'cfg', 'conf', 'yaml', 'yml', 'sql', 'sh', 'bat', 'ps1'].includes(extension || '') ||
         mimeType?.startsWith('text/')) {
       return 'text';
     }
@@ -134,6 +153,12 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ visible, x, y, file, onClose,
         return 'Écouter l\'audio dans le panneau principal';
       case 'video':
         return 'Regarder la vidéo dans le panneau principal';
+      case 'document':
+        return 'Ouvrir le document dans le panneau principal';
+      case 'spreadsheet':
+        return 'Ouvrir le tableur dans le panneau principal';
+      case 'email':
+        return 'Lire l\'email dans le panneau principal';
       case 'text':
         return 'Lire le contenu du fichier texte dans le panneau principal';
       default:
@@ -150,8 +175,14 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ visible, x, y, file, onClose,
         return '🎵';
       case 'video':
         return '🎬';
-      case 'text':
+      case 'document':
         return '📄';
+      case 'spreadsheet':
+        return '📊';
+      case 'email':
+        return '📧';
+      case 'text':
+        return '📝';
       default:
         return '👁️';
     }
@@ -166,6 +197,12 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ visible, x, y, file, onClose,
         return 'Écouter l\'audio dans le panneau principal';
       case 'video':
         return 'Regarder la vidéo dans le panneau principal';
+      case 'document':
+        return 'Ouvrir le document dans le panneau principal';
+      case 'spreadsheet':
+        return 'Ouvrir le tableur dans le panneau principal';
+      case 'email':
+        return 'Lire l\'email dans le panneau principal';
       case 'text':
         return 'Lire le contenu du fichier texte dans le panneau principal';
       default:
@@ -197,6 +234,11 @@ const ContextMenu: React.FC<ContextMenuProps> = ({ visible, x, y, file, onClose,
 
       {/* Actions */}
       <div className="py-1">
+        {/* Titre pour les actions de fichier */}
+        <div className="px-3 py-1 text-xs font-medium text-slate-400 uppercase tracking-wider">
+          Actions Fichier
+        </div>
+
         <button
           onClick={() => handleAction('view')}
           className={`w-full px-3 py-1.5 text-left text-xs flex items-center ${
@@ -459,18 +501,18 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
       case 'paused': return 'bg-yellow-500';
       case 'completed': return 'bg-green-500';
       case 'failed': return 'bg-red-500';
-      case 'unsupported': return 'bg-gray-800';
+      case 'unsupported': return 'unsupported-cross';
     }
   };
 
   // Fonction pour obtenir le texte du statut
   const getStatusText = (status: File['status']) => {
     switch (status) {
-      case 'pending': return 'En attente';
-      case 'processing': return 'En cours';
-      case 'paused': return 'En pause';
-      case 'completed': return 'Terminé';
-      case 'failed': return 'Échec';
+      case 'pending': return 'Non analysé par IA';
+      case 'processing': return 'Analyse IA en cours';
+      case 'paused': return 'Analyse IA en pause';
+      case 'completed': return 'Analysé par IA';
+      case 'failed': return 'Échec d\'analyse IA';
       case 'unsupported': return 'Format non supporté';
     }
   };
@@ -841,6 +883,15 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
               className="w-2 h-2 rounded-full bg-yellow-400 animate-pulse"
               title="Action en cours..."
             />
+          ) : finalStatus === 'unsupported' ? (
+            <svg
+              className="w-3 h-3 text-red-500"
+              fill="currentColor"
+              viewBox="0 0 20 20"
+              title={getStatusText(finalStatus)}
+            >
+              <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+            </svg>
           ) : (
             <div
               className={`w-2 h-2 rounded-full ${getStatusColor(finalStatus)} ${
@@ -854,51 +905,7 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
     );
   };
 
-  // Rendu d'un groupe de fichiers par statut
-  const renderFileGroup = (status: string, files: any[], level: number) => {
-    if (!files.length) return null;
 
-    const statusKey = `status-${status}-${level}`;
-    const isExpanded = expandedNodes.has(statusKey);
-    
-    const toggleExpansion = (e: React.MouseEvent) => {
-      e.stopPropagation();
-      const newExpanded = new Set(expandedNodes);
-      if (isExpanded) {
-        newExpanded.delete(statusKey);
-      } else {
-        newExpanded.add(statusKey);
-      }
-      setExpandedNodes(newExpanded);
-    };
-
-    return (
-      <div key={statusKey}>
-        <div
-          className="flex items-center px-2 py-1 cursor-pointer rounded transition-colors text-sm text-slate-300 hover:bg-slate-700"
-          style={{ paddingLeft: `${level * 16 + 8}px` }}
-          onClick={toggleExpansion}
-        >
-          <div className="mr-1 cursor-pointer hover:bg-slate-600 rounded p-0.5">
-            {isExpanded ? (
-              <ChevronDownIcon className="h-3 w-3" />
-            ) : (
-              <ChevronRightIcon className="h-3 w-3" />
-            )}
-          </div>
-          <div className={`w-2 h-2 rounded-full mr-2 ${status === 'none' ? 'bg-gray-400' : getStatusColor(status as File['status'])}`}></div>
-          <span className="font-medium capitalize">{status === 'none' ? 'Non analysé' : getStatusText(status as File['status'])}</span>
-          <span className="text-xs text-slate-400 ml-2">({files.length})</span>
-        </div>
-        
-        {isExpanded && (
-          <div>
-            {files.map((file: any) => renderFile(file, level + 1))}
-          </div>
-        )}
-      </div>
-    );
-  };
 
   // Rendu d'un dossier
   const renderDirectory = (dir: any, level: number) => {
@@ -978,26 +985,9 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
             )}
             
             {/* Fichiers groupés par statut */}
-            {dir.files && dir.files.length > 0 && (() => {
-              // Grouper les fichiers par statut
-              const filesByStatus: Record<string, any[]> = {};
-              
-              dir.files.forEach((file: any) => {
-                const queueStatus = getFileStatusFromQueue(file.path);
-                const finalStatus = queueStatus !== 'none' ? queueStatus : (file.status || 'supported');
-                if (!filesByStatus[finalStatus]) {
-                  filesByStatus[finalStatus] = [];
-                }
-                filesByStatus[finalStatus].push(file);
-              });
-
-              // Ordre d'affichage des statuts
-              const statusOrder = ['completed', 'processing', 'pending', 'failed', 'unsupported', 'supported'];
-              
-              return statusOrder
-                .filter(status => filesByStatus[status] && filesByStatus[status].length > 0)
-                .map(status => renderFileGroup(status, filesByStatus[status], level + 1));
-            })()}
+            {dir.files && dir.files.length > 0 && 
+              dir.files.map((file: any) => renderFile(file, level + 1))
+            }
           </div>
         )}
       </div>
@@ -1032,27 +1022,10 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
             renderDirectory(subdir, 1)
           )}
           
-          {/* Fichiers du répertoire racine groupés par statut */}
-          {filesystemData.files && filesystemData.files.length > 0 && (() => {
-            // Grouper les fichiers par statut
-            const filesByStatus: Record<string, any[]> = {};
-            
-            filesystemData.files.forEach((file: any) => {
-              const queueStatus = getFileStatusFromQueue(file.path);
-              const finalStatus = queueStatus !== 'none' ? queueStatus : (file.status || 'supported');
-              if (!filesByStatus[finalStatus]) {
-                filesByStatus[finalStatus] = [];
-              }
-              filesByStatus[finalStatus].push(file);
-            });
-
-            // Ordre d'affichage des statuts
-            const statusOrder = ['completed', 'processing', 'pending', 'failed', 'unsupported', 'supported'];
-            
-            return statusOrder
-              .filter(status => filesByStatus[status] && filesByStatus[status].length > 0)
-              .map(status => renderFileGroup(status, filesByStatus[status], 1));
-          })()}
+          {/* Fichiers du répertoire racine */}
+          {filesystemData.files && filesystemData.files.length > 0 && 
+            filesystemData.files.map((file: any) => renderFile(file, 1))
+          }
         </div>
       )}
 

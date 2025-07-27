@@ -281,19 +281,20 @@ const LeftPanel: React.FC = () => {
 
       {/* Zone de navigation avec sélecteur de disque */}
       <div className="p-3 border-b flex-shrink-0" style={{ borderColor: 'var(--border-color)' }}>
-        {/* Ligne avec sélecteur de disque et bouton parent */}
-        <div className="flex items-center gap-2">
-          {/* Sélecteur de disque */}
-          <div className="min-w-0 flex-1">
-            <DirectorySelector
-              onDirectorySelect={handleDirectorySelect}
-              currentDirectory={currentPath}
-              className="w-full"
-            />
-          </div>
+        {/* Sélecteur de disque principal */}
+        <div className="mb-2">
+          <div className="text-xs text-slate-400 mb-1">Sélectionner un disque :</div>
+          <DirectorySelector
+            onDirectorySelect={handleDirectorySelect}
+            currentDirectory={currentPath}
+            className="w-full"
+          />
+        </div>
 
-          {/* Bouton retour au parent - désactivé si à la racine */}
-          {currentPath && currentPath !== '/' && (
+        {/* Bouton retour au parent - séparé et clarifié */}
+        {currentPath && currentPath !== '/' && (
+          <div className="flex items-center justify-between">
+            <div className="text-xs text-slate-400">Navigation :</div>
             <button
               className={`flex items-center px-2 py-1 rounded transition-colors flex-shrink-0 border focus:outline-none focus:ring-2 focus:ring-opacity-50 ${
                 historyIndex <= 0
@@ -313,10 +314,10 @@ const LeftPanel: React.FC = () => {
               }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
               </svg>
-              <span className="text-xs whitespace-nowrap">Parent</span>
+              <span className="text-xs whitespace-nowrap">Dossier parent</span>
             </button>
-          )}
-        </div>
+          </div>
+        )}
       </div>
 
       {/* Contenu principal - Arborescence uniquement */}
@@ -342,6 +343,37 @@ const LeftPanel: React.FC = () => {
             />
           </div>
         )}
+      </div>
+
+      {/* Légende discrète en bas */}
+      <div className="p-2 border-t flex-shrink-0" style={{ borderColor: 'var(--border-color)' }}>
+        <div className="text-xs opacity-60">
+          <div className="text-slate-500 font-medium mb-1">Analyse IA:</div>
+          <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+            <div className="flex items-center space-x-1">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+              <span className="text-slate-400">Analysé</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
+              <span className="text-slate-400">Non analysé</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
+              <span className="text-slate-400">En cours</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+              <span className="text-slate-400">Échec</span>
+            </div>
+            <div className="flex items-center space-x-1">
+              <svg className="w-3 h-3 text-red-500" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+              </svg>
+              <span className="text-slate-400">Non pris en charge</span>
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

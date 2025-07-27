@@ -7,7 +7,7 @@ export const COLORS = {
     // Couleurs principales des panneaux
     config: '#3b82f6',      // Bleu pour Configuration IA
     queue: '#eab308',       // Jaune pour File d'attente
-    analyses: '#4ade80',    // Vert pour Analyses terminées
+    analyses: '#16a34a',    // Vert foncé pour Analyses IA
     
     // Couleurs du thème
     background: '#0f172a',  // Fond principal
@@ -24,10 +24,10 @@ export const COLORS = {
     
     // Couleurs de statut
     status: {
-      pending: '#eab308',   // Jaune - En attente
-      processing: '#3b82f6', // Bleu - En cours
-      completed: '#22c55e', // Vert - Terminé
-      failed: '#ef4444',    // Rouge - Échec
+      pending: '#ca8a04',   // Jaune foncé - Non analysé par IA
+      processing: '#2563eb', // Bleu foncé - Analyse IA en cours
+      completed: '#16a34a', // Vert foncé - Analysé par IA
+      failed: '#dc2626',    // Rouge foncé - Échec d'analyse IA
       paused: '#eab308',    // Jaune - En pause
       unsupported: '#475569' // Gris foncé - Non supporté
     },
@@ -47,7 +47,7 @@ export const COLORS = {
     // Couleurs principales des panneaux
     config: '#2563eb',      // Bleu foncé pour Configuration IA
     queue: '#ca8a04',       // Jaune foncé pour File d'attente
-    analyses: '#16a34a',    // Vert foncé pour Analyses terminées
+    analyses: '#16a34a',    // Vert foncé pour Analyses IA
     
     // Couleurs du thème
     background: '#ffffff',  // Fond principal
@@ -64,10 +64,10 @@ export const COLORS = {
     
     // Couleurs de statut
     status: {
-      pending: '#ca8a04',   // Jaune foncé - En attente
-      processing: '#2563eb', // Bleu foncé - En cours
-      completed: '#16a34a', // Vert foncé - Terminé
-      failed: '#dc2626',    // Rouge foncé - Échec
+      pending: '#ca8a04',   // Jaune foncé - Non analysé par IA
+      processing: '#2563eb', // Bleu foncé - Analyse IA en cours
+      completed: '#16a34a', // Vert foncé - Analysé par IA
+      failed: '#dc2626',    // Rouge foncé - Échec d'analyse IA
       paused: '#ca8a04',    // Jaune foncé - En pause
       unsupported: '#6b7280' // Gris - Non supporté
     },

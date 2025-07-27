@@ -49,11 +49,11 @@ const FileResultViewer: React.FC<FileResultViewerProps> = ({ selectedFile, onClo
 
   const getStatusText = (status: File['status']) => {
     switch (status) {
-      case 'pending': return 'En attente';
-      case 'processing': return 'En cours';
-      case 'paused': return 'En pause';
-      case 'completed': return 'Terminé';
-      case 'failed': return 'Échec';
+      case 'pending': return 'Non analysé par IA';
+      case 'processing': return 'Analyse IA en cours';
+      case 'paused': return 'Analyse IA en pause';
+      case 'completed': return 'Analysé par IA';
+      case 'failed': return 'Échec d\'analyse IA';
       case 'unsupported': return 'Non supporté';
       default: return 'Inconnu';
     }
@@ -354,7 +354,7 @@ const FileResultViewer: React.FC<FileResultViewerProps> = ({ selectedFile, onClo
                     )}
                     {selectedFile.analysis_metadata?.completed_at && (
                       <div>
-                        <span className="text-slate-400">Analyse terminée :</span>
+                        <span className="text-slate-400">Analyse effectuée :</span>
                         <span className="text-white ml-2">{formatDate(selectedFile.analysis_metadata.completed_at)}</span>
                       </div>
                     )}

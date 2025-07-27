@@ -24,7 +24,7 @@ const FileList: React.FC<FileListProps> = ({ files, selectedFiles, onFileSelect,
       case 'paused': return 'bg-yellow-500';
       case 'completed': return 'bg-green-500';
       case 'failed': return 'bg-red-500';
-      case 'unsupported': return 'bg-gray-800';
+      case 'unsupported': return 'unsupported-cross';
     }
   };
 
@@ -98,9 +98,15 @@ const FileList: React.FC<FileListProps> = ({ files, selectedFiles, onFileSelect,
 
             {/* Status indicator */}
             <div className="mr-4 flex flex-col items-center">
-              <div className={`w-3 h-3 rounded-full ${getStatusColor(file.status)} mb-1 ${
-                file.status === 'processing' || file.status === 'paused' ? 'animate-pulse' : ''
-              }`} />
+              {file.status === 'unsupported' ? (
+                <svg className="w-3 h-3 text-red-500 mb-1" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                </svg>
+              ) : (
+                <div className={`w-3 h-3 rounded-full ${getStatusColor(file.status)} mb-1 ${
+                  file.status === 'processing' || file.status === 'paused' ? 'animate-pulse' : ''
+                }`} />
+              )}
               <span className="text-xs text-slate-400">{getStatusText(file.status)}</span>
             </div>
 
@@ -133,8 +139,11 @@ const FileList: React.FC<FileListProps> = ({ files, selectedFiles, onFileSelect,
                     </p>
                   )}
                   {file.error_message && (
-                    <p className="text-xs text-red-400 mt-1 truncate">
-                      ✗ {file.error_message}
+                    <p className="text-xs text-red-400 mt-1 truncate flex items-center">
+                      <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+                      </svg>
+                      {file.error_message}
                     </p>
                   )}
                 </div>

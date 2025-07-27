@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import LeftPanel from './LeftPanel';
 import MainPanel from './MainPanel';
+import SelectionIndicator from '../UI/SelectionIndicator';
 import { useUIStore } from '../../stores/uiStore';
 import { useQueueStore } from '../../stores/queueStore';
 import { useFileStore } from '../../stores/fileStore';
@@ -174,6 +175,9 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         color: 'var(--text-color)',
       } as React.CSSProperties}
     >
+      {/* Indicateur de fichiers sélectionnés */}
+      <SelectionIndicator />
+
       {/* Panneau de gauche redimensionnable - monte jusqu'en haut */}
       <div
         className="flex-shrink-0 border-r left-panel-container"

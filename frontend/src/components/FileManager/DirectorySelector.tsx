@@ -66,13 +66,22 @@ const DirectorySelector: React.FC<DirectorySelectorProps> = ({
     <div ref={ref} className={`relative ${className}`}>
       <button
         onClick={() => setShowDrives(!showDrives)}
-        className="p-2 hover:bg-slate-700 rounded text-blue-400 hover:text-blue-500 hover:scale-105 transition-all duration-200 focus:outline-none"
+        className="w-full flex items-center justify-between p-2 hover:bg-slate-700 rounded border border-slate-600 text-blue-400 hover:text-blue-500 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
         title="Sélectionner un disque système"
       >
-        <DeviceTabletIcon className="w-6 h-6" />
+        <div className="flex items-center">
+          <DeviceTabletIcon className="w-5 h-5 mr-2" />
+          <span className="text-sm">Choisir un disque</span>
+        </div>
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+        </svg>
       </button>
       {showDrives && (
-        <div className="absolute left-0 mt-2 w-32 bg-slate-800 border border-slate-600 rounded shadow-lg z-50">
+        <div className="absolute left-0 right-0 mt-2 bg-slate-800 border border-slate-600 rounded shadow-lg z-50">
+          <div className="p-2 border-b border-slate-600">
+            <div className="text-xs text-slate-400 font-medium">Disques disponibles :</div>
+          </div>
           <ul className="py-1">
             {availableDrives.length === 0 && (
               <li className="px-3 py-2 text-slate-400 text-xs">Aucun lecteur détecté</li>
@@ -85,7 +94,7 @@ const DirectorySelector: React.FC<DirectorySelectorProps> = ({
                   title={`Naviguer vers ${drive}`}
                 >
                   <DeviceTabletIcon className="h-4 w-4 mr-2 text-blue-400" />
-                  {drive}
+                  <span className="text-sm">{drive}</span>
                 </button>
               </li>
             ))}

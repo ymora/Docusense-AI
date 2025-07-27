@@ -82,25 +82,25 @@ export const getFileStatusInfo = (status: string): FileStatus => {
       return {
         status: 'completed',
         color: 'bg-green-500',
-        text: 'Terminé',
+        text: 'Analysé par IA',
       };
     case 'failed':
       return {
         status: 'failed',
         color: 'bg-red-500',
-        text: 'Échec',
+        text: 'Échec d\'analyse IA',
       };
     case 'processing':
       return {
         status: 'processing',
         color: 'bg-blue-500',
-        text: 'En cours',
+        text: 'Analyse IA en cours',
       };
     case 'pending':
       return {
         status: 'pending',
         color: 'bg-yellow-500',
-        text: 'En attente',
+        text: 'Non analysé par IA',
       };
     case 'unsupported':
       return {

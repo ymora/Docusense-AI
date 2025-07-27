@@ -132,19 +132,39 @@ class PromptService {
   // Utilitaire : est-ce un fichier texte ?
   isTextFile(fileType?: string): boolean {
     if (!fileType) {return false;}
-    const textTypes = ['txt', 'md', 'rtf', 'text/plain'];
+    const textTypes = [
+      'txt', 'md', 'rtf', 'text/plain', 'html', 'css', 'js', 'ts', 'py', 'java', 
+      'cpp', 'c', 'php', 'rb', 'go', 'rs', 'xml', 'json', 'yaml', 'yml', 'sql', 
+      'sh', 'bat', 'ps1', 'tex', 'log', 'ini', 'cfg', 'conf'
+    ];
     return textTypes.some(ext => fileType.toLowerCase().includes(ext));
   }
   // Utilitaire : est-ce un fichier supporté ?
   isSupportedFile(fileType?: string): boolean {
     if (!fileType) {return false;}
-    const supported = ['pdf', 'docx', 'doc', 'txt', 'eml', 'msg', 'xlsx', 'xls', 'csv', 'jpg', 'jpeg', 'png', 'html'];
+    // Formats supportés pour l'analyse IA (cohérent avec le backend)
+    const supported = [
+      // Documents
+      'pdf', 'docx', 'doc', 'txt', 'html', 'rtf', 'odt', 'pages', 'md', 'tex',
+      // Emails
+      'eml', 'msg', 'pst', 'ost',
+      // Tableurs
+      'xlsx', 'xls', 'csv', 'ods', 'numbers',
+      // Images
+      'jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'svg', 'webp', 'ico', 'raw', 'heic', 'heif', 'cr2', 'nef', 'arw',
+      // Vidéos
+      'mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv', 'm4v', '3gp', 'ogv', 'ts', 'mts', 'm2ts',
+      // Audio
+      'mp3', 'wav', 'flac', 'aac', 'ogg', 'wma', 'm4a', 'opus', 'aiff', 'alac',
+      // Présentations
+      'ppt', 'pptx', 'odp', 'key'
+    ];
     return supported.some(ext => fileType.toLowerCase().includes(ext));
   }
   // Utilitaire : est-ce une image ?
   isImageFile(fileType?: string): boolean {
     if (!fileType) {return false;}
-    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff'];
+    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'svg', 'webp', 'ico', 'raw', 'heic', 'heif', 'cr2', 'nef', 'arw'];
     return imageExtensions.some(ext => fileType.toLowerCase().includes(ext));
   }
 

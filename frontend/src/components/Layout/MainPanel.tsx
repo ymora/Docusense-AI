@@ -5,9 +5,16 @@ import {
   ChartBarIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
+  PlayIcon,
+  PauseIcon,
+  StopIcon,
+  SpeakerWaveIcon,
+  SpeakerXMarkIcon,
+  VideoCameraIcon,
 } from '@heroicons/react/24/outline';
 import { useFileStore } from '../../stores/fileStore';
 import { useQueueStore } from '../../stores/queueStore';
+import { useColors } from '../../hooks/useColors';
 import FileDetailsPanel from '../FileManager/FileDetailsPanel';
 import FileViewer from '../FileManager/FileViewer';
 import FileResultViewer from '../FileManager/FileResultViewer';
@@ -22,7 +29,35 @@ interface MainPanelProps {
 
 const MainPanel: React.FC<MainPanelProps> = ({ activePanel, setActivePanel }) => {
   const { selectedFile, files, markFileAsViewed, getAnalysisStats, selectFile } = useFileStore();
+  const { colors } = useColors();
   const [viewMode, setViewMode] = useState<'details' | 'file' | 'results'>('details');
+  
+  // États pour les contrôles multimédia (audio et vidéo)
+  const [mediaControls, setMediaControls] = useState<{
+    type: 'audio' | 'video';
+    isPlaying: boolean;
+    currentTime: number;
+    duration: number;
+    volume: number;
+    isMuted: boolean;
+    onPlay: () => void;
+    onPause: () => void;
+    onStop: () => void;
+    onSeek: (time: number) => void;
+    onVolumeChange: (volume: number) => void;
+    onMuteToggle: () => void;
+  } | null>(null);
+
+  // Fonction pour gérer les contrôles multimédia depuis FileViewer
+  const handleMediaControls = (controls: any) => {
+    console.log('🎵 MainPanel: Réception des contrôles multimédia:', controls);
+    setMediaControls(controls);
+  };
+
+  // Réinitialiser les contrôles multimédia quand on change de fichier
+  useEffect(() => {
+    setMediaControls(null);
+  }, [selectedFile?.id]);
 
   // Afficher automatiquement le panneau de détails quand un fichier est sélectionné
   React.useEffect(() => {
@@ -308,7 +343,7 @@ const MainPanel: React.FC<MainPanelProps> = ({ activePanel, setActivePanel }) =>
                             </div>
                             <div className="flex justify-between">
                               <span className="text-slate-400">Statut d'analyse IA :</span>
-                              <span className="text-yellow-400 font-medium">En attente d'analyse</span>
+                              <span className="text-yellow-400 font-medium">Non analysé par l'IA</span>
                             </div>
                           </div>
                         </div>
@@ -346,6 +381,7 @@ const MainPanel: React.FC<MainPanelProps> = ({ activePanel, setActivePanel }) =>
                     onClose={handleCloseFileViewer}
                     currentIndex={files.findIndex(f => f.id === selectedFile.id)}
                     totalFiles={files.length}
+                    onMediaControls={handleMediaControls}
                   />
                 </div>
               ) : viewMode === 'results' ? (
@@ -364,6 +400,8 @@ const MainPanel: React.FC<MainPanelProps> = ({ activePanel, setActivePanel }) =>
                   onViewFile={handleViewFile} 
                 />
               )}
+
+              
             </>
           )}
 
@@ -380,9 +418,9 @@ const MainPanel: React.FC<MainPanelProps> = ({ activePanel, setActivePanel }) =>
               <div className="max-w-6xl mx-auto">
                 <div className="flex items-center justify-between mb-6">
                   <div>
-                    <h2 className="text-2xl font-bold text-slate-200 mb-2">Analyses Terminées</h2>
+                    <h2 className="text-2xl font-bold text-slate-200 mb-2">Analyses IA</h2>
                     <p className="text-slate-400">
-                      {completedAnalyses.length} analyse{completedAnalyses.length !== 1 ? 's' : ''} terminée{completedAnalyses.length !== 1 ? 's' : ''}
+                      {completedAnalyses.length} analyse{completedAnalyses.length !== 1 ? 's' : ''} effectuée{completedAnalyses.length !== 1 ? 's' : ''}
                     </p>
                   </div>
                   <button
@@ -449,9 +487,9 @@ const MainPanel: React.FC<MainPanelProps> = ({ activePanel, setActivePanel }) =>
                   {completedAnalyses.length === 0 ? (
                     <div className="text-center py-12">
                       <div className="text-slate-500 text-6xl mb-4">📊</div>
-                      <h3 className="text-lg font-medium text-slate-300 mb-2">Aucune analyse terminée</h3>
+                      <h3 className="text-lg font-medium text-slate-300 mb-2">Aucune analyse effectuée</h3>
                       <p className="text-slate-400">
-                        Les analyses terminées apparaîtront ici une fois qu'elles seront complétées.
+                        Les analyses IA apparaîtront ici une fois qu'elles seront complétées.
                       </p>
                     </div>
                   ) : (
@@ -475,7 +513,7 @@ const MainPanel: React.FC<MainPanelProps> = ({ activePanel, setActivePanel }) =>
                           </div>
                           <div className="flex items-center space-x-2">
                             <span className="text-sm text-green-400 bg-green-500/10 px-2 py-1 rounded">
-                              Terminé
+                              Analysé par IA
                             </span>
                             <EyeIcon className="h-5 w-5 text-slate-400" />
                           </div>
@@ -489,6 +527,128 @@ const MainPanel: React.FC<MainPanelProps> = ({ activePanel, setActivePanel }) =>
           )}
         </div>
       </div>
+
+      {/* Contrôles multimédia en bas du panneau - pour les fichiers audio et vidéo */}
+      {mediaControls && selectedFile && (() => {
+        const fileType = selectedFile.name?.split('.').pop()?.toLowerCase();
+        const isAudioFile = ['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a', 'wma', 'opus', 'aiff', 'alac'].includes(fileType || '');
+        const isVideoFile = ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv', 'm4v', '3gp', 'ogv', 'ts', 'mts', 'm2ts'].includes(fileType || '');
+        return isAudioFile || isVideoFile;
+      })() && (
+        <div 
+          className="absolute bottom-4 left-1/2 transform -translate-x-1/2 z-50"
+          style={{
+            backgroundColor: colors.surface + 'F0',
+            borderColor: colors.border,
+            backdropFilter: 'blur(8px)'
+          }}
+        >
+          <div className="flex items-center space-x-3 p-3 rounded-xl border shadow-lg">
+            {/* Nom du fichier */}
+            <div className="min-w-0">
+              <h4 
+                className="text-xs font-medium truncate max-w-32"
+                style={{ color: colors.text }}
+                title={selectedFile?.name}
+              >
+                {selectedFile?.name}
+              </h4>
+            </div>
+
+            {/* Contrôles de lecture */}
+            <div className="flex items-center space-x-1">
+              <button
+                onClick={mediaControls.onPlay}
+                disabled={mediaControls.isPlaying}
+                className="p-1.5 rounded-lg transition-colors disabled:opacity-50"
+                style={{
+                  backgroundColor: mediaControls.isPlaying ? colors.border : colors.config + '20',
+                  color: mediaControls.isPlaying ? colors.textSecondary : colors.config
+                }}
+                title="Lecture"
+              >
+                <PlayIcon className="h-4 w-4" />
+              </button>
+
+              <button
+                onClick={mediaControls.onPause}
+                disabled={!mediaControls.isPlaying}
+                className="p-1.5 rounded-lg transition-colors disabled:opacity-50"
+                style={{
+                  backgroundColor: !mediaControls.isPlaying ? colors.border : colors.config + '20',
+                  color: !mediaControls.isPlaying ? colors.textSecondary : colors.config
+                }}
+                title="Pause"
+              >
+                <PauseIcon className="h-4 w-4" />
+              </button>
+
+              <button
+                onClick={mediaControls.onStop}
+                className="p-1.5 rounded-lg transition-colors"
+                style={{
+                  backgroundColor: colors.config + '20',
+                  color: colors.config
+                }}
+                title="Stop"
+              >
+                <StopIcon className="h-4 w-4" />
+              </button>
+            </div>
+
+            {/* Temps */}
+            <div className="text-xs" style={{ color: colors.textSecondary }}>
+              {Math.floor(mediaControls.currentTime / 60)}:{(mediaControls.currentTime % 60).toFixed(0).padStart(2, '0')} / {Math.floor(mediaControls.duration / 60)}:{(mediaControls.duration % 60).toFixed(0).padStart(2, '0')}
+            </div>
+
+            {/* Barre de progression */}
+            <div className="w-24">
+              <input
+                type="range"
+                min="0"
+                max={mediaControls.duration || 100}
+                value={mediaControls.currentTime}
+                onChange={(e) => mediaControls.onSeek(parseFloat(e.target.value))}
+                className="w-full h-1.5 rounded-lg appearance-none cursor-pointer"
+                style={{
+                  background: `linear-gradient(to right, ${colors.config} 0%, ${colors.config} ${(mediaControls.currentTime / (mediaControls.duration || 1)) * 100}%, ${colors.border} ${(mediaControls.currentTime / (mediaControls.duration || 1)) * 100}%, ${colors.border} 100%)`
+                }}
+              />
+            </div>
+
+            {/* Contrôle du volume */}
+            <div className="flex items-center space-x-1">
+              <button
+                onClick={mediaControls.onMuteToggle}
+                className="p-1.5 rounded-lg transition-colors"
+                style={{
+                  backgroundColor: colors.config + '20',
+                  color: colors.config
+                }}
+                title={mediaControls.isMuted ? 'Activer le son' : 'Couper le son'}
+              >
+                {mediaControls.isMuted ? (
+                  <SpeakerXMarkIcon className="h-4 w-4" />
+                ) : (
+                  <SpeakerWaveIcon className="h-4 w-4" />
+                )}
+              </button>
+              <input
+                type="range"
+                min="0"
+                max="1"
+                step="0.1"
+                value={mediaControls.volume}
+                onChange={(e) => mediaControls.onVolumeChange(parseFloat(e.target.value))}
+                className="w-12 h-1.5 rounded-lg appearance-none cursor-pointer"
+                style={{
+                  background: `linear-gradient(to right, ${colors.config} 0%, ${colors.config} ${mediaControls.volume * 100}%, ${colors.border} ${mediaControls.volume * 100}%, ${colors.border} 100%)`
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
