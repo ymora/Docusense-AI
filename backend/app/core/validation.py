@@ -387,6 +387,7 @@ class ErrorHandler:
                 logger.warning(f"Avertissement {context}: {warning}")
 
         if result.is_valid and not result.warnings:
+            logger.info(f"Validation réussie {context}")
 
     @staticmethod
     def handle_exception(e: Exception, context: str = "") -> Dict[str, Any]:

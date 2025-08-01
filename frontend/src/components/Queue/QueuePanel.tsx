@@ -1,12 +1,18 @@
 import React, { useState, useEffect } from 'react';
-import { useQueueStore } from '../../stores/queueStore';
+import { 
+  ArrowPathIcon, 
+  TrashIcon, 
+  PauseIcon, 
+  PlayIcon,
+  XMarkIcon,
+  ClockIcon,
+  CheckCircleIcon,
+  ExclamationTriangleIcon
+} from '@heroicons/react/24/outline';
 import { useColors } from '../../hooks/useColors';
-import { XMarkIcon, MinusIcon, FunnelIcon, ArrowPathIcon, PlayIcon, PauseIcon, TrashIcon, ViewColumnsIcon, Squares2X2Icon } from '@heroicons/react/24/outline';
-
-interface QueuePanelProps {
-  onClose?: () => void;
-  onMinimize?: () => void;
-}
+import { useQueueStore, QueueItem } from '../../stores/queueStore';
+import { formatFileSize } from '../../utils/fileUtils';
+import { getStatusIcon, getStatusColor } from '../../utils/statusUtils.tsx';
 
 interface QueueContentProps {
   onClose?: () => void;
@@ -21,22 +27,75 @@ export const QueueContent: React.FC<QueueContentProps> = ({ onClose, onMinimize,
     queueItems,
     queueStatus,
     loadQueueStatus,
-    pauseType,
-    resumeType,
     deleteType,
     retryType,
   } = useQueueStore();
-  const [groupByType, setGroupByType] = useState(true);
-  const [viewMode, setViewMode] = useState<'list' | 'grid'>('grid');
 
   useEffect(() => {
     loadQueueStatus();
-    const interval = setInterval(loadQueueStatus, 5000);
+    const interval = setInterval(loadQueueStatus, 15000);
     return () => clearInterval(interval);
   }, [loadQueueStatus]);
 
-  // Liste ordonnée des types d'analyse supportés
-  const ALL_ANALYSIS_TYPES = [
+  // Écouter les événements de rechargement de la queue
+  useEffect(() => {
+    const handleReloadQueue = () => {
+      console.log('🔍 QueuePanel: Événement reloadQueue reçu, rechargement...');
+      loadQueueStatus();
+    };
+
+    window.addEventListener('reloadQueue', handleReloadQueue);
+    return () => {
+      window.removeEventListener('reloadQueue', handleReloadQueue);
+    };
+  }, [loadQueueStatus]);
+
+  // Fonction pour extraire le type de prompt depuis les métadonnées
+  const getPromptType = (item: any) => {
+    const metadata = item.analysis_metadata || {};
+    const promptId = metadata.prompt_id || 'general_summary';
+    
+    // Extraire le type de prompt depuis l'ID
+    if (promptId.includes('summary')) return 'summary';
+    if (promptId.includes('extraction')) return 'extraction';
+    if (promptId.includes('comparison')) return 'comparison';
+    if (promptId.includes('classification')) return 'classification';
+    if (promptId.includes('ocr')) return 'ocr';
+    if (promptId.includes('juridical')) return 'juridical';
+    if (promptId.includes('technical')) return 'technical';
+    if (promptId.includes('administrative')) return 'administrative';
+    if (promptId.includes('general')) return 'general';
+    
+    return 'general';
+  };
+
+  // Fonction pour déterminer si c'est une analyse multiple par IA
+  const isMultipleAI = (item: any) => {
+    const metadata = item.analysis_metadata || {};
+    return metadata.is_multiple_ai === true || item.analysis_type === 'multiple_ai';
+  };
+
+  // Fonction pour obtenir les IA utilisées
+  const getAIProviders = (item: any) => {
+    const metadata = item.analysis_metadata || {};
+    
+    if (isMultipleAI(item)) {
+      // Pour les analyses multiples, récupérer tous les providers
+      const providers = new Set();
+      queueItems.forEach(relatedItem => {
+        if (relatedItem.analysis_metadata?.multiple_ai_file_ids === metadata.multiple_ai_file_ids) {
+          providers.add(relatedItem.provider);
+        }
+      });
+      return Array.from(providers);
+    } else {
+      // Pour les analyses simples, juste le provider actuel
+      return [item.provider];
+    }
+  };
+
+  // Liste ordonnée des types de prompt supportés
+  const ALL_PROMPT_TYPES = [
     'general',
     'summary',
     'extraction',
@@ -48,60 +107,22 @@ export const QueueContent: React.FC<QueueContentProps> = ({ onClose, onMinimize,
     'comparison',
   ];
 
-  // Grouper les éléments par type d'analyse
+  // Grouper les éléments par type de prompt
   const groupedItems: Record<string, typeof queueItems> = {};
-  ALL_ANALYSIS_TYPES.forEach(type => {
+  ALL_PROMPT_TYPES.forEach(type => {
     groupedItems[type] = [];
   });
+  
   queueItems.forEach(item => {
-    const type = item.analysis_type || 'general';
-    if (groupedItems[type]) {
-      groupedItems[type].push(item);
+    const promptType = getPromptType(item);
+    if (groupedItems[promptType]) {
+      groupedItems[promptType].push(item);
     } else {
-      groupedItems['general'].push(item); // fallback
+      groupedItems['general'].push(item);
     }
   });
 
-  // Séparer les analyses individuelles des comparaisons
-  const individualAnalyses = ALL_ANALYSIS_TYPES.filter(type => type !== 'comparison');
-  const comparisonAnalyses = ['comparison'];
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'pending': return colors.status.pending;
-      case 'processing': return colors.status.processing;
-      case 'completed': return colors.status.completed;
-      case 'failed': return colors.status.failed;
-      default: return colors.textSecondary;
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'pending': return '⏳';
-      case 'processing': return '🔄';
-      case 'completed': return '✅';
-      case 'failed': return '❌';
-      default: return '❓';
-    }
-  };
-
-  const getAnalysisTypeColor = (type: string) => {
-    switch (type) {
-      case 'general': return 'bg-blue-600 text-blue-200';
-      case 'summary': return 'bg-green-600 text-green-200';
-      case 'extraction': return 'bg-purple-600 text-purple-200';
-      case 'comparison': return 'bg-orange-600 text-orange-200';
-      case 'classification': return 'bg-indigo-600 text-indigo-200';
-      case 'ocr': return 'bg-red-600 text-red-200';
-      case 'juridical': return 'bg-yellow-600 text-yellow-200';
-      case 'technical': return 'bg-cyan-600 text-cyan-200';
-      case 'administrative': return 'bg-pink-600 text-pink-200';
-      default: return 'bg-slate-600 text-slate-200';
-    }
-  };
-
-  const getAnalysisTypeName = (type: string) => {
+  const getPromptTypeName = (type: string) => {
     switch (type) {
       case 'general': return 'Général';
       case 'summary': return 'Résumé';
@@ -116,7 +137,7 @@ export const QueueContent: React.FC<QueueContentProps> = ({ onClose, onMinimize,
     }
   };
 
-  const getAnalysisTypeIcon = (type: string) => {
+  const getPromptTypeIcon = (type: string) => {
     switch (type) {
       case 'general': return '📄';
       case 'summary': return '📝';
@@ -131,26 +152,6 @@ export const QueueContent: React.FC<QueueContentProps> = ({ onClose, onMinimize,
     }
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
-  };
-
-  const handlePauseType = async (type: string) => {
-    await pauseType(type);
-  };
-
-  const handleResumeType = async (type: string) => {
-    await resumeType(type);
-  };
-
   const handleDeleteType = async (type: string) => {
     await deleteType(type);
   };
@@ -159,92 +160,183 @@ export const QueueContent: React.FC<QueueContentProps> = ({ onClose, onMinimize,
     await retryType(type);
   };
 
-  // Rendu d'un élément de queue compact
-  const renderQueueItemCompact = (item: any) => (
-    <div 
-      key={item.id} 
-      className="rounded-lg p-2 border text-xs"
+  // Actions individuelles (à implémenter dans le store)
+  const handlePauseItem = async (itemId: string) => {
+    // TODO: Implémenter dans le store
+  };
+
+  const handleCancelItem = async (itemId: string) => {
+    // TODO: Implémenter dans le store
+  };
+
+  const handleRetryItem = async (itemId: string) => {
+    // TODO: Implémenter dans le store
+  };
+
+  // Rendu d'un élément de queue compact et épuré
+  const renderQueueItem = (item: any) => (
+    <div
+      key={item.id}
+      className="rounded-lg p-4 border mb-3 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
       style={{
         backgroundColor: colors.surface,
-        borderColor: colors.border
+        borderColor: colors.border,
       }}
     >
-      {/* Ligne 1 : nom du fichier et statut */}
-      <div className="flex items-center justify-between mb-1">
-        <span 
-          className="font-medium truncate flex-1 mr-2"
-          style={{ color: colors.text }}
-        >
-          {item.file_name}
-        </span>
-        <span 
-          className="text-xs"
-          style={{ color: getStatusColor(item.status) }}
-        >
-          {getStatusIcon(item.status)}
-        </span>
-      </div>
-      {/* Ligne 2 : type d'analyse et taille */}
-      <div className="flex items-center justify-between mb-1">
-        <span 
-          className="px-1 py-0.5 rounded text-xs"
-          style={{
-            backgroundColor: colorMode === 'dark' ? '#475569' : '#e2e8f0',
-            color: colors.text
-          }}
-        >
-          {getAnalysisTypeName(item.analysis_type)}
-        </span>
-        <span 
-          className="text-xs"
-          style={{ color: colors.textSecondary }}
-        >
-          {formatFileSize(item.file_size || 0)}
-        </span>
-      </div>
-      {/* Ligne 3 : provider et actions */}
-      <div className="flex items-center justify-between">
-        <span 
-          className="text-xs truncate"
-          style={{ 
-            color: colors.textSecondary,
-            fontSize: '11px' 
-          }}
-        >
-          {item.analysis_provider && item.analysis_model && (
-            <>{item.analysis_provider} • {item.analysis_model}</>
-          )}
-        </span>
-        <div className="flex items-center space-x-1 ml-2">
-          <button 
-            onClick={() => handleRetryType(item.analysis_type)} 
-            className="p-1 hover:opacity-70" 
-            style={{ color: colors.queue }}
-            title="Relancer"
+      {/* En-tête : Nom du fichier et statut */}
+      <div className="flex items-start justify-between mb-3">
+        <div className="flex-1 min-w-0">
+          <h4 className="font-medium text-sm truncate mb-1" style={{ color: colors.text }}>
+            {item.file_info?.name || item.file_name || 'Fichier inconnu'}
+          </h4>
+          <div className="flex items-center space-x-3 text-xs" style={{ color: colors.textSecondary }}>
+            <span>{formatFileSize(item.file_info?.size || item.file_size || 0)}</span>
+            <span>•</span>
+            <span>{getPromptTypeName(getPromptType(item))}</span>
+            <span>•</span>
+            <span>{new Date(item.created_at).toLocaleTimeString('fr-FR', { 
+              hour: '2-digit', 
+              minute: '2-digit' 
+            })}</span>
+          </div>
+        </div>
+        <div className="flex items-center space-x-2 ml-3">
+          <span
+            className="px-2 py-1 rounded text-xs font-medium"
+            style={{ 
+              color: getStatusColor(item.status),
+              backgroundColor: colorMode === 'dark' ? getStatusColor(item.status) + '15' : getStatusColor(item.status) + '08'
+            }}
           >
-            <ArrowPathIcon className="h-3 w-3" />
-          </button>
-          <button 
-            onClick={() => handleDeleteType(item.analysis_type)} 
-            className="p-1 hover:opacity-70" 
-            style={{ color: colors.error }}
-            title="Supprimer"
-          >
-            <TrashIcon className="h-3 w-3" />
-          </button>
+            {getStatusIcon(item.status)} {item.status}
+          </span>
         </div>
       </div>
-      {/* Message d'erreur */}
-      {item.error_message && (
-        <div 
-          className="mt-1 p-1 border rounded text-xs"
-          style={{
-            backgroundColor: colorMode === 'dark' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(239, 68, 68, 0.05)',
-            borderColor: colors.error
-          }}
+
+      {/* Informations techniques discrètes */}
+      <div className="flex items-center space-x-2 mb-3">
+        {/* Type d'analyse (Simple/Multiple) */}
+        <span className="text-xs px-2 py-1 rounded border" style={{ 
+          borderColor: colors.border,
+          color: isMultipleAI(item) ? colors.primary : colors.textSecondary,
+          backgroundColor: colors.surface,
+          fontWeight: isMultipleAI(item) ? '600' : '400'
+        }}>
+          {isMultipleAI(item) ? '🔗 Multiple IA' : '🔹 IA Simple'}
+        </span>
+        
+        {/* Providers IA utilisés */}
+        {getAIProviders(item).map((provider, index) => (
+          <span key={index} className="text-xs px-2 py-1 rounded border" style={{ 
+            borderColor: colors.border,
+            color: colors.textSecondary,
+            backgroundColor: colors.surface
+          }}>
+            {provider}
+          </span>
+        ))}
+        
+        {/* Modèle actuel */}
+        {item.analysis_model && (
+          <span className="text-xs px-2 py-1 rounded border" style={{ 
+            borderColor: colors.border,
+            color: colors.textSecondary,
+            backgroundColor: colors.surface
+          }}>
+            {item.analysis_model}
+          </span>
+        )}
+        
+        {/* Prompt ID */}
+        {item.analysis_metadata?.prompt_id && (
+          <span className="text-xs px-2 py-1 rounded border" style={{ 
+            borderColor: colors.border,
+            color: colors.textSecondary,
+            backgroundColor: colors.surface
+          }}>
+            {item.analysis_metadata.prompt_id}
+          </span>
+        )}
+      </div>
+
+      {/* Barre de progression */}
+      {(item.status === 'processing' || item.status === 'pending') && (
+        <div className="mb-3">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs" style={{ color: colors.textSecondary }}>
+              {item.current_step || 'En attente...'}
+            </span>
+            <span className="text-xs font-medium" style={{ color: colors.text }}>
+              {Math.round((item.progress || 0) * 100)}%
+            </span>
+          </div>
+          <div
+            className="w-full rounded-full h-2"
+            style={{ backgroundColor: colorMode === 'dark' ? '#374151' : '#e5e7eb' }}
+          >
+            <div
+              className="h-2 rounded-full transition-all duration-300"
+              style={{
+                width: `${(item.progress || 0) * 100}%`,
+                backgroundColor: getStatusColor(item.status),
+              }}
+            ></div>
+          </div>
+        </div>
+      )}
+
+      {/* Actions */}
+      <div className="flex items-center justify-end space-x-1">
+        {item.status === 'processing' && (
+          <button
+            onClick={() => handlePauseItem(item.id)}
+            className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors"
+            style={{ color: colors.textSecondary }}
+            title="Mettre en pause"
+          >
+            <PauseIcon className="h-4 w-4" />
+          </button>
+        )}
+        {item.status === 'paused' && (
+          <button
+            onClick={() => handleRetryItem(item.id)}
+            className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors"
+            style={{ color: colors.textSecondary }}
+            title="Relancer"
+          >
+            <PlayIcon className="h-4 w-4" />
+          </button>
+        )}
+        {item.status === 'failed' && (
+          <button
+            onClick={() => handleRetryItem(item.id)}
+            className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors"
+            style={{ color: colors.textSecondary }}
+            title="Réessayer"
+          >
+            <ArrowPathIcon className="h-4 w-4" />
+          </button>
+        )}
+        <button
+          onClick={() => handleCancelItem(item.id)}
+          className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors"
+            style={{ color: colors.textSecondary }}
+          title="Annuler"
         >
-          <strong style={{ color: colors.error }}>Erreur :</strong> 
-          <span style={{ color: colors.textSecondary }}> {item.error_message}</span>
+          <XMarkIcon className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Message d'erreur (affiché seulement si erreur) */}
+      {item.error_message && (
+        <div className="mt-3 p-3 border rounded text-xs" style={{
+          backgroundColor: colorMode === 'dark' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(239, 68, 68, 0.05)',
+          borderColor: colors.error,
+        }}>
+          <div className="flex items-start space-x-2">
+            <span style={{ color: colors.error }}>⚠️</span>
+            <span style={{ color: colors.textSecondary }}>{item.error_message}</span>
+          </div>
         </div>
       )}
     </div>
@@ -252,103 +344,182 @@ export const QueueContent: React.FC<QueueContentProps> = ({ onClose, onMinimize,
 
   // Rendu d'une section par type d'analyse
   const renderTypeSection = (type: string) => {
-    if (!groupedItems[type] || groupedItems[type].length === 0) {return null;}
+    if (!groupedItems[type] || groupedItems[type].length === 0) {
+      return null;
+    }
+    
+    const items = groupedItems[type];
+    const pendingCount = items.filter(item => item.status === 'pending').length;
+    const processingCount = items.filter(item => item.status === 'processing').length;
+    const completedCount = items.filter(item => item.status === 'completed').length;
+    const failedCount = items.filter((item: any) => item.status === 'failed').length;
+    const pausedCount = items.filter((item: any) => item.status === 'paused').length;
+    
     return (
-      <div key={type} className="mb-3">
-        {/* Titre de section */}
-        <div className="flex items-center mb-1 px-1">
-          <span className="text-lg mr-2">{getAnalysisTypeIcon(type)}</span>
-          <span 
-            className="font-semibold text-xs capitalize mr-2"
-            style={{ color: colors.text }}
-          >
-            {getAnalysisTypeName(type)}
-          </span>
-          <span 
-            className="text-xs rounded px-1 py-0.5 ml-1"
-            style={{
-              backgroundColor: colorMode === 'dark' ? '#475569' : '#e2e8f0',
-              color: colors.text
-            }}
-          >
-            {groupedItems[type].length}
-          </span>
+      <div key={type} className="mb-6">
+        {/* Header de section épuré */}
+        <div className="flex items-center justify-between mb-4 p-4 rounded-lg border" style={{ 
+          backgroundColor: colors.surface,
+          borderColor: colors.border 
+        }}>
+          <div className="flex items-center space-x-3">
+            <span className="text-lg">{getPromptTypeIcon(type)}</span>
+            <div>
+              <h3 className="font-semibold text-sm mb-1" style={{ color: colors.text }}>
+                {getPromptTypeName(type)}
+              </h3>
+                              <div className="flex items-center space-x-2">
+                  <span className="text-xs px-2 py-1 rounded border" style={{ 
+                    borderColor: colors.border,
+                    color: colors.textSecondary,
+                    backgroundColor: colors.surface
+                  }}>
+                    {items.length} total
+                  </span>
+                  
+                  {/* Statistiques IA */}
+                  {(() => {
+                    const simpleAI = items.filter(item => !isMultipleAI(item)).length;
+                    const multipleAI = items.filter(item => isMultipleAI(item)).length;
+                    const uniqueProviders = new Set();
+                    items.forEach(item => {
+                      getAIProviders(item).forEach(provider => uniqueProviders.add(provider));
+                    });
+                    
+                    return (
+                      <>
+                        {simpleAI > 0 && (
+                          <span className="text-xs px-2 py-1 rounded border" style={{ 
+                            borderColor: colors.border,
+                            color: colors.textSecondary,
+                            backgroundColor: colors.surface
+                          }}>
+                            🔹 {simpleAI} simple
+                          </span>
+                        )}
+                        {multipleAI > 0 && (
+                          <span className="text-xs px-2 py-1 rounded border" style={{ 
+                            borderColor: colors.primary,
+                            color: colors.primary,
+                            backgroundColor: colors.primary + '10'
+                          }}>
+                            🔗 {multipleAI} multiple
+                          </span>
+                        )}
+                        <span className="text-xs px-2 py-1 rounded border" style={{ 
+                          borderColor: colors.border,
+                          color: colors.textSecondary,
+                          backgroundColor: colors.surface
+                        }}>
+                          🤖 {uniqueProviders.size} IA
+                        </span>
+                      </>
+                    );
+                  })()}
+                {pendingCount > 0 && (
+                  <span className="text-xs px-2 py-1 rounded border flex items-center space-x-1" style={{ 
+                    borderColor: colors.border,
+                    color: colors.textSecondary,
+                    backgroundColor: colors.surface
+                  }}>
+                    <ClockIcon className="h-3 w-3" />
+                    {pendingCount}
+                  </span>
+                )}
+                {processingCount > 0 && (
+                  <span className="text-xs px-2 py-1 rounded border flex items-center space-x-1" style={{ 
+                    borderColor: colors.border,
+                    color: colors.textSecondary,
+                    backgroundColor: colors.surface
+                  }}>
+                    <PlayIcon className="h-3 w-3" />
+                    {processingCount}
+                  </span>
+                )}
+                {pausedCount > 0 && (
+                  <span className="text-xs px-2 py-1 rounded border flex items-center space-x-1" style={{ 
+                    borderColor: colors.border,
+                    color: colors.textSecondary,
+                    backgroundColor: colors.surface
+                  }}>
+                    <PauseIcon className="h-3 w-3" />
+                    {pausedCount}
+                  </span>
+                )}
+                {completedCount > 0 && (
+                  <span className="text-xs px-2 py-1 rounded border flex items-center space-x-1" style={{ 
+                    borderColor: colors.border,
+                    color: colors.textSecondary,
+                    backgroundColor: colors.surface
+                  }}>
+                    <CheckCircleIcon className="h-3 w-3" />
+                    {completedCount}
+                  </span>
+                )}
+                {failedCount > 0 && (
+                  <span className="text-xs px-2 py-1 rounded border flex items-center space-x-1" style={{ 
+                    borderColor: colors.border,
+                    color: colors.textSecondary,
+                    backgroundColor: colors.surface
+                  }}>
+                    <ExclamationTriangleIcon className="h-3 w-3" />
+                    {failedCount}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+          
+          {/* Actions de section */}
+          <div className="flex items-center space-x-1">
+            <button
+              onClick={() => handleRetryType(type)}
+              className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors"
+              style={{ color: colors.textSecondary }}
+              title={`Relancer toutes les analyses ${getAnalysisTypeName(type)}`}
+            >
+              <ArrowPathIcon className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => handleDeleteType(type)}
+              className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded transition-colors"
+              style={{ color: colors.textSecondary }}
+              title={`Supprimer toutes les analyses ${getAnalysisTypeName(type)}`}
+            >
+              <TrashIcon className="h-4 w-4" />
+            </button>
+          </div>
         </div>
-        {/* Liste compacte des tâches de ce type */}
-        <div className="space-y-1">
-          {groupedItems[type].map(item => renderQueueItemCompact(item))}
+        
+        {/* Liste des éléments */}
+        <div className="space-y-3">
+          {items.map(item => renderQueueItem(item))}
         </div>
       </div>
     );
   };
 
   return (
-    <div className={isStandalone ? "h-full" : "flex-1 overflow-y-auto p-2"}>
-      {/* Progression globale */}
-      <div 
-        className="mb-3 p-2 rounded-lg border"
-        style={{
-          backgroundColor: colors.surface,
-          borderColor: colors.border
-        }}
-      >
-        <div className="flex items-center justify-between mb-1">
-          <span 
-            className="text-xs font-medium"
-            style={{ color: colors.text }}
-          >
-            Progression
-          </span>
-          <span 
-            className="text-xs"
-            style={{ color: colors.textSecondary }}
-          >
-            {queueStatus.completed_items}/{queueStatus.total_items}
-          </span>
-        </div>
-        <div 
-          className="w-full rounded-full h-1 mb-1"
-          style={{ backgroundColor: colorMode === 'dark' ? '#475569' : '#e2e8f0' }}
-        >
-          <div
-            className="h-1 rounded-full transition-all duration-300"
-            style={{ 
-              width: `${queueStatus.total_items > 0 ? (queueStatus.completed_items / queueStatus.total_items) * 100 : 0}%`,
-              backgroundColor: colors.queue
-            }}
-          ></div>
-        </div>
-        <div 
-          className="flex justify-between text-[10px]"
-          style={{ color: colors.textSecondary }}
-        >
-          <span>Analyse IA en cours: {queueStatus.processing_items}</span>
-          <span>Non analysés par IA: {queueStatus.pending_items}</span>
-          <span>Analysés par IA: {queueStatus.completed_items}</span>
-        </div>
-      </div>
-      {/* Liste par type d'analyse */}
+    <div className={isStandalone ? 'h-full' : 'flex-1 overflow-y-auto p-2'}>
+      {/* Contenu de la queue */}
       {queueItems.length === 0 ? (
-        <div 
-          className="text-center py-8 text-xs"
-          style={{ color: colors.textSecondary }}
-        >
-          <div 
-            className="w-10 h-10 mx-auto mb-2 rounded-full flex items-center justify-center"
+        <div className="text-center py-8">
+          <div
+            className="w-12 h-12 mx-auto mb-3 rounded-full flex items-center justify-center"
             style={{ backgroundColor: colors.surface }}
           >
-            <ArrowPathIcon className="h-5 w-5" />
+            <ArrowPathIcon className="h-6 w-6" style={{ color: colors.textSecondary }} />
           </div>
-          <p 
-            className="text-base font-medium mb-1"
-            style={{ color: colors.text }}
-          >
-            Queue vide
+          <h3 className="text-sm font-medium mb-1" style={{ color: colors.text }}>
+            File d'attente vide
+          </h3>
+          <p className="text-xs" style={{ color: colors.textSecondary }}>
+            Aucune analyse en cours ou en attente
           </p>
-          <p className="text-xs">Aucun fichier non analysé par IA</p>
         </div>
       ) : (
-        <div>
+        <div className="space-y-4">
+          {/* Sections par type d'analyse */}
           {ALL_ANALYSIS_TYPES.map(type => renderTypeSection(type))}
         </div>
       )}
@@ -356,64 +527,5 @@ export const QueueContent: React.FC<QueueContentProps> = ({ onClose, onMinimize,
   );
 };
 
-// Composant original avec header pour utilisation standalone
-const QueuePanel: React.FC<QueuePanelProps> = ({ onClose, onMinimize }) => {
-  const { colors } = useColors();
-  const { queueItems } = useQueueStore();
-  
-  return (
-    <div
-      className="fixed right-0 top-0 h-full z-40 shadow-xl flex flex-col"
-      style={{ 
-        width: 360, 
-        minWidth: 260, 
-        maxWidth: 400,
-        backgroundColor: colors.surface,
-        borderLeft: `1px solid ${colors.border}`
-      }}
-    >
-      {/* Header compact */}
-      <div 
-        className="flex items-center justify-between p-2 border-b"
-        style={{
-          backgroundColor: colors.surface,
-          borderColor: colors.border
-        }}
-      >
-        <h3 
-          className="text-xs font-semibold"
-          style={{ color: colors.queue }}
-        >
-          Queue d'Analyse 
-          <span style={{ color: colors.textSecondary }}> ({queueItems.length})</span>
-        </h3>
-        <div className="flex items-center space-x-1">
-          {onMinimize && (
-            <button 
-              onClick={onMinimize} 
-              className="p-1 transition-colors" 
-              style={{ color: colors.textSecondary }}
-              title="Minimiser"
-            >
-              <MinusIcon className="h-4 w-4" />
-            </button>
-          )}
-          {onClose && (
-            <button 
-              onClick={onClose} 
-              className="p-1 transition-colors" 
-              style={{ color: colors.textSecondary }}
-              title="Fermer"
-            >
-              <XMarkIcon className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-      </div>
-      
-      <QueueContent onClose={onClose} onMinimize={onMinimize} />
-    </div>
-  );
-};
-
-export default QueuePanel;
+// Export seulement QueueContent - plus de panel standalone
+export default QueueContent;

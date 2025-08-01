@@ -1,319 +1,321 @@
 import React, { useState, useEffect } from 'react';
+import { useColors } from '../../hooks/useColors';
 import {
-  DocumentTextIcon,
+  XMarkIcon,
+  DocumentIcon,
   CalendarIcon,
   ClockIcon,
-  CheckCircleIcon,
-  XCircleIcon,
-  ExclamationTriangleIcon,
-  InformationCircleIcon,
-  DocumentMagnifyingGlassIcon,
-  ChartBarIcon,
+  DocumentTextIcon,
+  ArchiveBoxIcon,
 } from '@heroicons/react/24/outline';
-
-interface FileDetails {
-  id: number;
-  name: string;
-  path: string;
-  size: number;
-  mime_type: string;
-  status: string;
-  created_at: string;
-  updated_at: string;
-  analysis_started_at?: string;
-  analysis_completed_at?: string;
-  error_message?: string;
-  analysis_results?: any;
-  metadata?: any;
-  // Dates du fichier lui-même
-  file_created_at?: string;
-  file_modified_at?: string;
-  file_accessed_at?: string;
-}
+import { formatFileSize, getFileIcon, formatDate } from '../../utils/fileUtils';
+import { getStatusColor } from '../../utils/statusUtils.tsx';
 
 interface FileDetailsPanelProps {
-  selectedFile: FileDetails | null;
+  file: {
+    id: number;
+    name: string;
+    path: string;
+    size: number;
+    mime_type: string;
+    status: string;
+    created_at: string;
+    updated_at: string;
+    extracted_text?: string;
+    analysis_result?: string;
+    analysis_metadata?: Record<string, unknown>;
+  } | null;
   onClose: () => void;
-  onViewFile?: (file: FileDetails) => void;
 }
 
-const FileDetailsPanel: React.FC<FileDetailsPanelProps> = ({ selectedFile, onClose, onViewFile }) => {
-  const [loading, setLoading] = useState(false);
+const FileDetailsPanel: React.FC<FileDetailsPanelProps> = ({
+  file,
+  onClose,
+}) => {
+  const { colors, colorMode } = useColors();
 
-  useEffect(() => {
-    if (selectedFile) {
-      loadFileDetails(selectedFile.id);
-    }
-  }, [selectedFile]);
-
-  const loadFileDetails = async (fileId: number) => {
-    try {
-      setLoading(true);
-
-      // Vérifier que l'ID est valide
-      if (!fileId || fileId === undefined) {
-
-        return;
-      }
-
-      const response = await fetch(`/api/files/${fileId}/details`);
-      if (response.ok) {
-        await response.json();
-        // Les détails sont déjà dans selectedFile
-      }
-    } catch (error) {
-
-    } finally {
-      setLoading(false);
-    }
+  const handleClose = (): void => {
+    onClose();
   };
 
-  const formatFileSize = (bytes: number): string => {
-    if (bytes === 0) {return '0 B';}
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
-  };
+  // Utilisation de la fonction centralisée formatFileSize
 
-  const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleString('fr-FR');
-  };
+  // Utilisation de la fonction centralisée formatDate
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed': return <CheckCircleIcon className="w-5 h-5 text-green-400" />;
-      case 'failed': return <XCircleIcon className="w-5 h-5 text-red-400" />;
-      case 'processing': return <ClockIcon className="w-5 h-5 text-blue-400 animate-spin" />;
-      case 'pending': return <ExclamationTriangleIcon className="w-5 h-5 text-yellow-400" />;
-      default: return <InformationCircleIcon className="w-5 h-5 text-gray-400" />;
-    }
-  };
+  // Utilisation de la fonction centralisée getFileIcon
 
-  const getStatusText = (status: string) => {
-    switch (status) {
-      case 'completed': return 'Terminé';
-      case 'failed': return 'Échec';
-      case 'processing': return 'En cours';
-      case 'pending': return 'En attente';
-      default: return 'Inconnu';
-    }
-  };
+  // Utilisation des fonctions centralisées getStatusColor et getStatusText
 
-  if (!selectedFile) {
+  if (!file) {
     return null;
   }
 
   return (
-    <div className="h-full flex flex-col bg-transparent">
+    <div
+      className="fixed inset-y-0 right-0 w-96 bg-white dark:bg-gray-800 shadow-xl border-l border-gray-200 dark:border-gray-700 overflow-y-auto z-50"
+      style={{
+        backgroundColor: colors.surface,
+        borderColor: colors.border,
+      }}
+    >
       {/* Header */}
-      <div className="p-6 border-b border-slate-200/10 bg-slate-800">
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-xl font-bold text-blue-400 flex items-center">
-            <DocumentTextIcon className="w-6 h-6 mr-2 text-blue-400" />
-            Détails du fichier
-          </h3>
-          {onViewFile && (
-            <button
-              onClick={() => onViewFile(selectedFile)}
-              className="flex items-center px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-              title="Visualiser le fichier original"
+      <div
+        className="sticky top-0 p-4 border-b flex items-center justify-between"
+        style={{
+          backgroundColor: colors.surface,
+          borderColor: colors.border,
+        }}
+      >
+        <div className="flex items-center gap-3">
+          <div>
+            <h3
+              className="font-semibold text-lg truncate"
+              style={{ color: colors.text }}
             >
-              <DocumentMagnifyingGlassIcon className="w-4 h-4 mr-2" />
-              Visualiser
-            </button>
-          )}
+            Détails du fichier
+            </h3>
+            <p
+              className="text-sm truncate"
+              style={{ color: colors.textSecondary }}
+            >
+              {file.name}
+            </p>
+          </div>
         </div>
-        <div className="text-base text-slate-200 truncate font-semibold" title={selectedFile.path}>
-          {selectedFile.name}
-        </div>
+        <button
+          onClick={handleClose}
+          className="p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          style={{ color: colors.textSecondary }}
+        >
+          <XMarkIcon className="h-5 w-5" />
+        </button>
       </div>
 
-      {/* Contenu */}
-      <div className="flex-1 overflow-y-auto p-8 max-w-3xl mx-auto w-full">
-        {loading ? (
-          <div className="flex items-center justify-center h-32">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400"></div>
+      {/* Content */}
+      <div className="p-4 space-y-6">
+        {/* Basic Info */}
+        <div className="space-y-4">
+          <h4
+            className="font-medium text-lg"
+            style={{ color: colors.text }}
+          >
+            Informations générales
+          </h4>
+
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <DocumentIcon className="h-5 w-5" style={{ color: colors.textSecondary }} />
+              <div className="flex-1">
+                <p
+                  className="text-sm font-medium"
+                  style={{ color: colors.text }}
+                >
+                  Nom du fichier
+                </p>
+                <p
+                  className="text-sm break-all"
+                  style={{ color: colors.textSecondary }}
+                >
+                  {file.name}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <DocumentTextIcon className="h-5 w-5" style={{ color: colors.textSecondary }} />
+              <div className="flex-1">
+                <p
+                  className="text-sm font-medium"
+                  style={{ color: colors.text }}
+                >
+                  Type MIME
+                </p>
+                <p
+                  className="text-sm"
+                  style={{ color: colors.textSecondary }}
+                >
+                  {file.mime_type}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <ArchiveBoxIcon className="h-5 w-5" style={{ color: colors.textSecondary }} />
+              <div className="flex-1">
+                <p
+                  className="text-sm font-medium"
+                  style={{ color: colors.text }}
+                >
+                  Taille
+                </p>
+                <p
+                  className="text-sm"
+                  style={{ color: colors.textSecondary }}
+                >
+                  {formatFileSize(file.size)}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-3">
+              <div className="h-5 w-5 flex items-center justify-center">
+                <div className={`w-3 h-3 rounded-full ${getStatusColor(file.status as any)}`}></div>
+              </div>
+              <div className="flex-1">
+                <p
+                  className="text-sm font-medium"
+                  style={{ color: colors.text }}
+                >
+                  Statut
+                </p>
+                <p
+                  className={`text-sm capitalize ${getStatusColor(file.status as any)}`}
+                >
+                  {file.status}
+                </p>
+              </div>
+            </div>
           </div>
-        ) : (
-          <div className="space-y-6">
-            {/* Informations de base */}
-            <div className="bg-slate-800 rounded-lg p-6 shadow border border-slate-700">
-              <h4 className="text-base font-semibold text-slate-200 mb-3 flex items-center">
-                <InformationCircleIcon className="w-5 h-5 mr-2 text-blue-400" />
-                Informations de base
-              </h4>
-              <div className="space-y-2 text-base">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Nom:</span>
-                  <span className="text-slate-200 font-medium">{selectedFile.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Taille:</span>
-                  <span className="text-slate-200">{formatFileSize(selectedFile.size)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Type:</span>
-                  <span className="text-slate-200">{selectedFile.mime_type}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Statut d'analyse IA:</span>
-                  <div className="flex items-center">
-                    {getStatusIcon(selectedFile.status)}
-                    <span className="ml-2 text-slate-200">{getStatusText(selectedFile.status)}</span>
-                  </div>
-                </div>
+        </div>
+
+        {/* Timestamps */}
+        <div className="space-y-4">
+          <h4
+            className="font-medium text-lg"
+            style={{ color: colors.text }}
+          >
+            Horodatage
+          </h4>
+
+          <div className="space-y-3">
+            <div className="flex items-center gap-3">
+              <CalendarIcon className="h-5 w-5" style={{ color: colors.textSecondary }} />
+              <div className="flex-1">
+                <p
+                  className="text-sm font-medium"
+                  style={{ color: colors.text }}
+                >
+                  Créé le
+                </p>
+                <p
+                  className="text-sm"
+                  style={{ color: colors.textSecondary }}
+                >
+                  {formatDate(file.created_at)}
+                </p>
               </div>
             </div>
 
-            {/* Dates */}
-            <div className="bg-slate-800 rounded-lg p-6 shadow border border-slate-700">
-              <h4 className="text-base font-semibold text-slate-200 mb-3 flex items-center">
-                <CalendarIcon className="w-5 h-5 mr-2 text-blue-400" />
-                Dates
-              </h4>
-              <div className="space-y-2 text-base">
-                {/* Dates du fichier lui-même */}
-                {selectedFile.file_created_at && (
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Fichier créé:</span>
-                    <span className="text-slate-200">{formatDate(selectedFile.file_created_at)}</span>
-                  </div>
-                )}
-                {selectedFile.file_modified_at && (
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Fichier modifié:</span>
-                    <span className="text-slate-200">{formatDate(selectedFile.file_modified_at)}</span>
-                  </div>
-                )}
-                {selectedFile.file_accessed_at && (
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Dernier accès:</span>
-                    <span className="text-slate-200">{formatDate(selectedFile.file_accessed_at)}</span>
-                  </div>
-                )}
-                
-                {/* Séparateur si les deux types de dates sont présents */}
-                {(selectedFile.file_created_at || selectedFile.file_modified_at || selectedFile.file_accessed_at) && 
-                 (selectedFile.created_at || selectedFile.updated_at) && (
-                  <div className="border-t border-slate-600 my-3"></div>
-                )}
-                
-                {/* Dates de la base de données */}
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Ajouté en base:</span>
-                  <span className="text-slate-200">{formatDate(selectedFile.created_at)}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Modifié en base:</span>
-                  <span className="text-slate-200">{formatDate(selectedFile.updated_at)}</span>
-                </div>
-                {selectedFile.analysis_started_at && (
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Analyse débutée:</span>
-                    <span className="text-slate-200">{formatDate(selectedFile.analysis_started_at)}</span>
-                  </div>
-                )}
-                {selectedFile.analysis_completed_at && (
-                  <div className="flex justify-between">
-                    <span className="text-slate-400">Analyse terminée:</span>
-                    <span className="text-slate-200">{formatDate(selectedFile.analysis_completed_at)}</span>
-                  </div>
-                )}
+            <div className="flex items-center gap-3">
+              <ClockIcon className="h-5 w-5" style={{ color: colors.textSecondary }} />
+              <div className="flex-1">
+                <p
+                  className="text-sm font-medium"
+                  style={{ color: colors.text }}
+                >
+                  Modifié le
+                </p>
+                <p
+                  className="text-sm"
+                  style={{ color: colors.textSecondary }}
+                >
+                  {formatDate(file.updated_at)}
+                </p>
               </div>
             </div>
+          </div>
+        </div>
 
-            {/* Erreur si échec */}
-            {selectedFile.status === 'failed' && selectedFile.error_message && (
-              <div className="bg-red-900/20 border border-red-700/50 rounded-lg p-6">
-                <h4 className="text-base font-semibold text-red-200 mb-2 flex items-center">
-                  <XCircleIcon className="w-5 h-5 mr-2 text-red-400" />
-                  Erreur d'analyse
-                </h4>
-                <p className="text-base text-red-300">{selectedFile.error_message}</p>
-              </div>
-            )}
+        {/* Path */}
+        <div className="space-y-4">
+          <h4
+            className="font-medium text-lg"
+            style={{ color: colors.text }}
+          >
+            Chemin du fichier
+          </h4>
 
-            {/* Résultats d'analyse */}
-            {selectedFile.status === 'completed' && selectedFile.analysis_results && (
-              <div className="bg-slate-800 rounded-lg p-6 shadow border border-green-700">
-                <h4 className="text-base font-semibold text-green-300 mb-3 flex items-center">
-                  <DocumentMagnifyingGlassIcon className="w-5 h-5 mr-2 text-green-400" />
-                  Résultats d'analyse
-                </h4>
-                <div className="space-y-3">
-                  {selectedFile.analysis_results.summary && (
-                    <div>
-                      <h5 className="text-xs font-medium text-slate-400 mb-1">Résumé</h5>
-                      <p className="text-base text-slate-200">{selectedFile.analysis_results.summary}</p>
-                    </div>
-                  )}
-                  {selectedFile.analysis_results.key_points && (
-                    <div>
-                      <h5 className="text-xs font-medium text-slate-400 mb-1">Points clés</h5>
-                      <ul className="text-base text-slate-200 space-y-1">
-                        {selectedFile.analysis_results.key_points.map((point: string, index: number) => (
-                          <li key={index} className="flex items-start">
-                            <span className="text-blue-400 mr-2">•</span>
-                            {point}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {selectedFile.analysis_results.confidence && (
-                    <div>
-                      <h5 className="text-xs font-medium text-slate-400 mb-1">Confiance</h5>
-                      <div className="flex items-center">
-                        <div className="flex-1 bg-slate-700 rounded-full h-2 mr-2">
-                          <div
-                            className="bg-green-500 h-2 rounded-full"
-                            style={{ width: `${selectedFile.analysis_results.confidence}%` }}
-                          ></div>
-                        </div>
-                        <span className="text-base text-slate-200">{selectedFile.analysis_results.confidence}%</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
+          <div
+            className="p-3 rounded-md text-sm break-all font-mono"
+            style={{
+              backgroundColor: colorMode === 'dark' ? '#475569' : '#e2e8f0',
+              color: colors.textSecondary,
+            }}
+          >
+            {file.path}
+          </div>
+        </div>
 
-            {/* Métadonnées */}
-            {selectedFile.metadata && Object.keys(selectedFile.metadata).length > 0 && (
-              <div className="bg-slate-800 rounded-lg p-6 shadow border border-slate-700">
-                <h4 className="text-base font-semibold text-slate-200 mb-3 flex items-center">
-                  <ChartBarIcon className="w-5 h-5 mr-2 text-blue-400" />
-                  Métadonnées
-                </h4>
-                <div className="space-y-2 text-base">
-                  {Object.entries(selectedFile.metadata).map(([key, value]) => (
-                    <div key={key} className="flex justify-between">
-                      <span className="text-slate-400 capitalize">{key}:</span>
-                      <span className="text-slate-200">{String(value)}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+        {/* Extracted Text */}
+        {file.extracted_text && (
+          <div className="space-y-4">
+            <h4
+              className="font-medium text-lg"
+              style={{ color: colors.text }}
+            >
+            Texte extrait
+            </h4>
 
-            {/* Actions */}
-            <div className="bg-slate-800 rounded-lg p-6 shadow border border-slate-700">
-              <h4 className="text-base font-semibold text-slate-200 mb-3">Actions</h4>
-              <div className="space-y-2">
-                {selectedFile.status === 'completed' && (
-                  <button className="w-full flex items-center justify-center px-3 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-base">
-                    <DocumentMagnifyingGlassIcon className="w-5 h-5 mr-2" />
-                    Voir les résultats
-                  </button>
-                )}
-                {selectedFile.status === 'failed' && (
-                  <button className="w-full flex items-center justify-center px-3 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 transition-colors text-base">
-                    <ClockIcon className="w-5 h-5 mr-2" />
-                    Réessayer l'analyse
-                  </button>
-                )}
-              </div>
+            <div
+              className="p-3 rounded-md text-sm max-h-40 overflow-y-auto"
+              style={{
+                backgroundColor: colorMode === 'dark' ? '#475569' : '#e2e8f0',
+                color: colors.textSecondary,
+              }}
+            >
+              {file.extracted_text.length > 500
+                ? `${file.extracted_text.substring(0, 500)}...`
+                : file.extracted_text
+              }
+            </div>
+          </div>
+        )}
+
+        {/* Analysis Result */}
+        {file.analysis_result && (
+          <div className="space-y-4">
+            <h4
+              className="font-medium text-lg"
+              style={{ color: colors.text }}
+            >
+            Résultat d'analyse
+            </h4>
+
+            <div
+              className="p-3 rounded-md text-sm max-h-40 overflow-y-auto"
+              style={{
+                backgroundColor: colorMode === 'dark' ? '#475569' : '#e2e8f0',
+                color: colors.textSecondary,
+              }}
+            >
+              {file.analysis_result.length > 500
+                ? `${file.analysis_result.substring(0, 500)}...`
+                : file.analysis_result
+              }
+            </div>
+          </div>
+        )}
+
+        {/* Analysis Metadata */}
+        {file.analysis_metadata && Object.keys(file.analysis_metadata).length > 0 && (
+          <div className="space-y-4">
+            <h4
+              className="font-medium text-lg"
+              style={{ color: colors.text }}
+            >
+              Métadonnées d'analyse
+            </h4>
+
+            <div
+              className="p-3 rounded-md text-sm max-h-40 overflow-y-auto"
+              style={{
+                backgroundColor: colorMode === 'dark' ? '#475569' : '#e2e8f0',
+                color: colors.textSecondary,
+              }}
+            >
+              <pre className="whitespace-pre-wrap">
+                {JSON.stringify(file.analysis_metadata, null, 2)}
+              </pre>
             </div>
           </div>
         )}

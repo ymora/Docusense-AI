@@ -1,4 +1,4 @@
-const API_BASE_URL = 'http://localhost:8000/api';
+import { apiRequest } from '../utils/apiUtils';
 
 export interface AuthCredentials {
   username: string;
@@ -18,7 +18,7 @@ class AuthService {
   // Détecter si l'utilisateur est local ou distant
   isLocalUser(): boolean {
     // Si on accède via localhost, on est local
-    return window.location.hostname === 'localhost' || 
+    return window.location.hostname === 'localhost' ||
            window.location.hostname === '127.0.0.1' ||
            window.location.hostname.includes('192.168.') ||
            window.location.hostname.includes('172.');
@@ -37,34 +37,29 @@ class AuthService {
   // Authentifier l'utilisateur
   async authenticate(credentials: AuthCredentials): Promise<AuthResponse> {
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      const data = await apiRequest('/api/auth/login', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           username: credentials.username,
           password: credentials.password,
         }),
-      });
+      }) as any;
 
-      if (response.ok) {
-        const data = await response.json();
+      if (data.session_token) {
         this.token = data.session_token;
         this.isAuthenticated = true;
-        
+
         // Stocker le token dans le localStorage pour la persistance
         localStorage.setItem('auth_token', this.token);
-        
+
         return {
           success: true,
           token: this.token,
         };
       } else {
-        const errorData = await response.json();
         return {
           success: false,
-          message: errorData.detail || 'Échec de l\'authentification',
+          message: data.detail || 'Échec de l\'authentification',
         };
       }
     } catch (error) {
@@ -100,18 +95,12 @@ class AuthService {
     }
 
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/session-info`, {
+      await apiRequest('/api/auth/session-info', {
         headers: {
           'Authorization': `Bearer ${this.token}`,
         },
       });
-
-      if (response.ok) {
-        return true;
-      } else {
-        this.logout();
-        return false;
-      }
+      return true;
     } catch (error) {
       this.logout();
       return false;
@@ -129,4 +118,4 @@ class AuthService {
   }
 }
 
-export const authService = new AuthService(); 
+export const authService = new AuthService();

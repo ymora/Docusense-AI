@@ -42,7 +42,7 @@ const SelectionIndicator: React.FC = () => {
         style={{
           backgroundColor: colors.surface + 'F0',
           borderColor: colors.border,
-          backdropFilter: 'blur(8px)'
+          backdropFilter: 'blur(8px)',
         }}
         onClick={() => setShowDetails(!showDetails)}
         title="Cliquer pour voir les détails"
@@ -75,7 +75,7 @@ const SelectionIndicator: React.FC = () => {
           className="mt-2 p-3 rounded-lg shadow-lg border max-w-md max-h-96 overflow-y-auto"
           style={{
             backgroundColor: colors.surface,
-            borderColor: colors.border
+            borderColor: colors.border,
           }}
         >
           <div className="flex items-center justify-between mb-2">
@@ -136,4 +136,4 @@ const SelectionIndicator: React.FC = () => {
   );
 };
 
-export default SelectionIndicator; 
+export default SelectionIndicator;

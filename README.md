@@ -1,873 +1,358 @@
 # DocuSense AI - Plateforme d'Analyse Intelligente de Documents
 
-## 🎯 Règles Cursor - Environnement Virtuel (OBLIGATOIRE)
+[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/your-repo/docusense-ai)
+[![Python](https://img.shields.io/badge/python-3.8+-green.svg)](https://python.org)
+[![Node.js](https://img.shields.io/badge/node.js-16+-orange.svg)](https://nodejs.org)
+[![License](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
 
-### ⚠️ **RÈGLE CRITIQUE : TOUJOURS UTILISER L'ENVIRONNEMENT VIRTUEL**
-
-**🚨 OBLIGATOIRE** : Toutes les commandes Python et pip DOIVENT utiliser l'environnement virtuel `venv` !
-
-#### 📦 **Installation de Packages**
-```bash
-# ✅ CORRECT - Toujours utiliser venv
-cd backend
-venv\Scripts\pip.exe install nom_du_package
-
-# ❌ INCORRECT - Ne jamais utiliser pip global
-pip install nom_du_package
-```
-
-#### 🚀 **Démarrage des Services**
-```bash
-# ✅ CORRECT - Backend avec venv
-cd backend
-venv\Scripts\python.exe main.py
-
-# ✅ CORRECT - Frontend (pas de venv nécessaire)
-cd frontend
-npm run dev
-
-# ❌ INCORRECT - Ne jamais utiliser python global
-python main.py
-```
-
-#### 🔧 **Vérification de l'Environnement**
-```bash
-# Vérifier que venv fonctionne
-cd backend
-venv\Scripts\python.exe --version
-
-# Vérifier les packages installés
-venv\Scripts\pip.exe list
-```
-
-#### 🎯 **Raison de cette Règle**
-- **Isolation** : Éviter les conflits de dépendances
-- **Cohérence** : Même environnement pour tous les développeurs
-- **Fiabilité** : Éviter les erreurs "ModuleNotFoundError"
-- **Reproductibilité** : Environnement identique en production
+> **🎯 Plateforme moderne d'analyse intelligente de documents avec interface épurée et IA avancée**
 
 ---
 
-## 🚀 Vue d'ensemble
+## 📋 Table des Matières
 
-DocuSense AI est une plateforme moderne et robuste d'analyse intelligente de documents, conçue avec une architecture propre, maintenable et performante. Elle combine des technologies de pointe pour offrir une expérience utilisateur exceptionnelle.
+- [🚀 Démarrage Rapide](#-démarrage-rapide)
+- [✨ Fonctionnalités](#-fonctionnalités)
+- [🛠️ Installation](#️-installation)
+- [🎯 Utilisation](#-utilisation)
+- [🔧 Configuration](#-configuration)
+- [🐛 Dépannage](#-dépannage)
+- [📞 Support](#-support)
 
-## ✨ Fonctionnalités Principales
-
-### 🔍 Analyse Intelligente
-- **Extraction automatique** de données depuis tous types de documents
-- **Classification intelligente** par domaine d'expertise (Juridique, Technique, Administratif, Général)
-- **Comparaison de documents** avec détection de différences
-- **Synthèse multi-documents** avec rapports structurés
-- **Prompts spécialisés** par domaine d'expertise
-- **Suivi temporel complet** des analyses IA
-  - **Dates d'analyse** : Demande, début, fin et durée de traitement
-  - **Métadonnées enrichies** : Provider, modèle, tokens utilisés, coût estimé
-  - **Horodatage précis** : Timestamps ISO pour traçabilité complète
-  - **Interface dédiée** : Onglet "Analyse IA" (anciennement "Résultats") avec section "Dates d'Analyse IA"
-  - **Informations détaillées** : Temps de traitement, provider utilisé, modèle IA
-
-### ⚖️ Vérification Normative
-- **Conformité légale** automatique (Code civil, Code de commerce, etc.)
-- **Vérification des normes techniques** (DTU, NF, EN, ISO)
-- **Analyse réglementaire** (RE2020, RT2012, etc.)
-- **Détection d'incohérences** et alertes de prescription
-
-### 🤖 Assistance IA - Configuration Avancée
-- **4 providers IA** : OpenAI, Claude, Mistral, Ollama (local)
-- **6 stratégies de sélection** : Priority, Cost, Performance, Fallback, Quality, Speed
-- **Système de priorité intelligent** : Recalcul automatique selon les providers actifs
-- **Interface adaptative** : Priorités éditables en mode "Priority", automatiques pour les autres
-- **Configuration adaptative** des clés API
-- **Queue d'analyse** avec reprise automatique
-
-### 📁 Gestion Avancée des Fichiers
-- **Formats supportés** : Documents (PDF, DOCX, PPTX, XLSX), Images (JPG, PNG, GIF, WebP, HEIC), Vidéos (MP4, AVI, MOV, MKV), Audio (MP3, WAV, FLAC), Archives (ZIP, RAR, 7Z), Code (Python, JS, TS, Java, C++), et plus de 50 formats au total
-- **Visualisation intégrée** : Texte, images, audio, vidéo, documents
-- **OCR intégré** pour documents scannés (en développement)
-- **Métadonnées temporelles complètes** : Dates système et base de données
-  - **Dates système** : Création, modification et dernier accès du fichier
-  - **Dates base de données** : Ajout et modification en base
-  - **Extraction automatique** : Récupération des timestamps système via `pathlib`
-  - **Affichage différencié** : Séparation claire entre dates fichier et dates base
-  - **Interface enrichie** : Section dédiée dans l'onglet "Détails" avec séparateur visuel
-
-### 🎬 Support Multimédia Avancé
-- **Analyse d'images** : Extraction de métadonnées EXIF, couleurs dominantes, dimensions
-- **Analyse vidéo** : Durée, FPS, codec, informations audio, génération de miniatures
-- **Analyse audio** : Durée, fréquence d'échantillonnage, tempo, analyse spectrale
-- **Miniatures** : Génération automatique de miniatures pour tous les types de fichiers
-- **Visualisation** : Lecteurs intégrés pour images, vidéos et audio
-- **API multimédia** : Endpoints dédiés pour l'analyse et la génération de miniatures
-
-### 🔍 Nouvelles Fonctionnalités et Améliorations Récentes
-
-#### 🎵 Contrôles Multimédia Avancés - Fonctionnels et Robustes
-- **Tous les boutons fonctionnels** : Play, Pause, Stop, Seek, Volume, Mute
-- **Gestion d'erreurs complète** : Try/catch pour toutes les opérations multimédia
-- **Validation des valeurs** : Volume clampé entre 0 et 1, temps validé
-- **Toggle mute intelligent** : Sauvegarde du volume précédent avec restauration
-- **États cohérents** : Interface synchronisée avec l'état de lecture
-- **Support audio/vidéo** : Même interface pour les deux types de média
-- **Gestionnaires d'erreurs** : `handleAudioError` et `handleVideoError` pour la robustesse
-- **Validation des données** : Vérification `isFinite()` pour duration et currentTime
-- **Logs détaillés** : Messages d'erreur informatifs pour le débogage
-
-#### 🎯 Barre Multimédia - Positionnement Optimisé
-- **Centrage dans le panneau principal** : Position relative au conteneur principal (pas la fenêtre)
-- **Z-index élevé** : `z-50` pour rester au-dessus du contenu
-- **Position absolue** : `absolute bottom-4 left-1/2 transform -translate-x-1/2`
-- **Isolation des panneaux** : Visible uniquement dans le panneau principal
-- **Responsive** : S'adapte à la taille du panneau principal
-- **Suppression de l'ancienne barre** : Évite la duplication et les conflits
-
-#### ❌ Icônes de Statut - SVG Cohérentes
-- **Remplacement des caractères Unicode** : Plus de rectangles rouges malformés
-- **Icônes SVG fiables** : Croix rouge SVG (12px x 12px) pour "Non pris en charge"
-- **Compatibilité garantie** : Fonctionne sur tous les navigateurs et systèmes
-- **Taille et couleur contrôlables** : `w-3 h-3 text-red-500`
-- **Accessibilité améliorée** : Support des lecteurs d'écran
-- **Cohérence visuelle** : Même style partout (légende, arborescence, liste)
-
-#### 🎨 Interface de Navigation - Clarification
-- **Sélecteur de disque amélioré** : Bouton explicite "Choisir un disque" avec icône et flèche
-- **Séparation claire** : "Sélectionner un disque :" et "Navigation :" avec labels explicites
-- **Bouton parent renommé** : "Dossier parent" au lieu de "Parent"
-- **Interface élargie** : Dropdown plein large avec header "Disques disponibles :"
-- **Suppression de la confusion** : Plus de perception de "deux sélecteurs"
-
-#### 🔧 Fonctionnalités Techniques Robustes
-- **Gestion async/await** : `handlePlay` avec gestion d'erreurs pour `play()`
-- **Validation stricte** : Temps clampé entre 0 et duration pour `handleSeek`
-- **Volume intelligent** : Désactivation automatique du mute si volume > 0
-- **Restauration de volume** : Valeur par défaut 0.5 si volume précédent = 0
-- **États UI cohérents** : Boutons désactivés avec opacité et couleurs grisées
-- **Feedback utilisateur** : Tooltips informatifs et états visuels clairs
-
-#### 📊 Améliorations de l'Expérience Utilisateur
-- **Interface plus claire** : Labels explicites et séparation visuelle
-- **Navigation intuitive** : Boutons et icônes plus compréhensibles
-- **Feedback visuel** : États clairement indiqués pour tous les contrôles
-- **Cohérence** : Même style et comportement partout
-- **Robustesse** : Gestion d'erreurs complète pour éviter les plantages
-
-#### 🐛 Corrections de Bugs et Optimisations
-- **Bouton volume fonctionnel** : Correction du toggle mute/unmute avec sauvegarde du volume
-- **Suppression des icônes redondantes** : Plus d'icône haut-parleur avant le nom du fichier
-- **Positionnement de la barre multimédia** : Centrage correct dans le panneau principal
-- **Icônes de statut cohérentes** : Remplacement des caractères Unicode par SVG
-- **Clarification de la navigation** : Séparation claire entre sélecteur de disque et navigation
-- **Gestion d'erreurs robuste** : Try/catch pour toutes les opérations multimédia
-- **Validation des données** : Vérification des valeurs numériques avec `isFinite()`
-- **États UI synchronisés** : Interface cohérente avec l'état de lecture
-- **Logs informatifs** : Messages d'erreur détaillés pour le débogage
-- **Performance optimisée** : Gestion efficace des événements et des états
-
-#### 📊 Suivi Temporel Complet
-- **Dates d'analyse IA** : Demande, début, fin et durée de traitement
-- **Métadonnées enrichies** : Provider, modèle, tokens utilisés, coût estimé
-- **Horodatage précis** : Timestamps ISO pour traçabilité complète
-- **Interface dédiée** : Onglet "Analyse IA" avec section "Dates d'Analyse IA"
-
-#### 🔧 Détails Techniques des Améliorations
-- **Gestion async/await** : `handlePlay` converti en fonction async avec try/catch
-- **Validation des valeurs** : `Math.max(0, Math.min(1, newVolume))` pour le volume
-- **Clampage des temps** : `Math.max(0, Math.min(duration, time))` pour le seek
-- **Gestion d'erreurs** : `handleAudioError` et `handleVideoError` pour la robustesse
-- **Validation des données** : `isFinite()` pour vérifier duration et currentTime
-- **Positionnement CSS** : `absolute bottom-4 left-1/2 transform -translate-x-1/2 z-50`
-- **Icônes SVG** : `<svg className="w-3 h-3 text-red-500" fill="currentColor" viewBox="0 0 20 20">`
-- **États UI** : `disabled:opacity-50` et couleurs adaptatives pour les boutons
-- **Logs détaillés** : `console.error` et `console.warn` pour le débogage
-- **Performance** : Gestion optimisée des événements et des re-renders
-
-#### 📅 Métadonnées Temporelles des Fichiers
-- **Dates système** : Création, modification et dernier accès du fichier
-- **Dates base de données** : Ajout et modification en base
-- **Extraction automatique** : Récupération des timestamps système
-- **Affichage différencié** : Séparation claire entre dates fichier et dates base
-
-#### 📁 Fichiers Modifiés et Améliorations
-- **`MainPanel.tsx`** : Positionnement de la barre multimédia dans le conteneur principal
-- **`FileViewer.tsx`** : Contrôles multimédia robustes avec gestion d'erreurs complète
-- **`LeftPanel.tsx`** : Icônes SVG pour le statut "Non pris en charge" dans la légende
-- **`FileTree.tsx`** : Icônes SVG pour les indicateurs de statut dans l'arborescence
-- **`FileList.tsx`** : Icônes SVG pour les statuts et messages d'erreur
-- **`DirectorySelector.tsx`** : Interface clarifiée avec labels explicites
-- **`README.md`** : Documentation complète de toutes les améliorations
-
-#### 🎯 Interface Améliorée
-- **Visualisation intégrée** : Affichage direct dans le panneau principal sans nouvelle page
-- **Navigation directe** : Clic droit → "Voir l'image/vidéo/audio dans le panneau principal"
-- **Protection des actions** : Actions désactivées quand aucun fichier n'est sélectionné
-- **Labels clarifiés** : "Résultats" → "Analyse IA", "Métadonnées" → "Informations"
-- **Statut d'analyse IA** : Label plus précis pour le statut des analyses
-
-#### ✅ Résultats et Bénéfices des Améliorations
-- **Expérience utilisateur améliorée** : Interface plus intuitive et cohérente
-- **Robustesse accrue** : Gestion d'erreurs complète pour éviter les plantages
-- **Compatibilité garantie** : Fonctionne sur tous les navigateurs et systèmes
-- **Performance optimisée** : Gestion efficace des événements et des états
-- **Maintenabilité** : Code plus propre avec gestion d'erreurs structurée
-- **Accessibilité** : Support des lecteurs d'écran avec icônes SVG
-- **Cohérence visuelle** : Même style et comportement partout
-- **Feedback utilisateur** : États clairement indiqués pour tous les contrôles
-- **Débogage facilité** : Logs détaillés pour identifier les problèmes
-- **Évolutivité** : Architecture modulaire pour les futures améliorations
-
-### 🔐 Accès Distant Sécurisé - Interface Unifiée
-- **Interface React unifiée** : Même interface moderne pour usage local et distant
-- **Authentification automatique** : Détection local/remote avec authentification pour les utilisateurs distants
-  - **Utilisateur local** : Accès direct sans authentification
-  - **Utilisateur distant** : Authentification requise (username: `avocat`, password: `2025*`)
-  - **Modal d'authentification** : Interface élégante pour la saisie des identifiants
-- **Visualisation intégrée** : Affichage des fichiers directement dans le navigateur
-- **Téléchargement sécurisé** : Sauvegarde des fichiers avec authentification pour les utilisateurs distants
-- **Menu contextuel complet** : Actions directes sur les fichiers
-  - **Visualisation** : Affichage des fichiers directement dans le navigateur
-  - **Téléchargement** : Sauvegarde des fichiers sur le PC distant
-  - **Analyse IA** : Lancement d'analyses depuis l'interface
-- **Sécurité renforcée** : Sessions avec timeout, protection contre les attaques
-- **API REST** : Endpoints sécurisés pour l'intégration avec d'autres applications
-- **Statuts en temps réel** avec indicateurs visuels colorés
-- **Navigation intuitive** avec sélecteur de disque clair et bouton retour parent
-
-## 🎨 Interface Utilisateur
-
-### 🖥️ Layout Principal
-- **Panneau gauche redimensionnable** : Navigation dans l'arborescence des fichiers
-- **Panneau principal** : Affichage des détails et résultats d'analyse avec titre dynamique
-- **Panneaux latéraux** : Configuration IA, File d'attente, Analyses terminées
-- **Navigation intégrée** : Boutons "Détails", "Visualiser", "Analyse IA" dans l'en-tête
-  - **États adaptatifs** : Boutons activés/désactivés selon la sélection de fichier
-  - **Tooltips informatifs** : Messages explicatifs pour les actions non disponibles
-  - **Protection logique** : Vérifications conditionnelles pour éviter les erreurs
-
-### 📂 Navigation des Fichiers
-- **Sélecteur de disque clair** : Interface explicite avec icône et texte pour choisir le disque
-- **Bouton retour parent** : Navigation vers le dossier parent avec synchronisation automatique
-- **Arborescence interactive** : Navigation intelligente avec séparation des actions
-  - **Clic sur chevron** : Expansion/réduction du dossier pour voir son contenu
-  - **Clic sur nom du dossier** : Navigation vers ce dossier (charge son contenu)
-  - **Logs de debug** : Traçabilité complète de la navigation dans la console
-- **Arborescence redimensionnable** avec gestion optimisée des ascenseurs
-  - **Ascenseur unique** : Un seul ascenseur dans l'arborescence (pas de double ascenseur)
-  - **Apparition automatique** : L'ascenseur n'apparaît que si le contenu dépasse la hauteur disponible
-  - **Espace optimisé** : Suppression des paddings redondants pour maximiser l'espace d'affichage
-
-### 📁 Actions sur les Fichiers
-- **Indicateur de fichiers sélectionnés** : Interface de suivi des sélections
-  - **Position** : Coin supérieur droit de l'écran avec design discret
-  - **Affichage** : Nombre de fichiers sélectionnés avec point animé
-  - **Détails au clic** : Liste organisée par répertoire avec noms de fichiers
-  - **Actions** : Désélection globale ou individuelle avec boutons "X"
-  - **Persistance** : La sélection reste active lors de la navigation
-  - **Design adaptatif** : Fond semi-transparent avec effet de flou et couleurs du thème
-- **Visualisation intégrée** : Affichage direct dans le panneau principal sans modales
-  - **Images** : Affichage avec zoom et navigation
-  - **Vidéos** : Lecteur vidéo avec contrôles multimédia personnalisés
-  - **Audios** : Lecteur audio avec contrôles avancés en bas du panneau
-  - **Textes** : Affichage du contenu avec formatage préservé
-  - **PDF** : Prévisualisation intégrée avec iframe
-  - **Documents** : Téléchargement pour visualisation externe (DOC, DOCX, etc.)
-  - **Tableurs** : Téléchargement pour visualisation externe
-  - **Emails** : Téléchargement pour visualisation externe
-- **Contrôles multimédia avancés** : Interface de lecture audio et vidéo complète
-  - **Affichage conditionnel** : Barre de contrôle pour les fichiers audio et vidéo, centrée dans le panneau principal
-  - **Adaptation automatique** : Icône et interface adaptées au type de média
-  - **Barre de contrôle fixe** : Contrôles en bas du panneau principal
-  - **Boutons de lecture** : Play, Pause, Stop avec états visuels
-  - **Barre de progression** : Navigation temporelle avec slider interactif
-  - **Contrôle du volume** : Slider de volume avec bouton mute/unmute fonctionnel et sauvegarde du volume précédent
-  - **Affichage temporel** : Format MM:SS pour temps actuel et total
-  - **Informations du fichier** : Nom du fichier dans la barre de contrôle
-  - **Thème adaptatif** : Couleurs qui s'adaptent au mode jour/nuit
-  - **États visuels** : Boutons désactivés selon l'état de lecture avec gestion d'erreurs complète
-- **Protection des actions** : Vérifications conditionnelles pour éviter les erreurs
-  - **Validation côté client** : Désactivation des boutons selon la sélection
-  - **Validation côté serveur** : Vérifications dans les endpoints API
-  - **Gestion d'erreurs robuste** : Messages d'erreur informatifs et fallbacks gracieux
-- **Analyse IA** : Prompts spécialisés par domaine (Juridique, Technique, Administratif, Général)
-- **Sélection multiple** : Clic pour sélectionner/désélectionner plusieurs fichiers
-- **Actions de masse** : Boutons pour analyser, comparer ou retry tous les fichiers sélectionnés
-- **Visualisation** : Un seul fichier à la fois (désactivée en sélection multiple)
-- **Feedback visuel** : Encadrement fin, compteurs et messages d'aide contextuels
-- **Types de fichiers supportés** : Reconnaissance complète et cohérente
-  - **Documents** : PDF, DOCX, DOC, RTF, ODT, PAGES, PPT, PPTX, ODP, KEY
-  - **Tableurs** : XLSX, XLS, CSV, ODS, NUMBERS
-  - **Images** : JPG, JPEG, PNG, GIF, BMP, TIFF, SVG, WEBP, ICO, RAW, HEIC, HEIF, CR2, NEF, ARW
-  - **Vidéos** : MP4, AVI, MOV, WMV, FLV, WEBM, MKV, M4V, 3GP, OGV, TS, MTS, M2TS
-  - **Audio** : MP3, WAV, FLAC, AAC, OGG, WMA, M4A, OPUS, AIFF, ALAC
-  - **Emails** : EML, MSG, PST, OST
-  - **Texte** : TXT, MD, JSON, XML, HTML, CSS, JS, TS, PY, JAVA, CPP, C, PHP, RB, GO, RS, TEX, LOG, INI, CFG, CONF, YAML, YML, SQL, SH, BAT, PS1
-
-### 🎬 Visualisation Multimédia Avancée
-- **Titre dynamique** : Affichage du nom du fichier et navigation dans le panneau principal
-- **Navigation par flèches** : Boutons gauche/droite pour naviguer entre les fichiers du répertoire
-- **Navigation clavier** : Flèches gauche/droite et Échap pour fermer
-- **Indicateur de position** : Affichage "X/Y" pour montrer la position dans le répertoire
-- **Lecteurs intégrés** :
-  - **Images** : Affichage optimisé avec zoom et navigation
-  - **Vidéos** : Lecteur vidéo avec contrôles de lecture
-  - **Audio** : Lecteur audio avec contrôles de volume et progression
-  - **Documents** : Affichage du contenu texte
-- **Téléchargement direct** : Bouton de téléchargement dans le viewer
-- **Interface responsive** : Adaptation automatique à la taille de l'écran
-
-### 🎨 Design et UX
-- **Thème sombre/clair** : Basculement automatique avec implémentation technique avancée
-  - **Attribut data-theme** : `document.body.setAttribute('data-theme', 'light')` pour le mode jour
-  - **CSS variables adaptatives** : Couleurs qui changent automatiquement selon le thème
-  - **Icônes dynamiques** : Soleil pour passer en mode jour, lune pour passer en mode nuit
-- **Interface renommée** : Amélioration de la clarté des labels
-  - **Onglet "Résultats" → "Analyse IA"** : Nom plus précis pour l'onglet d'analyse
-  - **Onglet "Métadonnées" → "Informations"** : Terme plus accessible pour les utilisateurs
-  - **Label "Statut" → "Statut d'analyse IA"** : Clarification du type de statut affiché
-- **Icônes colorées** : Tous les éléments utilisent des couleurs cohérentes
-  - **Fichiers et dossiers** : Couleur bleu clair uniforme pour tous les éléments
-  - **Panneaux** : Couleurs synchronisées via variables CSS (violet, orange, vert)
-  - **Thème adaptatif** : Couleurs qui s'adaptent automatiquement au mode jour/nuit
-  - **Sélection** : Encadrement fin adaptatif au thème jour/nuit
-- **Onglets de configuration AI** : Interface moderne avec couleurs centralisées
-  - **Onglets adaptatifs** : Providers, Stratégie, Métriques avec couleurs centralisées
-  - **Accent coloré** : Bordure bleue (`colors.config`) pour l'onglet actif
-  - **Compatibilité jour/nuit** : Adaptation automatique au thème actuel
-  - **Transitions fluides** : Changements d'état avec animations harmonieuses
-  - **Interface compacte** : Design optimisé pour l'espace disponible
-  - **Champs adaptatifs** : Couleurs de fond et texte selon le thème
-  - **Statuts visuels** : Points colorés avec couleurs de statut centralisées
-- **File d'attente** : Interface moderne avec couleurs centralisées
-  - **Progression visuelle** : Barre de progression avec couleur d'accent (`colors.queue`)
-  - **Groupement par type** : Interface organisée par type d'analyse
-  - **Statuts colorés** : Points de statut avec couleurs centralisées
-  - **Actions harmonisées** : Boutons avec couleurs d'accent et d'erreur
-  - **Messages d'erreur** : Couleurs adaptatives pour les erreurs
-  - **Interface compacte** : Design optimisé pour l'espace disponible
-- **Gestionnaire de fichiers** : Interface unifiée avec couleurs centralisées
-  - **Analyses IA** : Aperçu avec couleurs d'accent (`colors.analyses`)
-  - **Statistiques en temps réel** : Compteurs avec couleurs harmonisées
-  - **Actions contextuelles** : Boutons avec couleurs d'accent
-  - **États d'erreur** : Couleurs adaptatives pour les fichiers en échec d'analyse IA
-  - **Instructions** : Couleurs d'accent pour les guides utilisateur
-- **Statuts visuels** : Points colorés pour indiquer l'état des fichiers
-  - **Vert** : Analysé par IA
-  - **Jaune** : Non analysé par IA ou en pause (avec effet pulsant)
-  - **Bleu** : Analyse IA en cours (avec effet pulsant)
-  - **Rouge** : Échec d'analyse IA
-  - **Croix rouge** : Format non supporté
-- **Légende discrète** : Indicateurs visuels en bas du panneau gauche avec icônes SVG cohérentes
-  - **Analysé** : Point vert pour les fichiers analysés avec succès
-  - **Non analysé** : Point jaune pour les fichiers en attente d'analyse
-  - **En cours** : Point bleu animé pour les analyses en cours
-  - **Échec** : Point rouge pour les analyses échouées
-  - **Non pris en charge** : Croix rouge SVG (12px x 12px) pour les formats non supportés
-- **Couleurs cohérentes** : Palette harmonieuse avec icônes colorées
-- **Responsive design** : Adaptation mobile et desktop
-
-### ⚙️ Panneaux de Configuration
-- **Configuration IA** (Bleu) : Gestion des providers et stratégies
-  - **Onglets adaptatifs** : Providers, Stratégie, Métriques avec couleurs centralisées
-  - **Compatibilité jour/nuit** : Onglets qui s'adaptent automatiquement au thème actuel
-  - **Accent coloré** : Bordure bleue (`colors.config`) pour l'onglet actif
-  - **Transitions fluides** : Changements d'état avec animations harmonieuses
-  - **Interface compacte** : Design optimisé pour l'espace disponible
-- **File d'attente** (Jaune) : Suivi des analyses en cours
-  - **Couleurs centralisées** : Utilisation du système de couleurs centralisé
-  - **Compatibilité jour/nuit** : Adaptation automatique au thème actuel
-  - **Progression visuelle** : Barre de progression avec couleur d'accent (`colors.queue`)
-  - **Statuts colorés** : Points de statut avec couleurs centralisées
-  - **Actions harmonisées** : Boutons avec couleurs d'accent et d'erreur
-  - **Groupement par type** : Interface organisée par type d'analyse
-- **Analyses IA** (Vert) : Consultation des résultats
-- **Gestionnaire de fichiers** : Interface unifiée pour les analyses effectuées
-  - **Couleurs adaptatives** : Fond, texte et bordures selon le thème
-  - **Aperçu des résultats** : Cartes compactes avec couleurs centralisées
-  - **Statistiques en temps réel** : Compteurs avec couleurs harmonisées
-  - **Actions contextuelles** : Boutons avec couleurs d'accent (`colors.analyses`)
-- **Synchronisation des couleurs** : Icônes et titres de panneaux harmonisés
-- **Thème jour/nuit** : Basculement automatique avec icônes adaptées
-
-## 🏗️ Architecture Technique
-
-### Backend (Python FastAPI)
-- **Framework** : FastAPI avec validation Pydantic
-- **Base de données** : SQLAlchemy avec SQLite/PostgreSQL
-  - **Modèle File enrichi** : Ajout des champs `file_created_at`, `file_modified_at`, `file_accessed_at`
-  - **Modèle Analysis** : Champs `started_at` et `completed_at` pour le suivi temporel
-  - **Métadonnées étendues** : Stockage des dates d'analyse dans `analysis_metadata`
-- **IA Providers** : OpenAI, Anthropic, Mistral, Ollama
-- **OCR** : Tesseract avec support français (en développement)
-- **Cache** : Redis ou fichier JSON
-- **Tests** : pytest avec couverture 80%+
-
-#### 🔒 Sécurité Avancée
-- **Rate Limiting** : Protection contre les attaques DDoS
-- **CORS Restrictif** : Origines autorisées limitées
-- **Clé secrète sécurisée** : Génération automatique 32+ caractères
-- **Headers de sécurité** : XSS, CSRF protection
-- **Trusted Host Middleware** : Protection contre host header attacks
-- **Authentification** : Système de sessions avec timeout configurable
-- **Gestion des tentatives** : Protection contre les attaques par force brute
-- **Protection des actions** : Vérifications conditionnelles pour éviter les erreurs
-  - **Validation côté client** : Désactivation des boutons selon la sélection
-  - **Validation côté serveur** : Vérifications dans les endpoints API
-  - **Gestion d'erreurs robuste** : Messages d'erreur informatifs et fallbacks gracieux
-
-#### ⚡ Performance Optimisée
-- **Compression Gzip** : Réduction 60-80% de la bande passante
-- **Monitoring temps réel** : Métriques de performance avec psutil
-- **Request ID tracking** : Traçabilité complète des requêtes
-- **Logging structuré** : Traçabilité et debugging avancés
-- **Communication optimisée** : Événements personnalisés pour la visualisation
-  - **Événements CustomEvent** : Communication directe entre composants sans re-renders
-  - **Sélection automatique** : Optimisation de la navigation entre fichiers
-  - **Mode de vue intégré** : Basculement direct sans étapes intermédiaires
-
-#### 📁 Modules Centralisés
-- `core/file_utils.py` : Gestion des formats et extraction d'informations
-  - **Extraction de dates** : Récupération automatique des timestamps système (création, modification, accès)
-  - **Métadonnées enrichies** : Inclusion des dates dans les informations de fichier
-- `core/database_utils.py` : Utilitaires de base de données
-- `core/status_manager.py` : Gestion des statuts et transitions
-- `core/validation.py` : Validation et gestion d'erreurs
-- `core/security.py` : Gestion de l'authentification et des sessions
-- `data/prompts.json` : Prompts IA centralisés et configurables
-- `services/download_service.py` : Service de téléchargement avec gestion des fichiers temporaires
-- `services/queue_service.py` : Service de queue avec suivi temporel des analyses
-  - **Dates d'analyse** : Enregistrement automatique de `started_at` et `completed_at`
-  - **Métadonnées enrichies** : Inclusion des dates dans les métadonnées d'analyse
-
-#### 🔐 Service d'Authentification
-- **Détection automatique** : Local vs Remote utilisateur
-- **Sessions sécurisées** : Tokens avec expiration automatique
-- **Configuration flexible** : Paramètres dans `security_config.json`
-- **API endpoints** : `/api/auth/login`, `/api/auth/logout`, `/api/auth/session-info`
-
-#### 📦 Service de Téléchargement
-- **Téléchargement direct** : Endpoint `/api/files/download-by-path/{file_path:path}`
-- **Archives ZIP** : Création automatique pour dossiers et fichiers multiples
-- **Fichiers temporaires** : Gestion automatique dans `temp_downloads/`
-- **Nettoyage automatique** : Suppression des fichiers de plus de 24h
-- **Limites de taille** : Protection contre les fichiers trop volumineux
-
-### Frontend (React TypeScript)
-- **Framework** : React 18 avec TypeScript strict
-- **Styling** : Tailwind CSS avec thèmes personnalisés
-- **État global** : Zustand avec persistance et cache intelligent
-- **Responsive** : Mobile-first design
-- **Accessibilité** : Navigation clavier et ARIA labels
-
-#### 🚀 Performance Frontend
-- **Code Splitting** : Chunks optimisés par fonctionnalité
-- **Cache intelligent** : Persistance et invalidation automatique
-- **Hot Reload optimisé** : Vite avec configuration avancée
-- **Alias de modules** : Imports optimisés avec résolution de chemins
-- **Build optimisé** : Minification, compression, assets optimisés
-
-#### 🔄 Développement Optimisé
-- **Error handling** : Gestion d'erreurs robuste avec mécanismes spécifiques
-  - **Try/catch** : Gestion d'erreurs dans `loadFilesystemData` et `handleDirectoryNavigation`
-  - **Logs d'erreur** : Messages d'erreur détaillés dans la console avec contexte
-  - **Fallback gracieux** : Interface reste fonctionnelle même en cas d'erreur
-- **Timeout management** : Gestion des timeouts avec AbortController
-  - **Requêtes API** : Timeout configurable pour éviter les blocages
-  - **Annulation** : Possibilité d'annuler les requêtes en cours
-  - **Retry automatique** : Tentatives de reconnexion en cas d'échec
-- **State management** : Zustand avec devtools et persist middleware
-- **Logs de debug frontend** : Traçabilité complète avec logs détaillés
-  - **Navigation** : Logs avec emojis pour tracer les clics et la navigation
-  - **Données backend** : Debug des réponses API et des données reçues
-  - **Console accessible** : F12 pour voir les logs de debug en temps réel
-
-#### 📁 Architecture Modulaire
-- `components/UI/` : Composants réutilisables (Button, Modal, AuthModal)
-- `components/Layout/` : Composants de mise en page (LeftPanel, MainPanel)
-  - **MainPanel** : Navigation intégrée avec boutons "Détails", "Visualiser", "Analyse IA"
-  - **Protection des actions** : Désactivation conditionnelle des boutons selon la sélection
-  - **Événements personnalisés** : Écoute des événements de visualisation depuis FileTree
-- `components/FileManager/` : Gestion des fichiers (FileTree avec navigation intégrée, FileViewer)
-  - **FileTree** : Menu contextuel avec actions conditionnelles selon la sélection
-  - **FileViewer** : Visualisation intégrée sans modal, protection du téléchargement
-  - **Support multimédia** : Images, vidéos, audios, textes avec contrôles adaptés
-  - **Contrôles audio avancés** : Interface de lecture complète avec barre de contrôle fixe
-  - **Navigation directe** : Intégration dans le panneau principal
-  - **Téléchargement sécurisé** : Bouton de téléchargement avec validation
-  - **FileResultViewer** : Onglet "Analyse IA" avec section "Dates d'Analyse IA"
-  - **FileDetailsPanel** : Affichage des dates système et base de données
-- `components/Config/` : Configuration IA (ConfigWindow, ConfigContent)
-  - **Onglets adaptatifs** : Interface avec onglets Providers, Stratégie, Métriques
-  - **Couleurs centralisées** : Utilisation du système de couleurs centralisé
-  - **Compatibilité thème** : Adaptation automatique jour/nuit
-  - **Interface compacte** : Design optimisé pour l'espace disponible
-- `components/Queue/` : File d'attente (QueuePanel, QueueContent)
-- `hooks/` : Hooks personnalisés (useFileOperations, useColors, etc.)
-- `utils/` : Utilitaires centralisés (fileUtils, constants, colors, etc.)
-- `services/` : Services API (authService, promptService)
-- **Fichiers de couleurs** : `utils/colors.ts` et `hooks/useColors.ts`
-- `stores/` : Gestion d'état avec Zustand
-- **Délégation intelligente** : LeftPanel délègue la gestion de l'arborescence à FileTree
-- **Composants refactorisés** : ConfigContent et QueueContent pour réutilisation dans MainPanel
-- **Système de couleurs centralisé** : Toutes les couleurs définies dans `utils/colors.ts`
-
-#### 🔐 Service d'Authentification Frontend
-- **AuthService** : Gestion centralisée de l'authentification
-- **Détection automatique** : Local vs Remote utilisateur
-- **AuthModal** : Interface d'authentification élégante
-- **Gestion des tokens** : Stockage sécurisé et validation automatique
-- **Intégration contextuelle** : Authentification requise pour les actions sensibles
-
-#### 🎬 Composant FileViewer
-- **Visualisation multimédia** : Support complet images, vidéos, audio, documents
-- **Navigation par flèches** : Boutons et raccourcis clavier
-- **Indicateur de position** : Affichage de la position dans le répertoire
-- **Téléchargement intégré** : Bouton de téléchargement direct
-- **Interface responsive** : Adaptation automatique à la taille d'écran
-
-#### 📊 Synchronisation Intelligente en Temps Réel
-- **Statuts en temps réel** avec indicateurs visuels colorés et animations
-- **Synchronisation adaptative** : 
-  - Base : 8-10 secondes (LeftPanel/FileTree)
-  - Actions en cours : 1-3 secondes (suivi intensif)
-  - Immédiate : Après chaque action utilisateur
-- **Suivi de progression** : Synchronisation continue pendant le traitement
-- **Arrêt automatique** : Synchronisation intensive s'arrête quand l'action est terminée
-- **Queue d'analyse** : Rechargement automatique des éléments en cours et du statut global
-- **Conditionnelle** : Synchronisation uniquement quand un disque est sélectionné
-- **Communication bidirectionnelle** : Événements CustomEvent entre LeftPanel et Layout
-- **État synchronisé** : activePanel partagé entre composants pour cohérence des couleurs
+---
 
 ## 🚀 Démarrage Rapide
 
-### Prérequis
-- **Python 3.8+**
-- **Node.js 16+**
-- **npm 8+**
+### ⚡ Installation Express (2 minutes)
 
-### Installation et Démarrage
-
-#### Option 1 : Démarrage Automatique Optimisé (Recommandé)
 ```bash
-# Cloner le projet
+# 1. Cloner le projet
 git clone <repository-url>
-cd docusense-ai
+cd DocuSense-AI
 
-# Démarrer les serveurs automatiquement avec gestion intelligente des processus
-.\scripts\dev_start.ps1
+# 2. Installation automatique
+.\scripts\start_optimized.ps1 -Analyze -Optimize -Force
+
+# 3. Accéder à l'application
+# Frontend : http://localhost:3000
+# Backend : http://localhost:8000
 ```
 
-#### 🎬 Installation des Dépendances Multimédia
+### 🎯 Premiers Pas
 
-Pour activer le support complet des fichiers multimédia (images, vidéos, audio), exécutez :
+1. **Ouvrez votre navigateur** sur http://localhost:3000
+2. **Sélectionnez un dossier** contenant vos documents
+3. **Cliquez sur un fichier** → Affichage automatique selon le type
+4. **Utilisez l'analyse IA** → Sélectionnez un prompt et lancez l'analyse
+
+---
+
+## ✨ Fonctionnalités
+
+### 🎯 Interface Épurée et Intuitive
+
+#### **Affichage Automatique**
+- **Clic sur fichier** → Affichage direct selon le type
+- **Audio/Vidéo** : Lecteur multimédia avec contrôles simples
+- **Images** : Affichage avec boutons flottants (plein écran, télécharger)
+- **Documents** : Visualisation native (PDF, Office, etc.)
+- **Emails** : Lecture structurée avec accès aux pièces jointes
+
+#### **Actions Simplifiées**
+- **Icônes minimales** : Seulement l'essentiel (plein écran, télécharger, pièces jointes)
+- **Bouton Métadonnées** : Accès aux détails via le panneau haut
+- **Navigation fluide** : Bouton retour unique pour les emails
+
+### 📁 Support Multi-Formats
+
+#### **Documents** 📄
+- **PDF, DOCX, PPTX, XLSX** - Visualisation native
+- **TXT, RTF** - Affichage texte
+
+#### **Images** 🖼️
+- **JPG, PNG, GIF, WebP, HEIC, SVG, TIFF, BMP, ICO**
+- **Boutons flottants** : Zoom, télécharger, plein écran en overlay
+- **Contrôles intelligents** : Apparition au survol, indicateur de zoom
+
+#### **Vidéos** 🎬
+- **MP4, AVI, MOV, WMV, FLV, WebM, MKV** et **39 formats** supportés
+- **Streaming natif** : Lecture directe sans téléchargement
+- **Analyse complète** : Métadonnées, codecs, durée, résolution
+
+#### **Audio** 🎵
+- **MP3, WAV, FLAC, AAC, OGG, WMA, M4A** et **21 formats** supportés
+- **Lecteur intégré** avec contrôles simples
+- **Analyse spectrale** : Tempo, fréquences, spectrogrammes
+
+#### **Emails** 📧
+- **EML, MSG** - Parsing complet
+- **Pièces jointes** - Accès direct et prévisualisation
+
+### 🤖 Analyse IA Intelligente
+
+#### **Fonctionnalités Principales**
+- **Extraction automatique** de données depuis tous types de documents
+- **Classification intelligente** par domaine (Juridique, Technique, Administratif, Général)
+- **Comparaison de documents** avec détection de différences
+- **Synthèse multi-documents** avec rapports structurés
+- **Analyse multiple par IA** : Comparaison des résultats de plusieurs providers IA
+
+#### **Prompts Spécialisés**
+- **Général** : Analyses générales de documents
+- **Résumé** : Résumés et synthèses
+- **Extraction** : Extraction d'informations spécifiques
+- **Comparaison** : Comparaisons entre documents
+- **Classification** : Classification par domaine
+- **OCR** : Reconnaissance de texte
+- **Juridique** : Analyses juridiques
+- **Technique** : Analyses techniques
+- **Administratif** : Analyses administratives
+
+### 📋 File d'Attente Intégrée
+
+#### **Interface Unifiée**
+- **Queue intégrée** dans la fenêtre principale avec toggle
+- **Bouton queue** : Affiche/masque la queue dans la même fenêtre
+- **Plus de fenêtre séparée** : Suppression du panel standalone à droite
+- **Design épuré** : Interface lisible avec couleurs minimales sauf pour les états
+- **Organisation par prompt** : Analyses groupées par type de prompt utilisé
+- **Affichage des IA** : Distinction claire entre analyses simples et multiples par IA
+- **Statistiques IA** : Compteurs par type d'IA (simple/multiple) et providers utilisés
+- **Actions individuelles** : Pause, annulation, relance par item
+- **Statistiques rapides** : Compteurs en attente, en cours, terminées, erreurs
+
+### ⚖️ Vérification Normative
+
+#### **Conformité Automatique**
+- **Code civil, Code de commerce** - Vérification légale
+- **DTU, NF, EN, ISO** - Normes techniques
+- **RE2020, RT2012** - Réglementation
+- **Détection d'incohérences** et alertes de prescription
+
+---
+
+## 🛠️ Installation
+
+### 📋 Prérequis
+
+- **Python 3.8+** avec environnement virtuel
+- **Node.js 16+** et npm
+- **Git** pour le versioning
+- **Espace disque** : Minimum 2GB libre
+
+### 🚀 Installation Automatique (Recommandée)
+
+```bash
+# Installation complète avec optimisation
+git clone <repository-url>
+cd DocuSense-AI
+.\scripts\start_optimized.ps1 -Analyze -Optimize -Force
+```
+
+### 🎬 Support Multimédia (Optionnel)
 
 ```powershell
-# Installation complète des dépendances multimédia
+# Installation automatique FFmpeg + codecs
 .\scripts\install_multimedia_deps.ps1
 
-# Ou installation sélective
-.\scripts\install_multimedia_deps.ps1 -SkipFrontend  # Backend uniquement
-.\scripts\install_multimedia_deps.ps1 -SkipBackend   # Frontend uniquement
-```
-
-### 🔐 Configuration de l'Accès Distant
-
-**Accès distant :**
-- **Interface React unifiée** : http://localhost:3000 (même interface que locale)
-- **Authentification automatique** : Détection local/remote avec authentification pour les utilisateurs distants
-- **Identifiants par défaut** : username: `avocat`, password: `2025*`
-- **Fonctionnalités** : Navigation, visualisation, téléchargement, analyse IA
-
-**Formats supportés après installation :**
-- **Images** : JPG, PNG, GIF, BMP, TIFF, WebP, ICO, RAW, HEIC, HEIF
-- **Vidéos** : MP4, AVI, MOV, WMV, FLV, WebM, MKV, M4V, 3GP, OGV, TS, MTS, M2TS
-- **Audio** : MP3, WAV, FLAC, AAC, OGG, WMA, M4A, Opus, AIFF, ALAC
-- **Archives** : ZIP, RAR, 7Z, TAR, GZ, BZ2
-- **Documents** : PDF, DOCX, PPTX, XLSX, RTF, ODT, Pages, Numbers, Key
-- **Code** : Python, JavaScript, TypeScript, Java, C++, C#, PHP, Ruby, Go, Rust, Swift, Kotlin, HTML, CSS, XML, JSON, YAML, SQL, Shell, PowerShell
-
-#### Option 2 : Démarrage Manuel avec Gestion Intelligente
-
-**Backend :**
-```bash
-# Vérifier et nettoyer les ports
-.\scripts\manage_ports.ps1 check
-.\scripts\manage_ports.ps1 clean
-Start-Sleep -Seconds 3
-
-# Démarrer le backend (depuis la racine du projet)
+# Ou installation manuelle
+winget install Gyan.FFmpeg --accept-source-agreements --accept-package-agreements
 cd backend
-venv\Scripts\python.exe main.py
+venv\Scripts\pip.exe install ffmpeg-python av pytube yt-dlp
 ```
 
-**Frontend :**
-```bash
-# Vérifier et nettoyer les ports
-.\scripts\manage_ports.ps1 check
-.\scripts\manage_ports.ps1 clean
+> **✅ IMPLÉMENTÉ** - Support multimédia complet avec 39 formats vidéo et 21 formats audio
 
-# Démarrer le frontend (depuis la racine du projet)
-cd frontend
-npm run dev
-```
+---
 
-### Ports et Accès
-- **Backend** : http://localhost:8000
-- **Frontend** : http://localhost:3000 (ou 3001, 3002 selon disponibilité)
-- **API Docs** : http://localhost:8000/docs
+## 🎯 Utilisation
 
-## 📁 Structure du Projet
+### 📂 Navigation et Sélection
 
-```
-docusense-ai/
-├── backend/
-│   ├── app/
-│   │   ├── api/           # Endpoints API
-│   │   │   ├── auth.py    # Authentification
-│   │   │   ├── files.py   # Gestion fichiers
-│   │   │   ├── download.py # Téléchargements
-│   │   │   └── multimedia.py # Support multimédia
-│   │   ├── core/          # Modules centralisés
-│   │   │   ├── file_utils.py
-│   │   │   ├── database_utils.py
-│   │   │   ├── status_manager.py
-│   │   │   ├── validation.py
-│   │   │   └── security.py # Authentification et sécurité
-│   │   ├── data/          # Fichiers de données centralisés
-│   │   │   └── prompts.json  # Prompts IA centralisés et configurables
-│   │   ├── models/        # Modèles de données
-│   │   ├── services/      # Services métier
-│   │   │   ├── download_service.py # Service de téléchargement
-│   │   │   └── multimedia_service.py # Service multimédia
-│   │   └── utils/         # Utilitaires
-│   ├── temp_downloads/    # Fichiers temporaires de téléchargement
-│   ├── logs/              # Logs d'application
-│   ├── venv/              # Environnement virtuel Python
-│   ├── main.py            # Point d'entrée
-│   ├── security_config.json # Configuration sécurité
-│   └── requirements.txt   # Dépendances Python
-├── frontend/
-│   ├── src/
-│   │   ├── components/    # Composants React
-│   │   │   ├── UI/        # Composants UI (AuthModal, Modal, Button)
-│   │   │   ├── Layout/    # Layout (LeftPanel, MainPanel)
-│   │   │   ├── FileManager/ # Gestion fichiers (FileTree, FileViewer)
-│   │   │   ├── Config/    # Configuration IA
-│   │   │   └── Queue/     # File d'attente
-│   │   ├── hooks/         # Hooks personnalisés
-│   │   ├── services/      # Services API (authService, promptService)
-│   │   ├── stores/        # Gestion d'état Zustand
-│   │   └── utils/         # Utilitaires
-│   ├── public/            # Assets statiques
-│   └── package.json       # Dépendances Node.js
-├── scripts/               # Scripts de démarrage et gestion
-├── logs/                  # Logs globaux
-├── README.md             # Documentation principale
-├── 📚 DOCUMENTATION_INDEX.md          # Index de tous les documents
-├── COLORS_GUIDE.md       # Guide du système de couleurs
-├── COLORS_CENTRALIZATION_SUMMARY.md  # Résumé centralisation couleurs
-├── REFACTORING_REPORT.md # Rapport de refactoring
-└── CLEANUP_SYNCHRONIZATION_REPORT.md # Rapport de nettoyage
-```
+#### **Sélection de Fichiers**
+1. **Cliquez sur un fichier** → Affichage automatique
+2. **Ctrl+clic** → Ajouter/retirer de la sélection
+3. **Sélection multiple** → Actions en lot disponibles
+
+#### **Types d'Affichage**
+- **📄 Documents** : Visualisation native dans le navigateur
+- **🖼️ Images** : Affichage direct avec zoom
+- **🎬 Vidéos** : Lecteur avec contrôles simples
+- **🎵 Audio** : Lecteur audio intégré
+- **📧 Emails** : Lecture structurée avec pièces jointes
+
+### 🤖 Analyse IA
+
+#### **Analyse Simple**
+1. **Sélectionnez un fichier**
+2. **Cliquez sur "Analyser"**
+3. **Choisissez un prompt** dans le sélecteur
+4. **Lancez l'analyse** → Résultat dans la queue
+
+#### **Comparaison de Documents**
+1. **Sélectionnez plusieurs fichiers** (Ctrl+clic)
+2. **Cliquez sur "Comparer"**
+3. **Choisissez un prompt** de comparaison
+4. **Lancez la comparaison** → Analyse comparative
+
+#### **Analyse en Lot**
+1. **Sélectionnez plusieurs fichiers** (2+ fichiers)
+2. **Cliquez sur "Analyser en lot"**
+3. **Choisissez un prompt** d'analyse
+4. **Lancez l'analyse** → Tous les fichiers traités
+
+#### **Analyse Multiple par IA** ✅ IMPLÉMENTÉ
+1. **Sélectionnez un ou plusieurs fichiers**
+2. **Cliquez sur "Analyse Multiple par IA"**
+3. **Sélectionnez les providers actifs** (OpenAI, Claude, Mistral, etc.)
+4. **Choisissez un prompt** d'analyse
+5. **Lancez l'analyse** → Chaque IA analyse le même fichier
+6. **Comparaison automatique** → Résultats de toutes les IA côte à côte
+
+### 📋 Gestion de la Queue
+
+#### **Suivi des Analyses**
+- **Queue intégrée** : Visible dans le panneau principal
+- **Statut en temps réel** : En attente, en cours, terminée, erreur
+- **Actions par item** : Pause, annulation, relance
+
+#### **Organisation**
+- **Groupement par type** : Général, Résumé, Extraction, etc.
+- **Statistiques rapides** : Compteurs par statut
+- **Actions par section** : Relancer/supprimer toutes les analyses d'un type
+
+### ⚙️ Configuration IA
+
+#### **Accès à la Configuration**
+- **Bouton ⚙️** : Premier clic ouvre la config, deuxième clic ferme
+- **4 providers** : OpenAI, Claude, Mistral, Ollama (local)
+- **Configuration simple** : Ajoutez vos clés API
+
+#### **Liste des Analyses IA**
+- **✅ IMPLÉMENTÉ** - Bouton "Liste Analyses" : Toggle pour afficher la liste complète
+- **✅ IMPLÉMENTÉ** - Tri intelligent : Par date, statut, IA (cliquez sur les en-têtes)
+- **✅ IMPLÉMENTÉ** - Filtres avancés : Par statut et type de prompt
+- **✅ IMPLÉMENTÉ** - Actions rapides : Relancer ou supprimer les analyses
+- **✅ IMPLÉMENTÉ** - Interface épurée : Design lisible avec couleurs minimales
+
+---
 
 ## 🔧 Configuration
 
-### Variables d'Environnement Backend
+### 🔑 Variables d'Environnement
+
+#### **Backend (.env)**
 ```bash
-# Base de données
 DATABASE_URL=sqlite:///./docusense.db
-
-# Sécurité
-SECRET_KEY=your-secret-key-here
-CORS_ORIGINS=["http://localhost:3000"]
-
-# IA Providers
-OPENAI_API_KEY=your-openai-key
-ANTHROPIC_API_KEY=your-anthropic-key
-MISTRAL_API_KEY=your-mistral-key
-OLLAMA_BASE_URL=http://localhost:11434
+DEBUG=false
+ENVIRONMENT=production
+OPENAI_API_KEY=your_openai_key
+ANTHROPIC_API_KEY=your_anthropic_key
+MISTRAL_API_KEY=your_mistral_key
 ```
 
-### Configuration Sécurité
-```json
-// backend/security_config.json
-{
-  "admin_password": "admin123",
-  "session_timeout": 3600,
-  "max_login_attempts": 5,
-  "lockout_duration": 300
-}
-```
-
-### Configuration Frontend
-```typescript
-// src/utils/constants.ts
-export const API_BASE_URL = 'http://localhost:8000'
-export const SYNC_INTERVAL = 5000 // 5 secondes
-```
-
-### 🎨 Système de Couleurs Centralisé
-
-Toutes les couleurs de l'interface sont centralisées pour faciliter les modifications :
-
-#### Fichiers de couleurs
-- **`frontend/src/utils/colors.ts`** : Définition de toutes les couleurs
-- **`frontend/src/hooks/useColors.ts`** : Hooks pour utiliser les couleurs
-- **`COLORS_GUIDE.md`** : Guide complet d'utilisation
-
-#### Composants avec couleurs centralisées
-- **Onglets de configuration AI** : Couleurs adaptatives avec accent `colors.config`
-- **File d'attente** : Interface avec couleurs centralisées et progression visuelle
-- **Gestionnaire de fichiers** : Analyses terminées avec couleurs adaptatives
-- **Panneaux principaux** : Couleurs synchronisées (config: bleu, queue: jaune, analyses: vert)
-- **Statuts visuels** : Points colorés avec couleurs de statut centralisées
-- **Champs de saisie** : Couleurs adaptatives selon le thème jour/nuit
-- **Boutons et interactions** : Couleurs d'accent harmonisées
-- **Barres de progression** : Couleurs d'accent pour les indicateurs de progression
-
-### 🔧 Optimisations Interface
-
-#### Animations d'Activation
-- **Scale + Ring** : Au lieu de remplissage de couleur qui masque les icônes
-- **Pulsation** : Animation continue pour les boutons actifs
-- **Transitions fluides** : 300ms pour tous les changements d'état
-
-#### Champs de Saisie
-- **Œil unique** : Utilisation de l'œil natif du navigateur pour les champs password
-- **Suppression redondance** : Plus de double œil dans les champs de clés API
-- **Interface épurée** : Moins d'éléments visuels superflus
-
-#### Couleurs principales
-```typescript
-// Couleurs des panneaux
-config: '#3b82f6'    // Bleu pour Configuration IA (onglets actifs)
-queue: '#eab308'     // Jaune pour File d'attente  
-analyses: '#4ade80'  // Vert pour Analyses terminées
-
-// Couleurs de statut
-pending: '#eab308'   // Jaune - En attente
-processing: '#3b82f6' // Bleu - En cours
-completed: '#22c55e' // Vert - Terminé
-failed: '#ef4444'    // Rouge - Échec
-
-// Couleurs d'interface adaptatives
-text: '#f1f5f9'      // Texte principal (mode sombre)
-textSecondary: '#94a3b8' // Texte secondaire
-surface: '#1e293b'   // Surfaces (panneaux, cartes)
-border: '#334155'    // Bordures
-```
-
-#### Utilisation dans les composants
-```typescript
-import { useColors, usePanelColors, useStatusColors } from '../hooks/useColors';
-
-// Hook principal
-const { colors, colorMode } = useColors();
-
-// Hook spécialisé pour les panneaux
-const { config, queue, analyses } = usePanelColors();
-
-// Hook spécialisé pour les statuts
-const { pending, completed, getStatusColor } = useStatusColors();
-
-// Exemple d'utilisation dans les onglets
-const { colors } = useColors();
-// Onglet actif avec accent coloré
-style={{
-  backgroundColor: activeTab === 'providers' ? colors.surface : 'transparent',
-  color: activeTab === 'providers' ? colors.text : colors.textSecondary,
-  borderBottomColor: activeTab === 'providers' ? colors.config : 'transparent'
-}}
-```
-
-## 🧪 Tests
-
-### Backend
+#### **Frontend (.env)**
 ```bash
+VITE_API_URL=http://localhost:8000
+VITE_APP_NAME=DocuSense AI
+```
+
+### 🤖 Configuration IA
+
+#### **Providers Supportés**
+- **OpenAI** : GPT-4, GPT-3.5-turbo
+- **Claude** : Claude-3, Claude-2
+- **Mistral** : Mistral-7B, Mixtral-8x7B
+- **Ollama** : Modèles locaux
+
+#### **Configuration des Clés**
+1. **Ouvrez la configuration** (bouton ⚙️)
+2. **Ajoutez vos clés API** dans les champs correspondants
+3. **Sauvegardez** → Configuration active immédiatement
+
+---
+
+## 🐛 Dépannage
+
+### ❌ Problèmes Courants
+
+#### **Environnement Virtuel Manquant**
+```powershell
+# Solution automatique
+.\scripts\optimize_system.ps1 -System
+
+# Solution manuelle
 cd backend
-venv\Scripts\python.exe -m pytest tests/ -v --cov=app --cov-report=html
+python -m venv venv
+venv\Scripts\activate
+venv\Scripts\pip.exe install -r requirements.txt
 ```
 
-### Frontend
-```bash
-cd frontend
-npm test
-npm run test:coverage
+#### **Ports Déjà Utilisés**
+```powershell
+# Solution automatique
+.\scripts\start_optimized.ps1 -Force
+
+# Solution manuelle
+taskkill /F /IM python.exe /T
+taskkill /F /IM node.exe /T
 ```
 
-## 📊 Monitoring et Métriques
+#### **Base de Données Corrompue**
+```powershell
+# Diagnostic
+.\scripts\diagnostic_complet.ps1 -Report
 
-### Logs
-- **Backend** : `backend/logs/` et `logs/`
-- **Frontend** : Console navigateur (F12)
-- **Debug** : Logs détaillés avec emojis pour la navigation
+# Optimisation automatique
+.\scripts\optimize_system.ps1 -Database -Force
+```
 
-### Métriques de Performance
-- **Temps de réponse API** : Monitoring automatique
-- **Utilisation mémoire** : psutil integration
-- **Queue d'analyse** : Statuts en temps réel
-
-## 🔄 Déploiement
-
-### Production
+#### **Lecteur Vidéo Ne Fonctionne Pas**
 ```bash
-# Build frontend
-cd frontend
-npm run build
-
-# Démarrage backend production
+# Vérifier les dépendances multimédia
 cd backend
-venv\Scripts\python.exe main.py --env production
+venv\Scripts\pip.exe install ffmpeg-python av pytube yt-dlp
+
+# Vérifier FFmpeg
+ffmpeg -version
+
+# Tester le streaming
+curl http://localhost:8000/api/files/stream-by-path/[chemin_fichier]
 ```
 
-### Docker (Optionnel)
-```bash
-docker-compose up -d
-```
+### 📊 Logs et Diagnostic
 
-## 🤝 Contribution
+- **Logs backend** : `backend/logs/docusense.log`
+- **Logs d'erreur** : `backend/logs/docusense_error.log`
+- **Logs de surveillance** : `logs/monitoring_YYYYMMDD.log`
+- **Rapports de diagnostic** : `logs/diagnostic_YYYYMMDD_HHMMSS.txt`
 
-### Développement
-1. Fork le projet
-2. Créer une branche feature (`git checkout -b feature/AmazingFeature`)
-3. Commit les changements (`git commit -m 'Add AmazingFeature'`)
-4. Push vers la branche (`git push origin feature/AmazingFeature`)
-5. Ouvrir une Pull Request
+---
 
-### Standards de Code
-- **Backend** : PEP 8, type hints, docstrings
-- **Frontend** : ESLint, Prettier, TypeScript strict
-- **Tests** : Couverture 80%+ requise
+## 📞 Support
 
-## 📝 Licence
+### 📚 Documentation
 
-Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
-
-## 📚 Documentation et Ressources
-
-### Documentation Principale
-- **README.md** : Documentation principale du projet
-- **📚 Index** : `DOCUMENTATION_INDEX.md` - Index complet de tous les documents
 - **API Docs** : http://localhost:8000/docs
-- **Architecture** : `ARCHITECTURE_CENTRALISEE.md`
+- **README** : Documentation complète du projet
+- **Scripts** : Aide intégrée avec `-h` ou `--help`
 
-### Rapports et Guides
-- **Refactoring** : `REFACTORING_REPORT.md` - Rapport détaillé du refactoring
-- **Nettoyage** : `CLEANUP_SYNCHRONIZATION_REPORT.md` - Rapport de nettoyage et synchronisation
-- **Couleurs** : `COLORS_GUIDE.md` - Guide complet du système de couleurs centralisé
-- **Centralisation** : `COLORS_CENTRALIZATION_SUMMARY.md` - Résumé de la centralisation des couleurs
+### 🔧 Outils de Diagnostic
 
-## 🆘 Support
+- **Diagnostic automatique** : `.\scripts\diagnostic_complet.ps1 -Report`
+- **Optimisation automatique** : `.\scripts\optimize_system.ps1 -Force`
+- **Surveillance continue** : `.\scripts\monitor_realtime.ps1 -Log`
 
-### Problèmes Courants
-- **Ports occupés** : Utiliser `.\scripts\manage_ports.ps1 clean`
-- **Environnement virtuel** : Toujours utiliser `venv\Scripts\python.exe`
-- **Frontend port 3000** : Forcer le port avec `taskkill /F /IM node.exe /T`
-- **Authentification** : Vérifier `security_config.json` et les identifiants par défaut
-- **Téléchargements** : Vérifier le dossier `temp_downloads/` et les permissions
-- **Actions désactivées** : Vérifier qu'un fichier est sélectionné avant d'effectuer des actions
-- **Visualisation** : Les fichiers s'affichent directement dans le panneau principal, pas dans une nouvelle page
-- **Dates d'analyse** : Les dates apparaissent après avoir lancé une analyse IA
-- **Base de données** : En cas de modification du schéma, supprimer `docusense.db` pour recréer la base
+### 📞 Contact
 
-### Contact
-- **Issues** : GitHub Issues
-- **Discussions** : GitHub Discussions 
+- **Issues** : Utiliser GitHub Issues pour les bugs et demandes
+- **Discussions** : GitHub Discussions pour les questions générales
+- **Wiki** : Documentation détaillée et guides
+
+---
+
+## 🎉 Remerciements
+
+Merci à tous les contributeurs qui participent au développement de DocuSense AI !
+
+**DocuSense AI** - L'analyse intelligente de documents, simplifiée et optimisée. 🚀 

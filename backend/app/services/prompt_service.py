@@ -11,6 +11,9 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+# Variables globales pour éviter les logs répétitifs
+_config_cache_loaded = False
+_ai_providers_loaded = False
 
 class PromptDomain(Enum):
     """Prompt domains"""

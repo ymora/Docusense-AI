@@ -1,37 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import DirectorySelector from '../FileManager/DirectorySelector';
 import { useFileStore } from '../../stores/fileStore';
-import { useQueueStore } from '../../stores/queueStore';
-import { promptService } from '../../services/promptService';
+import { useColors } from '../../hooks/useColors';
 import FileTree from '../FileManager/FileTree';
 import { useBackendStatus } from '../../hooks/useBackendStatus';
+import { promptService } from '../../services/promptService';
 
 const LeftPanel: React.FC = () => {
-  const { selectedFiles, toggleFileSelection, selectFile } = useFileStore();
-  const { queueItems, loadQueueItems, loadQueueStatus } = useQueueStore();
-  const { isOnline, lastCheck, errorMessage, responseTime, forceCheck } = useBackendStatus();
+  const { currentDirectory, loadDirectoryTree, setCurrentDirectory, selectedFiles, selectFile } = useFileStore();
+  const { isOnline } = useBackendStatus();
+  const { colors } = useColors();
 
-  // État local pour la navigation
-  const [currentPath, setCurrentPath] = useState<string>('');
-  const [isDarkMode, setIsDarkMode] = useState(true);
-  const [activePanel, setActivePanel] = useState<'main' | 'config' | 'queue' | 'analyses'>('main');
-  const [navigationHistory, setNavigationHistory] = useState<string[]>([]);
-  const [historyIndex, setHistoryIndex] = useState(-1);
 
-  // Fonction pour basculer le thème jour/nuit
-  const toggleTheme = () => {
-    const newDarkMode = !isDarkMode;
-    setIsDarkMode(newDarkMode);
-
-    // Appliquer le thème au document
-    if (newDarkMode) {
-      // Mode nuit : retirer l'attribut data-theme
-      document.body.removeAttribute('data-theme');
-    } else {
-      // Mode jour : ajouter l'attribut data-theme="light"
-      document.body.setAttribute('data-theme', 'light');
-    }
-  };
 
   // Fermer le menu contextuel avec la touche Échap
   useEffect(() => {
@@ -54,327 +34,217 @@ const LeftPanel: React.FC = () => {
       try {
         await promptService.getPrompts();
       } catch (error) {
-        console.error('Erreur lors du chargement des prompts:', error);
+        // Gestion silencieuse des erreurs
       }
     };
     loadPrompts();
   }, []);
 
-  // Synchronisation automatique intelligente - DÉSACTIVÉE pour éviter le scan permanent
-  // useEffect(() => {
-  //   const interval = setInterval(async () => {
-  //     if (currentPath) {
-  //       try {
-  //         await loadQueueItems();
-  //         await loadQueueStatus();
-  //         
-  //         // Vérifier s'il y a des actions en cours pour ajuster la fréquence
-  //         const hasActiveItems = queueItems.some((item: any) => 
-  //           ['pending', 'processing'].includes(item.status)
-  //         );
-  //         
-  //         // Si des actions sont en cours, synchroniser plus fréquemment
-  //         if (hasActiveItems) {
-  //           // Synchronisation rapide toutes les 2 secondes
-  //           setTimeout(async () => {
-  //             await loadQueueItems();
-  //             await loadQueueStatus();
-  //           }, 2000);
-  //         }
-  //       } catch (error) {
-  //         console.error('Erreur lors de la synchronisation:', error);
-  //       }
-  //     }
-  //   }, 8000); // Synchronisation de base toutes les 8 secondes
+  // Permettre de revenir à la sélection de disque
+  const handleShowDrives = () => {
+    setCurrentDirectory(null);
+  };
 
-  //   return () => {
-  //     if (interval) {
-  //       clearInterval(interval);
-  //     }
-  //   };
-  // }, [currentPath, loadQueueItems, loadQueueStatus, queueItems]);
+  // Écouter l'événement showDrives depuis FileTree
+  useEffect(() => {
+    const handleShowDrivesEvent = () => {
+      handleShowDrives();
+    };
+
+    window.addEventListener('showDrives', handleShowDrivesEvent);
+    return () => {
+      window.removeEventListener('showDrives', handleShowDrivesEvent);
+    };
+  }, []);
 
   const handleDirectorySelect = async (directory: string) => {
-    console.log('🔄 Navigation vers:', directory);
+    await loadDirectoryTree(directory);
+  };
+
+  const navigateToParent = async () => {
+    if (!currentDirectory) {
+      handleShowDrives();
+      return;
+    }
     
-    // Ajouter à l'historique de navigation
-    setNavigationHistory(prev => {
-      const newHistory = [...prev.slice(0, historyIndex + 1), directory];
-      setHistoryIndex(newHistory.length - 1);
-      return newHistory;
-    });
+    // Normaliser le chemin pour gérer les séparateurs
+    const normalizedPath = currentDirectory.replace(/\\/g, '/');
+    const parts = normalizedPath.split('/').filter(Boolean);
     
-    setCurrentPath(directory);
-    
-    // Déclencher la navigation dans l'arborescence
-    try {
-      const encodedDirectory = encodeURIComponent(directory.replace(/\\/g, '/'));
-      const response = await fetch(`/api/files/list/${encodedDirectory}`);
-      if (response.ok) {
-        console.log('✅ Navigation réussie vers:', directory);
+    // Si on a au moins 2 parties (disque + au moins un dossier)
+    if (parts.length >= 2) {
+      // Reconstruire le chemin parent en gardant le format original
+      let parentPath;
+      if (parts.length === 2) {
+        // Cas spécial: disque + 1 dossier (ex: D:/Textes -> D:)
+        // Afficher l'arborescence de la racine du disque
+        parentPath = parts[0];
       } else {
-        console.error('❌ Erreur lors de la navigation vers:', directory);
+        // Cas général: disque + plusieurs dossiers (ex: D:/Textes/Yoann -> D:/Textes)
+        parentPath = parts.slice(0, -1).join('/');
       }
-    } catch (error) {
-      console.error('❌ Erreur lors de la navigation:', error);
-    }
-  };
-
-  const navigateToParent = () => {
-    // Utiliser l'historique de navigation pour revenir en arrière
-    if (historyIndex > 0) {
-      const previousPath = navigationHistory[historyIndex - 1];
-      setHistoryIndex(historyIndex - 1);
-      setCurrentPath(previousPath);
       
-      // Déclencher la navigation dans l'arborescence
-      const encodedDirectory = encodeURIComponent(previousPath.replace(/\\/g, '/'));
-      fetch(`/api/files/list/${encodedDirectory}`).catch(error => {
-        console.error('❌ Erreur lors de la navigation:', error);
-      });
+      // Convertir les séparateurs selon le système
+      parentPath = parentPath.replace(/\//g, '\\');
+      
+      await loadDirectoryTree(parentPath);
+    } else {
+      // Si on est déjà à la racine d'un disque, afficher l'arborescence de ce disque
+      // au lieu de revenir à la sélection des disques
+      await loadDirectoryTree(currentDirectory);
     }
   };
 
-  // Initialiser le thème au chargement
-  useEffect(() => {
-    // Appliquer le thème sombre par défaut
-    console.log('Initializing dark theme');
-    document.documentElement.classList.add('dark');
-    document.body.classList.add('dark');
-    setIsDarkMode(true);
-  }, []);
-
-  // Fonction pour sélectionner un fichier (utilisée dans l'arborescence)
-  const handleFileSelect = (file: any) => {
-    selectFile(file);
+  const handleFileClick = (file: any) => {
+    selectFile(file as any);
   };
 
-  // Écouter les changements d'état depuis Layout
-  useEffect(() => {
-    const handlePanelChange = (event: CustomEvent) => {
-      setActivePanel(event.detail.panel);
-    };
-
-    window.addEventListener('panelStateChange', handlePanelChange as EventListener);
-
-    return () => {
-      window.removeEventListener('panelStateChange', handlePanelChange as EventListener);
-    };
-  }, []);
+  // Gestion des actions de fichiers
+  const handleFileAction = (action: string, file: any) => {
+    console.log('🎯 LeftPanel: Action reçue:', action, 'pour le fichier:', file);
+    // Déclencher un événement personnalisé pour que le Layout puisse gérer l'action
+    window.dispatchEvent(new CustomEvent('fileAction', {
+      detail: { action, file }
+    }));
+    console.log('🎯 LeftPanel: Événement fileAction dispatché');
+  };
 
   return (
     <div
-      className="flex flex-col h-full border-r left-panel-container"
+      className="left-panel-container flex flex-col h-full overflow-hidden"
       style={{
-        backgroundColor: 'var(--surface-color)',
-        borderColor: 'var(--border-color)',
+        backgroundColor: colors.surface,
+        borderRight: `1px solid ${colors.border}`,
       }}
     >
-      {/* Header avec titre et boutons uniquement */}
+      {/* Header avec statut du backend */}
       <div
-        className="p-3 border-b flex-shrink-0"
-        style={{ borderColor: 'var(--border-color)' }}
+        className="flex items-center p-4 border-b"
+        style={{ borderBottomColor: colors.border }}
       >
-        {/* Header avec titre et boutons */}
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <button
-              onClick={forceCheck}
-              className={`w-2 h-2 rounded-full cursor-help transition-all duration-200 hover:scale-110 ${
-                isOnline 
-                  ? 'bg-green-500' 
-                  : 'bg-red-500 animate-pulse'
-              }`}
-              title={
-                isOnline
-                  ? `🟢 Backend connecté\n⏱️ Temps de réponse: ${responseTime ? responseTime + 'ms' : 'N/A'}\n🕐 Dernière vérification: ${lastCheck ? 'Il y a ' + Math.floor((Date.now() - lastCheck.getTime()) / 1000) + 's' : 'Jamais'}\n💡 Cliquez pour vérifier manuellement`
-                  : `🔴 Backend déconnecté\n❌ Erreur: ${errorMessage}\n🕐 Dernière vérification: ${lastCheck ? 'Il y a ' + Math.floor((Date.now() - lastCheck.getTime()) / 1000) + 's' : 'Jamais'}\n🔄 Cliquez pour réessayer`
-              }
-            />
-            <div className="flex flex-col">
-              <h1 className="text-lg font-bold text-blue-400">DocuSense AI</h1>
-              <span className="text-xs text-slate-400">Analyse intelligente</span>
+        <span
+          className="text-sm font-semibold"
+          style={{ color: colors.text }}
+        >
+          DocuSense IA
+        </span>
+        <div
+          className="w-3 h-3 rounded-full ml-2"
+          style={{ backgroundColor: isOnline ? colors.success : colors.error }}
+        />
+      </div>
+
+      {/* Sélecteur de disque ou navigation */}
+      {!currentDirectory ? (
+        <div
+          className="p-4 border-b flex-1 overflow-y-auto"
+          style={{ borderBottomColor: colors.border }}
+        >
+          <DirectorySelector onDirectorySelect={handleDirectorySelect} />
+        </div>
+      ) : (
+        <>
+          {/* Breadcrumb navigation */}
+          <div
+            className="px-4 py-2 border-b"
+            style={{
+              backgroundColor: colors.hover.surface,
+              borderBottomColor: colors.border,
+            }}
+          >
+            <div className="flex items-center space-x-2 text-sm">
+              <button 
+                onClick={handleShowDrives} 
+                className="p-2 rounded-lg hover:bg-slate-700 transition-colors text-xs" 
+                style={{ color: colors.primary }}
+              >
+                Disques
+              </button>
+              {currentDirectory && currentDirectory !== '/' && (
+                <>
+                  <span style={{ color: colors.textSecondary }}>|</span>
+                  <button
+                    onClick={navigateToParent}
+                    className="p-2 rounded-lg hover:bg-slate-700 transition-colors text-xs"
+                    style={{ color: colors.primary }}
+                    title="Remonter au dossier parent"
+                  >
+                    ← Retour
+                  </button>
+                </>
+              )}
+              <span style={{ color: colors.textSecondary }}>|</span>
+              <span
+                className="truncate"
+                style={{ color: colors.text }}
+              >
+                {currentDirectory}
+              </span>
             </div>
           </div>
-
-          {/* Boutons de configuration IA, liste d'attente et thème alignés à droite */}
-          <div className="flex items-center space-x-2">
-            {/* Bouton de configuration IA */}
-            <button
-              onClick={() => {
-                // Simuler le clic sur le bouton de config du Layout
-                const event = new CustomEvent('configButtonClick');
-                window.dispatchEvent(event);
-                setActivePanel(activePanel === 'config' ? 'main' : 'config');
-              }}
-              className={`p-1.5 rounded transition-all duration-300 config-button ${
-                activePanel === 'config' ? 'scale-110 ring-2 ring-blue-500 ring-opacity-50' : ''
-              }`}
-              title="Configuration des API IA"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-              </svg>
-            </button>
-
-            {/* Bouton de file d'attente */}
-            <button
-              onClick={() => {
-                // Simuler le clic sur le bouton de queue du Layout
-                const event = new CustomEvent('queueButtonClick');
-                window.dispatchEvent(event);
-                setActivePanel(activePanel === 'queue' ? 'main' : 'queue');
-              }}
-              className={`p-1.5 rounded transition-all duration-300 queue-button ${
-                activePanel === 'queue' ? 'scale-110 ring-2 ring-yellow-500 ring-opacity-50' : ''
-              }`}
-              title="File d'attente d'analyse"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v10a2 2 0 002 2h8a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
-            </button>
-
-            {/* Bouton analyses terminées */}
-            <button
-              onClick={() => {
-                const event = new CustomEvent('analysesButtonClick');
-                window.dispatchEvent(event);
-                setActivePanel(activePanel === 'analyses' ? 'main' : 'analyses');
-              }}
-              className={`p-1.5 rounded transition-all duration-300 analyses-button ${
-                activePanel === 'analyses' ? 'scale-110 ring-2 ring-green-500 ring-opacity-50' : ''
-              }`}
-              title="Analyses terminées"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-              </svg>
-            </button>
-
-            {/* Bouton thème jour/nuit */}
-            <button
-              onClick={toggleTheme}
-              className={`p-1.5 rounded ${
-                isDarkMode 
-                  ? 'text-yellow-400 hover:text-yellow-300 hover:bg-yellow-900/30' 
-                  : 'text-indigo-400 hover:text-indigo-300 hover:bg-indigo-900/30'
-              }`}
-              title={isDarkMode ? 'Passer en mode jour' : 'Passer en mode nuit'}
-            >
-              {isDarkMode ? (
-                // Icône soleil pour passer en mode jour
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
-                </svg>
-              ) : (
-                // Icône lune pour passer en mode nuit
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
-                </svg>
-              )}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Zone de navigation avec sélecteur de disque */}
-      <div className="p-3 border-b flex-shrink-0" style={{ borderColor: 'var(--border-color)' }}>
-        {/* Sélecteur de disque principal */}
-        <div className="mb-2">
-          <div className="text-xs text-slate-400 mb-1">Sélectionner un disque :</div>
-          <DirectorySelector
-            onDirectorySelect={handleDirectorySelect}
-            currentDirectory={currentPath}
-            className="w-full"
-          />
-        </div>
-
-        {/* Bouton retour au parent - séparé et clarifié */}
-        {currentPath && currentPath !== '/' && (
-          <div className="flex items-center justify-between">
-            <div className="text-xs text-slate-400">Navigation :</div>
-            <button
-              className={`flex items-center px-2 py-1 rounded transition-colors flex-shrink-0 border focus:outline-none focus:ring-2 focus:ring-opacity-50 ${
-                historyIndex <= 0
-                  ? 'bg-slate-700 border-slate-600 text-slate-500 cursor-not-allowed opacity-50'
-                  : 'bg-slate-800 border-slate-600 text-slate-300 hover:text-slate-100 hover:bg-slate-700 active:bg-slate-600 focus:ring-blue-500 cursor-pointer'
-              }`}
-              onClick={navigateToParent}
-              disabled={historyIndex <= 0}
-              title={
-                historyIndex <= 0
-                  ? "Aucun historique de navigation"
-                  : "Retour au dossier précédent"
-              }
-            >
-              <svg className={`w-3 h-3 mr-1 flex-shrink-0 ${
-                historyIndex <= 0 ? 'text-slate-500' : 'text-blue-400'
-              }`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-              <span className="text-xs whitespace-nowrap">Dossier parent</span>
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* Contenu principal - Arborescence uniquement */}
-      <div className="flex-1 h-full">
-        {!currentPath ? (
-          <div className="flex flex-col items-center justify-center h-64 text-center">
-            <div className="w-16 h-16 text-blue-400 mb-4">💻</div>
-            <h3 className="text-lg font-medium text-slate-300 mb-2">
-              Aucun disque sélectionné
-            </h3>
-            <p className="text-sm text-slate-400">
-              Sélectionnez un disque dans le sélecteur ci-dessus pour voir l'arborescence
-            </p>
-          </div>
-        ) : (
-          // Arborescence du disque sélectionné
-          <div className="h-full">
+          {/* Arborescence des fichiers */}
+          <div className="flex-1 overflow-y-auto overflow-x-hidden">
             <FileTree
               onDirectorySelect={handleDirectorySelect}
-              currentDirectory={currentPath}
-              onFileSelect={handleFileSelect}
+              currentDirectory={currentDirectory}
+              onFileSelect={handleFileClick}
               selectedFiles={selectedFiles}
+              onFileAction={handleFileAction}
             />
           </div>
-        )}
-      </div>
+        </>
+      )}
 
-      {/* Légende discrète en bas */}
-      <div className="p-2 border-t flex-shrink-0" style={{ borderColor: 'var(--border-color)' }}>
-        <div className="text-xs opacity-60">
-          <div className="text-slate-500 font-medium mb-1">Analyse IA:</div>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-1">
-            <div className="flex items-center space-x-1">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span className="text-slate-400">Analysé</span>
-            </div>
-            <div className="flex items-center space-x-1">
-              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-              <span className="text-slate-400">Non analysé</span>
-            </div>
-            <div className="flex items-center space-x-1">
-              <div className="w-2 h-2 bg-blue-500 rounded-full animate-pulse"></div>
-              <span className="text-slate-400">En cours</span>
-            </div>
-            <div className="flex items-center space-x-1">
-              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-              <span className="text-slate-400">Échec</span>
-            </div>
-            <div className="flex items-center space-x-1">
-              <svg className="w-3 h-3 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
-              </svg>
-              <span className="text-slate-400">Non pris en charge</span>
-            </div>
+      {/* Légende des statuts - TOUJOURS en bas */}
+      <div
+        className="p-3 border-t"
+        style={{
+          borderTopColor: colors.border,
+          backgroundColor: colors.surface,
+        }}
+      >
+        <div className="text-xs font-medium mb-2" style={{ color: colors.textSecondary }}>
+          Légende des statuts IA :
+        </div>
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+          <div className="flex items-center space-x-2">
+            <div
+              className="w-2 h-2 rounded-full"
+              style={{ backgroundColor: colors.status.pending }}
+            />
+            <span style={{ color: colors.textSecondary }}>Non analysé ou en pause</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div
+              className="w-2 h-2 rounded-full"
+              style={{ backgroundColor: colors.status.completed }}
+            />
+            <span style={{ color: colors.textSecondary }}>Terminé</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div
+              className="w-2 h-2 rounded-full"
+              style={{ backgroundColor: colors.status.processing }}
+            />
+            <span style={{ color: colors.textSecondary }}>En cours</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div
+              className="w-2 h-2 rounded-full"
+              style={{ backgroundColor: colors.status.failed }}
+            />
+            <span style={{ color: colors.textSecondary }}>Échec</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div
+              className="w-2 h-2 rounded-full"
+              style={{ backgroundColor: colors.status.unsupported }}
+            />
+            <span style={{ color: colors.textSecondary }}>Non supporté</span>
           </div>
         </div>
       </div>
+
     </div>
   );
 };

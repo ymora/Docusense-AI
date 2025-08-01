@@ -11,7 +11,7 @@ interface AuthModalProps {
 const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => {
   const [credentials, setCredentials] = useState<AuthCredentials>({
     username: 'avocat',
-    password: '2025*'
+    password: '2025*',
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -23,7 +23,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => 
 
     try {
       const response = await authService.authenticate(credentials);
-      
+
       if (response.success) {
         onSuccess();
         onClose();
@@ -40,11 +40,11 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => 
   const handleInputChange = (field: keyof AuthCredentials, value: string) => {
     setCredentials(prev => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
   };
 
-  if (!isOpen) return null;
+  if (!isOpen) {return null;}
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
@@ -159,4 +159,4 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => 
   );
 };
 
-export default AuthModal; 
+export default AuthModal;

@@ -1,6 +1,6 @@
 """
 OCR service for DocuSense AI
-Handles text extraction from images and PDFs
+Handles text extraction from images, PDFs, and Office documents
 """
 
 from pathlib import Path
@@ -10,6 +10,7 @@ import logging
 import asyncio
 
 from ..models.file import File, FileStatus
+from .document_extractor_service import DocumentExtractorService
 
 logger = logging.getLogger(__name__)
 
@@ -22,6 +23,8 @@ class OCRService:
         self.supported_image_formats = ["jpg", "jpeg", "png", "tiff", "bmp"]
         self.supported_pdf_formats = ["pdf"]
         self.supported_text_formats = ["txt", "html", "htm"]
+        # Service d'extraction de documents Office
+        self.document_extractor = DocumentExtractorService()
 
     async def extract_text_from_file(self, file_id: int) -> Optional[str]:
         """
@@ -46,6 +49,9 @@ class OCRService:
                 text = await self._extract_text_from_pdf(file.path)
             elif extension in self.supported_text_formats:
                 text = await self._extract_text_from_text_file(file.path)
+            elif self.document_extractor.is_format_supported(extension):
+                # Utiliser le service d'extraction de documents Office
+                text = await self.document_extractor.extract_text(file.path)
             else:
                 # For other files, try direct extraction
                 text = await self._extract_text_from_text_file(file.path)
@@ -85,14 +91,28 @@ class OCRService:
         Extract text from image using OCR
         """
         try:
-            # Simulate OCR processing for now
-            # In production, you'd use pytesseract
-            await asyncio.sleep(1)  # Simulate processing time
+            import pytesseract
+            from PIL import Image
+            
+            # Open the image
+            image = Image.open(image_path)
+            
+            # Extract text using OCR
+            text = pytesseract.image_to_string(image, lang='fra+eng')
+            
+            # Clean up the extracted text
+            if text:
+                # Remove extra whitespace and normalize
+                text = ' '.join(text.split())
+                return text if text.strip() else None
+            
+            return None
 
-            # Mock OCR result
-            # OCR with pytesseract will be implemented in future version
+        except ImportError:
+            logger.warning("pytesseract not available, falling back to mock OCR")
+            # Fallback to mock OCR if pytesseract is not available
+            await asyncio.sleep(1)
             return f"Extracted text from image: {Path(image_path).name}"
-
         except Exception as e:
             logger.error(
                 f"Error extracting text from image {image_path}: {
@@ -104,14 +124,50 @@ class OCRService:
         Extract text from PDF
         """
         try:
-            # Simulate PDF text extraction for now
-            # In production, you'd use PyPDF2 or pdfplumber
-            await asyncio.sleep(1)  # Simulate processing time
+            import PyPDF2
+            import pdfplumber
+            
+            text_content = []
+            
+            # Try pdfplumber first (better for complex PDFs)
+            try:
+                with pdfplumber.open(pdf_path) as pdf:
+                    for page in pdf.pages:
+                        page_text = page.extract_text()
+                        if page_text:
+                            text_content.append(page_text.strip())
+                
+                if text_content:
+                    return '\n\n'.join(text_content)
+                    
+            except Exception as e:
+                logger.warning(f"pdfplumber failed, trying PyPDF2: {e}")
+            
+            # Fallback to PyPDF2
+            try:
+                with open(pdf_path, 'rb') as file:
+                    pdf_reader = PyPDF2.PdfReader(file)
+                    
+                    for page in pdf_reader.pages:
+                        page_text = page.extract_text()
+                        if page_text:
+                            text_content.append(page_text.strip())
+                
+                if text_content:
+                    return '\n\n'.join(text_content)
+                    
+            except Exception as e:
+                logger.warning(f"PyPDF2 failed: {e}")
+            
+            # If both methods fail, return None
+            logger.warning(f"Could not extract text from PDF: {pdf_path}")
+            return None
 
-            # Mock PDF extraction
-            # PDF text extraction will be implemented in future version
+        except ImportError:
+            logger.warning("PDF libraries not available, falling back to mock extraction")
+            # Fallback to mock extraction if libraries are not available
+            await asyncio.sleep(1)
             return f"Extracted text from PDF: {Path(pdf_path).name}"
-
         except Exception as e:
             logger.error(
                 f"Error extracting text from PDF {pdf_path}: {

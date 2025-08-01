@@ -1,12 +1,15 @@
 """
-Utilitaires centralisés pour la gestion de la base de données
+Database utilities for DocuSense AI
+Centralized database operations and utilities
 """
 
 import logging
-from typing import List, Dict, Any, Optional
-from sqlalchemy.orm import Session
-from sqlalchemy import or_, func
 from contextlib import contextmanager
+from typing import List, Any, Optional, Dict
+from sqlalchemy.orm import Session
+from sqlalchemy import func, or_
+
+from ..models.file import File
 
 logger = logging.getLogger(__name__)
 
@@ -189,7 +192,6 @@ class DatabaseValidator:
             bool: True si le fichier existe
         """
         try:
-            from app.models.file import File
             file = session.query(File).filter(File.id == file_id).first()
             return file is not None
         except Exception as e:
@@ -213,7 +215,6 @@ class DatabaseValidator:
             bool: True si le répertoire existe
         """
         try:
-            from app.models.database import DirectoryStructure
             directory = session.query(DirectoryStructure).filter(
                 DirectoryStructure.path == directory_path
             ).first()
@@ -244,8 +245,6 @@ class DatabaseMetrics:
             Dict: Nombre de fichiers par statut
         """
         try:
-            from app.models.file import File
-
             query = session.query(File.status, func.count(File.id))
 
             if directory:
@@ -277,8 +276,6 @@ class DatabaseMetrics:
             int: Nombre total de fichiers
         """
         try:
-            from app.models.file import File
-
             query = session.query(func.count(File.id))
 
             if directory:

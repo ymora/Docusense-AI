@@ -24,6 +24,7 @@ class AnalysisType(str, Enum):
     JURIDICAL = "juridical"
     TECHNICAL = "technical"
     ADMINISTRATIVE = "administrative"
+    MULTIPLE_AI = "multiple_ai"
 
 
 class AnalysisStatus(str, Enum):

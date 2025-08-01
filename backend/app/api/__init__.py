@@ -12,6 +12,7 @@ from .prompts import router as prompts_router
 from .multimedia import router as multimedia_router
 from .auth import router as auth_router
 from .download import router as download_router
+from .monitoring import router as monitoring_router
 
 __all__ = [
     "files_router",
@@ -22,5 +23,6 @@ __all__ = [
     "prompts_router",
     "multimedia_router",
     "auth_router",
-    "download_router"
+    "download_router",
+    "monitoring_router"
 ]

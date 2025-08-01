@@ -19,6 +19,7 @@ class QueueStatus(str, PyEnum):
     PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
+    PAUSED = "paused"
 
 
 class QueuePriority(str, PyEnum):

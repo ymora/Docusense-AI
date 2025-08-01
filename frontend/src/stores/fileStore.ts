@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
+import { apiRequest, handleApiError } from '../utils/apiUtils';
 
 export interface File {
   id: number;
@@ -7,7 +8,7 @@ export interface File {
   path: string;
   size: number;
   mime_type: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed' | 'paused' | 'unsupported';
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'paused' | 'unsupported' | 'none';
   created_at: string;
   updated_at: string;
   extracted_text?: string;
@@ -47,10 +48,7 @@ interface FileState {
   loading: boolean;
   error: string | null;
 
-  // OPTIMISATION: Cache et performance
-  cache: Map<string, any>;
-  lastFetch: number;
-  cacheExpiry: number; // 5 minutes
+  // Navigation sans cache - données toujours fraîches
 
   // Actions
   loadFiles: () => Promise<void>;
@@ -66,73 +64,19 @@ interface FileState {
   clearSelection: () => void;
   selectAllFiles: () => void;
   deselectAllFiles: () => void;
+  setCurrentDirectory: (directory: string | null) => void;
 
-  // OPTIMISATION: Nouvelles actions pour la performance
-  clearCache: () => void;
-  updateFileStatus: (fileId: number, status: File['status'], result?: string) => void;
-  refreshFiles: () => Promise<void>;
+          // Actions pour la performance sans cache
+        updateFileStatus: (fileId: number, status: File['status'], result?: string) => void;
 
   // NOUVEAU: Actions pour le suivi des consultations
   markFileAsViewed: (fileId: number) => void;
-  getAnalysisStats: () => {
-    completed: number;
-    unviewed: number;
-    viewed: number;
-    total: number;
-  };
 }
 
 // OPTIMISATION: Fonction utilitaire pour la gestion du cache
-const getCacheKey = (endpoint: string, params?: Record<string, any>): string => {
-  const paramString = params ? JSON.stringify(params) : '';
-  return `${endpoint}${paramString}`;
-};
+// Fonctions utilitaires pour les requêtes API
 
-const isCacheValid = (timestamp: number, expiry: number): boolean => {
-  return Date.now() - timestamp < expiry;
-};
-
-// OPTIMISATION: Fonction utilitaire pour la gestion des erreurs
-const handleApiError = (error: any): string => {
-  if (error instanceof Error) {
-    return error.message;
-  }
-  if (typeof error === 'string') {
-    return error;
-  }
-  return 'Erreur inconnue';
-};
-
-// OPTIMISATION: Fonction utilitaire pour les requêtes API
-const apiRequest = async (url: string, options?: RequestInit): Promise<any> => {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
-
-  try {
-    const response = await fetch(url, {
-      ...options,
-      signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
-    });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      throw new Error(`Erreur HTTP: ${response.status} - ${response.statusText}`);
-    }
-
-    return await response.json();
-  } catch (error) {
-    clearTimeout(timeoutId);
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error('Requête expirée');
-    }
-    throw error;
-  }
-};
+// Utilisation des utilitaires centralisés
 
 export const useFileStore = create<FileState>()(
   devtools(
@@ -147,49 +91,42 @@ export const useFileStore = create<FileState>()(
         loading: false,
         error: null,
 
-        // OPTIMISATION: Cache et performance
-        cache: new Map(),
-        lastFetch: 0,
-        cacheExpiry: 5 * 60 * 1000, // 5 minutes
+        // Navigation sans cache - données toujours fraîches
 
         loadFiles: async () => {
-          const state = get();
-          const cacheKey = getCacheKey('/api/files/');
-
-          // OPTIMISATION: Vérifier le cache
-          if (state.cache.has(cacheKey) && isCacheValid(state.lastFetch, state.cacheExpiry)) {
-            const cachedData = state.cache.get(cacheKey);
-            set({ files: cachedData.files || [], loading: false });
-            return;
-          }
-
           set({ loading: true, error: null });
 
           try {
-            // Ajouter les paramètres limit et offset requis par le backend
-            const params = new URLSearchParams({
-              limit: '100',  // Limite par défaut
-              offset: '0',    // Commencer au début
-            });
-            const data = await apiRequest(`/api/files/?${params.toString()}`);
+            // Utiliser l'endpoint list_directory_content_paginated pour les données fraîches
+            const currentDir = get().currentDirectory || "C:\\Users\\ymora\\Desktop\\Docusense AI";
+            const encodedDirectory = encodeURIComponent(currentDir.replace(/\\/g, '/'));
+            const data = await apiRequest(`/api/files/list/${encodedDirectory}?page=1&page_size=100`) as any;
 
-            // NOUVEAU: Fusionner avec les données de consultation persistées
-            const filesWithViewData = (data.files || []).map((file: File) => {
-              const existingFile = state.files.find(f => f.id === file.id);
+            // Convertir les données du format list vers le format files
+            const filesFromList = (data.files || []).map((file: any) => ({
+              id: file.id || Math.random(), // ID temporaire si pas d'ID
+              name: file.name,
+              path: file.path,
+              size: file.size,
+              mime_type: file.mime_type,
+              status: file.status || 'none',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString(),
+              is_selected: false,
+              parent_directory: file.path.substring(0, file.path.lastIndexOf('\\')),
+            }));
+
+            // Fusionner avec les données de consultation persistées
+            const filesWithViewData = filesFromList.map((file: File) => {
+              const existingFile = get().files.find(f => f.id === file.id);
               return {
                 ...file,
                 has_been_viewed: existingFile?.has_been_viewed || false,
-                viewed_at: existingFile?.viewed_at || undefined,
+                viewed_at: existingFile?.viewed_at,
               };
             });
 
-            // OPTIMISATION: Mettre en cache
-            state.cache.set(cacheKey, { ...data, files: filesWithViewData });
-            set({
-              files: filesWithViewData,
-              loading: false,
-              lastFetch: Date.now(),
-            });
+            set({ files: filesWithViewData, loading: false });
           } catch (error) {
             set({
               error: handleApiError(error),
@@ -201,13 +138,13 @@ export const useFileStore = create<FileState>()(
         loadDirectoryTree: async (directory: string) => {
           set({ loading: true, error: null });
           try {
+            // Requête directe sans cache - données toujours fraîches
             const encodedDirectory = encodeURIComponent(directory.replace(/\\/g, '/'));
             const tree = await apiRequest(`/api/files/tree/${encodedDirectory}`);
             set({
-              directoryTree: tree,
+              directoryTree: tree as DirectoryTree,
               currentDirectory: directory,
               loading: false,
-              lastFetch: Date.now(),
             });
           } catch (error) {
             set({
@@ -216,8 +153,6 @@ export const useFileStore = create<FileState>()(
             });
           }
         },
-
-
 
         scanDirectory: async (directory: string) => {
           set({ loading: true, error: null });
@@ -228,10 +163,7 @@ export const useFileStore = create<FileState>()(
               body: JSON.stringify({ directory_path: directory }),
             });
 
-            // OPTIMISATION: Invalider le cache après scan
-            get().clearCache();
-
-            // Recharger l'arborescence
+            // Recharger l'arborescence avec données fraîches
             await get().loadDirectoryTree(directory);
           } catch (error) {
             set({
@@ -255,8 +187,7 @@ export const useFileStore = create<FileState>()(
               }),
             });
 
-            // OPTIMISATION: Invalider le cache après analyse
-            get().clearCache();
+            // OPTIMISATION: Recharger les données après analyse
 
             // Recharger les fichiers
             await get().loadFiles();
@@ -282,10 +213,7 @@ export const useFileStore = create<FileState>()(
               }),
             });
 
-            // OPTIMISATION: Invalider le cache après comparaison
-            get().clearCache();
-
-            // Recharger les fichiers
+            // Recharger les fichiers avec données fraîches
             await get().loadFiles();
           } catch (error) {
             set({
@@ -312,10 +240,7 @@ export const useFileStore = create<FileState>()(
               body: JSON.stringify({ file_ids: fileIds }),
             });
 
-            // OPTIMISATION: Invalider le cache après retry
-            get().clearCache();
-
-            // Recharger les fichiers
+            // Recharger les fichiers avec données fraîches
             await get().loadFiles();
           } catch (error) {
             set({
@@ -354,10 +279,7 @@ export const useFileStore = create<FileState>()(
               }),
             });
 
-            // OPTIMISATION: Invalider le cache après analyse
-            get().clearCache();
-
-            // Recharger les fichiers
+            // Recharger les fichiers avec données fraîches
             await get().loadFiles();
           } catch (error) {
             set({
@@ -381,14 +303,11 @@ export const useFileStore = create<FileState>()(
           set({ selectedFiles: [] });
         },
 
-        // OPTIMISATION: Nouvelles actions pour la performance
-        clearCache: () => {
-          set(() => ({
-            cache: new Map(),
-            lastFetch: 0,
-          }));
+        setCurrentDirectory: (directory: string | null) => {
+          set({ currentDirectory: directory });
         },
 
+        // Actions pour la performance sans cache
         updateFileStatus: (fileId: number, status: File['status'], result?: string) => {
           set((state) => ({
             files: state.files.map(file =>
@@ -397,11 +316,6 @@ export const useFileStore = create<FileState>()(
                 : file,
             ),
           }));
-        },
-
-        refreshFiles: async () => {
-          get().clearCache();
-          await get().loadFiles();
         },
 
         // NOUVEAU: Actions pour le suivi des consultations
@@ -417,20 +331,6 @@ export const useFileStore = create<FileState>()(
                 : file,
             ),
           }));
-        },
-
-        getAnalysisStats: () => {
-          const state = get();
-          const completedFiles = state.files.filter(file =>
-            file.status === 'completed' && file.analysis_result,
-          );
-
-          return {
-            completed: completedFiles.length,
-            unviewed: completedFiles.filter(file => !file.has_been_viewed).length,
-            viewed: completedFiles.filter(file => file.has_been_viewed).length,
-            total: state.files.length,
-          };
         },
       }),
       {

@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Menu Contextuel</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #1e293b;
+            color: #e2e8f0;
+            padding: 20px;
+        }
+        .test-file {
+            padding: 10px;
+            margin: 10px 0;
+            background-color: #334155;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .test-file:hover {
+            background-color: #475569;
+        }
+        .log {
+            background-color: #0f172a;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 20px;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+    </style>
+</head>
+<body>
+    <h1>Test Menu Contextuel</h1>
+    
+    <div class="test-file" oncontextmenu="showContextMenu(event, {id: 1, name: 'test.pdf', path: '/test/test.pdf', mime_type: 'application/pdf'})">
+        📄 test.pdf (PDF - clic droit pour menu)
+    </div>
+    
+    <div class="test-file" oncontextmenu="showContextMenu(event, {id: 2, name: 'document.txt', path: '/test/document.txt', mime_type: 'text/plain'})">
+        📄 document.txt (TXT - clic droit pour menu)
+    </div>
+    
+    <div class="test-file" oncontextmenu="showContextMenu(event, {id: 3, name: 'image.jpg', path: '/test/image.jpg', mime_type: 'image/jpeg'})">
+        🖼️ image.jpg (JPG - clic droit pour menu)
+    </div>
+    
+    <div class="log" id="log">Log des actions...</div>
+
+    <script>
+        // Simuler les actions du menu contextuel
+        function showContextMenu(event, file) {
+            event.preventDefault();
+            
+            const actions = [
+                { name: '💾 Télécharger', action: 'download' },
+                { name: '🤖 Analyser avec l\'IA', action: 'add_to_queue' }
+            ];
+            
+            const menu = document.createElement('div');
+            menu.style.cssText = `
+                position: fixed;
+                left: ${event.clientX}px;
+                top: ${event.clientY}px;
+                background-color: #475569;
+                border: 1px solid #64748b;
+                border-radius: 5px;
+                padding: 5px 0;
+                z-index: 1000;
+                min-width: 150px;
+            `;
+            
+            actions.forEach(item => {
+                const button = document.createElement('div');
+                button.textContent = item.name;
+                button.style.cssText = `
+                    padding: 8px 12px;
+                    cursor: pointer;
+                    font-size: 14px;
+                `;
+                button.onmouseover = () => button.style.backgroundColor = '#64748b';
+                button.onmouseout = () => button.style.backgroundColor = 'transparent';
+                button.onclick = () => {
+                    handleAction(item.action, file);
+                    document.body.removeChild(menu);
+                };
+                menu.appendChild(button);
+            });
+            
+            document.body.appendChild(menu);
+            
+            // Fermer le menu en cliquant ailleurs
+            setTimeout(() => {
+                document.addEventListener('click', function closeMenu() {
+                    if (document.body.contains(menu)) {
+                        document.body.removeChild(menu);
+                    }
+                    document.removeEventListener('click', closeMenu);
+                });
+            }, 100);
+        }
+        
+        function handleAction(action, file) {
+            const log = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            
+            let message = `[${timestamp}] Action: ${action} sur ${file.name}\n`;
+            
+            switch(action) {
+                case 'download':
+                    message += `  → Téléchargement: /api/files/${file.id}/download\n`;
+                    break;
+                case 'add_to_queue':
+                    message += `  → Ajout à la queue d'analyse IA\n`;
+                    break;
+            }
+            
+            log.textContent = message + log.textContent;
+            
+            // Simuler l'événement fileAction
+            window.dispatchEvent(new CustomEvent('fileAction', {
+                detail: { action, file }
+            }));
+        }
+        
+        // Écouter les événements fileAction
+        window.addEventListener('fileAction', (event) => {
+            const log = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            log.textContent = `[${timestamp}] Événement fileAction reçu: ${JSON.stringify(event.detail, null, 2)}\n` + log.textContent;
+        });
+    </script>
+</body>
+</html> 

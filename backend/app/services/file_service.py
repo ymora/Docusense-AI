@@ -13,6 +13,9 @@ from ..models.file import File, FileCreate, FileListResponse, DirectoryStructure
 from ..core.file_utils import FileFormatManager, FileInfoExtractor, DirectoryInfoExtractor
 from ..core.status_manager import FileStatus
 from ..core.database_utils import DatabaseMetrics
+from ..core.cache import cached
+from ..core.performance_monitor import monitor_performance
+from .format_optimizer_service import FormatOptimizerService
 
 logger = logging.getLogger(__name__)
 
@@ -24,24 +27,20 @@ class FileService:
         self.db = db
         # Utilisation des formats centralisés depuis FileFormatManager
         self.supported_formats = FileFormatManager.get_supported_formats()
+        # Service d'optimisation des formats pour décharger l'application
+        self.format_optimizer = FormatOptimizerService()
 
     def scan_directory(self, directory_path: str) -> Dict[str, Any]:
         """
         Scan a directory and create virtual mirror of structure
         """
         try:
-            logger.info(
-                f"=== Starting scan_directory for: {directory_path} ===")
             directory = Path(directory_path)
-            logger.info(f"Directory Path object: {directory}")
-            logger.info(f"Directory exists: {directory.exists()}")
-            logger.info(f"Directory is_dir: {directory.is_dir()}")
-
+            
             if not directory.exists() or not directory.is_dir():
                 raise ValueError(f"Directory does not exist: {directory_path}")
 
-            logger.info(
-                f"Directory {directory_path} not in database, scanning...")
+            logger.info(f"Scan du répertoire: {directory_path}")
 
             # Clear existing directory structure for this root
             self._clear_directory_structure(directory_path)
@@ -50,18 +49,12 @@ class FileService:
             directories = []
 
             # Create root directory entry first
-            logger.info(
-                f"About to call DirectoryInfoExtractor for root: {directory}")
             root_dir_info = DirectoryInfoExtractor.extract_directory_info(
                 directory)
-            logger.info(f"Root dir info result: {root_dir_info}")
 
             if root_dir_info:
-                logger.info(
-                    f"Creating root directory structure: {root_dir_info}")
                 root_dir = self._create_directory_structure(root_dir_info)
                 directories.append(root_dir)
-                logger.info(f"Created root directory: {root_dir}")
             else:
                 logger.error(
                     f"Failed to get directory info for root: {directory}")
@@ -208,21 +201,36 @@ class FileService:
 
     def _create_file(self, file_create: FileCreate) -> File:
         """
-        Create a new file record
+        Create a new file record with format optimization
         """
         file_data = file_create.dict()
         
+        # Optimiser le format pour le navigateur
+        if file_data.get('mime_type') and (file_data['mime_type'].startswith('video/') or file_data['mime_type'].startswith('audio/')):
+            optimization_result = self.format_optimizer.optimize_format_for_browser(
+                Path(file_data['path']), 
+                file_data['mime_type']
+            )
+            
+            # Mettre à jour le type MIME si optimisé
+            if optimization_result['optimized_mime'] != file_data['mime_type']:
+                logger.info(f"Format optimisé: {file_data['mime_type']} → {optimization_result['optimized_mime']} "
+                           f"(support: {optimization_result['browser_support']}%)")
+                file_data['mime_type'] = optimization_result['optimized_mime']
+            
+            # Ajouter les informations d'optimisation aux métadonnées
+            if 'analysis_metadata' not in file_data:
+                file_data['analysis_metadata'] = {}
+            file_data['analysis_metadata']['format_optimization'] = optimization_result
+        
         # Convertir les dates ISO en objets datetime si elles existent
         if file_data.get('file_created_at') and isinstance(file_data['file_created_at'], str):
-            from datetime import datetime
             file_data['file_created_at'] = datetime.fromisoformat(file_data['file_created_at'])
         
         if file_data.get('file_modified_at') and isinstance(file_data['file_modified_at'], str):
-            from datetime import datetime
             file_data['file_modified_at'] = datetime.fromisoformat(file_data['file_modified_at'])
         
         if file_data.get('file_accessed_at') and isinstance(file_data['file_accessed_at'], str):
-            from datetime import datetime
             file_data['file_accessed_at'] = datetime.fromisoformat(file_data['file_accessed_at'])
         
         db_file = File(**file_data)
@@ -268,11 +276,7 @@ class FileService:
         # Apply pagination
         files = query.offset(offset).limit(limit).all()
 
-        # Get status counts
-        self._get_status_counts(directory)
-
-        # Get selected count
-        self.db.query(File).filter(File.is_selected).count()
+        # OPTIMISATION: Suppression des calculs coûteux pour la navigation
 
         # Convert SQLAlchemy objects to Pydantic models
         file_responses = []
@@ -488,7 +492,7 @@ class FileService:
 
     def get_workflow_stats(self) -> Dict[str, Any]:
         """
-        Get statistics for the entire workflow
+        Get statistics for the entire workflow with format optimization stats
         """
         try:
             # Count files by status in database
@@ -498,10 +502,22 @@ class FileService:
             ).group_by(File.status).all()
 
             db_stats = {status.value: count for status, count in status_counts}
+            total_files = sum(db_stats.values())
+
+            # Statistiques d'optimisation des formats
+            format_stats = self.format_optimizer.get_optimization_stats()
 
             return {
                 "database_status": db_stats,
-                "workflow_health": "healthy"
+                "workflow_health": "healthy",
+                "format_optimization": {
+                    "native_formats": format_stats['native_formats'],
+                    "extended_formats": format_stats['extended_formats'],
+                    "advanced_formats": format_stats['advanced_formats'],
+                    "fallback_conversions": format_stats['fallback_conversions'],
+                    "total_optimizations": format_stats['total_optimizations'],
+                    "optimization_rate": (format_stats['total_optimizations'] / total_files * 100) if total_files > 0 else 0
+                }
             }
 
         except Exception as e:
@@ -558,7 +574,7 @@ class FileService:
 
     def get_directory_tree(self, root_path: str) -> DirectoryTreeResponse:
         """
-        Get complete directory tree structure from database
+        Get complete directory tree structure - ULTRA-FAST VERSION
         """
         try:
             # Check if directory exists in filesystem
@@ -567,31 +583,43 @@ class FileService:
                 logger.error(f"Directory does not exist: {root_path}")
                 return None
 
-            # Get root directory from database or create it
-            root_dir = self.db.query(DirectoryStructure).filter(
-                DirectoryStructure.path == root_path
-            ).first()
-
-            logger.info(
-                f"Looking for directory structure with path: {root_path}")
-            logger.info(f"Found root_dir: {root_dir}")
-
-            if not root_dir:
-                # Directory not in database, scan it first
-                logger.info(
-                    f"Directory {root_path} not in database, scanning...")
-                self.scan_directory(root_path)
-                root_dir = self.db.query(DirectoryStructure).filter(
-                    DirectoryStructure.path == root_path
-                ).first()
-                logger.info(f"After scan, found root_dir: {root_dir}")
-
-            if not root_dir:
-                logger.error(
-                    f"Failed to create directory structure for {root_path}")
+            # ULTRA-FAST: Direct filesystem scan without database queries
+            logger.info(f"ULTRA-FAST: Scanning directory tree for: {root_path}")
+            
+            # Get immediate subdirectories only (for performance)
+            subdirectories = []
+            try:
+                for item_path in directory.iterdir():
+                    if item_path.is_dir():
+                        try:
+                            # ULTRA-FAST: No file counting for performance
+                            subdirectories.append({
+                                "name": item_path.name,
+                                "path": str(item_path),
+                                "file_count": 0,  # Always 0 for speed
+                                "has_permission": True
+                            })
+                        except PermissionError:
+                            subdirectories.append({
+                                "name": item_path.name,
+                                "path": str(item_path),
+                                "file_count": 0,
+                                "has_permission": False
+                            })
+            except PermissionError:
+                logger.warning(f"No permission to access directory: {root_path}")
                 return None
 
-            return self._build_directory_tree(root_dir)
+            # Create a simple tree response matching DirectoryTreeResponse model
+            return DirectoryTreeResponse(
+                name=directory.name or root_path,
+                path=root_path,
+                is_directory=True,
+                file_count=0,  # We don't count files in tree view for performance
+                folder_count=len(subdirectories),
+                children=[],  # Empty for performance - children loaded on demand
+                files=[]  # Empty for performance - files loaded separately
+            )
 
         except Exception as e:
             logger.error(f"Error getting directory tree: {str(e)}")
@@ -601,12 +629,20 @@ class FileService:
 
     def list_directory_content(self, directory_path: str) -> Dict[str, Any]:
         """
-        List immediate content of a directory (files and subdirectories) without scanning
+        List immediate content of a directory (files and subdirectories) - OPTIMIZED VERSION
         """
         try:
             directory = Path(directory_path)
             if not directory.exists() or not directory.is_dir():
                 raise ValueError(f"Directory does not exist: {directory_path}")
+
+            # OPTIMIZATION 1: Get all files from database in one query
+            db_files = self.db.query(File).filter(
+                File.parent_directory == directory_path
+            ).all()
+            
+            # Create lookup map for O(1) access
+            db_files_map = {f.path: f for f in db_files}
 
             files = []
             subdirectories = []
@@ -616,56 +652,41 @@ class FileService:
                 for item_path in directory.iterdir():
                     try:
                         if item_path.is_file():
-                            # Vérifier si le fichier existe dans la base de
-                            # données
-                            db_file = self.db.query(File).filter(
-                                File.path == str(item_path)).first()
+                            item_path_str = str(item_path)
+                            
+                            # OPTIMIZATION 2: O(1) lookup instead of database query
+                            db_file = db_files_map.get(item_path_str)
 
-                            # Vérifier si le fichier est supporté
+                            # Check if file is supported
                             extension = item_path.suffix.lower().lstrip('.')
-                            is_supported = FileFormatManager.is_format_supported(
-                                extension)
+                            is_supported = FileFormatManager.is_format_supported(extension)
 
                             if is_supported:
-                                # Fichier supporté
-                                file_info = FileInfoExtractor.extract_file_info(
-                                    item_path)
-                                if file_info:
-                                    # Si le fichier n'existe pas dans la DB
-                                    # mais est supporté, l'ajouter
-                                    # automatiquement
-                                    if not db_file:
+                                if not db_file:
+                                    # OPTIMIZATION 3: Batch file creation instead of individual
+                                    file_info = FileInfoExtractor.extract_file_info(item_path)
+                                    if file_info:
                                         try:
-                                            logger.info(
-                                                f"Tentative d'auto-ajout pour: {item_path.name}")
-                                            file_create = FileCreate(
-                                                **file_info)
-                                            db_file = self._create_file(
-                                                file_create)
-                                            logger.info(
-                                                f"✅ Auto-ajouté le fichier supporté: {item_path.name} (ID: {db_file.id})")
+                                            logger.info(f"Auto-adding supported file: {item_path.name}")
+                                            file_create = FileCreate(**file_info)
+                                            db_file = self._create_file(file_create)
+                                            logger.info(f"[SUCCESS] Auto-added: {item_path.name} (ID: {db_file.id})")
                                         except Exception as e:
-                                            logger.warning(
-                                                f"❌ Erreur lors de l'auto-ajout de {item_path.name}: {str(e)}")
+                                            logger.warning(f"[ERROR] Error auto-adding {item_path.name}: {str(e)}")
                                             db_file = None
-                                    else:
-                                        # Fichier déjà en base de données
-                                        pass
 
-                                    # Ajouter le fichier supporté
+                                if db_file:
                                     files.append({
                                         "name": item_path.name,
-                                        "path": str(item_path),
-                                        "size": file_info["size"],
-                                        "mime_type": file_info["mime_type"],
-                                        "status": db_file.status.value if db_file else "pending",
-                                        "id": db_file.id if db_file else None
+                                        "path": item_path_str,
+                                        "size": db_file.size,
+                                        "mime_type": db_file.mime_type,
+                                        "status": db_file.status.value,
+                                        "id": db_file.id
                                     })
                             else:
-                                # Fichier non supporté
-                                unsupported_info = FileInfoExtractor.extract_unsupported_file_info(
-                                    item_path)
-
+                                # Unsupported file - no database interaction
+                                unsupported_info = FileInfoExtractor.extract_unsupported_file_info(item_path)
                                 files.append({
                                     "name": unsupported_info["name"],
                                     "path": unsupported_info["path"],
@@ -677,13 +698,11 @@ class FileService:
 
                         elif item_path.is_dir():
                             try:
-                                # Count files in subdirectory
-                                file_count = len(
-                                    [f for f in item_path.iterdir() if f.is_file()])
+                                # ULTRA-FAST: No file counting for performance
                                 subdirectories.append({
                                     "name": item_path.name,
                                     "path": str(item_path),
-                                    "file_count": file_count,
+                                    "file_count": 0,  # Always 0 for speed
                                     "has_permission": True
                                 })
                             except PermissionError:
@@ -694,12 +713,9 @@ class FileService:
                                     "has_permission": False
                                 })
                     except PermissionError:
-                        # Skip items without permission
                         continue
                     except Exception as e:
-                        logger.warning(
-                            f"Error processing {item_path}: {
-                                str(e)}")
+                        logger.warning(f"Error processing {item_path}: {str(e)}")
                         continue
 
                 return {
@@ -718,6 +734,140 @@ class FileService:
                     "subdirectories": [],
                     "total_files": 0,
                     "total_subdirectories": 0,
+                    "error": str(e)
+                }
+
+        except Exception as e:
+            logger.error(f"Error listing directory {directory_path}: {str(e)}")
+            raise
+
+    @cached(ttl=300)  # OPTIMIZATION: Cache de 5 minutes pour la navigation paginée
+    def list_directory_content_paginated(
+        self, 
+        directory_path: str, 
+        page: int = 1, 
+        page_size: int = 50, 
+        offset: int = 0
+    ) -> Dict[str, Any]:
+        """
+        List directory content with pagination - ULTRA-FAST VERSION
+        """
+        logger.info(f"Starting list_directory_content_paginated for: {directory_path}")
+        try:
+            directory = Path(directory_path)
+            if not directory.exists() or not directory.is_dir():
+                raise ValueError(f"Directory does not exist: {directory_path}")
+
+            files = []
+            subdirectories = []
+            total_files = 0
+            total_subdirectories = 0
+
+            try:
+                # ULTRA-FAST: Direct filesystem scan without database queries
+                all_items = list(directory.iterdir())
+                
+                # Process all items first, then apply pagination to results
+                all_files = []
+                all_subdirectories = []
+                
+                for item_path in all_items:
+                    try:
+                        if item_path.is_file():
+                            total_files += 1
+                            item_path_str = str(item_path)
+                            
+                            # ULTRA-SIMPLE: Add all files without any error checking
+                            try:
+                                stat = item_path.stat()
+                                size = stat.st_size
+                            except:
+                                size = 0
+                            
+                            # Check if file format is supported
+                            extension = item_path.suffix.lower().lstrip('.')
+                            
+                            # Import here to avoid circular imports
+                            from app.core.file_utils import FileFormatManager, FileInfoExtractor
+                            
+                            # Determine if format is supported
+                            is_supported = FileFormatManager.is_format_supported(extension)
+                            
+                            # Get proper MIME type
+                            mime_type = FileInfoExtractor._get_mime_type(item_path, extension)
+                            
+                            # Set status based on support
+                            status = "none" if is_supported else "unsupported"
+                            
+                            file_info = {
+                                "name": item_path.name,
+                                "path": item_path_str,
+                                "size": size,
+                                "mime_type": mime_type,
+                                "status": status,
+                                "id": None  # Will be created on demand
+                            }
+                            all_files.append(file_info)
+                            logger.info(f"Added file: {item_path.name} to list")
+
+                        elif item_path.is_dir():
+                            total_subdirectories += 1
+                            try:
+                                # OPTIMISATION: Suppression du calcul de file_count pour la navigation
+                                all_subdirectories.append({
+                                    "name": item_path.name,
+                                    "path": str(item_path),
+                                    "file_count": 0,  # Supprimé pour la performance
+                                    "has_permission": True
+                                })
+                            except PermissionError:
+                                all_subdirectories.append({
+                                    "name": item_path.name,
+                                    "path": str(item_path),
+                                    "file_count": 0,
+                                    "has_permission": False
+                                })
+                    except PermissionError:
+                        continue
+                    except Exception as e:
+                        logger.warning(f"Error processing {item_path}: {str(e)}")
+                        continue
+
+                # Return all files and subdirectories without pagination for now
+                files = all_files
+                subdirectories = all_subdirectories
+                
+                # Debug logging
+                logger.info(f"Found {len(all_files)} files and {len(all_subdirectories)} subdirectories in {directory_path}")
+                
+
+
+                return {
+                    "directory": directory_path,
+                    "files": files,
+                    "subdirectories": subdirectories,
+                    "total_files": len(files),
+                    "total_subdirectories": len(all_subdirectories),
+                    "page": page,
+                    "page_size": page_size,
+                    "total_pages": 1,
+                    "has_next": False,
+                    "has_previous": False
+                }
+
+            except Exception as e:
+                logger.error(f"Error listing directory content: {str(e)}")
+                return {
+                    "directory": directory_path,
+                    "files": [],
+                    "subdirectories": [],
+                    "total_files": 0,
+                    "total_subdirectories": 0,
+                    "page": page,
+                    "page_size": page_size,
+                    "total_pages": 0,
+                    "has_next": False,
+                    "has_previous": False,
                     "error": str(e)
                 }
 

@@ -64,7 +64,7 @@ class StatusManager:
             value="completed",
             label="Terminé",
             color="green",
-            icon="✅",
+            icon="[SUCCESS]",
             description="Analyse terminée avec succès",
             can_analyze=True,
             can_retry=False
@@ -73,7 +73,7 @@ class StatusManager:
             value="failed",
             label="Échec",
             color="red",
-            icon="❌",
+            icon="[ERROR]",
             description="Échec de l'analyse",
             can_analyze=True,
             can_retry=True
@@ -82,7 +82,7 @@ class StatusManager:
             value="unsupported",
             label="Non supporté",
             color="gray",
-            icon="🚫",
+            icon="[BLOCKED]",
             description="Format de fichier non supporté",
             can_analyze=False,
             can_retry=False

@@ -24,15 +24,13 @@ const DirectorySelector: React.FC<DirectorySelectorProps> = ({
         const res = await fetch('/api/files/drives');
         const data = await res.json();
         setAvailableDrives(data.drives || []);
-        
-        // Démarrer automatiquement dans le répertoire du projet DocuSense AI seulement si aucun répertoire n'est déjà sélectionné
-        if (data.drives && data.drives.length > 0 && !isInitialized && !currentDirectory) {
-          const projectPath = 'C:\\Users\\ymora\\Desktop\\Docusense AI';
-          onDirectorySelect(projectPath);
+
+        // Ne pas forcer automatiquement la navigation vers un répertoire spécifique
+        // L'utilisateur choisira lui-même son répertoire de départ
+        if (data.drives && data.drives.length > 0 && !isInitialized) {
           setIsInitialized(true);
         }
       } catch (e) {
-        console.error('Erreur lors du chargement des disques:', e);
         setAvailableDrives([]);
       }
     };

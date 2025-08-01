@@ -1,117 +1,89 @@
-# Configuration Cursor - DocuSense AI
+# ==========================
+# ENVIRONNEMENT VIRTUEL
+# ==========================
 
-## 🚀 Règles Critiques
+env:
+  python: "venv\\Scripts\\python.exe"
+  pip: "venv\\Scripts\\pip.exe"
 
-### Environnement Virtuel (OBLIGATOIRE)
-- **TOUJOURS** : `venv\Scripts\python.exe main.py`
-- **JAMAIS** : `python main.py`
+# 🚨 RÈGLE CRITIQUE : TOUJOURS UTILISER L'ENVIRONNEMENT VIRTUEL venv
+# Toutes les commandes Python et pip DOIVENT utiliser les chemins ci-dessus
 
-### 📦 Installation de Packages (OBLIGATOIRE)
-- **TOUJOURS** : `venv\Scripts\pip.exe install nom_du_package`
-- **JAMAIS** : `pip install nom_du_package`
+# ==========================
+# COMMANDES
+# ==========================
 
-#### Exemples d'Installation
-```powershell
-# ✅ CORRECT - Installation dans venv
-cd backend
-venv\Scripts\pip.exe install moviepy pillow opencv-python
+commands:
+  run: "venv\\Scripts\\python.exe main.py"
+  install: "venv\\Scripts\\pip.exe install"
+  update: "venv\\Scripts\\pip.exe install --upgrade"
+  list: "venv\\Scripts\\pip.exe list"
 
-# ✅ CORRECT - Mise à jour dans venv
-venv\Scripts\pip.exe install --upgrade nom_du_package
+# ==========================
+# VÉRIFICATION ENVIRONNEMENT
+# ==========================
 
-# ✅ CORRECT - Liste des packages installés
-venv\Scripts\pip.exe list
+check:
+  - "venv\\Scripts\\python.exe --version"
+  - "venv\\Scripts\\pip.exe list"
+  - "venv\\Scripts\\python.exe -c \"import sys; print(sys.executable)\""
 
-# ❌ INCORRECT - Installation globale
-pip install nom_du_package
-```
+# ==========================
+# STARTUP SERVICES
+# ==========================
 
-#### 🔧 Vérification de l'Environnement
-```powershell
-# Vérifier que venv fonctionne
-cd backend
-venv\Scripts\python.exe --version
+startup:
+  backend: |
+    cd backend
+    venv\\Scripts\\python.exe main.py
+  frontend: |
+    taskkill /F /IM node.exe /T
+    cd frontend
+    npm run dev
 
-# Vérifier les packages installés
-venv\Scripts\pip.exe list
+# ==========================
+# PORTS UTILISÉS
+# ==========================
 
-# Vérifier le chemin Python
-venv\Scripts\python.exe -c "import sys; print(sys.executable)"
-```
+ports:
+  backend: 8000
+  frontend: 3000
+  docs: "http://localhost:8000/docs"
 
-### Démarrage Intelligent (RECOMMANDÉ)
-```powershell
-# Démarrage automatique avec surveillance
-.\scripts\dev_start.ps1
+# ==========================
+# BONNES PRATIQUES
+# ==========================
 
-# Options disponibles
-.\scripts\dev_start.ps1 -BackendOnly    # Backend uniquement
-.\scripts\dev_start.ps1 -FrontendOnly   # Frontend uniquement
-.\scripts\dev_start.ps1 -Force          # Nettoyer avant démarrage
-```
+# ✅ UTILISATION DES OUTILS
+# - cd backend && venv\Scripts\pip.exe install nom_du_package
+# - cd backend && venv\Scripts\python.exe main.py
+# ❌ Ne JAMAIS utiliser `pip` ou `python` sans venv !
 
-### Démarrage Manuel
-```powershell
-# Backend
-cd backend
-venv\Scripts\python.exe main.py
+# RAISONS :
+# - Isolation des dépendances
+# - Cohérence entre devs
+# - Fiabilité du projet
+# - Reproductibilité en prod
 
-# Frontend (forcer port 3000)
-taskkill /F /IM node.exe /T
-cd frontend
-npm run dev
-```
+# ==========================
+# RÈGLES DE DÉVELOPPEMENT
+# ==========================
 
-## 🎯 Ports
-- Backend : 8000
-- Frontend : 3000 (TOUJOURS utiliser ce port)
-- API Docs : http://localhost:8000/docs
-
-## ⚠️ Points Clés
-1. Environnement virtuel obligatoire
-2. Script intelligent gère automatiquement les ports et répertoires
-3. Surveillance continue des services
-4. Documenter changements
-
-## 📚 Cohérence README-Code (OBLIGATOIRE)
-
-### 🔄 Mise à Jour Automatique du README
-- **TOUJOURS** : Vérifier la cohérence README ↔ Code après chaque modification
-- **OBLIGATOIRE** : Mettre à jour le README si modification de :
-  - Interface utilisateur (nouveaux composants, changements visuels)
-  - Fonctionnalités (nouvelles features, changements de comportement)
-  - Architecture (nouveaux endpoints, services, modèles)
-  - Configuration (variables d'environnement, paramètres)
-  - Commandes de démarrage ou scripts
-
-### ✅ Processus de Validation
-1. **Détection d'écart** : Identifier les différences entre README et code
-2. **Analyse de l'écart** : Déterminer si c'est :
-   - ❌ **Code en avance** : README obsolète → Mettre à jour README
-   - ❌ **README en avance** : Code obsolète → Corriger le code
-   - ✅ **Évolution voulue** : Valider et maintenir la cohérence
-3. **Proposition de correction** : Présenter les options à l'utilisateur
-4. **Validation utilisateur** : Attendre confirmation avant modification
-
-### 🎯 Règles de Cohérence
-- **Interface** : Tous les composants UI décrits dans README
-- **Fonctionnalités** : Toutes les features documentées et à jour
-- **Architecture** : Structure technique reflétée fidèlement
-- **Commandes** : Instructions de démarrage exactes et fonctionnelles
-- **Configuration** : Variables d'environnement et paramètres documentés
-
-### 📝 Format de Validation
-```
-🔍 DÉTECTION D'ÉCART README ↔ CODE
-
-❌ Écart détecté : [Description de l'écart]
-📋 Code actuel : [Ce qui est dans le code]
-📖 README actuel : [Ce qui est dans le README]
-
-🤔 Question : Voulez-vous :
-A) Mettre à jour le README pour refléter le code actuel
-B) Corriger le code pour correspondre au README
-C) Garder l'évolution actuelle et documenter le changement
-
-💡 Recommandation : [Mon avis sur la meilleure option]
-``` 
+rules:
+  # Développement
+  - "Adapter le code existant plutôt que de créer du nouveau"
+  - "Modifier les composants existants au lieu d'en créer de nouveaux"
+  - "Supprimer et refaire si nécessaire, mais pas de doublons"
+  - "Vérifier la structure existante avant toute modification"
+  - "Quand une requête complexe est envoyée, Cursor doit automatiquement :
+     - comprendre les sous-tâches,
+     - dispatcher les tâches vers les agents les plus compétents,
+     - les exécuter en parallèle si possible,
+     - fusionner les résultats pour répondre sans demander d'effort supplémentaire à l'utilisateur"
+  
+  # Conception
+  - "TOUJOURS utiliser l'environnement virtuel venv"
+  - "Ajouter une règle dans cursorrules à chaque modification"
+  - "NE JAMAIS créer de code doublon ou redondant"
+  - "Si du code existe déjà, l'utiliser et l'améliorer"
+  - "Supprimer le code obsolète au lieu de le laisser en place"

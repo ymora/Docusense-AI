@@ -1,10 +1,13 @@
+// Service pour la gestion des prompts
+
 export interface Prompt {
-  domain: string;
-  type: string;
+  id: string;
   name: string;
   description: string;
+  domain: 'juridical' | 'technical' | 'administrative' | 'general';
+  type: 'analysis' | 'summary' | 'verification' | 'extraction' | 'comparison';
   prompt: string;
-  output_format: string;
+  output_format: 'structured' | 'free';
 }
 
 export interface PromptCategory {
@@ -13,168 +16,404 @@ export interface PromptCategory {
   prompts: Prompt[];
 }
 
-export interface PromptsData {
-  version: string;
-  default_prompts: Record<string, string>;
-  specialized_prompts: Record<string, Prompt>;
-  metadata: {
-    domains: string[];
-    types: string[];
-    total_prompts: number;
-    total_default_prompts: number;
-  };
-}
-
-export interface PromptContext {
-  fileStatus: string;
-  selectedFilesCount: number;
-  fileType?: string;
-  allSelectedFilesTypes?: string[];
-}
-
 class PromptService {
-  private _cachedPrompts: PromptsData | null = null;
-  private cacheExpiry: number = 0;
-  private readonly CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+  private prompts: Prompt[] = [];
+  private categories: PromptCategory[] = [];
 
-  // Méthode publique pour accéder au cache
-  get cachedPrompts(): PromptsData | null {
-    return this._cachedPrompts;
-  }
-
-  async getPrompts(): Promise<PromptsData> {
-    if (this._cachedPrompts && Date.now() < this.cacheExpiry) {
-      return this._cachedPrompts;
-    }
+  async getPrompts(): Promise<Prompt[]> {
     try {
-      const response = await fetch('/api/prompts');
-      if (!response.ok) {throw new Error(`HTTP error! status: ${response.status}`);}
-      this._cachedPrompts = await response.json();
-      this.cacheExpiry = Date.now() + this.CACHE_DURATION;
-      return this._cachedPrompts;
+      const response = await fetch('/api/prompts/');
+      if (!response.ok) {
+        throw new Error('Failed to fetch prompts');
+      }
+      const data = await response.json();
+      
+      // Traiter la structure de réponse du backend
+      const specializedPrompts = data.specialized_prompts || {};
+      const defaultPrompts = data.default_prompts || {};
+      
+      // Convertir les prompts spécialisés au format attendu
+      const formattedPrompts: Prompt[] = Object.entries(specializedPrompts).map(([id, prompt]: [string, any]) => ({
+        id: id,
+        name: prompt.name || id,
+        description: prompt.description || '',
+        domain: prompt.domain || 'general',
+        type: prompt.type || 'analysis',
+        prompt: prompt.prompt || prompt.text || '',
+        output_format: prompt.output_format || 'free'
+      }));
+      
+      // Ajouter les prompts par défaut
+      Object.entries(defaultPrompts).forEach(([type, promptText]: [string, string]) => {
+        formattedPrompts.push({
+          id: `default_${type}`,
+          name: `Prompt par défaut - ${type}`,
+          description: `Prompt par défaut pour l'analyse de type ${type}`,
+          domain: 'general',
+          type: 'analysis',
+          prompt: promptText,
+          output_format: 'free'
+        });
+      });
+      
+      this.prompts = formattedPrompts;
+      this.categories = this.organizePromptsByCategory();
+      return this.prompts;
     } catch (error) {
-      console.error('Erreur lors de la récupération des prompts:', error);
-      throw error;
+      console.error('Error fetching prompts:', error);
+      return this.getDefaultPrompts();
     }
   }
 
-  async getPromptCategories(): Promise<PromptCategory[]> {
-    const promptsData = await this.getPrompts();
-    const categories: Record<string, PromptCategory> = {};
-    Object.entries(promptsData.specialized_prompts).forEach(([key, prompt]) => {
+  getPromptCategories(): PromptCategory[] {
+    return this.categories;
+  }
+
+  getPromptsByDomain(domain: string): Prompt[] {
+    return this.prompts.filter(prompt => prompt.domain === domain);
+  }
+
+  getPromptsByType(type: string): Prompt[] {
+    return this.prompts.filter(prompt => prompt.type === type);
+  }
+
+  getPromptById(id: string): Prompt | undefined {
+    return this.prompts.find(prompt => prompt.id === id);
+  }
+
+  getComparisonPrompts(): Prompt[] {
+    return this.prompts.filter(prompt => prompt.type === 'comparison');
+  }
+
+  getAnalysisPrompts(): Prompt[] {
+    return this.prompts.filter(prompt => prompt.type === 'analysis');
+  }
+
+  getDefaultPrompts(): Prompt[] {
+    return [
+      // Prompts Généraux
+      {
+        id: 'general_summary',
+        name: 'Résumé Général',
+        description: 'Résumé général du document avec les points essentiels',
+        domain: 'general',
+        type: 'summary',
+        prompt: 'Analyse le document suivant et fournis un résumé exécutif avec les points essentiels.',
+        output_format: 'structured'
+      },
+      {
+        id: 'general_extraction',
+        name: 'Extraction de Données',
+        description: 'Extraction structurée de données importantes',
+        domain: 'general',
+        type: 'extraction',
+        prompt: 'Extrais les données importantes du document (dates, montants, noms, adresses, références).',
+        output_format: 'structured'
+      },
+      {
+        id: 'general_comparison',
+        name: 'Comparaison de Documents',
+        description: 'Comparaison détaillée de plusieurs documents',
+        domain: 'general',
+        type: 'comparison',
+        prompt: 'Compare les documents suivants en identifiant les points communs, différences, incohérences et recommandations.',
+        output_format: 'structured'
+      },
+      {
+        id: 'general_analysis',
+        name: 'Analyse Complète',
+        description: 'Analyse complète du contenu et de la structure',
+        domain: 'general',
+        type: 'analysis',
+        prompt: 'Analyse complète du document en identifiant le type, la structure, les informations clés et les recommandations.',
+        output_format: 'structured'
+      },
+
+      // Prompts Juridiques
+      {
+        id: 'juridical_contract_analysis',
+        name: 'Analyse de Contrat',
+        description: 'Analyse juridique complète d\'un contrat',
+        domain: 'juridical',
+        type: 'analysis',
+        prompt: 'Analyse juridique complète du contrat en identifiant les parties, obligations, clauses importantes et risques.',
+        output_format: 'structured'
+      },
+      {
+        id: 'juridical_compliance_check',
+        name: 'Vérification de Conformité',
+        description: 'Vérification de conformité aux réglementations',
+        domain: 'juridical',
+        type: 'verification',
+        prompt: 'Vérifie la conformité aux réglementations en vigueur et identifie les risques juridiques.',
+        output_format: 'structured'
+      },
+      {
+        id: 'juridical_legal_summary',
+        name: 'Résumé Juridique',
+        description: 'Résumé des aspects juridiques du document',
+        domain: 'juridical',
+        type: 'summary',
+        prompt: 'Résume les aspects juridiques du document en identifiant les obligations, droits et risques.',
+        output_format: 'structured'
+      },
+      {
+        id: 'juridical_clause_extraction',
+        name: 'Extraction de Clauses',
+        description: 'Extraction et analyse des clauses importantes',
+        domain: 'juridical',
+        type: 'extraction',
+        prompt: 'Extrais et analyse les clauses importantes du document juridique.',
+        output_format: 'structured'
+      },
+
+      // Prompts Techniques
+      {
+        id: 'technical_norm_verification',
+        name: 'Vérification Normative',
+        description: 'Vérification de conformité aux normes techniques',
+        domain: 'technical',
+        type: 'verification',
+        prompt: 'Vérifie la conformité aux normes techniques (NF, EN, ISO, DTU) et identifie les écarts.',
+        output_format: 'structured'
+      },
+      {
+        id: 'technical_specification_analysis',
+        name: 'Analyse de Spécifications',
+        description: 'Analyse technique des spécifications',
+        domain: 'technical',
+        type: 'analysis',
+        prompt: 'Analyse technique des spécifications en identifiant les exigences, contraintes et recommandations.',
+        output_format: 'structured'
+      },
+      {
+        id: 'technical_technical_summary',
+        name: 'Résumé Technique',
+        description: 'Résumé des aspects techniques du document',
+        domain: 'technical',
+        type: 'summary',
+        prompt: 'Résume les aspects techniques du document en identifiant les points clés et les recommandations.',
+        output_format: 'structured'
+      },
+      {
+        id: 'technical_data_extraction',
+        name: 'Extraction de Données Techniques',
+        description: 'Extraction des données techniques importantes',
+        domain: 'technical',
+        type: 'extraction',
+        prompt: 'Extrais les données techniques importantes (dimensions, matériaux, performances, etc.).',
+        output_format: 'structured'
+      },
+
+      // Prompts Administratifs
+      {
+        id: 'administrative_document_analysis',
+        name: 'Analyse Administrative',
+        description: 'Analyse de documents administratifs',
+        domain: 'administrative',
+        type: 'analysis',
+        prompt: 'Analyse administrative du document en identifiant la procédure, délais, formalités et actions à entreprendre.',
+        output_format: 'structured'
+      },
+      {
+        id: 'administrative_procedure_check',
+        name: 'Vérification de Procédure',
+        description: 'Vérification de la conformité procédurale',
+        domain: 'administrative',
+        type: 'verification',
+        prompt: 'Vérifie la conformité aux procédures administratives et identifie les étapes manquantes.',
+        output_format: 'structured'
+      },
+      {
+        id: 'administrative_deadline_extraction',
+        name: 'Extraction de Délais',
+        description: 'Extraction et analyse des délais administratifs',
+        domain: 'administrative',
+        type: 'extraction',
+        prompt: 'Extrais et analyse les délais administratifs, échéances et dates importantes.',
+        output_format: 'structured'
+      },
+      {
+        id: 'administrative_form_summary',
+        name: 'Résumé de Formulaire',
+        description: 'Résumé des informations de formulaire administratif',
+        domain: 'administrative',
+        type: 'summary',
+        prompt: 'Résume les informations du formulaire administratif en identifiant les champs requis et les actions à effectuer.',
+        output_format: 'structured'
+      }
+    ];
+  }
+
+  private organizePromptsByCategory(): PromptCategory[] {
+    const categories: { [key: string]: PromptCategory } = {};
+
+    this.prompts.forEach(prompt => {
       if (!categories[prompt.domain]) {
         categories[prompt.domain] = {
           domain: prompt.domain,
           name: this.getDomainDisplayName(prompt.domain),
-          prompts: [],
+          prompts: []
         };
       }
       categories[prompt.domain].prompts.push(prompt);
     });
+
     return Object.values(categories);
   }
 
-  getDomainDisplayName(domain: string): string {
-    const domainNames: Record<string, string> = {
+  private getDomainDisplayName(domain: string): string {
+    const names: { [key: string]: string } = {
       'juridical': 'Juridique',
       'technical': 'Technique',
       'administrative': 'Administratif',
-      'general': 'Général',
+      'general': 'Général'
     };
-    return domainNames[domain] || domain;
+    return names[domain] || domain;
   }
 
-  getTypeDisplayName(type: string): string {
-    const typeNames: Record<string, string> = {
-      'analysis': 'Analyse',
-      'summary': 'Résumé',
-      'verification': 'Vérification',
-      'extraction': 'Extraction',
-      'comparison': 'Comparaison',
-    };
-    return typeNames[type] || type;
-  }
+  // Méthodes pour la comparaison de documents
+  async compareDocuments(fileIds: number[], promptId?: string): Promise<any> {
+    try {
+      const response = await fetch('/api/analysis/compare', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ file_ids: fileIds, prompt_id: promptId }),
+      });
 
-  // Nouvelle méthode : raison de désactivation d'un prompt
-  getPromptDisabledReason(prompt: Prompt, context: PromptContext): string | null {
-    // 1. Prompts d'analyse/résumé/extraction : 1 fichier, statut pending/failed
-    if (['analysis', 'summary', 'extraction', 'verification'].includes(prompt.type)) {
-      if (context.selectedFilesCount !== 1) {
-        return 'Sélectionnez un seul fichier pour cette action';
+      if (!response.ok) {
+        throw new Error(`Erreur ${response.status}: ${response.statusText}`);
       }
-      if (!['pending', 'failed'].includes(context.fileStatus)) {
-        return 'Le fichier doit être en attente ou en échec';
-      }
-      // Extraction : doit être un fichier texte
-      if (prompt.type === 'extraction' && context.fileType && !this.isTextFile(context.fileType)) {
-        return 'Extraction possible uniquement sur un fichier texte';
-      }
+
+      return await response.json();
+    } catch (error) {
+      throw error;
     }
-    // 2. Prompts de comparaison/similarité : au moins 2 fichiers
-    if (['comparison'].includes(prompt.type)) {
-      if (!context.allSelectedFilesTypes || context.selectedFilesCount < 2) {
-        return 'Sélectionnez au moins 2 fichiers pour comparer';
-      }
-      // Tous les fichiers doivent être supportés
-      if (context.allSelectedFilesTypes.some(t => !this.isSupportedFile(t))) {
-        return 'Tous les fichiers sélectionnés doivent être supportés';
-      }
-    }
-    // 3. OCR : uniquement images
-    if (prompt.domain === 'ocr') {
-      if (!context.fileType || !this.isImageFile(context.fileType)) {
-        return 'OCR disponible uniquement pour les images';
-      }
-    }
-    return null; // activable
   }
 
-  // Utilitaire : est-ce un fichier texte ?
-  isTextFile(fileType?: string): boolean {
-    if (!fileType) {return false;}
-    const textTypes = [
-      'txt', 'md', 'rtf', 'text/plain', 'html', 'css', 'js', 'ts', 'py', 'java', 
-      'cpp', 'c', 'php', 'rb', 'go', 'rs', 'xml', 'json', 'yaml', 'yml', 'sql', 
-      'sh', 'bat', 'ps1', 'tex', 'log', 'ini', 'cfg', 'conf'
-    ];
-    return textTypes.some(ext => fileType.toLowerCase().includes(ext));
-  }
-  // Utilitaire : est-ce un fichier supporté ?
-  isSupportedFile(fileType?: string): boolean {
-    if (!fileType) {return false;}
-    // Formats supportés pour l'analyse IA (cohérent avec le backend)
-    const supported = [
-      // Documents
-      'pdf', 'docx', 'doc', 'txt', 'html', 'rtf', 'odt', 'pages', 'md', 'tex',
-      // Emails
-      'eml', 'msg', 'pst', 'ost',
-      // Tableurs
-      'xlsx', 'xls', 'csv', 'ods', 'numbers',
-      // Images
-      'jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'svg', 'webp', 'ico', 'raw', 'heic', 'heif', 'cr2', 'nef', 'arw',
-      // Vidéos
-      'mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv', 'm4v', '3gp', 'ogv', 'ts', 'mts', 'm2ts',
-      // Audio
-      'mp3', 'wav', 'flac', 'aac', 'ogg', 'wma', 'm4a', 'opus', 'aiff', 'alac',
-      // Présentations
-      'ppt', 'pptx', 'odp', 'key'
-    ];
-    return supported.some(ext => fileType.toLowerCase().includes(ext));
-  }
-  // Utilitaire : est-ce une image ?
-  isImageFile(fileType?: string): boolean {
-    if (!fileType) {return false;}
-    const imageExtensions = ['jpg', 'jpeg', 'png', 'gif', 'bmp', 'tiff', 'svg', 'webp', 'ico', 'raw', 'heic', 'heif', 'cr2', 'nef', 'arw'];
-    return imageExtensions.some(ext => fileType.toLowerCase().includes(ext));
+  // Méthodes avec stratégie de priorité
+  async analyzeFileWithPriority(fileId: number, promptId: string, providerPriority: string[]): Promise<any> {
+    try {
+      const response = await fetch('/api/analysis/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          file_id: fileId, 
+          prompt_id: promptId,
+          provider_priority: providerPriority 
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erreur ${response.status}: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      throw error;
+    }
   }
 
-  // Retourne tous les prompts avec leur état (activable/désactivé)
-  getPromptsWithState(context: PromptContext): { prompt: Prompt, disabled: boolean, reason: string|null }[] {
-    if (!this._cachedPrompts) {return [];}
-    return Object.values(this._cachedPrompts.specialized_prompts).map(prompt => {
-      const reason = this.getPromptDisabledReason(prompt, context);
-      return { prompt, disabled: !!reason, reason };
-    });
+  async compareDocumentsWithPriority(fileIds: number[], promptId: string, providerPriority: string[]): Promise<any> {
+    try {
+      const response = await fetch('/api/analysis/compare', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          file_ids: fileIds, 
+          prompt_id: promptId,
+          provider_priority: providerPriority 
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erreur ${response.status}: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async analyzeBatchWithPriority(fileIds: number[], promptId: string, providerPriority: string[]): Promise<any> {
+    try {
+      const response = await fetch('/api/analysis/batch', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          file_ids: fileIds, 
+          prompt_id: promptId,
+          provider_priority: providerPriority 
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erreur ${response.status}: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  async analyzeWithMultipleAI(fileIds: number[], promptId: string, providers: string[]): Promise<any> {
+    try {
+      const response = await fetch('/api/analysis/multiple-ai', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          file_ids: fileIds, 
+          prompt_id: promptId,
+          providers: providers 
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Erreur ${response.status}: ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      throw error;
+    }
+  }
+
+  // Méthodes originales pour la compatibilité
+  async analyzeFile(fileId: number, promptId?: string): Promise<any> {
+    return this.analyzeFileWithPriority(fileId, promptId || 'general_summary', []);
+  }
+
+  async analyzeBatch(fileIds: number[], promptId?: string): Promise<any> {
+    return this.analyzeBatchWithPriority(fileIds, promptId || 'general_summary', []);
+  }
+
+  // Méthodes pour obtenir les prompts adaptés au type de fichier
+  getPromptsForFileType(mimeType: string): Prompt[] {
+    const fileType = this.getFileTypeFromMime(mimeType);
+    
+    switch (fileType) {
+      case 'document':
+        return this.prompts.filter(p => p.domain !== 'technical' || p.type === 'analysis');
+      case 'image':
+        return this.prompts.filter(p => p.type === 'analysis' || p.type === 'extraction');
+      case 'media':
+        return this.prompts.filter(p => p.type === 'analysis' || p.type === 'extraction');
+      default:
+        return this.prompts;
+    }
+  }
+
+  private getFileTypeFromMime(mimeType: string): string {
+    const mime = mimeType.toLowerCase();
+    if (mime.startsWith('audio/') || mime.startsWith('video/')) {
+      return 'media';
+    } else if (mime.startsWith('image/')) {
+      return 'image';
+    } else {
+      return 'document';
+    }
   }
 }
 

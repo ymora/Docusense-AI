@@ -270,8 +270,4 @@ async def browse_directory(
         raise
     except Exception as e:
         logger.error(f"Erreur lors du parcours du répertoire {directory_path}: {e}")
-        raise HTTPException(status_code=500, detail=f"Erreur interne: {str(e)}")
-
-
-# Import manquant
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials 
+        raise HTTPException(status_code=500, detail=f"Erreur interne: {str(e)}") 

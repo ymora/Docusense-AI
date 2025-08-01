@@ -5,12 +5,17 @@ Configuration endpoints for DocuSense AI
 from fastapi import APIRouter, Depends, HTTPException, Query, Body
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
+from pydantic import BaseModel
 import logging
+from datetime import datetime
 
 from ..core.database import get_db
 from ..services.config_service import ConfigService
-from ..services.ai_service import AIService
+from ..services.ai_service import AIService, get_ai_service
 from ..models.config import ConfigCreate, ConfigUpdate, AIProvidersConfig, UIConfig, SystemConfig
+
+class TestAPIKeyRequest(BaseModel):
+    api_key: str
 
 logger = logging.getLogger(__name__)
 
@@ -190,59 +195,10 @@ async def get_ai_providers_config(
     """
     try:
         config_service = ConfigService(db)
-
-        # Get all provider configurations with defaults
-        providers = []
-        for provider in ["openai", "claude", "mistral", "ollama"]:
-            config = config_service.get_ai_provider_config(provider)
-            api_key = config_service.get_ai_provider_key(provider)
-
-            # Default models for each provider
-            default_models = {
-                "openai": [
-                    "gpt-4",
-                    "gpt-3.5-turbo",
-                    "gpt-4o"],
-                "claude": [
-                    "claude-3-opus",
-                    "claude-3-sonnet",
-                    "claude-3-haiku"],
-                "mistral": [
-                    "mistral-large",
-                    "mistral-medium",
-                    "mistral-small"],
-                "ollama": [
-                    "llama2",
-                    "mistral",
-                    "codellama",
-                    "phi"]}
-
-            # Default model for each provider
-            default_model_map = {
-                "openai": "gpt-3.5-turbo",
-                "claude": "claude-3-sonnet",
-                "mistral": "mistral-medium",
-                "ollama": "llama2"
-            }
-
-            provider_data = {
-                "name": provider,
-                "priority": config_service.get_ai_provider_priority(provider),
-                "models": config.get("models", default_models.get(provider, [])) if config else default_models.get(provider, []),
-                "default_model": config.get("default_model", default_model_map.get(provider)) if config else default_model_map.get(provider),
-                "base_url": config.get("base_url") if config else None,
-                "is_active": config.get("is_active", True) if config else True,
-                "has_api_key": bool(api_key),
-                "is_connected": False  # Will be updated by test results
-            }
-
-            providers.append(provider_data)
-
-        return {
-            "providers": providers,
-            "strategy": config_service.get_ai_provider_strategy(),
-            "available_providers": ["openai", "claude", "mistral", "ollama"]
-        }
+        
+        # Use the new async method for better status handling
+        return await config_service.get_ai_providers_config()
+        
     except Exception as e:
         logger.error(f"Error getting AI providers config: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -279,27 +235,108 @@ async def set_ai_providers_config(
 @router.post("/ai/test")
 async def test_ai_provider(
     provider: str = Query(..., description="Provider to test"),
-    api_key: Optional[str] = Body(None),
+    request: Optional[TestAPIKeyRequest] = None,
     db: Session = Depends(get_db)
 ) -> Dict[str, Any]:
-    """Test AI provider connection"""
+    """Test AI provider connection with detailed validation"""
     try:
-        ConfigService(db)
-        ai_service = AIService(db)
+        config_service = ConfigService(db)
+        ai_service = get_ai_service(db)
 
         # Test with provided key or existing config
-        if api_key:
-            # Test with provided key
-            success = await ai_service.test_provider_with_key(provider, api_key)
+        if request and request.api_key:
+            # Test with provided key using new validation method
+            validation_result = await config_service.validate_provider_key(provider, request.api_key)
+            
+            if validation_result["is_valid"]:
+                # If test successful, save the key
+                config_service.set_ai_provider_key(provider, request.api_key)
+                config_service.update_provider_functionality_status(provider, True)
+                
+                return {
+                    "success": True,
+                    "provider": provider,
+                    "is_valid": True,
+                    "message": f"API key validated successfully for {provider}",
+                    "tested_at": validation_result["tested_at"]
+                }
+            else:
+                return {
+                    "success": False,
+                    "provider": provider,
+                    "is_valid": False,
+                    "message": validation_result.get("error_message", "Validation failed"),
+                    "tested_at": validation_result["tested_at"]
+                }
         else:
             # Test with existing configuration
             success = await ai_service.test_provider_async(provider)
-
-        return {
-            "success": success,
-            "message": "Provider test completed" if success else "Provider test failed"}
+            
+            # Update functionality status
+            config_service.update_provider_functionality_status(provider, success)
+            
+            return {
+                "success": success,
+                "provider": provider,
+                "is_valid": success,
+                "message": f"Provider {provider} test {'completed successfully' if success else 'failed'}",
+                "tested_at": datetime.now().isoformat()
+            }
+            
     except Exception as e:
         logger.error(f"Error testing provider {provider}: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/ai/providers/functional")
+async def get_functional_ai_providers(db: Session = Depends(get_db)) -> Dict[str, Any]:
+    """Get only functional AI providers with their priorities and status"""
+    try:
+        config_service = ConfigService(db)
+        
+        # Get functional providers with real-time testing
+        providers = await config_service.get_available_ai_providers_with_priority_async()
+        
+        # Count functional providers
+        functional_count = len(providers)
+        total_providers = 4  # openai, claude, mistral, ollama
+        
+        return {
+            "success": True,
+            "functional_providers": providers,
+            "functional_count": functional_count,
+            "total_providers": total_providers,
+            "availability_percentage": (functional_count / total_providers) * 100 if total_providers > 0 else 0,
+            "note": "Only providers with valid API keys and successful connectivity tests are included"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting functional AI providers: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/ai/key/validate")
+async def validate_ai_provider_key(
+    provider: str = Query(..., description="Provider name"),
+    api_key: str = Body(..., embed=True),
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """Validate an AI provider API key without saving it"""
+    try:
+        config_service = ConfigService(db)
+        
+        # Validate the API key
+        validation_result = await config_service.validate_provider_key(provider, api_key)
+        
+        return {
+            "success": True,
+            "provider": provider,
+            "validation_result": validation_result,
+            "message": "Validation completed"
+        }
+        
+    except Exception as e:
+        logger.error(f"Error validating API key for {provider}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -312,12 +349,23 @@ async def save_ai_provider_key(
     """Save AI provider API key"""
     try:
         config_service = ConfigService(db)
+        
+        # Save the key directly
         success = config_service.set_ai_provider_key(provider, api_key)
-
-        return {
-            "success": success,
-            "message": f"API key saved for {provider}"
-        }
+        
+        if success:
+            return {
+                "success": True,
+                "provider": provider,
+                "message": f"API key saved for {provider}"
+            }
+        else:
+            return {
+                "success": False,
+                "provider": provider,
+                "message": f"Failed to save API key for {provider}"
+            }
+            
     except Exception as e:
         logger.error(f"Error saving API key for {provider}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -373,15 +421,26 @@ async def get_ai_priorities(db: Session = Depends(get_db)) -> Dict[str, Any]:
 @router.post("/ai/priority/validate")
 async def validate_ai_priorities(
         db: Session = Depends(get_db)) -> Dict[str, Any]:
-    """Validate and fix AI provider priorities"""
+    """Validate and fix AI provider priorities based on active and connected providers"""
     try:
         config_service = ConfigService(db)
         result = config_service.validate_and_fix_priorities()
-
-        return {
-            "message": "Priority validation completed",
-            "result": result
-        }
+        
+        if result["success"]:
+            return {
+                "success": True,
+                "message": result["message"],
+                "active_providers": result["active_providers"],
+                "final_priorities": result["final_priorities"],
+                "fixes_applied": result["fixes_applied"],
+                "note": "Priorities have been automatically adjusted based on active providers"
+            }
+        else:
+            return {
+                "success": False,
+                "message": result["message"],
+                "error": result.get("error", "Unknown error")
+            }
     except Exception as e:
         logger.error(f"Error validating AI priorities: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

@@ -8,14 +8,22 @@ from pathlib import Path
 from .config import settings
 
 
+# Variables globales pour éviter les logs répétitifs
+_logging_initialized = False
+
 def setup_logging():
-    """Setup logging configuration"""
+    """Setup logging configuration optimisée"""
+    global _logging_initialized
+    
+    # Éviter la réinitialisation multiple
+    if _logging_initialized:
+        return
 
     # Create logs directory
     log_dir = Path("logs")
     log_dir.mkdir(exist_ok=True)
 
-    # Configure logging
+    # Configure logging avec niveau réduit pour les modules externes
     logging.basicConfig(
         level=getattr(logging, settings.log_level.upper()),
         format=settings.log_format,
@@ -29,8 +37,8 @@ def setup_logging():
         ]
     )
 
-    # Set specific loggers
-    loggers = [
+    # Réduire le niveau de log pour les modules externes (ERROR au lieu de WARNING)
+    external_loggers = [
         "uvicorn",
         "uvicorn.error",
         "fastapi",
@@ -41,12 +49,13 @@ def setup_logging():
         "mistralai"
     ]
 
-    for logger_name in loggers:
+    for logger_name in external_loggers:
         logger = logging.getLogger(logger_name)
-        logger.setLevel(logging.WARNING)
+        logger.setLevel(logging.ERROR)  # Changé de WARNING à ERROR
 
     # Set our app logger
     app_logger = logging.getLogger("docusense")
     app_logger.setLevel(getattr(logging, settings.log_level.upper()))
 
-    logger.info("Logging configured successfully")
+    _logging_initialized = True
+    logger.info("Logging optimisé configuré")

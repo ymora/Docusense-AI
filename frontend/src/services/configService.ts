@@ -1,366 +1,228 @@
-const API_BASE_URL = 'http://localhost:8000/api';
+import { apiRequest, handleApiError } from '../utils/apiUtils';
 
-export interface ConfigService {
-  testApiKey(provider: string, apiKey?: string): Promise<{ valid: boolean; message: string }>;
-  saveApiKey(provider: string, apiKey: string): Promise<void>;
-  getAiProviders(): Promise<any[]>;
-  getAiPriorities(): Promise<any[]>;
-  setAiPriority(provider: string, priority: number): Promise<void>;
-  getAiStrategy(): Promise<string>;
-  setAiStrategy(strategy: string): Promise<void>;
-  getAIProviders(): Promise<any>;
-  getAIStrategy(): Promise<any>;
-  getAIPriority(): Promise<any>;
-  saveAIProviderKey(provider: string, key: string): Promise<void>;
-  getAIProviderKey(provider: string): Promise<any>;
-  testAIProvider(provider: string): Promise<any>;
-  saveAIStrategy(strategy: string): Promise<void>;
-  saveAIPriority(provider: string, priority: number): Promise<void>;
-  saveAIModel(provider: string, model: string): Promise<void>;
-  resetAIPriorities(): Promise<void>;
+export interface AIProvider {
+  name: string;
+  priority: number;
+  models: string[];
+  default_model: string;
+  base_url?: string;
+  is_active: boolean;
+  has_api_key: boolean;
+  is_connected: boolean;
+  is_functional?: boolean;
+  api_key?: string;
+  last_tested?: string;
 }
 
-class ConfigServiceImpl implements ConfigService {
-  async testApiKey(provider: string, apiKey?: string): Promise<{ valid: boolean; message: string }> {
+export interface ProviderStatus {
+  status: 'valid' | 'invalid' | 'testing' | 'not_configured';
+  message: string;
+  lastTested?: string;
+}
+
+export interface AIProvidersResponse {
+  providers: AIProvider[];
+  strategy: string;
+  available_providers: string[];
+  active_count: number;
+  total_count: number;
+  functional_count: number;
+  configured_count: number;
+}
+
+export interface ValidationResult {
+  isValid: boolean;
+  error?: string;
+}
+
+export class ConfigService {
+  // Obtenir la configuration des providers IA
+  static async getAIProviders(): Promise<AIProvidersResponse> {
     try {
-      const url = new URL(`${API_BASE_URL}/config/ai/test`);
-      url.searchParams.append('provider', provider);
+      const response = await apiRequest('/api/config/ai/providers', {
+        method: 'GET'
+      });
+      return response;
+    } catch (error) {
+      console.error('Erreur lors du chargement des providers IA:', error);
+      throw new Error(`Impossible de charger les providers IA: ${handleApiError(error)}`);
+    }
+  }
 
-      const body: any = {};
-      if (apiKey) {
-        body.api_key = apiKey;
-      }
-
-      const response = await fetch(url.toString(), {
+  // Sauvegarder une clé API
+  static async saveAPIKey(provider: string, apiKey: string): Promise<{ success: boolean; message: string }> {
+    try {
+      const response = await apiRequest(`/api/config/ai/key?provider=${encodeURIComponent(provider)}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(body),
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ api_key: apiKey })
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
       return {
-        valid: data.valid,
-        message: data.message,
+        success: response.success,
+        message: response.message || 'Clé API sauvegardée'
       };
     } catch (error) {
-      console.error('Error testing API key:', error);
+      console.error(`Erreur lors de la sauvegarde de la clé API pour ${provider}:`, error);
       return {
-        valid: false,
-        message: `Erreur de connexion: ${error instanceof Error ? error.message : 'Erreur inconnue'}`,
+        success: false,
+        message: `Erreur lors de la sauvegarde: ${handleApiError(error)}`
       };
     }
   }
 
-  async saveApiKey(provider: string, apiKey: string): Promise<void> {
+  // Tester un provider
+  static async testProvider(provider: string): Promise<{ success: boolean; message: string }> {
     try {
-      const url = new URL(`${API_BASE_URL}/config/ai/key`);
-      url.searchParams.append('provider', provider);
+      const response = await apiRequest(`/api/config/ai/test?provider=${encodeURIComponent(provider)}`, {
+        method: 'POST'
+      }, 30000); // 30 secondes de timeout pour les tests
 
-      const response = await fetch(url.toString(), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ api_key: apiKey }),
+      return {
+        success: response.success || false,
+        message: response.message || 'Test terminé'
+      };
+    } catch (error) {
+      console.error(`Erreur lors du test du provider ${provider}:`, error);
+      return {
+        success: false,
+        message: `Erreur de test: ${handleApiError(error)}`
+      };
+    }
+  }
+
+  // Définir la priorité d'un provider
+  static async setProviderPriority(provider: string, priority: number): Promise<{ success: boolean; message: string }> {
+    try {
+      const response = await apiRequest(`/api/config/ai/priority?provider=${encodeURIComponent(provider)}&priority=${priority}`, {
+        method: 'POST'
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      return {
+        success: response.success,
+        message: response.message || 'Priorité mise à jour'
+      };
     } catch (error) {
-      console.error('Error saving API key:', error);
-      throw error;
+      console.error(`Erreur lors de la définition de la priorité pour ${provider}:`, error);
+      return {
+        success: false,
+        message: `Erreur lors de la mise à jour: ${handleApiError(error)}`
+      };
     }
   }
 
-  async getAiProviders(): Promise<any[]> {
+  // Obtenir les priorités des providers
+  static async getProviderPriorities(): Promise<Record<string, number>> {
     try {
-      const response = await fetch(`${API_BASE_URL}/config/ai/providers`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
-      return data.providers || [];
+      const response = await apiRequest('/api/config/ai/priority', {
+        method: 'GET'
+      });
+      return response.priority || {};
     } catch (error) {
-      console.error('Error getting AI providers:', error);
-      return [];
+      console.error('Erreur lors du chargement des priorités:', error);
+      return {};
     }
   }
 
-  async getAiPriorities(): Promise<any[]> {
+  // Définir la stratégie de sélection
+  static async setStrategy(strategy: string): Promise<{ success: boolean; message: string }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/config/ai/priority`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Error getting AI priorities:', error);
-      return [];
-    }
-  }
-
-  async setAiPriority(provider: string, priority: number): Promise<void> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/config/ai/priority?provider=${provider}&priority=${priority}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const response = await apiRequest(`/api/config/ai/strategy?strategy=${encodeURIComponent(strategy)}`, {
+        method: 'POST'
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      return {
+        success: response.success,
+        message: response.message || 'Stratégie mise à jour'
+      };
     } catch (error) {
-      console.error('Error setting AI priority:', error);
-      throw error;
+      console.error('Erreur lors de la définition de la stratégie:', error);
+      return {
+        success: false,
+        message: `Erreur lors de la mise à jour: ${handleApiError(error)}`
+      };
     }
   }
 
-  async getAiStrategy(): Promise<string> {
+  // Obtenir la stratégie actuelle
+  static async getStrategy(): Promise<string> {
     try {
-      const response = await fetch(`${API_BASE_URL}/config/ai/strategy`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      const data = await response.json();
-      return data.strategy || 'priority';
+      const response = await apiRequest('/api/config/ai/strategy', {
+        method: 'GET'
+      });
+      return response.strategy || 'priority';
     } catch (error) {
-      console.error('Error getting AI strategy:', error);
+      console.error('Erreur lors du chargement de la stratégie:', error);
       return 'priority';
     }
   }
 
-  async setAiStrategy(strategy: string): Promise<void> {
+  // Obtenir les métriques
+  static async getMetrics(): Promise<any> {
     try {
-      const response = await fetch(`${API_BASE_URL}/config/ai/strategy?strategy=${strategy}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const response = await apiRequest('/api/config/ai/metrics', {
+        method: 'GET'
+      });
+      return response.metrics || {};
+    } catch (error) {
+      console.error('Erreur lors du chargement des métriques:', error);
+      return {};
+    }
+  }
+
+  // Valider et corriger les priorités automatiquement
+  static async validateAndFixPriorities(): Promise<{ success: boolean; message: string; fixes?: any }> {
+    try {
+      const response = await apiRequest('/api/config/ai/priority/validate', {
+        method: 'POST'
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      return {
+        success: response.success,
+        message: response.message || 'Validation terminée',
+        fixes: response.fixes_applied
+      };
     } catch (error) {
-      console.error('Error setting AI strategy:', error);
-      throw error;
+      console.error('Erreur lors de la validation des priorités:', error);
+      return {
+        success: false,
+        message: `Erreur lors de la validation: ${handleApiError(error)}`
+      };
     }
   }
 
-  // Nouvelles méthodes pour la configuration complète
-  async getAIProviders(): Promise<any> {
+  // Réinitialiser toutes les priorités
+  static async resetPriorities(): Promise<{ success: boolean; message: string }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/config/ai/providers`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Error getting AI providers:', error);
-      return { providers: [] };
-    }
-  }
-
-  async getAIStrategy(): Promise<any> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/config/ai/strategy`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Error getting AI strategy:', error);
-      return { strategy: 'cost' };
-    }
-  }
-
-  async getAIPriority(): Promise<any> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/config/ai/priority`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Error getting AI priority:', error);
-      return { priority: {} };
-    }
-  }
-
-  async saveAIProviderKey(provider: string, key: string): Promise<void> {
-    try {
-      const url = new URL(`${API_BASE_URL}/config/ai/key`);
-      url.searchParams.append('provider', provider);
-
-      const response = await fetch(url.toString(), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ api_key: key }),
+      const response = await apiRequest('/api/config/ai/priority/reset', {
+        method: 'POST'
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      return {
+        success: response.success,
+        message: response.message || 'Priorités réinitialisées'
+      };
     } catch (error) {
-      console.error('Error saving AI provider key:', error);
-      throw error;
+      console.error('Erreur lors de la réinitialisation des priorités:', error);
+      return {
+        success: false,
+        message: `Erreur lors de la réinitialisation: ${handleApiError(error)}`
+      };
     }
   }
 
-  async getAIProviderKey(provider: string): Promise<any> {
+  // Obtenir les providers fonctionnels uniquement
+  static async getFunctionalProviders(): Promise<AIProvider[]> {
     try {
-      const response = await fetch(`${API_BASE_URL}/config/ai/key/${provider}`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Error getting AI provider key:', error);
-      throw error;
-    }
-  }
-
-  async testAIProvider(provider: string): Promise<any> {
-    try {
-      const url = new URL(`${API_BASE_URL}/config/ai/test`);
-      url.searchParams.append('provider', provider);
-
-      const response = await fetch(url.toString(), {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+      const response = await apiRequest('/api/config/ai/providers/functional', {
+        method: 'GET'
       });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      return await response.json();
+      return response.functional_providers || [];
     } catch (error) {
-      console.error('Error testing AI provider:', error);
-      return { success: false, message: 'Erreur de test' };
-    }
-  }
-
-  async saveAIStrategy(strategy: string): Promise<void> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/config/ai/strategy?strategy=${strategy}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-    } catch (error) {
-      console.error('Error saving AI strategy:', error);
-      throw error;
-    }
-  }
-
-  async saveAIPriority(provider: string, priority: number): Promise<void> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/config/ai/priority?provider=${provider}&priority=${priority}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-    } catch (error) {
-      console.error('Error saving AI priority:', error);
-      throw error;
-    }
-  }
-
-  async saveAIModel(provider: string, model: string): Promise<void> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/config/ai/model?provider=${provider}&model=${model}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-    } catch (error) {
-      console.error('Error saving AI model:', error);
-      throw error;
-    }
-  }
-
-  async saveAIProviderModel(provider: string, model: string): Promise<void> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/config/ai/model?provider=${provider}&model=${model}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-    } catch (error) {
-      console.error('Error saving AI provider model:', error);
-      throw error;
-    }
-  }
-
-  async getAIMetrics(): Promise<any> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/config/ai/metrics`);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Error getting AI metrics:', error);
-      return { metrics: {} };
-    }
-  }
-
-  async resetAIPriorities(): Promise<void> {
-    try {
-      const response = await fetch(`${API_BASE_URL}/config/ai/priority/reset`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      if (!data.success) {
-        throw new Error(data.message || 'Failed to reset priorities');
-      }
-    } catch (error) {
-      console.error('Error resetting AI priorities:', error);
-      throw error;
+      console.error('Erreur lors du chargement des providers fonctionnels:', error);
+      return [];
     }
   }
 }
 
-export const configService = new ConfigServiceImpl();
+export default ConfigService;

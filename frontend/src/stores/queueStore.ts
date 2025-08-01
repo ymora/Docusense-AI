@@ -16,7 +16,7 @@ export interface QueueItem {
   error_message?: string;
   retry_count: number;
   max_retries: number;
-  queue_metadata?: Record<string, any>;
+  queue_metadata?: Record<string, unknown>;
   // Nouvelles informations sur l'analyse
   analysis_type?: string;
   analysis_provider?: string;
@@ -85,7 +85,6 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors du chargement de la queue';
       set({ error: errorMessage, loading: false });
-      console.error('Erreur lors du chargement de la queue:', error);
     }
   },
 
@@ -96,8 +95,18 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors du chargement du statut de la queue';
       set({ error: errorMessage });
-      console.error('Erreur lors du chargement du statut de la queue:', error);
     }
+  },
+
+  // Mise à jour en temps réel de la queue
+  startRealTimeUpdates: () => {
+    const interval = setInterval(async () => {
+      const { loadQueueItems, loadQueueStatus } = get();
+      await loadQueueItems();
+      await loadQueueStatus();
+    }, 3000); // Mise à jour toutes les 3 secondes
+
+    return () => clearInterval(interval);
   },
 
   pauseQueue: async () => {
@@ -109,7 +118,6 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la pause de la queue';
       set({ error: errorMessage, loading: false });
-      console.error('Erreur lors de la pause de la queue:', error);
     }
   },
 
@@ -122,7 +130,6 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la reprise de la queue';
       set({ error: errorMessage, loading: false });
-      console.error('Erreur lors de la reprise de la queue:', error);
     }
   },
 
@@ -136,7 +143,6 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors du nettoyage de la queue';
       set({ error: errorMessage, loading: false });
-      console.error('Erreur lors du nettoyage de la queue:', error);
     }
   },
 
@@ -150,7 +156,6 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la nouvelle tentative';
       set({ error: errorMessage, loading: false });
-      console.error('Erreur lors de la nouvelle tentative:', error);
     }
   },
 
@@ -164,7 +169,6 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors de l\'ajout à la queue';
       set({ error: errorMessage, loading: false });
-      console.error('Erreur lors de l\'ajout à la queue:', error);
     }
   },
 
@@ -183,7 +187,6 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la pause du type';
       set({ error: errorMessage, loading: false });
-      console.error('Erreur lors de la pause du type:', error);
     }
   },
 
@@ -201,7 +204,6 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la reprise du type';
       set({ error: errorMessage, loading: false });
-      console.error('Erreur lors de la reprise du type:', error);
     }
   },
 
@@ -219,7 +221,6 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la suppression du type';
       set({ error: errorMessage, loading: false });
-      console.error('Erreur lors de la suppression du type:', error);
     }
   },
 
@@ -237,7 +238,6 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la nouvelle tentative du type';
       set({ error: errorMessage, loading: false });
-      console.error('Erreur lors de la nouvelle tentative du type:', error);
     }
   },
 }));

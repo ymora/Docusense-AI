@@ -7,12 +7,21 @@ import json
 from typing import Dict, Any, Optional, List
 from sqlalchemy.orm import Session
 import logging
+from datetime import datetime
+import asyncio
+from fastapi import HTTPException
 
 from ..models.config import Config
 from ..core.config import settings
+from .ai_service import get_ai_service
 
 logger = logging.getLogger(__name__)
 
+
+# Variables globales pour éviter les logs répétitifs
+_config_cache_loaded = False
+_ai_providers_loaded = False
+_config_initialized = False
 
 class ConfigService:
     """Service for configuration management"""
@@ -28,7 +37,11 @@ class ConfigService:
             configs = self.db.query(Config).all()
             for config in configs:
                 self._cache[config.key] = config.value
-            logger.info(f"Loaded {len(configs)} configurations into cache")
+            # Log seulement au premier chargement global
+            global _config_cache_loaded
+            if not _config_cache_loaded:
+                logger.info(f"{len(configs)} configurations chargées en cache")
+                _config_cache_loaded = True
         except Exception as e:
             logger.error(f"Error loading config cache: {str(e)}")
             # En cas d'échec, utiliser les valeurs par défaut du fichier config
@@ -37,7 +50,13 @@ class ConfigService:
     def _load_default_configs(self):
         """Load default configurations from settings"""
         try:
+            # NOUVEAU: Charger les clés API depuis la base de données d'abord
+            self.load_api_keys_from_database()
+            
             # Configurations AI par défaut depuis les variables d'environnement
+            # (seulement si pas déjà chargées depuis la base de données)
+            from ..core.config import settings
+            
             self._cache.update({
                 'provider_openai': settings.openai_api_key or '',
                 'provider_anthropic': settings.anthropic_api_key or '',
@@ -52,9 +71,11 @@ class ConfigService:
                 'ui_auto_refresh_interval': '10',
                 'ui_show_queue_panel': 'true'
             })
-            logger.info("Loaded default configurations from settings")
+            logger.info("Configurations par défaut chargées avec clés API persistantes")
         except Exception as e:
             logger.error(f"Error loading default configs: {str(e)}")
+            # En cas d'échec, initialiser les configurations par défaut complètes
+            self.initialize_default_configs()
 
     def get_config(
             self,
@@ -329,6 +350,12 @@ class ConfigService:
         """
         Initialize default configurations if they don't exist
         """
+        global _config_initialized
+        
+        # Éviter l'initialisation multiple
+        if _config_initialized:
+            return
+            
         try:
             defaults = {
                 # UI defaults
@@ -385,7 +412,8 @@ class ConfigService:
             # Initialize AI provider configurations
             self._initialize_ai_provider_configs()
 
-            logger.info("Initialized default configurations")
+            _config_initialized = True
+            logger.info("Configurations par défaut initialisées")
 
         except Exception as e:
             logger.error(f"Error initializing default configs: {str(e)}")
@@ -461,7 +489,7 @@ class ConfigService:
                 if not self.get_ai_provider_config(provider):
                     self.set_ai_provider_config(provider, config)
 
-            logger.info("Initialized AI provider configurations")
+            logger.info("Configurations des fournisseurs AI initialisées")
 
         except Exception as e:
             logger.error(f"Error initializing AI provider configs: {str(e)}")
@@ -631,26 +659,22 @@ class ConfigService:
 
     def set_ai_provider_strategy(self, strategy: str) -> bool:
         """
-        Set the AI provider selection strategy
+        Set AI provider strategy
         """
         try:
-            valid_strategies = [
-                "priority",
-                "cost",
-                "performance",
-                "fallback",
-                "quality",
-                "speed"]
+            # Validate strategy
+            valid_strategies = ['priority', 'fallback', 'cost', 'speed']
             if strategy not in valid_strategies:
-                raise ValueError(
-                    f"Strategy must be one of: {valid_strategies}")
-
+                logger.warning(f"Invalid strategy '{strategy}'. Using 'priority' as default.")
+                strategy = 'priority'
+            
             self.set_config(
-                key="ai_provider_strategy",
+                key='ai_provider_strategy',
                 value=strategy,
-                description="AI provider selection strategy",
-                category="ai"
+                description='AI provider selection strategy',
+                category='ai'
             )
+            logger.info(f"Set AI provider strategy to {strategy}")
             return True
         except Exception as e:
             logger.error(f"Error setting AI provider strategy: {str(e)}")
@@ -658,68 +682,89 @@ class ConfigService:
 
     def validate_and_fix_priorities(self) -> Dict[str, Any]:
         """
-        Validate and fix AI provider priorities to ensure uniqueness
-        Only considers active providers (those with API keys or local setup)
-        Returns information about any changes made
+        Validate and fix AI provider priorities based on active and connected providers
         """
         try:
-            active_providers = self._get_active_providers()
-            max_priority = len(active_providers)
-
+            # Get all providers and their current priorities
+            all_providers = ["openai", "claude", "mistral", "ollama"]
             current_priorities = {}
-            used_priorities = set()
-            conflicts = []
-            fixes = []
-
-            # Collect current priorities for active providers only
-            for provider in active_providers:
+            active_providers = []
+            
+            for provider in all_providers:
                 priority = self.get_ai_provider_priority(provider)
                 current_priorities[provider] = priority
-
-                if priority in used_priorities:
-                    conflicts.append({
-                        "provider": provider,
-                        "priority": priority,
-                        "issue": f"Priority {priority} is already used"
-                    })
-                elif priority > max_priority:
-                    conflicts.append({
-                        "provider": provider,
-                        "priority": priority,
-                        "issue": f"Priority {priority} exceeds maximum ({max_priority})"
-                    })
-                else:
-                    used_priorities.add(priority)
-
-            # Fix conflicts by reassigning priorities
-            if conflicts:
-                available_priorities = set(
-                    range(1, max_priority + 1)) - used_priorities
-
-                for conflict in conflicts:
-                    if available_priorities:
-                        new_priority = min(available_priorities)
-                        self.set_ai_provider_priority(
-                            conflict["provider"], new_priority)
-                        fixes.append({
-                            "provider": conflict["provider"],
-                            "old_priority": conflict["priority"],
-                            "new_priority": new_priority
+                
+                # Check if provider is active and has valid API key
+                api_key = self.get_ai_provider_key(provider)
+                if api_key:
+                    # For now, consider providers with API keys as potentially active
+                    # The actual connection test will be done by the AI service
+                    active_providers.append(provider)
+            
+            # Validate priorities for active providers only
+            active_priorities = {p: current_priorities[p] for p in active_providers}
+            
+            # Check for duplicate priorities among active providers
+            priority_values = list(active_priorities.values())
+            duplicates = [p for p in set(priority_values) if priority_values.count(p) > 1]
+            
+            fixes_applied = []
+            
+            if duplicates:
+                # Fix duplicate priorities by reassigning them
+                logger.info(f"Found duplicate priorities: {duplicates}")
+                
+                # Sort active providers by name for consistent ordering
+                sorted_active_providers = sorted(active_providers)
+                
+                # Reassign priorities starting from 1
+                for i, provider in enumerate(sorted_active_providers, 1):
+                    old_priority = current_priorities[provider]
+                    if old_priority != i:
+                        self.set_ai_provider_priority(provider, i)
+                        fixes_applied.append({
+                            "provider": provider,
+                            "old_priority": old_priority,
+                            "new_priority": i
                         })
-                        available_priorities.remove(new_priority)
-
+                        logger.info(f"Fixed priority for {provider}: {old_priority} -> {i}")
+            
+            # Ensure priorities are sequential for active providers
+            active_providers_after_fix = []
+            for provider in all_providers:
+                api_key = self.get_ai_provider_key(provider)
+                if api_key:
+                    active_providers_after_fix.append(provider)
+            
+            # Final validation: ensure active providers have sequential priorities
+            final_priorities = {}
+            for i, provider in enumerate(sorted(active_providers_after_fix), 1):
+                current_priority = self.get_ai_provider_priority(provider)
+                if current_priority != i:
+                    self.set_ai_provider_priority(provider, i)
+                    fixes_applied.append({
+                        "provider": provider,
+                        "old_priority": current_priority,
+                        "new_priority": i,
+                        "reason": "Sequential ordering"
+                    })
+                final_priorities[provider] = i
+            
             return {
-                "has_conflicts": len(conflicts) > 0,
-                "conflicts": conflicts,
-                "fixes_applied": fixes,
-                "current_priorities": current_priorities,
-                "active_providers": active_providers,
-                "max_priority": max_priority
+                "success": True,
+                "active_providers": active_providers_after_fix,
+                "final_priorities": final_priorities,
+                "fixes_applied": fixes_applied,
+                "message": f"Validated priorities for {len(active_providers_after_fix)} active providers"
             }
-
+            
         except Exception as e:
             logger.error(f"Error validating priorities: {str(e)}")
-            return {"error": str(e)}
+            return {
+                "success": False,
+                "error": str(e),
+                "message": "Failed to validate priorities"
+            }
 
     def reset_all_priorities(self) -> bool:
         """
@@ -750,54 +795,227 @@ class ConfigService:
     def get_available_ai_providers_with_priority(self) -> List[Dict[str, Any]]:
         """
         Get all available AI providers with their priorities and costs
+        Only returns providers that are active, have valid API keys, and are functional
         """
         try:
             providers = []
+            
             for provider in ["openai", "claude", "mistral", "ollama"]:
                 # Check if provider has API key
-                api_key = self.get_config(f"{provider}_api_key")
-                if api_key:
-                    priority = self.get_ai_provider_priority(provider)
-                    strategy = self.get_ai_provider_strategy()
+                api_key = self.get_ai_provider_key(provider)
+                if not api_key:
+                    continue
+                
+                # Check functionality status from config (cached)
+                is_functional = self.get_config(f"{provider}_is_functional", "false").lower() == "true"
+                
+                # Only include providers that were previously tested as functional
+                if not is_functional:
+                    logger.warning(f"Provider {provider} is not functional (cached status) - skipping")
+                    continue
+                
+                priority = self.get_ai_provider_priority(provider)
+                strategy = self.get_ai_provider_strategy()
 
-                    # Get available models and their costs
-                    models = []
-                    if provider == "openai":
-                        models = [
-                            {"name": "gpt-4", "cost": self.get_ai_provider_cost(provider, "gpt4")},
-                            {"name": "gpt-3.5-turbo", "cost": self.get_ai_provider_cost(provider, "gpt35")}
-                        ]
-                    elif provider == "claude":
-                        models = [
-                            {"name": "claude-3-opus", "cost": self.get_ai_provider_cost(provider, "opus")},
-                            {"name": "claude-3-sonnet", "cost": self.get_ai_provider_cost(provider, "sonnet")}
-                        ]
-                    elif provider == "mistral":
-                        models = [
-                            {"name": "mistral-large", "cost": self.get_ai_provider_cost(provider, "large")},
-                            {"name": "mistral-medium", "cost": self.get_ai_provider_cost(provider, "medium")}
-                        ]
-                    elif provider == "ollama":
-                        models = [
-                            {"name": "llama2", "cost": self.get_ai_provider_cost(provider, "llama2")},
-                            {"name": "mistral", "cost": self.get_ai_provider_cost(provider, "mistral")}
-                        ]
+                # Get available models and their costs
+                models = []
+                if provider == "openai":
+                    models = [
+                        {"name": "gpt-4", "cost": self.get_ai_provider_cost(provider, "gpt4")},
+                        {"name": "gpt-3.5-turbo", "cost": self.get_ai_provider_cost(provider, "gpt35")}
+                    ]
+                elif provider == "claude":
+                    models = [
+                        {"name": "claude-3-opus", "cost": self.get_ai_provider_cost(provider, "opus")},
+                        {"name": "claude-3-sonnet", "cost": self.get_ai_provider_cost(provider, "sonnet")}
+                    ]
+                elif provider == "mistral":
+                    models = [
+                        {"name": "mistral-large", "cost": self.get_ai_provider_cost(provider, "large")},
+                        {"name": "mistral-medium", "cost": self.get_ai_provider_cost(provider, "medium")}
+                    ]
+                elif provider == "ollama":
+                    models = [
+                        {"name": "llama2", "cost": self.get_ai_provider_cost(provider, "llama2")},
+                        {"name": "mistral", "cost": self.get_ai_provider_cost(provider, "mistral")}
+                    ]
 
-                    providers.append({
-                        "name": provider,
-                        "priority": priority,
-                        "strategy": strategy,
-                        "models": models,
-                        "api_key_configured": bool(api_key)
-                    })
+                providers.append({
+                    "name": provider,
+                    "priority": priority,
+                    "strategy": strategy,
+                    "models": models,
+                    "api_key_configured": bool(api_key),
+                    "is_available": True,
+                    "is_functional": is_functional,
+                    "last_tested": self.get_config(f"{provider}_last_tested", "")
+                })
 
-            # Sort by priority (ascending)
+            # Sort by priority (ascending) - only functional providers
             providers.sort(key=lambda x: x["priority"])
             return providers
 
         except Exception as e:
             logger.error(f"Error getting AI providers with priority: {str(e)}")
             return []
+
+    async def get_available_ai_providers_with_priority_async(self) -> List[Dict[str, Any]]:
+        """
+        Async version of get_available_ai_providers_with_priority
+        """
+        return await asyncio.create_task(self._get_available_ai_providers_with_priority_async())
+
+    async def _get_available_ai_providers_with_priority_async(self) -> List[Dict[str, Any]]:
+        """
+        Get all available AI providers with their priorities and costs
+        Only returns providers that are active, have valid API keys, and are functional
+        """
+        try:
+            from .ai_service import get_ai_service
+            
+            providers = []
+            ai_service = get_ai_service(self.db)
+            
+            for provider in ["openai", "claude", "mistral", "ollama"]:
+                # Check if provider has API key
+                api_key = self.get_ai_provider_key(provider)
+                if not api_key:
+                    continue
+                
+                # Test provider connectivity
+                is_functional = False
+                try:
+                    # Test the provider with its current configuration
+                    is_functional = await ai_service.test_provider_async(provider)
+                except Exception as e:
+                    logger.warning(f"Provider {provider} test failed: {str(e)}")
+                    is_functional = False
+                
+                # Only include functional providers
+                if not is_functional:
+                    logger.warning(f"Provider {provider} is not functional - skipping")
+                    continue
+                
+                priority = self.get_ai_provider_priority(provider)
+                strategy = self.get_ai_provider_strategy()
+
+                # Get available models and their costs
+                models = []
+                if provider == "openai":
+                    models = [
+                        {"name": "gpt-4", "cost": self.get_ai_provider_cost(provider, "gpt4")},
+                        {"name": "gpt-3.5-turbo", "cost": self.get_ai_provider_cost(provider, "gpt35")}
+                    ]
+                elif provider == "claude":
+                    models = [
+                        {"name": "claude-3-opus", "cost": self.get_ai_provider_cost(provider, "opus")},
+                        {"name": "claude-3-sonnet", "cost": self.get_ai_provider_cost(provider, "sonnet")}
+                    ]
+                elif provider == "mistral":
+                    models = [
+                        {"name": "mistral-large", "cost": self.get_ai_provider_cost(provider, "large")},
+                        {"name": "mistral-medium", "cost": self.get_ai_provider_cost(provider, "medium")}
+                    ]
+                elif provider == "ollama":
+                    models = [
+                        {"name": "llama2", "cost": self.get_ai_provider_cost(provider, "llama2")},
+                        {"name": "mistral", "cost": self.get_ai_provider_cost(provider, "mistral")}
+                    ]
+
+                providers.append({
+                    "name": provider,
+                    "priority": priority,
+                    "strategy": strategy,
+                    "models": models,
+                    "api_key_configured": bool(api_key),
+                    "is_available": True,
+                    "is_functional": is_functional,
+                    "last_tested": datetime.now().isoformat()
+                })
+
+            # Sort by priority (ascending) - only functional providers
+            providers.sort(key=lambda x: x["priority"])
+            return providers
+
+        except Exception as e:
+            logger.error(f"Error getting AI providers with priority: {str(e)}")
+            return []
+
+    async def validate_provider_key(self, provider: str, api_key: str) -> Dict[str, Any]:
+        """
+        Validate an API key by testing the connection to the provider
+        Returns validation result with details
+        """
+        try:
+            from .ai_service import get_ai_service
+            
+            ai_service = get_ai_service(self.db)
+            
+            # Test the provider with the provided API key
+            is_valid = await ai_service.test_provider_with_key(provider, api_key)
+            
+            result = {
+                "provider": provider,
+                "is_valid": is_valid,
+                "tested_at": datetime.now().isoformat(),
+                "error_message": None
+            }
+            
+            if is_valid:
+                logger.info(f"API key validation successful for {provider}")
+            else:
+                result["error_message"] = f"Failed to connect to {provider} with provided API key"
+                logger.warning(f"API key validation failed for {provider}")
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"Error validating API key for {provider}: {str(e)}")
+            return {
+                "provider": provider,
+                "is_valid": False,
+                "tested_at": datetime.now().isoformat(),
+                "error_message": str(e)
+            }
+
+    def get_functional_providers_count(self) -> int:
+        """
+        Get the count of functional providers
+        """
+        try:
+            providers = self.get_available_ai_providers_with_priority()
+            return len([p for p in providers if p.get("is_functional", False)])
+        except Exception as e:
+            logger.error(f"Error getting functional providers count: {str(e)}")
+            return 0
+
+    def update_provider_functionality_status(self, provider: str, is_functional: bool) -> bool:
+        """
+        Update the functionality status of a provider
+        """
+        try:
+            status_key = f"{provider}_is_functional"
+            self.set_config(
+                key=status_key,
+                value=str(is_functional).lower(),
+                description=f"Functionality status for {provider}",
+                category="ai"
+            )
+            
+            last_tested_key = f"{provider}_last_tested"
+            self.set_config(
+                key=last_tested_key,
+                value=datetime.now().isoformat(),
+                description=f"Last test time for {provider}",
+                category="ai"
+            )
+            
+            logger.info(f"Updated functionality status for {provider}: {is_functional}")
+            return True
+            
+        except Exception as e:
+            logger.error(f"Error updating functionality status for {provider}: {str(e)}")
+            return False
 
     def set_ai_provider_key(self, provider: str, api_key: str) -> bool:
         """
@@ -812,11 +1030,65 @@ class ConfigService:
                 category="ai",
                 is_encrypted=True
             )
+            
+            # NOUVEAU: Sauvegarder aussi dans les settings pour la persistance
+            self._save_api_key_to_settings(provider, api_key)
+            
             logger.info(f"Set API key for {provider}")
             return True
         except Exception as e:
             logger.error(f"Error setting API key for {provider}: {str(e)}")
             return False
+
+    def _save_api_key_to_settings(self, provider: str, api_key: str):
+        """
+        Sauvegarde la clé API dans les settings pour la persistance
+        """
+        try:
+            from ..core.config import settings
+            
+            # Mapper les noms de providers vers les attributs settings
+            provider_mapping = {
+                'openai': 'openai_api_key',
+                'claude': 'anthropic_api_key', 
+                'anthropic': 'anthropic_api_key',
+                'mistral': 'mistral_api_key'
+            }
+            
+            if provider in provider_mapping:
+                attr_name = provider_mapping[provider]
+                setattr(settings, attr_name, api_key)
+                logger.info(f"API key saved to settings for {provider}")
+                
+        except Exception as e:
+            logger.error(f"Error saving API key to settings for {provider}: {str(e)}")
+
+    def load_api_keys_from_database(self):
+        """
+        Charge toutes les clés API depuis la base de données
+        et les met à jour dans les settings
+        """
+        try:
+            from ..core.config import settings
+            
+            providers = ['openai', 'claude', 'anthropic', 'mistral']
+            provider_mapping = {
+                'openai': 'openai_api_key',
+                'claude': 'anthropic_api_key',
+                'anthropic': 'anthropic_api_key', 
+                'mistral': 'mistral_api_key'
+            }
+            
+            for provider in providers:
+                api_key = self.get_ai_provider_key(provider)
+                if api_key:
+                    attr_name = provider_mapping.get(provider)
+                    if attr_name:
+                        setattr(settings, attr_name, api_key)
+                        logger.info(f"Loaded API key for {provider} from database")
+                        
+        except Exception as e:
+            logger.error(f"Error loading API keys from database: {str(e)}")
 
     def get_ai_provider_key(self, provider: str) -> Optional[str]:
         """
@@ -887,3 +1159,103 @@ class ConfigService:
         except Exception as e:
             logger.error(f"Error getting AI metrics: {str(e)}")
             return {}
+
+    async def get_ai_providers_config(self) -> Dict[str, Any]:
+        """
+        Get AI providers configuration with detailed status information
+        """
+        try:
+            config_service = ConfigService(self.db)
+            ai_service = get_ai_service(self.db)
+
+            # Get all provider configurations with defaults
+            providers = []
+            for provider in ["openai", "claude", "mistral", "ollama"]:
+                config = config_service.get_ai_provider_config(provider)
+                api_key = config_service.get_ai_provider_key(provider)
+
+                # Default models for each provider
+                default_models = {
+                    "openai": [
+                        "gpt-4",
+                        "gpt-3.5-turbo",
+                        "gpt-4o"],
+                    "claude": [
+                        "claude-3-opus",
+                        "claude-3-sonnet",
+                        "claude-3-haiku"],
+                    "mistral": [
+                        "mistral-large",
+                        "mistral-medium",
+                        "mistral-small"],
+                    "ollama": [
+                        "llama2",
+                        "mistral",
+                        "codellama",
+                        "phi"]}
+
+                # Default model for each provider
+                default_model_map = {
+                    "openai": "gpt-3.5-turbo",
+                    "claude": "claude-3-sonnet",
+                    "mistral": "mistral-medium",
+                    "ollama": "llama2"
+                }
+
+                # Check if provider has API key and test connection
+                has_api_key = bool(api_key)
+                is_connected = False
+                is_functional = False
+                
+                if has_api_key:
+                    try:
+                        # Test connection asynchronously with timeout
+                        is_connected = await ai_service.test_provider_async(provider)
+                        is_functional = is_connected
+                        
+                        # Update functionality status in database
+                        self.update_provider_functionality_status(provider, is_functional)
+                    except Exception as e:
+                        logger.warning(f"Connection test failed for {provider}: {str(e)}")
+                        is_connected = False
+                        is_functional = False
+                        self.update_provider_functionality_status(provider, False)
+
+                provider_data = {
+                    "name": provider,
+                    "priority": config_service.get_ai_provider_priority(provider),
+                    "models": config.get("models", default_models.get(provider, [])) if config else default_models.get(provider, []),
+                    "default_model": config.get("default_model", default_model_map.get(provider)) if config else default_model_map.get(provider),
+                    "base_url": config.get("base_url") if config else None,
+                    "is_active": config.get("is_active", True) if config else True,
+                    "has_api_key": has_api_key,
+                    "is_connected": is_connected,
+                    "is_functional": is_functional,
+                    "api_key": api_key if api_key else None,  # Include API key for frontend validation
+                    "last_tested": datetime.now().isoformat() if has_api_key else None
+                }
+
+                providers.append(provider_data)
+
+            # Sort providers by priority, but only include active and connected ones
+            active_providers = [p for p in providers if p["has_api_key"] and p["is_functional"]]
+            inactive_providers = [p for p in providers if not (p["has_api_key"] and p["is_functional"])]
+            
+            # Sort active providers by priority (ascending)
+            active_providers.sort(key=lambda x: x["priority"])
+            
+            # Combine active (sorted) and inactive providers
+            sorted_providers = active_providers + inactive_providers
+
+            return {
+                "providers": sorted_providers,
+                "strategy": config_service.get_ai_provider_strategy(),
+                "available_providers": [p["name"] for p in active_providers],
+                "active_count": len(active_providers),
+                "total_count": len(providers),
+                "functional_count": len([p for p in providers if p["is_functional"]]),
+                "configured_count": len([p for p in providers if p["has_api_key"]])
+            }
+        except Exception as e:
+            logger.error(f"Error getting AI providers config: {str(e)}")
+            raise HTTPException(status_code=500, detail=str(e))

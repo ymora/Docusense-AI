@@ -28,6 +28,9 @@ class DownloadService:
         self.temp_dir.mkdir(exist_ok=True)
         self.max_file_size = 1024 * 1024 * 1024  # 1 GB
         self.max_zip_size = 1024 * 1024 * 1024 * 5  # 5 GB
+        
+        # OPTIMISATION: Nettoyage automatique au démarrage
+        self.cleanup_temp_files()
     
     def get_file_info(self, file_path: Path) -> Dict[str, Any]:
         """
@@ -276,26 +279,65 @@ class DownloadService:
             logger.error(f"Erreur lors du téléchargement multiple: {e}")
             raise HTTPException(status_code=500, detail=f"Erreur interne: {str(e)}")
     
-    def cleanup_temp_files(self, max_age_hours: int = 24):
+    def cleanup_temp_files(self, max_age_hours: int = 1, max_total_size_gb: int = 2):
         """
-        Nettoie les fichiers temporaires anciens
+        Nettoie les fichiers temporaires anciens et limite la taille totale
         
         Args:
-            max_age_hours: Âge maximum en heures
+            max_age_hours: Âge maximum en heures (OPTIMISATION: Réduit de 24h à 1h par défaut)
+            max_total_size_gb: Taille maximale totale en GB (NOUVEAU: Limite de 2GB par défaut)
         """
         try:
             now = datetime.now()
             max_age = now.timestamp() - (max_age_hours * 3600)
+            max_total_size = max_total_size_gb * 1024 * 1024 * 1024  # Convertir en bytes
             
             cleaned_count = 0
+            total_size = 0
+            files_info = []
+            
+            # Collecter les informations sur tous les fichiers
             for file_path in self.temp_dir.iterdir():
                 if file_path.is_file():
-                    if file_path.stat().st_mtime < max_age:
-                        file_path.unlink()
+                    stat = file_path.stat()
+                    files_info.append({
+                        'path': file_path,
+                        'size': stat.st_size,
+                        'mtime': stat.st_mtime
+                    })
+                    total_size += stat.st_size
+            
+            # Nettoyer par âge d'abord
+            for file_info in files_info:
+                if file_info['mtime'] < max_age:
+                    try:
+                        file_info['path'].unlink()
                         cleaned_count += 1
+                        total_size -= file_info['size']
+                        logger.debug(f"Fichier temporaire supprimé (âge): {file_info['path'].name}")
+                    except Exception as e:
+                        logger.warning(f"Impossible de supprimer {file_info['path']}: {e}")
+            
+            # Si la taille totale dépasse encore la limite, supprimer les plus anciens
+            if total_size > max_total_size:
+                # Trier par date de modification (plus anciens en premier)
+                remaining_files = [f for f in files_info if f['path'].exists()]
+                remaining_files.sort(key=lambda x: x['mtime'])
+                
+                for file_info in remaining_files:
+                    if total_size <= max_total_size:
+                        break
+                    
+                    try:
+                        file_info['path'].unlink()
+                        cleaned_count += 1
+                        total_size -= file_info['size']
+                        logger.debug(f"Fichier temporaire supprimé (taille): {file_info['path'].name}")
+                    except Exception as e:
+                        logger.warning(f"Impossible de supprimer {file_info['path']}: {e}")
             
             if cleaned_count > 0:
-                logger.info(f"Fichiers temporaires nettoyés: {cleaned_count}")
+                logger.info(f"Fichiers temporaires nettoyés: {cleaned_count} (taille restante: {total_size / (1024*1024*1024):.2f} GB)")
                 
         except Exception as e:
             logger.error(f"Erreur lors du nettoyage des fichiers temporaires: {e}")

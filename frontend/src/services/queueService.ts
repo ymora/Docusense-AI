@@ -1,311 +1,147 @@
 import { QueueItem, QueueStatus } from '../stores/queueStore';
+import { apiRequest, handleApiError, DEFAULT_TIMEOUT } from '../utils/apiUtils';
 
-const DEFAULT_TIMEOUT = 30000; // 30 seconds
-
-class QueueService {
-  async getQueueItems(): Promise<QueueItem[]> {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT);
-
-      const response = await fetch('/api/queue/', {
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return await response.json();
-    } catch (error) {
-      console.error('Error fetching queue items:', error);
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Request timeout - please try again');
-      }
-      return [];
-    }
-  }
-
+export const queueService = {
+  // Obtenir le statut de la queue
   async getQueueStatus(): Promise<QueueStatus> {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT);
-
-      const response = await fetch('/api/queue/status', {
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-      return await response.json();
+      const data = await apiRequest('/api/queue/status', {}, DEFAULT_TIMEOUT);
+      return data as QueueStatus;
     } catch (error) {
-      console.error('Error fetching queue status:', error);
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Request timeout - please try again');
-      }
-      return {
-        total_items: 0,
-        processing_items: 0,
-        pending_items: 0,
-        completed_items: 0,
-        failed_items: 0,
-        is_processing: false,
-        is_paused: false,
-      };
+      throw new Error(`Erreur lors de la récupération du statut de la queue: ${handleApiError(error)}`);
     }
-  }
+  },
 
+  // Obtenir les éléments de la queue
+  async getQueueItems(): Promise<QueueItem[]> {
+    try {
+      const data = await apiRequest('/api/queue/', {}, DEFAULT_TIMEOUT);
+      return data as QueueItem[];
+    } catch (error) {
+      throw new Error(`Erreur lors de la récupération des éléments de la queue: ${handleApiError(error)}`);
+    }
+  },
+
+  // Contrôles de la queue
   async pauseQueue(): Promise<void> {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT);
-
-      const response = await fetch('/api/queue/control', {
+      await apiRequest('/api/queue/control', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ action: 'pause' }),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+        body: JSON.stringify({ action: 'pause' })
+      }, DEFAULT_TIMEOUT);
     } catch (error) {
-      console.error('Error pausing queue:', error);
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Request timeout - please try again');
-      }
-      throw error;
+      throw new Error(`Erreur lors de la pause de la queue: ${handleApiError(error)}`);
     }
-  }
+  },
 
   async resumeQueue(): Promise<void> {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT);
-
-      const response = await fetch('/api/queue/control', {
+      await apiRequest('/api/queue/control', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ action: 'resume' }),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+        body: JSON.stringify({ action: 'resume' })
+      }, DEFAULT_TIMEOUT);
     } catch (error) {
-      console.error('Error resuming queue:', error);
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Request timeout - please try again');
-      }
-      throw error;
+      throw new Error(`Erreur lors de la reprise de la queue: ${handleApiError(error)}`);
     }
-  }
+  },
 
   async clearQueue(): Promise<void> {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT);
-
-      const response = await fetch('/api/queue/control', {
+      await apiRequest('/api/queue/control', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ action: 'clear' }),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+        body: JSON.stringify({ action: 'clear' })
+      }, DEFAULT_TIMEOUT);
     } catch (error) {
-      console.error('Error clearing queue:', error);
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Request timeout - please try again');
-      }
-      throw error;
+      throw new Error(`Erreur lors du vidage de la queue: ${handleApiError(error)}`);
     }
-  }
+  },
 
   async retryFailedItems(): Promise<void> {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT);
-
-      const response = await fetch('/api/queue/control', {
+      await apiRequest('/api/queue/control', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ action: 'retry' }),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+        body: JSON.stringify({ action: 'retry' })
+      }, DEFAULT_TIMEOUT);
     } catch (error) {
-      console.error('Error retrying failed items:', error);
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Request timeout - please try again');
-      }
-      throw error;
+      throw new Error(`Erreur lors de la nouvelle tentative des éléments échoués: ${handleApiError(error)}`);
     }
-  }
+  },
 
+  // Ajouter un élément à la queue
   async addToQueue(analysisId: number, priority: string = 'normal'): Promise<void> {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT);
-
-      const response = await fetch('/api/queue/add', {
+      await apiRequest('/api/queue/add', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          analysis_id: analysisId,
-          priority: priority,
-        }),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+        body: JSON.stringify({ analysis_id: analysisId, priority })
+      }, DEFAULT_TIMEOUT);
     } catch (error) {
-      console.error('Error adding to queue:', error);
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Request timeout - please try again');
-      }
-      throw error;
+      throw new Error(`Erreur lors de l'ajout à la queue: ${handleApiError(error)}`);
     }
-  }
+  },
 
-  // Méthodes pour contrôler les éléments individuels
+  // Contrôles des éléments individuels
   async pauseItem(itemId: number): Promise<void> {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT);
-
-      const response = await fetch(`/api/queue/${itemId}/control`, {
+      await apiRequest(`/api/queue/items/${itemId}/control`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ action: 'pause' }),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+        body: JSON.stringify({ action: 'pause' })
+      }, DEFAULT_TIMEOUT);
     } catch (error) {
-      console.error('Error pausing item:', error);
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Request timeout - please try again');
-      }
-      throw error;
+      throw new Error(`Erreur lors de la pause de l'élément: ${handleApiError(error)}`);
     }
-  }
+  },
 
   async resumeItem(itemId: number): Promise<void> {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT);
-
-      const response = await fetch(`/api/queue/${itemId}/control`, {
+      await apiRequest(`/api/queue/items/${itemId}/control`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ action: 'resume' }),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+        body: JSON.stringify({ action: 'resume' })
+      }, DEFAULT_TIMEOUT);
     } catch (error) {
-      console.error('Error resuming item:', error);
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Request timeout - please try again');
-      }
-      throw error;
+      throw new Error(`Erreur lors de la reprise de l'élément: ${handleApiError(error)}`);
     }
-  }
+  },
 
   async deleteItem(itemId: number): Promise<void> {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT);
-
-      const response = await fetch(`/api/queue/${itemId}`, {
-        method: 'DELETE',
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      await apiRequest(`/api/queue/items/${itemId}`, {
+        method: 'DELETE'
+      }, DEFAULT_TIMEOUT);
     } catch (error) {
-      console.error('Error deleting item:', error);
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Request timeout - please try again');
-      }
-      throw error;
+      throw new Error(`Erreur lors de la suppression de l'élément: ${handleApiError(error)}`);
     }
-  }
+  },
 
   async retryItem(itemId: number): Promise<void> {
     try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT);
-
-      const response = await fetch(`/api/queue/${itemId}/retry`, {
+      await apiRequest(`/api/queue/items/${itemId}/control`, {
         method: 'POST',
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+        body: JSON.stringify({ action: 'retry' })
+      }, DEFAULT_TIMEOUT);
     } catch (error) {
-      console.error('Error retrying item:', error);
-      if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error('Request timeout - please try again');
-      }
-      throw error;
+      throw new Error(`Erreur lors de la nouvelle tentative de l'élément: ${handleApiError(error)}`);
+    }
+  },
+
+  // Analyse multiple par IA
+  async analyzeWithMultipleAI(
+    fileIds: number[], 
+    promptId: string, 
+    providers: string[]
+  ): Promise<any> {
+    try {
+      const response = await apiRequest('/api/analysis/multiple-ai', {
+        method: 'POST',
+        body: JSON.stringify({
+          file_ids: fileIds,
+          prompt_id: promptId,
+          providers: providers
+        })
+      }, DEFAULT_TIMEOUT);
+      
+      return response;
+    } catch (error) {
+      throw new Error(`Erreur lors de l'analyse multiple par IA: ${handleApiError(error)}`);
     }
   }
-}
-
-export const queueService = new QueueService();
+};

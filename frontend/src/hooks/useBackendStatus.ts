@@ -7,7 +7,7 @@ export interface BackendStatus {
   responseTime: number | null;
 }
 
-export const useBackendStatus = (checkInterval: number = 10000) => {
+export const useBackendStatus = (checkInterval: number = 30000) => { // OPTIMISATION: Augmenté de 10s à 30s
   const [status, setStatus] = useState<BackendStatus>({
     isOnline: true, // On commence optimiste
     lastCheck: null,
@@ -17,7 +17,7 @@ export const useBackendStatus = (checkInterval: number = 10000) => {
 
   const checkBackendHealth = async () => {
     const startTime = Date.now();
-    
+
     try {
       const response = await fetch('/api/health', {
         method: 'GET',
@@ -49,9 +49,9 @@ export const useBackendStatus = (checkInterval: number = 10000) => {
     } catch (error) {
       const endTime = Date.now();
       const responseTime = endTime - startTime;
-      
+
       let errorMessage = 'Erreur de connexion';
-      
+
       if (error instanceof Error) {
         if (error.name === 'AbortError') {
           errorMessage = 'Timeout de connexion (5s)';
@@ -92,4 +92,4 @@ export const useBackendStatus = (checkInterval: number = 10000) => {
     ...status,
     forceCheck,
   };
-}; 
+};

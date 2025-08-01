@@ -11,9 +11,12 @@ import logging
 import os
 import psutil
 from pathlib import Path
+from datetime import datetime
 
 from ..core.database import get_db
 from ..services.file_service import FileService
+from ..services.download_service import download_service
+from ..core.file_validation import FileValidator
 from ..models.file import FileStatus, FileListResponse, FileStatusUpdate, DirectoryTreeResponse
 
 logger = logging.getLogger(__name__)
@@ -216,6 +219,8 @@ async def get_selected_files(
 @router.get("/list/{directory:path}")
 async def list_directory_content(
     directory: str,
+    page: int = Query(1, ge=1, description="Page number"),
+    page_size: int = Query(50, ge=1, le=200, description="Items per page"),
     cleanup_orphaned: bool = Query(False, description="Clean up orphaned files"),
     db: Session = Depends(get_db)
 ) -> Dict[str, Any]:
@@ -235,12 +240,31 @@ async def list_directory_content(
                 "total_subdirectories": 0
             }
 
+        # Log seulement pour les grands répertoires ou en mode debug
+        if page_size > 50 or cleanup_orphaned:
+            logger.info(f"[API] Listing directory content: {directory} (page={page}, page_size={page_size})")
+        
         # Nettoyer les fichiers orphelins si demandé
         orphaned_count = 0
         if cleanup_orphaned:
+            logger.info(f"[API] Cleaning up orphaned files for: {directory}")
             orphaned_count = file_service.cleanup_orphaned_files(directory)
 
-        content = file_service.list_directory_content(directory)
+        # OPTIMIZATION: Pagination support
+        offset = (page - 1) * page_size
+        
+        logger.info(f"[API] Calling list_directory_content_paginated for: {directory}")
+        
+        content = file_service.list_directory_content_paginated(
+            directory, 
+            page=page, 
+            page_size=page_size, 
+            offset=offset
+        )
+        
+        # Log seulement pour les grands répertoires ou en mode debug
+        if page_size > 50 or cleanup_orphaned:
+            logger.info(f"[API] Successfully retrieved content: {len(content.get('files', []))} files, {len(content.get('subdirectories', []))} subdirectories")
 
         # Ajouter les informations de nettoyage
         if cleanup_orphaned:
@@ -266,7 +290,6 @@ async def get_available_directories(
     Get list of available directories for selection
     """
     try:
-        import os
         import platform
         from pathlib import Path
 
@@ -303,12 +326,8 @@ async def get_available_directories(
                         except BaseException:
                             volume_name = None
 
-                        # Compter les fichiers dans le répertoire racine
-                        try:
-                            file_count = len([f for f in os.listdir(
-                                drive_path) if os.path.isfile(os.path.join(drive_path, f))])
-                        except PermissionError:
-                            file_count = 0
+                        # ULTRA-FAST: No file counting for performance
+                        file_count = 0
 
                         display_name = f"{drive_letter}:"
                         if volume_name and volume_name != "":
@@ -337,12 +356,11 @@ async def get_available_directories(
             for dir_path in common_directories:
                 if os.path.exists(dir_path) and os.path.isdir(dir_path):
                     try:
-                        file_count = len([f for f in os.listdir(
-                            dir_path) if os.path.isfile(os.path.join(dir_path, f))])
+                        # ULTRA-FAST: No file counting for performance
                         available_dirs.append({
                             "path": dir_path,
                             "name": os.path.basename(dir_path),
-                            "file_count": file_count,
+                            "file_count": 0,  # Always 0 for speed
                             "exists": True,
                             "type": "folder"
                         })
@@ -365,12 +383,11 @@ async def get_available_directories(
             for dir_path in common_directories:
                 if os.path.exists(dir_path) and os.path.isdir(dir_path):
                     try:
-                        file_count = len([f for f in os.listdir(
-                            dir_path) if os.path.isfile(os.path.join(dir_path, f))])
+                        # ULTRA-FAST: No file counting for performance
                         available_dirs.append({
                             "path": dir_path,
                             "name": os.path.basename(dir_path) if dir_path != "/" else "Root",
-                            "file_count": file_count,
+                            "file_count": 0,  # Always 0 for speed
                             "exists": True,
                             "type": "folder"
                         })
@@ -390,24 +407,38 @@ async def get_available_directories(
 
 @router.get("/drives")
 def list_drives():
+    """
+    ULTRA-FAST: List available drives without slow psutil calls
+    """
     drives = []
-    for part in psutil.disk_partitions(all=False):
-        # On ne garde que les lecteurs locaux accessibles
-        if os.name == "nt":
-            # part.device est du type 'C:\'
-            letter = part.device.rstrip('\\')
+    
+    if os.name == "nt":  # Windows
+        # ULTRA-FAST: Direct drive letter check instead of psutil
+        import string
+        for letter in string.ascii_uppercase:
+            drive_path = f"{letter}:\\"
             try:
-                os.listdir(letter + '\\')
-                drives.append(letter)
-            except Exception:
-                pass  # Lecteur inaccessible
-        else:
-            # Pour Linux/Mac, on peut retourner le mountpoint
-            try:
-                os.listdir(part.mountpoint)
-                drives.append(part.mountpoint)
-            except Exception:
-                pass
+                # Quick access test
+                os.listdir(drive_path)
+                drives.append(f"{letter}:")
+            except (OSError, PermissionError):
+                pass  # Drive not accessible
+    else:
+        # Linux/Mac: Use psutil but with timeout
+        try:
+            for part in psutil.disk_partitions(all=False):
+                try:
+                    os.listdir(part.mountpoint)
+                    drives.append(part.mountpoint)
+                except Exception:
+                    pass
+        except Exception:
+            # Fallback to common mount points
+            common_mounts = ["/", "/home", "/mnt", "/media"]
+            for mount in common_mounts:
+                if os.path.exists(mount):
+                    drives.append(mount)
+    
     return JSONResponse({"drives": drives})
 
 
@@ -481,9 +512,6 @@ async def get_file_details(
         # Récupérer les métadonnées du fichier
         metadata = {}
         try:
-            import os
-            from datetime import datetime
-
             if os.path.exists(file.path):
                 stat_info = os.stat(file.path)
                 metadata = {
@@ -750,10 +778,14 @@ async def download_file_by_path(
     Download a file by its path
     """
     try:
-        from ..services.download_service import download_service
-        from pathlib import Path
-        
         file_path_obj = Path(file_path)
+        
+        # Valider le fichier (format et taille)
+        is_valid, error_message, mime_type = FileValidator.validate_file(file_path_obj)
+        
+        if not is_valid:
+            raise HTTPException(status_code=400, detail=error_message)
+        
         return download_service.download_file(file_path_obj)
         
     except Exception as e:
@@ -761,20 +793,28 @@ async def download_file_by_path(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class DownloadSelectedRequest(BaseModel):
+    file_ids: List[int]
+
 @router.post("/download-selected")
 async def download_selected_files(
-    zip_name: Optional[str] = None,
+    request: DownloadSelectedRequest,
     db: Session = Depends(get_db)
 ) -> FileResponse:
     """
-    Download all selected files as a ZIP archive
+    Download selected files as a ZIP archive
     """
     try:
-        from ..services.download_service import download_service
+
         
-        # Récupérer les fichiers sélectionnés
+        # Récupérer les fichiers par leurs IDs
         file_service = FileService(db)
-        selected_files = file_service.get_selected_files()
+        selected_files = []
+        
+        for file_id in request.file_ids:
+            file = file_service.get_file_by_id(file_id)
+            if file:
+                selected_files.append(file)
         
         if not selected_files:
             raise HTTPException(status_code=400, detail="Aucun fichier sélectionné")
@@ -782,10 +822,8 @@ async def download_selected_files(
         # Convertir en chemins de fichiers
         file_paths = [Path(file.path) for file in selected_files]
         
-        # Générer un nom de ZIP par défaut si non fourni
-        if not zip_name:
-            from datetime import datetime
-            zip_name = f"selected_files_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
+        # Générer un nom de ZIP par défaut
+        zip_name = f"selected_files_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
         
         logger.info(f"Téléchargement de {len(file_paths)} fichiers sélectionnés")
         
@@ -841,38 +879,67 @@ async def stream_file(
 
 @router.get("/stream-by-path/{file_path:path}")
 async def stream_file_by_path(
-    file_path: str
+    file_path: str,
+    range: Optional[str] = Header(None, alias="Range")
 ) -> FileResponse:
     """
-    Stream a file by its path directly from disk
+    Stream a file by its path directly from disk for visualization
+    Supports range requests for seeking in media files
     """
     try:
-        from pathlib import Path
+        from urllib.parse import unquote
         
-        file_path_obj = Path(file_path)
+        # Log de début avec l'URL encodée
+        logger.info(f"STREAM-BY-PATH REQUEST - Encoded URL: {file_path}")
         
+        # Décoder l'URL pour gérer les caractères spéciaux
+        decoded_path = unquote(file_path)
+        logger.info(f"STREAM-BY-PATH REQUEST - Decoded path: {decoded_path}")
+        
+        file_path_obj = Path(decoded_path)
+        logger.info(f"STREAM-BY-PATH REQUEST - Path object: {file_path_obj}")
+        
+        # Vérifier que le fichier existe
         if not file_path_obj.exists():
-            raise HTTPException(status_code=404, detail="File not found on disk")
+            error_msg = f"File not found: {decoded_path}"
+            logger.error(f"STREAM-BY-PATH ERROR - {error_msg}")
+            raise HTTPException(status_code=404, detail=f"Fichier non trouvé: {file_path_obj.name}")
         
-        # Déterminer le type MIME
-        import mimetypes
-        mime_type, _ = mimetypes.guess_type(str(file_path_obj))
-        if not mime_type:
-            mime_type = "application/octet-stream"
+        if not file_path_obj.is_file():
+            error_msg = f"Path is not a file: {decoded_path}"
+            logger.error(f"STREAM-BY-PATH ERROR - {error_msg}")
+            raise HTTPException(status_code=400, detail="Le chemin ne correspond pas à un fichier")
         
-        # Utiliser FileResponse pour un streaming optimisé
+        logger.info(f"STREAM-BY-PATH - File exists and is valid: {file_path_obj}")
+        
+        # Valider le fichier (format uniquement)
+        is_valid, error_message, mime_type = FileValidator.validate_file(file_path_obj)
+        
+        logger.info(f"STREAM-BY-PATH - Validation result: valid={is_valid}, mime_type={mime_type}")
+        
+        if not is_valid:
+            logger.error(f"STREAM-BY-PATH ERROR - File validation failed: {error_message}")
+            raise HTTPException(status_code=400, detail=error_message)
+        
+        logger.info(f"STREAM-BY-PATH - File validated successfully, streaming: {file_path_obj}")
+        
+        # Utiliser FileResponse qui gère automatiquement les range requests et le streaming
         return FileResponse(
             path=str(file_path_obj),
-            filename=file_path_obj.name,
             media_type=mime_type,
             headers={
                 "Accept-Ranges": "bytes",
-                "Cache-Control": "public, max-age=3600",
+                "Cache-Control": "public, max-age=3600",  # Cache pour 1 heure
+                "Content-Disposition": "inline",  # Force l'affichage dans le navigateur
+                "X-Content-Type-Options": "nosniff",  # Empêche le navigateur de deviner le type
+                "Content-Type": mime_type,  # Force le type MIME
             }
         )
         
     except HTTPException:
+        logger.error(f"STREAM-BY-PATH HTTP ERROR - Re-raising HTTPException")
         raise
     except Exception as e:
-        logger.error(f"Error streaming file by path: {str(e)}")
+        logger.error(f"STREAM-BY-PATH UNEXPECTED ERROR - File: {file_path}, Error: {str(e)}")
+        logger.error(f"STREAM-BY-PATH ERROR DETAILS - Type: {type(e).__name__}, Args: {e.args}")
         raise HTTPException(status_code=500, detail=str(e))

@@ -1,211 +1,536 @@
 import React, { useState, useEffect } from 'react';
+import {
+  ChevronLeftIcon,
+  ChevronRightIcon,
+  DocumentTextIcon,
+  Cog6ToothIcon
+} from '@heroicons/react/24/outline';
 import LeftPanel from './LeftPanel';
 import MainPanel from './MainPanel';
-import SelectionIndicator from '../UI/SelectionIndicator';
+import PromptSelector from '../FileManager/PromptSelector';
 import { useUIStore } from '../../stores/uiStore';
 import { useQueueStore } from '../../stores/queueStore';
 import { useFileStore } from '../../stores/fileStore';
+import { useColors } from '../../hooks/useColors';
+import { analysisService } from '../../services/analysisService';
+import { queueService } from '../../services/queueService';
+import { promptService } from '../../services/promptService';
 
-interface LayoutProps {
-  children: React.ReactNode;
-}
-
-const Layout: React.FC<LayoutProps> = ({ children }) => {
-  const {
-    sidebarWidth,
-    setSidebarWidth,
-  } = useUIStore();
-  const { queueStatus, loadQueueStatus } = useQueueStore();
-  const { files, getAnalysisStats } = useFileStore();
+const Layout: React.FC = () => {
+  const { selectedFile, selectedFiles, selectFile, markFileAsViewed, files } = useFileStore();
+  const { queueItems, loadQueueStatus, loadQueueItems } = useQueueStore();
+  const { sidebarWidth, setSidebarWidth, activePanel, setActivePanel } = useUIStore();
+  const { colors } = useColors();
   const [isResizing, setIsResizing] = useState(false);
-  const [activePanel, setActivePanel] = useState<'main' | 'config' | 'queue' | 'analyses'>('main');
+  const [isDarkMode, setIsDarkMode] = useState(true);
+  
+  // États pour les actions de fichiers
+  const [showPromptSelector, setShowPromptSelector] = useState(false);
+  const [promptSelectorMode, setPromptSelectorMode] = useState<'single' | 'comparison' | 'batch' | 'multiple_ai'>('single');
+  const [promptSelectorFileIds, setPromptSelectorFileIds] = useState<number[]>([]);
 
-  // Charger le statut de la queue au montage et toutes les 5 secondes
+  // Gestion des actions de fichiers (menu contextuel)
+  useEffect(() => {
+    const handleFileAction = (event: CustomEvent) => {
+      console.log('🎯 Layout: Événement fileAction reçu:', event.detail);
+      const { action, file } = event.detail;
+      
+      if (action === 'view' && file) {
+        console.log('🎯 Layout: Action visualiser détectée pour le fichier:', file);
+        // Sélectionner le fichier pour l'afficher dans le MainPanel
+        selectFile(file);
+        setActivePanel('main');
+      } else if (action === 'download' && file) {
+        console.log('🎯 Layout: Action télécharger détectée pour le fichier:', file);
+        // Télécharger le fichier directement
+        try {
+          const fileId = file.id || file.path;
+          const downloadUrl = `/api/files/${fileId}/download`;
+          
+          // Créer un lien temporaire pour forcer le téléchargement
+          const link = document.createElement('a');
+          link.href = downloadUrl;
+          link.download = file.name || 'download';
+          link.target = '_self'; // Utiliser la même fenêtre
+          link.rel = 'noopener noreferrer';
+          
+          // Ajouter un timestamp pour éviter le cache
+          link.href += `?t=${Date.now()}`;
+          
+          // Ajouter le lien au DOM, cliquer dessus, puis le supprimer
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          
+          console.log('🎯 Layout: Téléchargement déclenché pour:', file.name);
+        } catch (error) {
+          console.error('❌ Layout: Erreur lors du téléchargement:', error);
+          console.error('Erreur lors du téléchargement du fichier');
+        }
+      } else if (action === 'analyze_ia' && file) {
+        console.log('🎯 Layout: Action analyse IA détectée pour le fichier:', file);
+        console.log('🎯 Layout: selectedFiles:', selectedFiles);
+        console.log('🎯 Layout: selectedFile:', selectedFile);
+        // Ajouter directement à la queue d'analyse
+        const fileIds = selectedFiles && selectedFiles.length > 1
+          ? selectedFiles
+          : [file.id || file.path];
+        console.log('🎯 Layout: FileIds à ajouter à la queue:', fileIds);
+        console.log('🎯 Layout: Appel de handleAddToQueue...');
+        handleAddToQueue(fileIds);
+        console.log('🎯 Layout: handleAddToQueue terminé, basculement vers analyses...');
+        // Basculer vers le panneau Analyse IA pour voir la liste
+        setActivePanel('analyses');
+      } else if (action === 'add_to_queue' && file) {
+        console.log('🎯 Layout: Action ajouter à la queue détectée pour le fichier:', file);
+        const fileIds = [file.id || file.path];
+        console.log('🎯 Layout: FileIds à ajouter en attente:', fileIds);
+        
+        // Créer des analyses en attente pour le fichier
+        handleAddToQueue(fileIds);
+      } else if (action === 'analyze_with_prompt' && file && file.selectedPrompt) {
+        console.log('🎯 Layout: Action analyse avec prompt détectée:', file.selectedPrompt);
+        const fileIds = selectedFiles && selectedFiles.length > 1
+          ? selectedFiles
+          : [selectedFile?.id || selectedFile?.path];
+        console.log('🎯 Layout: FileIds à analyser avec prompt:', fileIds);
+        
+        // Lancer l'analyse avec le prompt sélectionné
+        handleAnalyzeWithPrompt(fileIds, file.selectedPrompt);
+      } else if (action === 'analyze_general' && file) {
+        console.log('🎯 Layout: Action analyse générale détectée pour le fichier:', file);
+        const fileIds = selectedFiles && selectedFiles.length > 1
+          ? selectedFiles
+          : [selectedFile?.id || selectedFile?.path];
+        console.log('🎯 Layout: FileIds à analyser:', fileIds);
+        setPromptSelectorMode(fileIds.length > 1 ? 'batch' : 'single');
+        setPromptSelectorFileIds(fileIds);
+        setShowPromptSelector(true);
+        setActivePanel('main');
+      }
+    };
+    window.addEventListener('fileAction', handleFileAction as EventListener);
+    return () => window.removeEventListener('fileAction', handleFileAction as EventListener);
+  }, [setActivePanel, selectedFiles, selectedFile]);
+
+  // Gestion de la sélection de prompt
+  const handlePromptSelect = (promptId: string, prompt: any) => {
+    console.log('Prompt sélectionné:', promptId, prompt);
+    // Ici on pourrait ajouter une notification de succès
+    setShowPromptSelector(false);
+  };
+
+  // Fonction pour ajouter des fichiers en attente d'analyse
+  const handleAddToQueue = async (fileIds: (number | string)[]) => {
+    try {
+      console.log('🎯 Layout: Ajout de fichiers en attente d\'analyse:', fileIds);
+      
+      // Créer des analyses en attente pour chaque fichier
+      const analysisPromises = fileIds.map(async (fileId) => {
+        try {
+          console.log('🎯 Layout: Création d\'analyse pour le fichier:', fileId);
+          const response = await analysisService.createPendingAnalysis({
+            file_id: fileId,
+            prompt_id: 'default', // Utiliser le prompt par défaut
+            analysis_type: 'general',
+            status: 'pending'
+          });
+          
+          console.log('🎯 Layout: Analyse en attente créée:', response);
+          
+          // Ajouter l'analyse à la queue
+          if (response.analysis_id) {
+            console.log('🎯 Layout: Ajout de l\'analyse à la queue:', response.analysis_id);
+            await queueService.addToQueue(response.analysis_id, 'normal');
+            console.log('🎯 Layout: Analyse ajoutée à la queue:', response.analysis_id);
+          }
+          
+          return response;
+        } catch (error) {
+          console.error('❌ Layout: Erreur lors de la création de l\'analyse pour le fichier', fileId, ':', error);
+          return null;
+        }
+      });
+      
+      const results = await Promise.all(analysisPromises);
+      const successCount = results.filter(result => result !== null).length;
+      
+      console.log('🎯 Layout: Résultats de l\'ajout en attente:', results);
+      console.log('🎯 Layout: Nombre de fichiers ajoutés avec succès:', successCount);
+      
+      // Recharger la queue pour afficher les nouveaux éléments
+      console.log('🎯 Layout: Rechargement de la queue...');
+      await loadQueueItems();
+      await loadQueueStatus();
+      
+      // Les analyses créées sont maintenant visibles directement dans la liste des analyses
+      if (successCount > 0) {
+        console.log('🎯 Layout: Analyses créées avec succès, visibles dans la liste');
+        // Déclencher des événements pour recharger les listes
+        window.dispatchEvent(new CustomEvent('reloadAnalyses'));
+        window.dispatchEvent(new CustomEvent('reloadQueue'));
+      }
+      
+    } catch (error) {
+      console.error('❌ Layout: Erreur lors de l\'ajout en attente:', error);
+      
+      // Message d'erreur plus informatif
+      let errorMessage = 'Erreur lors de l\'ajout en attente d\'analyse';
+      
+      if (error instanceof Error) {
+        if (error.message.includes('No functional AI providers')) {
+          errorMessage = 'Aucun provider IA fonctionnel disponible. Veuillez configurer un provider IA dans les paramètres.';
+        } else if (error.message.includes('File not found')) {
+          errorMessage = 'Fichier non trouvé. Vérifiez que le fichier existe toujours.';
+        } else {
+          errorMessage = `Erreur: ${error.message}`;
+        }
+      }
+      
+      console.error('❌ Layout: Erreur lors de l\'ajout en attente:', errorMessage);
+    }
+  };
+
+  // Fonction pour analyser avec un prompt spécifique
+  const handleAnalyzeWithPrompt = async (fileIds: (number | string)[], prompt: any) => {
+    try {
+      console.log('🎯 Layout: Analyse avec prompt:', prompt, 'pour les fichiers:', fileIds);
+      
+      if (fileIds.length === 1) {
+        // Analyse d'un seul fichier
+        const response = await promptService.analyzeFileWithPriority(
+          Number(fileIds[0]), 
+          prompt.id, 
+          ['openai', 'anthropic', 'google']
+        );
+        console.log('🎯 Layout: Analyse terminée:', response);
+      } else {
+        // Analyse de plusieurs fichiers
+        const response = await promptService.analyzeBatchWithPriority(
+          fileIds.map(id => Number(id)), 
+          prompt.id, 
+          ['openai', 'anthropic', 'google']
+        );
+        console.log('🎯 Layout: Analyse batch terminée:', response);
+      }
+      
+      // Recharger les données si nécessaire
+      // await loadQueueItems();
+      // await loadQueueStatus();
+      
+    } catch (error) {
+      console.error('❌ Layout: Erreur lors de l\'analyse avec prompt:', error);
+    }
+  };
+
+  // Fonction pour basculer le thème jour/nuit
+  const toggleTheme = () => {
+    const newDarkMode = !isDarkMode;
+    setIsDarkMode(newDarkMode);
+
+    // Appliquer le thème au document
+    if (newDarkMode) {
+      document.body.removeAttribute('data-theme');
+    } else {
+      document.body.setAttribute('data-theme', 'light');
+    }
+  };
+
+  // Charger le statut de la queue au montage et démarrer les mises à jour en temps réel
   useEffect(() => {
     loadQueueStatus();
-    const interval = setInterval(loadQueueStatus, 5000);
-    return () => clearInterval(interval);
-  }, [loadQueueStatus]);
+    loadQueueItems();
+    
+    // Démarrer les mises à jour en temps réel
+    // Gestion des mises à jour en temps réel
+    
+    return () => {
+      // Nettoyage des mises à jour en temps réel
+    };
+  }, [loadQueueStatus, loadQueueItems]);
 
-  // Obtenir les statistiques des analyses en temps réel
-  const analysisStats = getAnalysisStats();
 
-  // Surveiller les changements de statut des analyses
+
+  // Écouteur pour l'affichage des fichiers dans le MainPanel
   useEffect(() => {
-    // Les statistiques se mettent à jour automatiquement grâce à getAnalysisStats()
-    // qui est appelé à chaque rendu et utilise les données en temps réel
-  }, [files, queueStatus]); // Se déclenche quand les fichiers ou le statut de la queue changent
+    const handleViewFileInMainPanel = (event: CustomEvent) => {
+      const { file, mode } = event.detail;
+      
+      if (file) {
+        // Sélectionner le fichier dans le store
+        selectFile(file);
+        
+        // S'assurer que le MainPanel est actif
+        setActivePanel('main');
+      }
+    };
 
+    window.addEventListener('viewFileInMainPanel', handleViewFileInMainPanel as EventListener);
+    return () => window.removeEventListener('viewFileInMainPanel', handleViewFileInMainPanel as EventListener);
+  }, [selectFile, setActivePanel]);
+
+  // Écouteur pour changer de panneau depuis d'autres composants
+  useEffect(() => {
+    const handleSetActivePanel = (event: CustomEvent) => {
+      const { panel } = event.detail;
+      if (panel && ['main', 'config', 'analyses', 'queue'].includes(panel)) {
+        setActivePanel(panel as 'main' | 'config' | 'analyses' | 'queue');
+      }
+    };
+
+    window.addEventListener('setActivePanel', handleSetActivePanel as EventListener);
+    return () => window.removeEventListener('setActivePanel', handleSetActivePanel as EventListener);
+  }, [setActivePanel]);
+
+  // Gestion du redimensionnement
   const handleResizeStart = (e: React.MouseEvent) => {
-    e.preventDefault();
     setIsResizing(true);
+    document.addEventListener('mousemove', handleResize);
+    document.addEventListener('mouseup', handleResizeEnd);
   };
 
   const handleResize = (e: MouseEvent) => {
-    if (!isResizing) {return;}
-
-    const newWidth = e.clientX;
-    const minWidth = 250;
-    const maxWidth = 800;
-
-    if (newWidth >= minWidth && newWidth <= maxWidth) {
-      setSidebarWidth(newWidth);
+    if (isResizing) {
+      const newWidth = e.clientX;
+      setSidebarWidth(Math.max(200, Math.min(600, newWidth)));
     }
   };
 
   const handleResizeEnd = () => {
     setIsResizing(false);
+    document.removeEventListener('mousemove', handleResize);
+    document.removeEventListener('mouseup', handleResizeEnd);
   };
 
-  // Fonction pour calculer la largeur nécessaire pour le nom le plus long
+  // Calcul de la largeur optimale
   const calculateOptimalWidth = () => {
-    try {
-      // Créer un élément temporaire pour mesurer le texte
-      const tempElement = document.createElement('span');
-      tempElement.style.visibility = 'hidden';
-      tempElement.style.position = 'absolute';
-      tempElement.style.whiteSpace = 'nowrap';
-      tempElement.style.fontSize = '14px'; // Taille de police approximative
-      tempElement.style.fontFamily = 'Inter, sans-serif';
-      document.body.appendChild(tempElement);
-
-      let maxWidth = 0;
-
-      // Mesurer les noms de fichiers
-      if (files && files.length > 0) {
-        files.forEach(file => {
-          tempElement.textContent = file.name;
-          const width = tempElement.offsetWidth;
-          maxWidth = Math.max(maxWidth, width);
-        });
-      }
-
-      // Mesurer les noms de dossiers (si disponibles via le DOM)
-      const folderElements = document.querySelectorAll('.left-panel-container .text-sm.truncate');
-      folderElements.forEach(element => {
-        const text = element.textContent;
-        if (text) {
-          tempElement.textContent = text;
-          const width = tempElement.offsetWidth;
-          maxWidth = Math.max(maxWidth, width);
-        }
-      });
-
-      // Ajouter de l'espace pour les icônes, padding, etc.
-      const padding = 100; // Espace pour icônes, padding, scrollbar, etc.
-      const optimalWidth = maxWidth + padding;
-
-      // Nettoyer l'élément temporaire
-      document.body.removeChild(tempElement);
-
-      // Limiter la largeur entre min et max
-      const minWidth = 250;
-      const maxWidthLimit = 800;
-      return Math.max(minWidth, Math.min(maxWidthLimit, optimalWidth));
-    } catch (error) {
-      console.warn('Erreur lors du calcul de la largeur optimale:', error);
-      // Retourner une largeur par défaut en cas d'erreur
-      return 400;
-    }
+    const fileCount = files.length;
+    const avgFileNameLength = files.reduce((acc, file) => acc + file.name.length, 0) / fileCount;
+    
+    // Largeur de base + ajustement selon la longueur moyenne des noms
+    let optimalWidth = 250;
+    if (avgFileNameLength > 30) optimalWidth += 50;
+    if (avgFileNameLength > 50) optimalWidth += 50;
+    
+    return Math.max(200, Math.min(500, optimalWidth));
   };
 
-  // Fonction pour redimensionner automatiquement
+  // Redimensionnement automatique
   const handleAutoResize = () => {
     const optimalWidth = calculateOptimalWidth();
     setSidebarWidth(optimalWidth);
   };
 
-  React.useEffect(() => {
-    if (isResizing) {
-      document.addEventListener('mousemove', handleResize);
-      document.addEventListener('mouseup', handleResizeEnd);
+  // Gestion du redimensionnement de la fenêtre
+  useEffect(() => {
+    const handleWindowResize = () => {
+      if (sidebarWidth > window.innerWidth * 0.8) {
+        setSidebarWidth(window.innerWidth * 0.4);
+      }
+    };
 
-      return () => {
-        document.removeEventListener('mousemove', handleResize);
-        document.removeEventListener('mouseup', handleResizeEnd);
-      };
-    }
-  }, [isResizing]);
+    window.addEventListener('resize', handleWindowResize);
+    return () => window.removeEventListener('resize', handleWindowResize);
+  }, [sidebarWidth, setSidebarWidth]);
 
-  // Gestion des boutons (maintenant gérés via événements depuis LeftPanel)
+  // Gestionnaires de boutons
   const handleAnalysesButtonClick = () => {
-    setActivePanel(activePanel === 'analyses' ? 'main' : 'analyses');
+    // Toggle : si on est déjà sur analyses, revenir à main, sinon aller à analyses
+    if (activePanel === 'analyses') {
+      setActivePanel('main');
+    } else {
+      setActivePanel('analyses');
+    }
   };
 
-  // Écouter les événements personnalisés depuis le LeftPanel
-  useEffect(() => {
-    const handleConfigButtonClick = () => {
-      const newPanel = activePanel === 'config' ? 'main' : 'config';
-      setActivePanel(newPanel);
-      // Émettre l'événement de changement d'état
-      window.dispatchEvent(new CustomEvent('panelStateChange', { detail: { panel: newPanel } }));
-    };
+  const handleConfigButtonClick = () => {
+    // Toggle : si on est déjà sur config, revenir à main, sinon aller à config
+    if (activePanel === 'config') {
+      setActivePanel('main');
+    } else {
+      setActivePanel('config');
+    }
+  };
 
-    const handleQueueButtonClick = () => {
-      const newPanel = activePanel === 'queue' ? 'main' : 'queue';
-      setActivePanel(newPanel);
-      // Émettre l'événement de changement d'état
-      window.dispatchEvent(new CustomEvent('panelStateChange', { detail: { panel: newPanel } }));
-    };
+  // Styles des boutons
+  const getButtonStyles = (isActive: boolean) => ({
+    backgroundColor: isActive ? colors.primary : 'transparent',
+    color: isActive ? colors.background : colors.textSecondary,
+  });
 
-    const handleAnalysesButtonClick = () => {
-      const newPanel = activePanel === 'analyses' ? 'main' : 'analyses';
-      setActivePanel(newPanel);
-      // Émettre l'événement de changement d'état
-      window.dispatchEvent(new CustomEvent('panelStateChange', { detail: { panel: newPanel } }));
-    };
 
-    window.addEventListener('configButtonClick', handleConfigButtonClick);
-    window.addEventListener('queueButtonClick', handleQueueButtonClick);
-    window.addEventListener('analysesButtonClick', handleAnalysesButtonClick);
 
-    return () => {
-      window.removeEventListener('configButtonClick', handleConfigButtonClick);
-      window.removeEventListener('queueButtonClick', handleQueueButtonClick);
-      window.removeEventListener('analysesButtonClick', handleAnalysesButtonClick);
-    };
-  }, [activePanel]);
+
+
+  // Navigation entre fichiers
+  const navigateToFile = (direction: 'prev' | 'next') => {
+    if (!selectedFile || files.length <= 1) return;
+    
+    const currentIndex = files.findIndex(f => f.id === selectedFile.id || f.path === selectedFile.path);
+    if (currentIndex === -1) return;
+    
+    let newIndex;
+    if (direction === 'prev') {
+      newIndex = currentIndex > 0 ? currentIndex - 1 : files.length - 1;
+    } else {
+      newIndex = currentIndex < files.length - 1 ? currentIndex + 1 : 0;
+    }
+    
+    const newFile = files[newIndex];
+    if (newFile) {
+      selectFile(newFile);
+    }
+  };
 
   return (
     <div
-      className="flex h-screen layout-container"
-      style={{
-        '--sidebar-width': `${sidebarWidth}px`,
-        backgroundColor: 'var(--background-color)',
-        color: 'var(--text-color)',
-      } as React.CSSProperties}
+      className="flex h-screen"
+      style={{ backgroundColor: colors.background }}
     >
-      {/* Indicateur de fichiers sélectionnés */}
-      <SelectionIndicator />
-
-      {/* Panneau de gauche redimensionnable - monte jusqu'en haut */}
+      {/* Panneau de gauche */}
       <div
-        className="flex-shrink-0 border-r left-panel-container"
+        className="flex-shrink-0 overflow-hidden"
         style={{
-          width: `${sidebarWidth}px`,
-          backgroundColor: 'var(--surface-color)',
-          borderColor: 'var(--border-color)',
+          width: sidebarWidth,
+          backgroundColor: colors.surface,
+          borderRight: `1px solid ${colors.border}`,
         }}
+        onDoubleClick={handleAutoResize}
+        title="Double-clic pour redimensionner automatiquement"
       >
         <LeftPanel />
       </div>
 
-      {/* Poignée de redimensionnement */}
+      {/* Séparateur redimensionnable */}
       <div
-        className="w-1 bg-slate-700 cursor-col-resize hover:bg-blue-500 transition-colors"
+        className="w-1 cursor-col-resize transition-colors"
+        style={{
+          backgroundColor: colors.border,
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.backgroundColor = colors.primary;
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.backgroundColor = colors.border;
+        }}
         onMouseDown={handleResizeStart}
-        onDoubleClick={handleAutoResize}
-        title="Double-clic pour ajuster automatiquement la largeur"
       />
 
-      {/* Zone principale sans header */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Zone principale */}
-        <div className="flex-1 overflow-hidden">
-          <MainPanel activePanel={activePanel} setActivePanel={setActivePanel}>
-            {children}
-          </MainPanel>
+      {/* Panneau principal */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Barre d'outils */}
+        <div
+          className="flex items-center justify-between p-4"
+          style={{
+            backgroundColor: colors.surface,
+            borderBottom: `1px solid ${colors.border}`,
+          }}
+        >
+          <div className="flex items-center space-x-4">
+
+
+            
+            
+            {/* Bouton Analyse IA */}
+            <div className="flex items-center space-x-2">
+              <div className="w-px h-6 bg-slate-600"></div>
+              <button
+                onClick={handleAnalysesButtonClick}
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2 ${
+                  activePanel === 'analyses' ? 'bg-blue-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
+                }`}
+                style={getButtonStyles(activePanel === 'analyses')}
+                title={!queueItems || queueItems.length === 0 ? "Aucune analyse terminée - Lancez des analyses pour voir les analyses IA" : "Voir les analyses IA"}
+              >
+                <DocumentTextIcon className="h-4 w-4" />
+                <span>Analyse IA {queueItems && queueItems.length > 0 && `(${queueItems.length})`}</span>
+              </button>
+            </div>
+
+
+
+            {/* Navigation entre fichiers */}
+            {((selectedFile && selectedFile.id) || selectedFiles.length > 0) && files.length > 1 && (
+              <div className="flex items-center space-x-2">
+                <div className="w-px h-6 bg-slate-600"></div>
+                <button
+                  onClick={() => navigateToFile('prev')}
+                  className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition-colors"
+                  title="Fichier précédent (←)"
+                >
+                  <ChevronLeftIcon className="h-5 w-5" />
+                </button>
+                <button
+                  onClick={() => navigateToFile('next')}
+                  className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition-colors"
+                  title="Fichier suivant (→)"
+                >
+                  <ChevronRightIcon className="h-5 w-5" />
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center space-x-4">
+            {/* Bouton configuration */}
+            <button
+              onClick={handleConfigButtonClick}
+              className="p-2 transition-colors"
+              style={{
+                color: activePanel === 'config' ? colors.primary : colors.textSecondary,
+              }}
+              onMouseEnter={(e) => {
+                if (activePanel !== 'config') {
+                  e.currentTarget.style.color = colors.text;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (activePanel !== 'config') {
+                  e.currentTarget.style.color = colors.textSecondary;
+                }
+              }}
+              title="Configuration des providers IA"
+            >
+              <Cog6ToothIcon className="h-5 w-5" />
+            </button>
+
+            {/* Bouton thème jour/nuit */}
+            <button
+              onClick={toggleTheme}
+              className="p-2 transition-colors"
+              style={{
+                color: colors.textSecondary,
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.color = colors.text;
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.color = colors.textSecondary;
+              }}
+              title={isDarkMode ? 'Passer au mode clair' : 'Passer au mode sombre'}
+            >
+              {isDarkMode ? '☀️' : '🌙'}
+            </button>
+          </div>
         </div>
+
+        {/* Contenu principal */}
+        <div className="flex-1 overflow-hidden">
+          <MainPanel 
+            activePanel={activePanel} 
+            onSetActivePanel={setActivePanel}
+          />
+        </div>
+        
+        {/* PromptSelector pour les analyses IA */}
+        <PromptSelector
+          isOpen={showPromptSelector}
+          onClose={() => setShowPromptSelector(false)}
+          onPromptSelect={handlePromptSelect}
+          fileIds={promptSelectorFileIds}
+          mode={promptSelectorMode}
+        />
+
       </div>
     </div>
   );

@@ -1,17 +1,19 @@
 """
 Analysis service for DocuSense AI
-Handles analysis creation, management, and results
+Handles analysis creation, management, and processing
 """
 
+import logging
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
+from datetime import datetime
 from sqlalchemy import func, desc
-import logging
 
-from ..models.analysis import Analysis, AnalysisStatus, AnalysisType, AnalysisUpdate
+from ..core.database import get_db
+from ..models.analysis import Analysis, AnalysisType, AnalysisStatus, AnalysisUpdate
 from ..models.file import File, FileStatus
-from ..models.queue import QueueItem, QueuePriority
-from .ai_service import AIService
+from ..models.queue import QueueItem, QueueStatus, QueuePriority
+from .ai_service import get_ai_service
 from .queue_service import QueueService
 from .prompt_service import PromptService
 
@@ -23,7 +25,7 @@ class AnalysisService:
 
     def __init__(self, db: Session):
         self.db = db
-        self.ai_service = AIService(db)
+        self.ai_service = get_ai_service(db)
         self.queue_service = QueueService(db)
         self.prompt_service = PromptService()
 

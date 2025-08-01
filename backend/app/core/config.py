@@ -21,7 +21,7 @@ class Settings(BaseSettings):
     # Server
     host: str = Field(default="0.0.0.0", env="HOST")
     port: int = Field(default=8000, env="PORT")
-    reload: bool = Field(default=True, env="RELOAD")
+    reload: bool = Field(default=False, env="RELOAD")  # OPTIMISATION: Désactivé par défaut pour éviter les boucles
 
     # Database
     database_url: str = Field(
@@ -43,7 +43,9 @@ class Settings(BaseSettings):
             "http://localhost:3000",
             "http://127.0.0.1:3000",
             "http://localhost:3001",
+            "http://127.0.0.1:3001",
             "http://localhost:3002",
+            "http://127.0.0.1:3002",
             "http://localhost:3003",
             "http://127.0.0.1:3003"],
         env="CORS_ORIGINS")
@@ -57,7 +59,7 @@ class Settings(BaseSettings):
     rate_limit_window: int = Field(
         default=60, env="RATE_LIMIT_WINDOW")  # seconds
 
-    # AI Providers
+    # AI Providers - NOUVEAU: Chargement depuis la base de données au démarrage
     openai_api_key: Optional[str] = Field(default=None, env="OPENAI_API_KEY")
     anthropic_api_key: Optional[str] = Field(
         default=None, env="ANTHROPIC_API_KEY")
@@ -78,7 +80,6 @@ class Settings(BaseSettings):
     max_file_size: int = Field(
         default=100 * 1024 * 1024,
         env="MAX_FILE_SIZE")  # 100MB
-    analyses_dir: str = Field(default="./Analyses", env="ANALYSES_DIR")
 
     # OCR
     ocr_enabled: bool = Field(default=True, env="OCR_ENABLED")
@@ -129,11 +130,49 @@ settings = Settings()
 
 def ensure_directories():
     """Ensure required directories exist"""
-    os.makedirs(settings.analyses_dir, exist_ok=True)
-    os.makedirs(f"{settings.analyses_dir}/En_attente", exist_ok=True)
-    os.makedirs(f"{settings.analyses_dir}/Terminé", exist_ok=True)
-    os.makedirs(f"{settings.analyses_dir}/Échec", exist_ok=True)
+    # Les analyses sont maintenant stockées en base de données
+    # Plus besoin de répertoires physiques
+    pass
+
+
+def load_api_keys_from_database():
+    """
+    Charge les clés API depuis la base de données au démarrage
+    pour assurer la persistance entre les redémarrages
+    """
+    try:
+        from sqlalchemy import create_engine
+        from sqlalchemy.orm import sessionmaker
+        from ..models.config import Config
+        
+        # Créer une session temporaire pour charger les clés
+        engine = create_engine(settings.database_url)
+        SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        db = SessionLocal()
+        
+        try:
+            # Charger les clés API depuis la base de données
+            api_keys = {
+                'openai_api_key': db.query(Config).filter(Config.key == 'openai_api_key').first(),
+                'anthropic_api_key': db.query(Config).filter(Config.key == 'anthropic_api_key').first(),
+                'mistral_api_key': db.query(Config).filter(Config.key == 'mistral_api_key').first(),
+            }
+            
+            # Mettre à jour les settings avec les clés de la base de données
+            for key_name, config in api_keys.items():
+                if config and config.value:
+                    setattr(settings, key_name, config.value)
+                    
+        finally:
+            db.close()
+            
+    except Exception as e:
+        # En cas d'erreur, continuer avec les valeurs par défaut
+        pass
 
 
 # Initialize directories
 ensure_directories()
+
+# Load API keys from database at startup
+load_api_keys_from_database()

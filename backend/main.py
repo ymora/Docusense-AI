@@ -6,7 +6,7 @@ import asyncio
 import logging
 import time
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse
@@ -19,6 +19,7 @@ from slowapi.errors import RateLimitExceeded
 from app.core.config import settings
 from app.core.database import create_tables, check_database_connection
 from app.core.logging import setup_logging
+from app.middleware.log_requests import LoggingMiddleware
 from app.services.config_service import ConfigService
 from app.services.queue_service import QueueService
 from app.api import (
@@ -30,8 +31,10 @@ from app.api import (
     prompts_router,
     multimedia_router,
     auth_router,
-    download_router
+    download_router,
+    monitoring_router
 )
+from app.api.emails import router as emails_router
 
 # Setup logging
 setup_logging()
@@ -43,66 +46,77 @@ queue_service = None
 # Rate limiter - OPTIMISATION: Protection contre les attaques
 limiter = Limiter(key_func=get_remote_address)
 
+# Variables pour éviter les logs répétitifs
+_startup_logged = False
+_db_initialized = False
+_config_initialized = False
+_queue_started = False
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """
-    Application lifespan manager
+    Application lifespan manager optimisé
     """
-    # Startup
-    logger.info("Starting DocuSense AI...")
+    global _startup_logged, _db_initialized, _config_initialized, _queue_started
+    
+    # Startup - Log consolidé
+    if not _startup_logged:
+        logger.info("Démarrage de DocuSense AI...")
+        _startup_logged = True
     
     try:
-        # Create database tables
-        create_tables()
-        logger.info("Database tables created")
+        # Database initialization - Log unique
+        if not _db_initialized:
+            create_tables()
+            if not check_database_connection():
+                raise Exception("Database connection failed")
+            logger.info("Base de données initialisée")
+            _db_initialized = True
         
-        # Check database connection
-        if not check_database_connection():
-            raise Exception("Database connection failed")
-        logger.info("Database connection verified")
+        # Configuration initialization - Log unique
+        if not _config_initialized:
+            from app.core.database import SessionLocal
+            db = SessionLocal()
+            try:
+                config_service = ConfigService(db)
+                config_service.initialize_default_configs()
+            finally:
+                db.close()
+            logger.info("Configurations initialisées")
+            _config_initialized = True
         
-        # Initialize default configurations
-        from app.core.database import SessionLocal
-        db = SessionLocal()
-        try:
-            config_service = ConfigService(db)
-            config_service.initialize_default_configs()
-            logger.info("Default configurations initialized")
-        finally:
-            db.close()
+        # Queue processing - Log unique
+        if not _queue_started:
+            global queue_service
+            db = SessionLocal()
+            try:
+                queue_service = QueueService(db)
+                # Start queue processing in background
+                asyncio.create_task(queue_service.start_processing())
+            finally:
+                db.close()
+            logger.info("Traitement de queue démarré")
+            _queue_started = True
         
-        # Start queue processing
-        global queue_service
-        db = SessionLocal()
-        try:
-            queue_service = QueueService(db)
-            # Start queue processing in background
-            asyncio.create_task(queue_service.start_processing())
-            logger.info("Queue processing started")
-        finally:
-            db.close()
-        
-        logger.info("DocuSense AI started successfully")
+        logger.info("DocuSense AI démarré avec succès")
         
     except Exception as e:
-        logger.error(f"Failed to start DocuSense AI: {str(e)}")
+        logger.error(f"Échec du démarrage: {str(e)}")
         raise
     
     yield
     
-    # Shutdown
-    logger.info("Shutting down DocuSense AI...")
+    # Shutdown - Log consolidé
+    logger.info("Arrêt de DocuSense AI...")
     
     try:
         # Stop queue processing
         if queue_service:
             queue_service.stop_processing()
-            logger.info("Queue processing stopped")
-        
-        logger.info("DocuSense AI shutdown complete")
+        logger.info("Arrêt terminé")
         
     except Exception as e:
-        logger.error(f"Error during shutdown: {str(e)}")
+        logger.error(f"Erreur lors de l'arrêt: {str(e)}")
 
 # Create FastAPI app
 app = FastAPI(
@@ -140,6 +154,9 @@ if settings.compression_enabled:
 if settings.rate_limit_enabled:
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+# Logging middleware - CAPTURE TOUTES LES REQUÊTES ET ERREURS
+app.add_middleware(LoggingMiddleware)
 
 # OPTIMISATION: Middleware de monitoring des performances
 @app.middleware("http")
@@ -190,9 +207,11 @@ app.include_router(analysis_router, prefix="/api")
 app.include_router(queue_router, prefix="/api")
 app.include_router(config_router, prefix="/api")
 app.include_router(prompts_router, prefix="/api")
-app.include_router(multimedia_router)
+app.include_router(multimedia_router, prefix="/api")
 app.include_router(auth_router, prefix="/api")
 app.include_router(download_router, prefix="/api")
+app.include_router(monitoring_router, prefix="/api")
+app.include_router(emails_router, prefix="/api")
 
 # Root endpoint
 @app.get("/")
