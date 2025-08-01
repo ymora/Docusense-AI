@@ -95,6 +95,14 @@ class AIService:
     
     def _get_default_provider_configs(self, settings) -> Dict[str, Dict[str, Any]]:
         """Get default provider configurations"""
+        # NOUVEAU: Charger les clés API depuis la base de données si disponible
+        try:
+            from .config_service import ConfigService
+            config_service = ConfigService(self.db)
+            config_service.load_api_keys_from_database()
+        except Exception as e:
+            logger.warning(f"Could not load API keys from database: {str(e)}")
+        
         return {
             "openai": {
                 "name": "openai",

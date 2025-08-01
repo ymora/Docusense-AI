@@ -1,140 +1,127 @@
 """
-Main entry point for DocuSense AI
+Main application entry point for DocuSense AI
 """
 
-import asyncio
-import logging
-import time
-from contextlib import asynccontextmanager
-from fastapi import FastAPI, Request, Response
+import uvicorn
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
-from fastapi.responses import JSONResponse
-from fastapi.middleware.trustedhost import TrustedHostMiddleware
-import uvicorn
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
+from contextlib import asynccontextmanager
+import logging
+import sys
+import os
 
-from app.core.config import settings
-from app.core.database import create_tables, check_database_connection
+# Add the app directory to the Python path
+sys.path.append(os.path.join(os.path.dirname(__file__), 'app'))
+
+from app.core.config import settings, load_api_keys_from_database
+from app.core.database import engine, Base
 from app.core.logging import setup_logging
-from app.middleware.log_requests import LoggingMiddleware
-from app.services.config_service import ConfigService
-from app.services.queue_service import QueueService
+from app.middleware.log_requests import LogRequestsMiddleware
 from app.api import (
-    health_router,
-    files_router,
-    analysis_router,
-    queue_router,
-    config_router,
-    prompts_router,
-    multimedia_router,
-    auth_router,
-    download_router,
-    monitoring_router
+    analysis, auth, config, download, emails, files, health, 
+    monitoring, multimedia, prompts, queue
 )
-from app.api.emails import router as emails_router
 
 # Setup logging
 setup_logging()
 logger = logging.getLogger(__name__)
 
-# Global queue service instance
-queue_service = None
+# NOUVEAU: Charger les clés API depuis la base de données au démarrage
+load_api_keys_from_database()
 
-# Rate limiter - OPTIMISATION: Protection contre les attaques
-limiter = Limiter(key_func=get_remote_address)
-
-# Variables pour éviter les logs répétitifs
-_startup_logged = False
-_db_initialized = False
-_config_initialized = False
-_queue_started = False
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """
-    Application lifespan manager optimisé
-    """
-    global _startup_logged, _db_initialized, _config_initialized, _queue_started
+    """Application lifespan manager"""
+    # Startup
+    logger.info("🚀 Starting DocuSense AI...")
     
-    # Startup - Log consolidé
-    if not _startup_logged:
-        logger.info("Démarrage de DocuSense AI...")
-        _startup_logged = True
-    
+    # Create database tables
     try:
-        # Database initialization - Log unique
-        if not _db_initialized:
-            create_tables()
-            if not check_database_connection():
-                raise Exception("Database connection failed")
-            logger.info("Base de données initialisée")
-            _db_initialized = True
+        Base.metadata.create_all(bind=engine)
+        logger.info("✅ Database tables created/verified")
+    except Exception as e:
+        logger.error(f"❌ Database initialization failed: {str(e)}")
+        raise
+    
+    # NOUVEAU: Migration automatique des clés API au démarrage
+    try:
+        from app.services.config_service import ConfigService
+        from app.core.database import get_db
         
-        # Configuration initialization - Log unique
-        if not _config_initialized:
-            from app.core.database import SessionLocal
-            db = SessionLocal()
-            try:
-                config_service = ConfigService(db)
-                config_service.initialize_default_configs()
-            finally:
-                db.close()
-            logger.info("Configurations initialisées")
-            _config_initialized = True
+        # Créer une session temporaire pour la migration
+        db = next(get_db())
+        config_service = ConfigService(db)
         
-        # Queue processing - Log unique
-        if not _queue_started:
-            global queue_service
-            db = SessionLocal()
-            try:
-                queue_service = QueueService(db)
-                # Start queue processing in background
-                asyncio.create_task(queue_service.start_processing())
-            finally:
-                db.close()
-            logger.info("Traitement de queue démarré")
-            _queue_started = True
+        # Migration automatique des clés API
+        logger.info("🔄 Migrating API keys to persistence system...")
+        migrated_count = 0
         
-        logger.info("DocuSense AI démarré avec succès")
+        # Mapping des providers
+        provider_mapping = {
+            'openai': 'openai_api_key',
+            'claude': 'anthropic_api_key',
+            'anthropic': 'anthropic_api_key',
+            'mistral': 'mistral_api_key'
+        }
+        
+        # Vérifier et migrer chaque provider
+        for provider, setting_attr in provider_mapping.items():
+            # Vérifier si la clé existe dans les settings
+            setting_value = getattr(settings, setting_attr, None)
+            
+            # Vérifier si la clé existe dans la base de données
+            db_value = config_service.get_ai_provider_key(provider)
+            
+            # Si la clé existe dans les settings mais pas en base, la migrer
+            if setting_value and not db_value:
+                success = config_service.set_ai_provider_key(provider, setting_value)
+                if success:
+                    migrated_count += 1
+                    logger.info(f"✅ Migrated API key for {provider}")
+            
+            # Si la clé existe en base mais pas dans les settings, la restaurer
+            elif db_value and not setting_value:
+                config_service._save_api_key_to_settings(provider, db_value)
+                migrated_count += 1
+                logger.info(f"✅ Restored API key for {provider}")
+            
+            # Si les deux existent mais sont différentes, priorité à la base
+            elif setting_value and db_value and setting_value != db_value:
+                config_service._save_api_key_to_settings(provider, db_value)
+                migrated_count += 1
+                logger.info(f"✅ Synchronized API key for {provider}")
+        
+        if migrated_count > 0:
+            logger.info(f"✅ {migrated_count} API key(s) migrated/synchronized")
+        else:
+            logger.info("✅ All API keys already synchronized")
+        
+        # Charger toutes les clés depuis la base de données
+        config_service.load_api_keys_from_database()
+        logger.info("✅ API keys loaded from database")
         
     except Exception as e:
-        logger.error(f"Échec du démarrage: {str(e)}")
-        raise
+        logger.warning(f"⚠️ Could not migrate API keys: {str(e)}")
+    
+    logger.info("✅ DocuSense AI started successfully")
     
     yield
     
-    # Shutdown - Log consolidé
-    logger.info("Arrêt de DocuSense AI...")
-    
-    try:
-        # Stop queue processing
-        if queue_service:
-            queue_service.stop_processing()
-        logger.info("Arrêt terminé")
-        
-    except Exception as e:
-        logger.error(f"Erreur lors de l'arrêt: {str(e)}")
+    # Shutdown
+    logger.info("🛑 Shutting down DocuSense AI...")
+
 
 # Create FastAPI app
 app = FastAPI(
     title=settings.app_name,
-    description="Intelligent Document Analysis Platform",
     version=settings.app_version,
-    debug=settings.debug,
+    description="AI-powered document analysis and processing system",
     lifespan=lifespan
 )
 
-# OPTIMISATION: Middlewares de sécurité et performance
-# Trusted Host middleware
-app.add_middleware(
-    TrustedHostMiddleware, 
-    allowed_hosts=["*"] if settings.debug else ["localhost", "127.0.0.1", "0.0.0.0"]
-)
-
-# CORS middleware
+# Add middleware
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -143,112 +130,34 @@ app.add_middleware(
     allow_headers=settings.cors_allow_headers,
 )
 
-# Compression middleware - OPTIMISATION: Réduction de la bande passante
 if settings.compression_enabled:
-    app.add_middleware(
-        GZipMiddleware, 
-        minimum_size=settings.gzip_min_size
-    )
+    app.add_middleware(GZipMiddleware, minimum_size=settings.gzip_min_size)
 
-# Rate limiting - OPTIMISATION: Protection contre les attaques
-if settings.rate_limit_enabled:
-    app.state.limiter = limiter
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(LogRequestsMiddleware)
 
-# Logging middleware - CAPTURE TOUTES LES REQUÊTES ET ERREURS
-app.add_middleware(LoggingMiddleware)
+# Include routers
+app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
+app.include_router(files.router, prefix="/api/files", tags=["Files"])
+app.include_router(analysis.router, prefix="/api/analysis", tags=["Analysis"])
+app.include_router(config.router, prefix="/api/config", tags=["Configuration"])
+app.include_router(queue.router, prefix="/api/queue", tags=["Queue"])
+app.include_router(health.router, prefix="/api/health", tags=["Health"])
+app.include_router(monitoring.router, prefix="/api/monitoring", tags=["Monitoring"])
+app.include_router(download.router, prefix="/api/download", tags=["Download"])
+app.include_router(emails.router, prefix="/api/emails", tags=["Emails"])
+app.include_router(multimedia.router, prefix="/api/multimedia", tags=["Multimedia"])
+app.include_router(prompts.router, prefix="/api/prompts", tags=["Prompts"])
 
-# OPTIMISATION: Middleware de monitoring des performances
-@app.middleware("http")
-async def performance_middleware(request: Request, call_next):
-    start_time = time.time()
-    
-    # Add request ID for tracing
-    request_id = f"req_{int(start_time * 1000)}"
-    request.state.request_id = request_id
-    
-    # Process request
-    response = await call_next(request)
-    
-    # Calculate processing time
-    process_time = time.time() - start_time
-    
-    # Add performance headers
-    response.headers["X-Process-Time"] = str(process_time)
-    response.headers["X-Request-ID"] = request_id
-    
-    # Log slow requests
-    if process_time > 1.0:  # Log requests taking more than 1 second
-        logger.warning(f"Slow request: {request.method} {request.url.path} took {process_time:.2f}s")
-    
-    return response
 
-# Add exception handler
-@app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
-    """
-    Global exception handler
-    """
-    request_id = getattr(request.state, 'request_id', 'unknown')
-    logger.error(f"Unhandled exception in request {request_id}: {str(exc)}")
-    
-    return JSONResponse(
-        status_code=500,
-        content={
-            "detail": "Internal server error",
-            "request_id": request_id
-        }
-    )
-
-# Include routers with API prefix
-app.include_router(health_router, prefix="/api")
-app.include_router(files_router, prefix="/api")
-app.include_router(analysis_router, prefix="/api")
-app.include_router(queue_router, prefix="/api")
-app.include_router(config_router, prefix="/api")
-app.include_router(prompts_router, prefix="/api")
-app.include_router(multimedia_router, prefix="/api")
-app.include_router(auth_router, prefix="/api")
-app.include_router(download_router, prefix="/api")
-app.include_router(monitoring_router, prefix="/api")
-app.include_router(emails_router, prefix="/api")
-
-# Root endpoint
 @app.get("/")
 async def root():
-    """
-    Root endpoint
-    """
+    """Root endpoint"""
     return {
-        "message": f"Welcome to {settings.app_name}",
-        "version": settings.app_version,
-        "environment": settings.environment,
+        "message": f"Welcome to {settings.app_name} v{settings.app_version}",
         "docs": "/docs",
         "health": "/api/health"
     }
 
-
-
-# API info endpoint
-@app.get("/api/info")
-async def api_info():
-    """
-    API information endpoint
-    """
-    return {
-        "name": settings.app_name,
-        "version": settings.app_version,
-        "environment": settings.environment,
-        "debug": settings.debug,
-        "database_url": settings.database_url.split("://")[0] + "://***",  # Hide sensitive info
-        "cors_origins": settings.cors_origins,
-        "max_file_size": settings.max_file_size,
-        "ocr_enabled": settings.ocr_enabled,
-        "cache_enabled": settings.cache_enabled,
-        "compression_enabled": settings.compression_enabled,
-        "rate_limit_enabled": settings.rate_limit_enabled,
-        "max_concurrent_analyses": settings.max_concurrent_analyses
-    }
 
 if __name__ == "__main__":
     uvicorn.run(
@@ -257,5 +166,4 @@ if __name__ == "__main__":
         port=settings.port,
         reload=settings.reload,
         log_level=settings.log_level.lower()
-        # Configuration simplifiée pour éviter les erreurs
     ) 
