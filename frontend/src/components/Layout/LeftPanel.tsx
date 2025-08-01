@@ -112,6 +112,32 @@ const LeftPanel: React.FC = () => {
       const response = await fetch(`/api/files/list/${encodedDirectory}`);
       if (response.ok) {
         console.log('✅ Navigation réussie vers:', directory);
+        
+        // CORRECTION: Scanner automatiquement le répertoire pour l'analyse IA
+        console.log('📡 Scan automatique du répertoire pour l\'analyse IA...');
+        try {
+          const scanResponse = await fetch('/api/files/scan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ directory_path: directory }),
+          });
+          
+          if (scanResponse.ok) {
+            const scanResult = await scanResponse.json();
+            console.log('✅ Scan automatique terminé:', scanResult);
+            
+            // Invalider le cache et recharger les fichiers dans le store pour la liste d'analyse IA
+            const { clearCache, loadFiles } = useFileStore.getState();
+            clearCache();
+            await loadFiles();
+            console.log('✅ Liste d\'analyse IA mise à jour');
+          } else {
+            console.warn('⚠️ Scan automatique échoué, mais navigation réussie');
+          }
+        } catch (scanError) {
+          console.warn('⚠️ Erreur lors du scan automatique:', scanError);
+          // Ne pas interrompre la navigation même si le scan échoue
+        }
       } else {
         console.error('❌ Erreur lors de la navigation vers:', directory);
       }
