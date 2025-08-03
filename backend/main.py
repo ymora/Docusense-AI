@@ -17,7 +17,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__), 'app'))
 from app.core.config import settings, load_api_keys_from_database
 from app.core.database import engine, Base
 from app.core.logging import setup_logging
-from app.middleware.log_requests import LogRequestsMiddleware
+from app.middleware.log_requests import LoggingMiddleware
 from app.api import (
     analysis, auth, config, download, emails, files, health, 
     monitoring, multimedia, prompts, queue
@@ -35,14 +35,14 @@ load_api_keys_from_database()
 async def lifespan(app: FastAPI):
     """Application lifespan manager"""
     # Startup
-    logger.info("🚀 Starting DocuSense AI...")
+    logger.info("[STARTUP] Starting DocuSense AI...")
     
     # Create database tables
     try:
         Base.metadata.create_all(bind=engine)
-        logger.info("✅ Database tables created/verified")
+        logger.info("[SUCCESS] Database tables created/verified")
     except Exception as e:
-        logger.error(f"❌ Database initialization failed: {str(e)}")
+        logger.error(f"[ERROR] Database initialization failed: {str(e)}")
         raise
     
     # NOUVEAU: Migration automatique des clés API au démarrage
@@ -55,7 +55,7 @@ async def lifespan(app: FastAPI):
         config_service = ConfigService(db)
         
         # Migration automatique des clés API
-        logger.info("🔄 Migrating API keys to persistence system...")
+        logger.info("[MIGRATION] Migrating API keys to persistence system...")
         migrated_count = 0
         
         # Mapping des providers
@@ -79,38 +79,38 @@ async def lifespan(app: FastAPI):
                 success = config_service.set_ai_provider_key(provider, setting_value)
                 if success:
                     migrated_count += 1
-                    logger.info(f"✅ Migrated API key for {provider}")
+                    logger.info(f"[SUCCESS] Migrated API key for {provider}")
             
             # Si la clé existe en base mais pas dans les settings, la restaurer
             elif db_value and not setting_value:
                 config_service._save_api_key_to_settings(provider, db_value)
                 migrated_count += 1
-                logger.info(f"✅ Restored API key for {provider}")
+                logger.info(f"[SUCCESS] Restored API key for {provider}")
             
             # Si les deux existent mais sont différentes, priorité à la base
             elif setting_value and db_value and setting_value != db_value:
                 config_service._save_api_key_to_settings(provider, db_value)
                 migrated_count += 1
-                logger.info(f"✅ Synchronized API key for {provider}")
+                logger.info(f"[SUCCESS] Synchronized API key for {provider}")
         
         if migrated_count > 0:
-            logger.info(f"✅ {migrated_count} API key(s) migrated/synchronized")
+            logger.info(f"[SUCCESS] {migrated_count} API key(s) migrated/synchronized")
         else:
-            logger.info("✅ All API keys already synchronized")
+            logger.info("[SUCCESS] All API keys already synchronized")
         
         # Charger toutes les clés depuis la base de données
         config_service.load_api_keys_from_database()
-        logger.info("✅ API keys loaded from database")
+        logger.info("[SUCCESS] API keys loaded from database")
         
     except Exception as e:
-        logger.warning(f"⚠️ Could not migrate API keys: {str(e)}")
+        logger.warning(f"[WARNING] Could not migrate API keys: {str(e)}")
     
-    logger.info("✅ DocuSense AI started successfully")
+    logger.info("[SUCCESS] DocuSense AI started successfully")
     
     yield
     
     # Shutdown
-    logger.info("🛑 Shutting down DocuSense AI...")
+    logger.info("[SHUTDOWN] Shutting down DocuSense AI...")
 
 
 # Create FastAPI app
@@ -133,7 +133,7 @@ app.add_middleware(
 if settings.compression_enabled:
     app.add_middleware(GZipMiddleware, minimum_size=settings.gzip_min_size)
 
-app.add_middleware(LogRequestsMiddleware)
+app.add_middleware(LoggingMiddleware)
 
 # Include routers
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])

@@ -1,3 +1,4 @@
+
 import { apiRequest, handleApiError, DEFAULT_TIMEOUT } from '../utils/apiUtils';
 
 export interface Analysis {
@@ -69,11 +70,22 @@ export const analysisService = {
       if (params.offset) queryParams.append('offset', params.offset.toString());
       
       const url = `/api/analysis/list${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
-      console.log('🔍 AnalysisService: Appel API:', url);
-      const data = await apiRequest(url, {}, DEFAULT_TIMEOUT);
-      console.log('🔍 AnalysisService: Données reçues:', data);
+  
+      const response = await apiRequest(url, {}, DEFAULT_TIMEOUT);
       
-      return data as AnalysisListResponse;
+      
+      // Adapter la réponse de l'API au format attendu par le frontend
+      const adaptedResponse: AnalysisListResponse = {
+        analyses: response.data || [],
+        total: response.pagination?.total || 0,
+        limit: response.pagination?.limit || 50,
+        offset: response.pagination?.offset || 0,
+        sort_by: response.sort_by || 'created_at',
+        sort_order: response.sort_order || 'desc'
+      };
+      
+      
+      return adaptedResponse;
     } catch (error) {
       console.error('❌ AnalysisService: Erreur lors de la récupération des analyses:', error);
       throw new Error(`Erreur lors de la récupération des analyses: ${handleApiError(error)}`);
@@ -83,7 +95,7 @@ export const analysisService = {
   // Créer une analyse en attente
   async createPendingAnalysis(request: CreateAnalysisRequest): Promise<CreateAnalysisResponse> {
     try {
-      console.log('🔍 AnalysisService: Création d\'analyse en attente:', request);
+  
       const data = await apiRequest('/api/analysis/create-pending', {
         method: 'POST',
         body: JSON.stringify({
@@ -92,7 +104,7 @@ export const analysisService = {
         })
       }, DEFAULT_TIMEOUT);
       
-      console.log('🔍 AnalysisService: Analyse en attente créée:', data);
+      
       return data as CreateAnalysisResponse;
     } catch (error) {
       console.error('❌ AnalysisService: Erreur lors de la création de l\'analyse en attente:', error);

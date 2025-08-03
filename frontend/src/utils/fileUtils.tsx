@@ -17,10 +17,11 @@ import {
   DocumentChartBarIcon,
 } from '@heroicons/react/24/outline';
 
+// Interface unifiée pour les informations de fichiers
 export interface FileInfo {
   name: string;
   path: string;
-  size: number;
+  size?: number;
   mime_type?: string;
   status?: string;
   id?: number;

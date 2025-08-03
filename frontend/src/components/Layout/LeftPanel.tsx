@@ -101,12 +101,10 @@ const LeftPanel: React.FC = () => {
 
   // Gestion des actions de fichiers
   const handleFileAction = (action: string, file: any) => {
-    console.log('🎯 LeftPanel: Action reçue:', action, 'pour le fichier:', file);
     // Déclencher un événement personnalisé pour que le Layout puisse gérer l'action
     window.dispatchEvent(new CustomEvent('fileAction', {
       detail: { action, file }
     }));
-    console.log('🎯 LeftPanel: Événement fileAction dispatché');
   };
 
   return (

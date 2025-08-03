@@ -1,0 +1,46 @@
+From: test@example.com
+To: recipient@example.com
+Subject: Test Email avec HTML et pièces jointes
+Date: Mon, 1 Jan 2024 12:00:00 +0000
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="boundary123"
+
+--boundary123
+Content-Type: text/plain; charset="UTF-8"
+
+Ceci est un email de test en format texte.
+
+--boundary123
+Content-Type: text/html; charset="UTF-8"
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Email HTML</title>
+</head>
+<body>
+    <h1>Test Email avec HTML</h1>
+    <p>Ceci est un <strong>email de test</strong> avec du contenu HTML.</p>
+    <p>Il contient également des pièces jointes pour tester le système.</p>
+    <ul>
+        <li>Pièce jointe 1: document.txt</li>
+        <li>Pièce jointe 2: image.jpg</li>
+    </ul>
+</body>
+</html>
+
+--boundary123
+Content-Type: text/plain; charset="UTF-8"
+Content-Disposition: attachment; filename="document.txt"
+
+Ceci est le contenu d'un document texte en pièce jointe.
+Il peut contenir du texte simple pour tester l'extraction.
+
+--boundary123
+Content-Type: image/jpeg
+Content-Disposition: attachment; filename="image.jpg"
+
+FAKE_JPEG_CONTENT_FOR_TESTING_PURPOSES_ONLY
+This is not a real JPEG file, just test data.
+
+--boundary123-- 

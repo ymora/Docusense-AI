@@ -55,11 +55,11 @@ export const AnalysisListContent: React.FC = () => {
         prompt_filter: filters.prompt || undefined
       };
       
-      console.log('🔍 AnalysisListContent: Chargement des analyses avec params:', params);
+  
       const response = await analysisService.getAnalysesList(params);
-      console.log('🔍 AnalysisListContent: Réponse reçue:', response);
+      
       setAnalyses(response.analyses);
-      console.log('🔍 AnalysisListContent: Analyses définies:', response.analyses);
+      
     } catch (error) {
       console.error('❌ AnalysisListContent: Erreur lors du chargement:', error);
       setError(`Erreur lors du chargement: ${error}`);
@@ -75,7 +75,7 @@ export const AnalysisListContent: React.FC = () => {
   // Recharger les analyses quand le panneau devient actif
   useEffect(() => {
     const handlePanelActivation = () => {
-      console.log('🔍 AnalysisListContent: Panneau activé, rechargement des analyses...');
+      
       loadAnalyses();
     };
 
@@ -98,7 +98,7 @@ export const AnalysisListContent: React.FC = () => {
   // Recharger les analyses quand le panneau "analyses" devient actif
   useEffect(() => {
     if (activePanel === 'analyses') {
-      console.log('🔍 AnalysisListContent: Panneau analyses activé, rechargement...');
+      
       loadAnalyses();
     }
   }, [activePanel]);
@@ -106,7 +106,7 @@ export const AnalysisListContent: React.FC = () => {
   // Écouter les événements de rechargement des analyses
   useEffect(() => {
     const handleReloadAnalyses = () => {
-      console.log('🔍 AnalysisListContent: Événement reloadAnalyses reçu, rechargement...');
+      
       loadAnalyses();
     };
 
@@ -120,16 +120,16 @@ export const AnalysisListContent: React.FC = () => {
   useEffect(() => {
     const testBackendConnection = async () => {
       try {
-        console.log('🔍 AnalysisListContent: Test de connectivité au backend...');
+
         const response = await fetch('/api/analysis/test');
         const data = await response.json();
-        console.log('🔍 AnalysisListContent: Test backend réussi:', data);
+        
         
         // Test direct de l'endpoint list
-        console.log('🔍 AnalysisListContent: Test de l\'endpoint /api/analysis/list...');
+        
         const listResponse = await fetch('/api/analysis/list');
         const listData = await listResponse.json();
-        console.log('🔍 AnalysisListContent: Données de l\'endpoint list:', listData);
+        
         
       } catch (error) {
         console.error('❌ AnalysisListContent: Test backend échoué:', error);
@@ -256,10 +256,10 @@ export const AnalysisListContent: React.FC = () => {
               Liste des Analyses IA
             </h2>
             <p className="text-sm mt-1" style={{ color: colors.textSecondary }}>
-              {analyses.length} analyse(s) trouvée(s)
+              {analyses?.length || 0} analyse(s) trouvée(s)
             </p>
             {/* Avertissement si aucune analyse */}
-            {analyses.length === 0 && (
+            {(!analyses || analyses.length === 0) && (
               <div className="mt-2 p-2 rounded-lg" style={{ 
                 backgroundColor: colors.warning + '10',
                 borderColor: colors.warning,
@@ -307,7 +307,7 @@ export const AnalysisListContent: React.FC = () => {
              </button>
              <button
                onClick={() => {
-                 console.log('🔍 AnalysisListContent: Test manuel de rechargement...');
+         
                  loadAnalyses();
                }}
                className="p-2 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors"
@@ -468,7 +468,7 @@ export const AnalysisListContent: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {analyses.map((analysis) => (
+                {analyses?.map((analysis) => (
                   <tr 
                     key={analysis.id}
                     className="border-b hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors"
@@ -569,7 +569,7 @@ export const AnalysisListContent: React.FC = () => {
               </tbody>
             </table>
             
-            {analyses.length === 0 && (
+            {(!analyses || analyses.length === 0) && (
               <div className="flex items-center justify-center h-32">
                 <div className="text-center">
                   <DocumentTextIcon className="h-12 w-12 mx-auto mb-3 opacity-50" style={{ color: colors.textSecondary }} />

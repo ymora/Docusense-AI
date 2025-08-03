@@ -5,17 +5,16 @@ Handles interactions with different AI providers
 
 import json
 import asyncio
-from typing import Dict, Any, Optional, List
 from sqlalchemy.orm import Session
-import logging
 import time
 from threading import Lock
 from datetime import datetime
+from typing import Optional
 
 from ..models.analysis import AnalysisType
 from ..models.config import Config
-
-logger = logging.getLogger(__name__)
+from .base_service import BaseService, log_service_operation
+from ..core.types import ServiceResponse, AIProviderConfig, AIAnalysisResult
 
 # Cache global persistant pour éviter les rechargements
 _global_ai_service = None
@@ -34,43 +33,43 @@ def get_ai_service(db: Session = None) -> 'AIService':
                 _global_ai_service = AIService(db)
                 _initialized = True
                 if not _singleton_logged:
-                    logger.info("Service AI singleton créé")
+                    _global_ai_service.logger.info("Service AI singleton créé")
                     _singleton_logged = True
     
     return _global_ai_service
 
 
-class AIService:
+class AIService(BaseService):
     """Service for AI provider interactions"""
 
     def __init__(self, db: Session = None):
+        super().__init__(db)
         global _initialized
         
         # Si déjà initialisé, ne pas recharger les providers
         if _initialized and hasattr(self, 'providers') and self.providers:
             return
             
-        self.db = db
         self.providers = {}
         self._config_cache_loaded = False
         self._ai_providers_loaded = False
         self._load_providers()
 
+    @log_service_operation("load_providers")
     def _load_providers(self) -> None:
         """Load configured AI providers from config service"""
-        try:
-            from .config_service import ConfigService
-            config_service = ConfigService(self.db)
-            providers = ["openai", "claude", "mistral", "ollama"]
-            
-            self._load_provider_configs(config_service, providers)
-            self._log_provider_loading()
-            
-        except Exception as e:
-            logger.error(f"Error loading AI providers: {str(e)}")
-            self._load_default_providers()
+        self.safe_execute("load_providers", self._load_providers_logic)
+
+    def _load_providers_logic(self) -> None:
+        """Logic for loading AI providers"""
+        from .config_service import ConfigService
+        config_service = ConfigService(self.db)
+        providers = ["openai", "claude", "mistral", "ollama"]
+        
+        self._load_provider_configs(config_service, providers)
+        self._log_provider_loading()
     
-    def _load_provider_configs(self, config_service, providers: List[str]) -> None:
+    def _load_provider_configs(self, config_service, providers: list[str]) -> None:
         """Load provider configurations from config service"""
         for provider in providers:
             config = config_service.get_ai_provider_config(provider)
@@ -80,7 +79,7 @@ class AIService:
     def _log_provider_loading(self) -> None:
         """Log provider loading status"""
         if not self._ai_providers_loaded:
-            logger.info(f"{len(self.providers)} fournisseurs AI chargés")
+            self.logger.info(f"{len(self.providers)} fournisseurs AI chargés")
             self._ai_providers_loaded = True
     
     def _load_default_providers(self) -> None:
@@ -91,9 +90,9 @@ class AIService:
             self.providers.update(default_providers)
             
         except Exception as e:
-            logger.error(f"Error loading default providers: {str(e)}")
+            self.logger.error(f"Error loading default providers: {str(e)}")
     
-    def _get_default_provider_configs(self, settings) -> Dict[str, Dict[str, Any]]:
+    def _get_default_provider_configs(self, settings) -> dict[str, dict[str, any]]:
         """Get default provider configurations"""
         # NOUVEAU: Charger les clés API depuis la base de données si disponible
         try:
@@ -101,7 +100,7 @@ class AIService:
             config_service = ConfigService(self.db)
             config_service.load_api_keys_from_database()
         except Exception as e:
-            logger.warning(f"Could not load API keys from database: {str(e)}")
+            self.logger.warning(f"Could not load API keys from database: {str(e)}")
         
         return {
             "openai": {
@@ -142,7 +141,7 @@ class AIService:
             }
         }
 
-    def get_available_providers(self) -> List[Dict[str, Any]]:
+    def get_available_providers(self) -> list[dict[str, any]]:
         """Get available providers with functionality status"""
         try:
             from .config_service import ConfigService
@@ -176,10 +175,10 @@ class AIService:
             return self._sort_providers_by_priority(available)
             
         except Exception as e:
-            logger.error(f"Error getting available providers: {str(e)}")
+            self.logger.error(f"Error getting available providers: {str(e)}")
             return []
 
-    def _sort_providers_by_priority(self, providers: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _sort_providers_by_priority(self, providers: list[dict[str, any]]) -> list[dict[str, any]]:
         """Sort providers by priority (ascending - lowest number = highest priority)"""
         providers.sort(key=lambda x: x["priority"])
         return providers
@@ -193,22 +192,22 @@ class AIService:
 
             return await self._test_provider(name, config)
         except Exception as e:
-            logger.error(f"Error testing provider {name}: {str(e)}")
+            self.logger.error(f"Error testing provider {name}: {str(e)}")
             return False
 
     async def test_provider_with_key(self, provider: str, api_key: str) -> bool:
         """Test AI provider connection with a specific API key"""
         try:
-            logger.info(f"Testing provider {provider} with provided API key")
+            self.logger.info(f"Testing provider {provider} with provided API key")
             
             temp_config = self._create_temp_provider_config(provider, api_key)
             return await self._test_provider(provider, temp_config)
             
         except Exception as e:
-            logger.error(f"Error testing provider {provider} with key: {str(e)}")
+            self.logger.error(f"Error testing provider {provider} with key: {str(e)}")
             return False
     
-    def _create_temp_provider_config(self, provider: str, api_key: str) -> Dict[str, Any]:
+    def _create_temp_provider_config(self, provider: str, api_key: str) -> dict[str, any]:
         """Create temporary provider configuration for testing"""
         return {
             "name": provider,
@@ -240,7 +239,7 @@ class AIService:
         }
         return models.get(provider, "gpt-4")
 
-    def _get_default_models(self, provider: str) -> List[str]:
+    def _get_default_models(self, provider: str) -> list[str]:
         """Get default models list for provider"""
         models = {
             "openai": ["gpt-4", "gpt-3.5-turbo"],
@@ -250,8 +249,8 @@ class AIService:
         }
         return models.get(provider, ["gpt-4"])
 
-    async def get_available_providers_async(self) -> List[Dict[str, Any]]:
-        """Get available providers asynchronously with real-time functionality testing"""
+    async def get_available_providers_async(self) -> list[dict[str, any]]:
+        """Get available providers asynchronously using saved functionality status"""
         try:
             from .config_service import ConfigService
             config_service = ConfigService(self.db)
@@ -264,11 +263,9 @@ class AIService:
                     if not api_key:
                         continue
                     
-                    # Test provider functionality in real-time
-                    is_functional = await self.test_provider_async(name)
-                    
-                    # Update functionality status in config
-                    config_service.update_provider_functionality_status(name, is_functional)
+                    # Get saved functionality status from database
+                    is_functional = config_service.get_provider_functionality_status(name)
+                    last_tested = config_service.get_provider_last_tested(name)
                     
                     priority = config_service.get_ai_provider_priority(name)
                     
@@ -281,13 +278,13 @@ class AIService:
                         "is_active": config.get("is_active", True),
                         "has_api_key": bool(api_key),
                         "is_functional": is_functional,
-                        "last_tested": datetime.now().isoformat()
+                        "last_tested": last_tested
                     })
 
             return self._sort_providers_by_priority(available)
             
         except Exception as e:
-            logger.error(f"Error getting available providers async: {str(e)}")
+            self.logger.error(f"Error getting available providers async: {str(e)}")
             return []
 
     def select_best_provider(self,
@@ -321,18 +318,18 @@ class AIService:
                     model = self._select_model_for_provider(requested_provider_data, requested_model)
                     return requested_provider, model
                 else:
-                    logger.warning(f"Requested provider {requested_provider} is not functional, falling back to best available")
+                    self.logger.warning(f"Requested provider {requested_provider} is not functional, falling back to best available")
             
             # Select provider based on strategy
             return self._select_provider_by_strategy(strategy, functional_providers, config_service)
             
         except Exception as e:
-            logger.error(f"Error selecting best provider: {str(e)}")
+            self.logger.error(f"Error selecting best provider: {str(e)}")
             raise
     
     def _handle_specific_provider_request(self, requested_provider: str, 
                                         requested_model: Optional[str], 
-                                        available_providers: List[Dict[str, Any]]) -> tuple[str, str]:
+                                        available_providers: list[dict[str, any]]) -> tuple[str, str]:
         """Handle request for specific provider and model"""
         for provider in available_providers:
             if provider["name"] == requested_provider:
@@ -341,7 +338,7 @@ class AIService:
         
         raise ValueError(f"Requested provider {requested_provider} not available")
     
-    def _select_model_for_provider(self, provider: Dict[str, Any], 
+    def _select_model_for_provider(self, provider: dict[str, any], 
                                  requested_model: Optional[str]) -> str:
         """Select appropriate model for provider"""
         if requested_model:
@@ -353,7 +350,7 @@ class AIService:
                            provider["models"][0] if provider["models"] else "gpt-4")
     
     def _select_provider_by_strategy(self, strategy: str, 
-                                   available_providers: List[Dict[str, Any]], 
+                                   available_providers: list[dict[str, any]], 
                                    config_service) -> tuple[str, str]:
         """Select provider based on strategy, using only functional providers"""
         try:
@@ -392,7 +389,7 @@ class AIService:
                 return best_provider["name"], model
                 
         except Exception as e:
-            logger.error(f"Error selecting provider by strategy: {str(e)}")
+            self.logger.error(f"Error selecting provider by strategy: {str(e)}")
             # Fallback to first available functional provider
             if available_providers:
                 provider = available_providers[0]
@@ -401,8 +398,8 @@ class AIService:
             else:
                 raise ValueError("No functional providers available")
 
-    def _select_fastest_provider(self, available_providers: List[Dict[str, Any]], 
-                               config_service) -> Dict[str, Any]:
+    def _select_fastest_provider(self, available_providers: list[dict[str, any]], 
+                               config_service) -> dict[str, any]:
         """Select fastest provider from functional providers only"""
         try:
             fastest_provider = None
@@ -427,11 +424,11 @@ class AIService:
             return fastest_provider
             
         except Exception as e:
-            logger.error(f"Error selecting fastest provider: {str(e)}")
+            self.logger.error(f"Error selecting fastest provider: {str(e)}")
             raise
 
-    def _select_cheapest_provider(self, available_providers: List[Dict[str, Any]], 
-                               config_service) -> Dict[str, Any]:
+    def _select_cheapest_provider(self, available_providers: list[dict[str, any]], 
+                               config_service) -> dict[str, any]:
         """Select cheapest provider from functional providers only"""
         try:
             cheapest_provider = None
@@ -457,10 +454,10 @@ class AIService:
             return cheapest_provider
             
         except Exception as e:
-            logger.error(f"Error selecting cheapest provider: {str(e)}")
+            self.logger.error(f"Error selecting cheapest provider: {str(e)}")
             raise
 
-    async def _test_provider(self, name: str, config: Dict[str, Any]) -> bool:
+    async def _test_provider(self, name: str, config: dict[str, any]) -> bool:
         """Test provider connection with simple prompt"""
         try:
             test_prompt = "Hello, this is a test message. Please respond with 'OK' if you receive this."
@@ -474,19 +471,19 @@ class AIService:
             elif name == "ollama":
                 return await self._test_ollama(config)
             else:
-                logger.warning(f"Unknown provider {name}")
+                self.logger.warning(f"Unknown provider {name}")
                 return False
                 
         except Exception as e:
-            logger.error(f"Error testing provider {name}: {str(e)}")
+            self.logger.error(f"Error testing provider {name}: {str(e)}")
             return False
 
-    async def _test_openai(self, config: Dict[str, Any]) -> bool:
+    async def _test_openai(self, config: dict[str, any]) -> bool:
         """Test OpenAI provider connection"""
         try:
             # Vérifier que la clé API est présente
             if not config.get("api_key"):
-                logger.error("OpenAI test failed: No API key provided")
+                self.logger.error("OpenAI test failed: No API key provided")
                 return False
                 
             import openai
@@ -505,18 +502,18 @@ class AIService:
             return bool(response.choices)
             
         except ImportError as e:
-            logger.error(f"OpenAI test failed: Missing dependency - {str(e)}")
+            self.logger.error(f"OpenAI test failed: Missing dependency - {str(e)}")
             return False
         except Exception as e:
-            logger.error(f"OpenAI test failed: {str(e)}")
+            self.logger.error(f"OpenAI test failed: {str(e)}")
             return False
 
-    async def _test_claude(self, config: Dict[str, Any]) -> bool:
+    async def _test_claude(self, config: dict[str, any]) -> bool:
         """Test Claude provider connection"""
         try:
             # Vérifier que la clé API est présente
             if not config.get("api_key"):
-                logger.error("Claude test failed: No API key provided")
+                self.logger.error("Claude test failed: No API key provided")
                 return False
                 
             import anthropic
@@ -532,26 +529,26 @@ class AIService:
             return bool(response.content)
             
         except ImportError as e:
-            logger.error(f"Claude test failed: Missing dependency - {str(e)}")
+            self.logger.error(f"Claude test failed: Missing dependency - {str(e)}")
             return False
         except Exception as e:
-            logger.error(f"Claude test failed: {str(e)}")
+            self.logger.error(f"Claude test failed: {str(e)}")
             return False
 
-    async def _test_mistral(self, config: Dict[str, Any]) -> bool:
+    async def _test_mistral(self, config: dict[str, any]) -> bool:
         """Test Mistral provider connection"""
         try:
             # Vérifier que la clé API est présente
             if not config.get("api_key"):
-                logger.error("Mistral test failed: No API key provided")
+                self.logger.error("Mistral test failed: No API key provided")
                 return False
                 
             from mistralai.client import MistralClient
             from mistralai.models.chat_completion import ChatMessage
             
-            logger.info(f"Testing Mistral with API key: {config['api_key'][:10]}...")
-            logger.info(f"Mistral base URL: {config.get('base_url', 'https://api.mistral.ai')}")
-            logger.info(f"Mistral model: {config.get('default_model', 'mistral-large-latest')}")
+            self.logger.info(f"Testing Mistral with API key: {config['api_key'][:10]}...")
+            self.logger.info(f"Mistral base URL: {config.get('base_url', 'https://api.mistral.ai')}")
+            self.logger.info(f"Mistral model: {config.get('default_model', 'mistral-large-latest')}")
             
             # Utiliser l'URL correcte pour Mistral
             base_url = config.get("base_url", "https://api.mistral.ai")
@@ -573,24 +570,24 @@ class AIService:
                         messages=[ChatMessage(role="user", content="Test message")]
                     )
                 except Exception as e:
-                    logger.error(f"Mistral sync_chat error: {str(e)}")
+                    self.logger.error(f"Mistral sync_chat error: {str(e)}")
                     raise
             
             # Exécuter de manière asynchrone
             loop = asyncio.get_event_loop()
             response = await loop.run_in_executor(None, sync_chat)
             
-            logger.info(f"Mistral test successful: {bool(response.choices)}")
+            self.logger.info(f"Mistral test successful: {bool(response.choices)}")
             return bool(response.choices)
             
         except ImportError as e:
-            logger.error(f"Mistral test failed: Missing dependency - {str(e)}")
+            self.logger.error(f"Mistral test failed: Missing dependency - {str(e)}")
             return False
         except Exception as e:
-            logger.error(f"Mistral test failed: {str(e)}")
+            self.logger.error(f"Mistral test failed: {str(e)}")
             return False
 
-    async def _test_ollama(self, config: Dict[str, Any]) -> bool:
+    async def _test_ollama(self, config: dict[str, any]) -> bool:
         """Test Ollama provider connection"""
         try:
             import requests
@@ -614,10 +611,10 @@ class AIService:
             return response.status_code == 200
             
         except ImportError as e:
-            logger.error(f"Ollama test failed: Missing dependency - {str(e)}")
+            self.logger.error(f"Ollama test failed: Missing dependency - {str(e)}")
             return False
         except Exception as e:
-            logger.error(f"Ollama test failed: {str(e)}")
+            self.logger.error(f"Ollama test failed: {str(e)}")
             return False
 
     async def analyze_text(
@@ -627,7 +624,7 @@ class AIService:
         provider: Optional[str] = None,
         model: Optional[str] = None,
         custom_prompt: Optional[str] = None
-    ) -> Dict[str, Any]:
+    ) -> dict[str, any]:
         """Analyze text using AI provider"""
         start_time = time.time()
         
@@ -659,11 +656,11 @@ class AIService:
             }
             
         except Exception as e:
-            logger.error(f"Error analyzing text: {str(e)}")
+            self.logger.error(f"Error analyzing text: {str(e)}")
             raise
     
     async def _call_ai_provider(self, provider: str, prompt: str, model: str, 
-                              config: Dict[str, Any]) -> str:
+                              config: dict[str, any]) -> str:
         """Call specific AI provider"""
         if provider == "openai":
             return await self._call_openai(prompt, model, config)
@@ -701,7 +698,7 @@ class AIService:
         base_prompt = base_prompts.get(analysis_type, "Please analyze the following document:")
         return f"{base_prompt}\n\nDocument:\n{text}"
 
-    async def _call_openai(self, prompt: str, model: str, config: Dict[str, Any]) -> str:
+    async def _call_openai(self, prompt: str, model: str, config: dict[str, any]) -> str:
         """Call OpenAI API"""
         import openai
         
@@ -718,7 +715,7 @@ class AIService:
         
         return response.choices[0].message.content
 
-    async def _call_claude(self, prompt: str, model: str, config: Dict[str, Any]) -> str:
+    async def _call_claude(self, prompt: str, model: str, config: dict[str, any]) -> str:
         """Call Claude API"""
         import anthropic
         
@@ -732,7 +729,7 @@ class AIService:
         
         return response.content[0].text
 
-    async def _call_mistral(self, prompt: str, model: str, config: Dict[str, Any]) -> str:
+    async def _call_mistral(self, prompt: str, model: str, config: dict[str, any]) -> str:
         """Call Mistral API"""
         from mistralai.client import MistralClient
         from mistralai.models.chat_completion import ChatMessage
@@ -746,7 +743,7 @@ class AIService:
         
         return response.choices[0].message.content
 
-    async def _call_ollama(self, prompt: str, model: str, config: Dict[str, Any]) -> str:
+    async def _call_ollama(self, prompt: str, model: str, config: dict[str, any]) -> str:
         """Call Ollama API"""
         import requests
         
@@ -787,18 +784,18 @@ class AIService:
         
         return (tokens / 1000) * cost_per_1k
 
-    def validate_provider_config(self, provider: str, config: Dict[str, Any]) -> bool:
+    def validate_provider_config(self, provider: str, config: dict[str, any]) -> bool:
         """Validate provider configuration"""
         required_fields = ["name", "api_key", "base_url", "default_model"]
         
         for field in required_fields:
             if field not in config or not config[field]:
-                logger.error(f"Missing required field '{field}' for provider {provider}")
+                self.logger.error(f"Missing required field '{field}' for provider {provider}")
                 return False
         
         return True
 
-    def save_provider_config(self, provider: str, config: Dict[str, Any]) -> bool:
+    def save_provider_config(self, provider: str, config: dict[str, any]) -> bool:
         """Save provider configuration"""
         try:
             if not self.validate_provider_config(provider, config):
@@ -812,15 +809,15 @@ class AIService:
             if success:
                 # Reload providers
                 self.providers[provider] = config
-                logger.info(f"Saved configuration for provider {provider}")
+                self.logger.info(f"Saved configuration for provider {provider}")
             
             return success
             
         except Exception as e:
-            logger.error(f"Error saving provider config: {str(e)}")
+            self.logger.error(f"Error saving provider config: {str(e)}")
             return False
 
-    def get_provider_config(self, provider: str) -> Optional[Dict[str, Any]]:
+    def get_provider_config(self, provider: str) -> Optional[dict[str, any]]:
         """Get provider configuration"""
         return self.providers.get(provider)
 
@@ -834,15 +831,15 @@ class AIService:
             
             if success:
                 self.providers.pop(provider, None)
-                logger.info(f"Deleted configuration for provider {provider}")
+                self.logger.info(f"Deleted configuration for provider {provider}")
             
             return success
             
         except Exception as e:
-            logger.error(f"Error deleting provider config: {str(e)}")
+            self.logger.error(f"Error deleting provider config: {str(e)}")
             return False
 
-    def select_best_provider_from_priority(self, provider_priority: List[str]) -> tuple[str, str]:
+    def select_best_provider_from_priority(self, provider_priority: list[str]) -> tuple[str, str]:
         """
         Select the best available provider from a priority list
         """
@@ -864,11 +861,11 @@ class AIService:
                 return selected_provider["name"], selected_provider["default_model"]
             
             # Fallback to default selection if no priority providers available
-            logger.warning("No priority providers available, falling back to default selection")
+            self.logger.warning("No priority providers available, falling back to default selection")
             return self.select_best_provider()
             
         except Exception as e:
-            logger.error(f"Error selecting provider from priority: {str(e)}")
+            self.logger.error(f"Error selecting provider from priority: {str(e)}")
             return self.select_best_provider()
 
     @classmethod
@@ -877,7 +874,7 @@ class AIService:
         global _global_ai_service, _global_lock
         with _global_lock:
             _global_ai_service = None
-            logger.info("AIService cache cleared")
+            _global_ai_service.logger.info("AIService cache cleared")
 
     @classmethod
     def get_cache_size(cls) -> int:

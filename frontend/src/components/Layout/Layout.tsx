@@ -32,16 +32,13 @@ const Layout: React.FC = () => {
   // Gestion des actions de fichiers (menu contextuel)
   useEffect(() => {
     const handleFileAction = (event: CustomEvent) => {
-      console.log('🎯 Layout: Événement fileAction reçu:', event.detail);
       const { action, file } = event.detail;
       
       if (action === 'view' && file) {
-        console.log('🎯 Layout: Action visualiser détectée pour le fichier:', file);
         // Sélectionner le fichier pour l'afficher dans le MainPanel
         selectFile(file);
         setActivePanel('main');
       } else if (action === 'download' && file) {
-        console.log('🎯 Layout: Action télécharger détectée pour le fichier:', file);
         // Télécharger le fichier directement
         try {
           const fileId = file.id || file.path;
@@ -61,48 +58,33 @@ const Layout: React.FC = () => {
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
-          
-          console.log('🎯 Layout: Téléchargement déclenché pour:', file.name);
         } catch (error) {
-          console.error('❌ Layout: Erreur lors du téléchargement:', error);
           console.error('Erreur lors du téléchargement du fichier');
         }
       } else if (action === 'analyze_ia' && file) {
-        console.log('🎯 Layout: Action analyse IA détectée pour le fichier:', file);
-        console.log('🎯 Layout: selectedFiles:', selectedFiles);
-        console.log('🎯 Layout: selectedFile:', selectedFile);
         // Ajouter directement à la queue d'analyse
         const fileIds = selectedFiles && selectedFiles.length > 1
           ? selectedFiles
           : [file.id || file.path];
-        console.log('🎯 Layout: FileIds à ajouter à la queue:', fileIds);
-        console.log('🎯 Layout: Appel de handleAddToQueue...');
         handleAddToQueue(fileIds);
-        console.log('🎯 Layout: handleAddToQueue terminé, basculement vers analyses...');
         // Basculer vers le panneau Analyse IA pour voir la liste
         setActivePanel('analyses');
       } else if (action === 'add_to_queue' && file) {
-        console.log('🎯 Layout: Action ajouter à la queue détectée pour le fichier:', file);
         const fileIds = [file.id || file.path];
-        console.log('🎯 Layout: FileIds à ajouter en attente:', fileIds);
         
         // Créer des analyses en attente pour le fichier
         handleAddToQueue(fileIds);
       } else if (action === 'analyze_with_prompt' && file && file.selectedPrompt) {
-        console.log('🎯 Layout: Action analyse avec prompt détectée:', file.selectedPrompt);
         const fileIds = selectedFiles && selectedFiles.length > 1
           ? selectedFiles
           : [selectedFile?.id || selectedFile?.path];
-        console.log('🎯 Layout: FileIds à analyser avec prompt:', fileIds);
         
         // Lancer l'analyse avec le prompt sélectionné
         handleAnalyzeWithPrompt(fileIds, file.selectedPrompt);
       } else if (action === 'analyze_general' && file) {
-        console.log('🎯 Layout: Action analyse générale détectée pour le fichier:', file);
         const fileIds = selectedFiles && selectedFiles.length > 1
           ? selectedFiles
           : [selectedFile?.id || selectedFile?.path];
-        console.log('🎯 Layout: FileIds à analyser:', fileIds);
         setPromptSelectorMode(fileIds.length > 1 ? 'batch' : 'single');
         setPromptSelectorFileIds(fileIds);
         setShowPromptSelector(true);
@@ -115,7 +97,6 @@ const Layout: React.FC = () => {
 
   // Gestion de la sélection de prompt
   const handlePromptSelect = (promptId: string, prompt: any) => {
-    console.log('Prompt sélectionné:', promptId, prompt);
     // Ici on pourrait ajouter une notification de succès
     setShowPromptSelector(false);
   };
@@ -123,12 +104,9 @@ const Layout: React.FC = () => {
   // Fonction pour ajouter des fichiers en attente d'analyse
   const handleAddToQueue = async (fileIds: (number | string)[]) => {
     try {
-      console.log('🎯 Layout: Ajout de fichiers en attente d\'analyse:', fileIds);
-      
       // Créer des analyses en attente pour chaque fichier
       const analysisPromises = fileIds.map(async (fileId) => {
         try {
-          console.log('🎯 Layout: Création d\'analyse pour le fichier:', fileId);
           const response = await analysisService.createPendingAnalysis({
             file_id: fileId,
             prompt_id: 'default', // Utiliser le prompt par défaut
@@ -136,18 +114,14 @@ const Layout: React.FC = () => {
             status: 'pending'
           });
           
-          console.log('🎯 Layout: Analyse en attente créée:', response);
-          
           // Ajouter l'analyse à la queue
           if (response.analysis_id) {
-            console.log('🎯 Layout: Ajout de l\'analyse à la queue:', response.analysis_id);
             await queueService.addToQueue(response.analysis_id, 'normal');
-            console.log('🎯 Layout: Analyse ajoutée à la queue:', response.analysis_id);
           }
           
           return response;
         } catch (error) {
-          console.error('❌ Layout: Erreur lors de la création de l\'analyse pour le fichier', fileId, ':', error);
+          console.error('Erreur lors de la création de l\'analyse pour le fichier', fileId, ':', error);
           return null;
         }
       });
@@ -155,24 +129,19 @@ const Layout: React.FC = () => {
       const results = await Promise.all(analysisPromises);
       const successCount = results.filter(result => result !== null).length;
       
-      console.log('🎯 Layout: Résultats de l\'ajout en attente:', results);
-      console.log('🎯 Layout: Nombre de fichiers ajoutés avec succès:', successCount);
-      
       // Recharger la queue pour afficher les nouveaux éléments
-      console.log('🎯 Layout: Rechargement de la queue...');
       await loadQueueItems();
       await loadQueueStatus();
       
       // Les analyses créées sont maintenant visibles directement dans la liste des analyses
       if (successCount > 0) {
-        console.log('🎯 Layout: Analyses créées avec succès, visibles dans la liste');
         // Déclencher des événements pour recharger les listes
         window.dispatchEvent(new CustomEvent('reloadAnalyses'));
         window.dispatchEvent(new CustomEvent('reloadQueue'));
       }
       
     } catch (error) {
-      console.error('❌ Layout: Erreur lors de l\'ajout en attente:', error);
+      console.error('Erreur lors de l\'ajout en attente:', error);
       
       // Message d'erreur plus informatif
       let errorMessage = 'Erreur lors de l\'ajout en attente d\'analyse';
@@ -187,15 +156,13 @@ const Layout: React.FC = () => {
         }
       }
       
-      console.error('❌ Layout: Erreur lors de l\'ajout en attente:', errorMessage);
+      console.error('Erreur lors de l\'ajout en attente:', errorMessage);
     }
   };
 
   // Fonction pour analyser avec un prompt spécifique
   const handleAnalyzeWithPrompt = async (fileIds: (number | string)[], prompt: any) => {
     try {
-      console.log('🎯 Layout: Analyse avec prompt:', prompt, 'pour les fichiers:', fileIds);
-      
       if (fileIds.length === 1) {
         // Analyse d'un seul fichier
         const response = await promptService.analyzeFileWithPriority(
@@ -203,7 +170,6 @@ const Layout: React.FC = () => {
           prompt.id, 
           ['openai', 'anthropic', 'google']
         );
-        console.log('🎯 Layout: Analyse terminée:', response);
       } else {
         // Analyse de plusieurs fichiers
         const response = await promptService.analyzeBatchWithPriority(
@@ -211,7 +177,6 @@ const Layout: React.FC = () => {
           prompt.id, 
           ['openai', 'anthropic', 'google']
         );
-        console.log('🎯 Layout: Analyse batch terminée:', response);
       }
       
       // Recharger les données si nécessaire
@@ -219,7 +184,7 @@ const Layout: React.FC = () => {
       // await loadQueueStatus();
       
     } catch (error) {
-      console.error('❌ Layout: Erreur lors de l\'analyse avec prompt:', error);
+      console.error('Erreur lors de l\'analyse avec prompt:', error);
     }
   };
 

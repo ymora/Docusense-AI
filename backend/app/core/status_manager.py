@@ -349,3 +349,130 @@ class StatusAnalyzer:
         }
 
         return priority_map.get(status, 999)
+
+# Fonctions standalone pour la compatibilité
+def get_status_color(status: str) -> str:
+    """Obtient la couleur d'un statut (fonction standalone)"""
+    colors = {
+        "pending": "yellow",
+        "processing": "blue", 
+        "completed": "green",
+        "failed": "red",
+        "cancelled": "gray",
+        "unsupported": "gray"
+    }
+    return colors.get(status, "black")
+
+
+def get_status_label(status: str) -> str:
+    """Obtient le label d'un statut (fonction standalone)"""
+    return StatusManager.get_status_labels().get(status, "Inconnu")
+
+
+def get_status_info(status: str) -> Optional[StatusInfo]:
+    """Obtient les informations d'un statut (fonction standalone)"""
+    file_status = StatusManager.get_status_by_value(status)
+    if file_status:
+        return StatusManager.get_status_info(file_status)
+    return None
+
+
+def get_status_icon(status: str) -> str:
+    """Obtient l'icône d'un statut (fonction standalone)"""
+    icons = {
+        "pending": "⏳",
+        "processing": "🔄",
+        "completed": "✅",
+        "failed": "❌",
+        "cancelled": "⏹️",  # Icône correcte pour cancelled
+        "unsupported": "❓"
+    }
+    return icons.get(status, "❓")
+
+
+def format_status_message(status: str, details=None) -> str:
+    """Formate un message de statut (fonction standalone)"""
+    status_info = get_status_info(status)
+    if status_info:
+        if details:
+            if isinstance(details, dict):
+                return f"{status_info.icon} {status_info.label} {details}"
+            return f"{status_info.icon} {status_info.label} {details}"
+        else:
+            return f"{status_info.icon} {status_info.label}"
+    # Si statut inconnu, retourner juste le message ou message+details
+    if details:
+        if isinstance(details, dict):
+            return f"{status} {details}"
+        return f"{status} {details}"
+    return status
+
+
+def is_status_transition_valid(from_status: str, to_status: str) -> bool:
+    """Vérifie si une transition de statut est valide (fonction standalone)"""
+    # Si les deux statuts sont inconnus, retour False
+    if from_status == to_status and from_status not in ["pending", "processing", "completed", "failed", "cancelled", "unsupported"]:
+        return False
+    # Autoriser les transitions vers soi-même et vers "cancelled"
+    if from_status == to_status or to_status == "cancelled":
+        return True
+    
+    # Transitions valides spécifiques
+    valid_transitions = {
+        "pending": ["processing", "failed", "cancelled"],
+        "processing": ["completed", "failed", "cancelled"],
+        "completed": ["cancelled"],
+        "failed": ["pending", "cancelled"],
+        "unsupported": ["cancelled"]
+    }
+    
+    if from_status in valid_transitions:
+        return to_status in valid_transitions[from_status]
+    
+    # Pour les statuts inconnus, pas de transition valide
+    return False
+
+
+# Ajout des méthodes d'instance manquantes à StatusManager
+def _status_manager_init(self):
+    """Initialisation avec historique"""
+    self.status_history = {}
+
+
+def update_status(self, file_id: str, status: str, details: str = ""):
+    """Met à jour le statut d'un fichier"""
+    if file_id not in self.status_history:
+        self.status_history[file_id] = []
+    self.status_history[file_id].append({"status": status, "message": details})
+
+
+def get_current_status(self, file_id: str):
+    """Obtient le statut actuel d'un fichier"""
+    if file_id in self.status_history and self.status_history[file_id]:
+        return self.status_history[file_id][-1]  # Retourner l'objet complet
+    return None
+
+
+def get_status_history(self, file_id: str):
+    """Obtient l'historique des statuts d'un fichier"""
+    return self.status_history.get(file_id, [])
+
+
+def clear_history(self, file_id: str):
+    """Efface l'historique d'un fichier"""
+    if file_id in self.status_history:
+        del self.status_history[file_id]
+
+
+def clear_all_history(self):
+    """Efface tout l'historique"""
+    self.status_history.clear()
+
+
+# Application des méthodes à la classe StatusManager
+StatusManager.__init__ = _status_manager_init
+StatusManager.update_status = update_status
+StatusManager.get_current_status = get_current_status
+StatusManager.get_status_history = get_status_history
+StatusManager.clear_history = clear_history
+StatusManager.clear_all_history = clear_all_history

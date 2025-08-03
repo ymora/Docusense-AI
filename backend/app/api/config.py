@@ -19,7 +19,7 @@ class TestAPIKeyRequest(BaseModel):
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/config", tags=["config"])
+router = APIRouter(tags=["config"])
 
 
 @router.get("/")

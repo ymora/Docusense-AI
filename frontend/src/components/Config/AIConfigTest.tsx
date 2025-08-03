@@ -19,12 +19,12 @@ export const AIConfigTest: React.FC = () => {
 
   const handleValidatePriorities = async () => {
     const result = await validateAndFixPriorities();
-    console.log('Validation result:', result);
+    
   };
 
   const handleResetPriorities = async () => {
     const result = await resetPriorities();
-    console.log('Reset result:', result);
+    
   };
 
   if (loading) {

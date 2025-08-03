@@ -2,7 +2,6 @@
 Service de gestion des fichiers multimédia
 """
 
-import logging
 import os
 from pathlib import Path
 from typing import Dict, Any, Optional, List, Tuple
@@ -22,10 +21,11 @@ import subprocess
 import tempfile
 import shutil
 
-logger = logging.getLogger(__name__)
+from .base_service import BaseService, log_service_operation
+from ..core.types import ServiceResponse, FileData
 
 
-class MultimediaService:
+class MultimediaService(BaseService):
     """
     Service pour l'analyse et le traitement des fichiers multimédia
     """
@@ -44,6 +44,7 @@ class MultimediaService:
     }
 
     @staticmethod
+    @log_service_operation("get_file_type")
     def get_file_type(file_path: Path) -> str:
         """
         Détermine le type de fichier multimédia
@@ -66,6 +67,7 @@ class MultimediaService:
             return 'unknown'
 
     @staticmethod
+    @log_service_operation("analyze_image")
     def analyze_image(file_path: Path) -> Dict[str, Any]:
         """
         Analyse une image et extrait ses métadonnées
@@ -106,7 +108,6 @@ class MultimediaService:
                 }
                 
         except Exception as e:
-            logger.error(f"Erreur lors de l'analyse de l'image {file_path}: {e}")
             return {'type': 'image', 'error': str(e)}
 
     @staticmethod

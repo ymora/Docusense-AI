@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { FolderIcon, DocumentIcon, ChevronRightIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
-import { useFileStore } from '../../stores/fileStore';
+import { useFileStore, File } from '../../stores/fileStore';
 import { useQueueStore } from '../../stores/queueStore';
 import { useColors } from '../../hooks/useColors';
 import { getFileType } from '../../utils/fileTypeUtils';
@@ -17,12 +17,10 @@ interface FileTreeProps {
 
 const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory, onFileSelect, selectedFiles, onFileAction }) => {
   const { colors } = useColors();
-  const { toggleFileSelection } = useFileStore();
+  const { toggleFileSelection, directoryTree, loading } = useFileStore();
   const { queueItems, loadQueueItems, loadQueueStatus } = useQueueStore();
   
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
-  const [filesystemData, setFilesystemData] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
   
   // État du menu contextuel
@@ -54,25 +52,12 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
     return () => mediaQuery.removeEventListener('change', checkTheme);
   }, []);
 
-  // Navigation de répertoire sans cache - données toujours fraîches
+  // Navigation de répertoire - utilise le store
   const handleDirectoryNavigation = async (directory: string) => {
     try {
-      setIsLoading(true);
       onDirectorySelect(directory);
-      
-      const encodedDirectory = encodeURIComponent(directory.replace(/\\/g, '/'));
-      const response = await fetch(`/api/files/list/${encodedDirectory}?page=1&page_size=100&nocache=${Date.now()}`);
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      
-      const data = await response.json();
-      setFilesystemData(data);
     } catch (error) {
       console.error('❌ Erreur navigation:', error);
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -90,12 +75,12 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
     // Gestion de la sélection multiple
     if (e.shiftKey && selectedFiles.length > 0) {
       // Sélection par plage avec Shift
-      const currentIndex = filesystemData.files.findIndex(f => f.id === file.id);
-      const lastIndex = filesystemData.files.findIndex(f => f.id === selectedFiles[selectedFiles.length - 1]);
+      const currentIndex = directoryTree.files.findIndex(f => f.id === file.id);
+      const lastIndex = directoryTree.files.findIndex(f => f.id === selectedFiles[selectedFiles.length - 1]);
       const start = Math.min(currentIndex, lastIndex);
       const end = Math.max(currentIndex, lastIndex);
       
-      const filesInRange = filesystemData.files.slice(start, end + 1);
+      const filesInRange = directoryTree.files.slice(start, end + 1);
       const fileIdsInRange = filesInRange.map(f => f.id);
       
       // Utiliser la fonction de sélection existante
@@ -278,8 +263,6 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
     const statusColor = getStatusColor(file.status);
     const statusText = getStatusText(file.status);
 
-    // Debug: afficher l'état de sélection
-
 
     return (
       <div
@@ -337,7 +320,7 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
       
       {/* Contenu principal */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden p-2">
-        {!filesystemData ? (
+        {!directoryTree ? (
           <div className="text-center py-4 text-slate-400 text-sm">
             <div className="text-2xl mb-2 text-blue-400">📁</div>
             <p>Chargement de l'arborescence...</p>
@@ -347,37 +330,37 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
             {/* Répertoire racine */}
             <div
               className={`flex items-center px-2 py-1 cursor-pointer rounded transition-colors text-sm hover:bg-slate-700 ${
-                filesystemData.directory === currentDirectory ? 'bg-slate-700 text-slate-200' : 'text-slate-300'
+                directoryTree.directory === currentDirectory ? 'bg-slate-700 text-slate-200' : 'text-slate-300'
               }`}
-              onClick={() => handleDirectoryNavigation(filesystemData.directory)}
+              onClick={() => handleDirectoryNavigation(directoryTree.directory)}
             >
               <FolderIcon className="h-4 w-4 mr-2 text-blue-400" />
-              <span className="flex-1 truncate">{filesystemData.directory || 'Racine'}</span>
+              <span className="flex-1 truncate">{directoryTree.directory || 'Racine'}</span>
               <span className="text-xs text-slate-400">
-                ({filesystemData.total_subdirectories} dossier{filesystemData.total_subdirectories > 1 ? 's' : ''}, {filesystemData.total_files} fichier{filesystemData.total_files > 1 ? 's' : ''})
+                ({directoryTree.total_subdirectories} dossier{directoryTree.total_subdirectories > 1 ? 's' : ''}, {directoryTree.total_files} fichier{directoryTree.total_files > 1 ? 's' : ''})
               </span>
             </div>
 
             {/* Sous-répertoires */}
-            {filesystemData.subdirectories && filesystemData.subdirectories.length > 0 && (
+            {directoryTree.subdirectories && directoryTree.subdirectories.length > 0 && (
               <div>
-                {filesystemData.subdirectories.map((subdir: any) =>
+                {directoryTree.subdirectories.map((subdir: any) =>
                   <DirectoryItem key={subdir.path} dir={subdir} level={1} />
                 )}
               </div>
             )}
 
             {/* Fichiers du répertoire racine */}
-            {filesystemData.files && filesystemData.files.length > 0 && (
+            {directoryTree.files && directoryTree.files.length > 0 && (
               <div>
-                {filesystemData.files.map((file: any) => 
+                {directoryTree.files.map((file: any) => 
                   <FileItem key={file.path} file={file} level={1} />
                 )}
               </div>
             )}
 
             {/* Indicateur de chargement */}
-            {isLoading && (
+            {loading && (
               <div className="text-center py-2 text-slate-400 text-sm">
                 <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400 mx-auto"></div>
                 <p>Chargement...</p>

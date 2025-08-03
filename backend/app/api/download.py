@@ -4,7 +4,6 @@ API endpoints pour le téléchargement de fichiers et dossiers
 
 from fastapi import APIRouter, HTTPException, Depends, Query, Request
 from fastapi.responses import FileResponse
-from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 from pathlib import Path
@@ -13,10 +12,12 @@ import urllib.parse
 
 from ..core.security import security_manager
 from ..services.download_service import download_service
+from ..middleware.auth_middleware import AuthMiddleware
+from ..utils.api_utils import APIUtils, ResponseFormatter
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/api/download", tags=["download"])
+router = APIRouter(tags=["download"])
 
 # Modèles Pydantic
 class DownloadRequest(BaseModel):
@@ -33,25 +34,14 @@ class FileInfo(BaseModel):
     is_file: bool
     is_directory: bool
 
-# Dépendance pour vérifier l'authentification
-def get_current_session(credentials: HTTPAuthorizationCredentials = Depends(HTTPBearer())) -> str:
-    """Vérifie et retourne le token de session"""
-    session_token = credentials.credentials
-    
-    if not security_manager.verify_session(session_token):
-        raise HTTPException(
-            status_code=401,
-            detail="Session invalide ou expirée",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    
-    return session_token
+# Utilisation du middleware d'authentification centralisé
 
 
 @router.get("/file/{file_path:path}")
+@APIUtils.handle_errors
 async def download_file(
     file_path: str,
-    session_token: str = Depends(get_current_session)
+    session_token: str = Depends(AuthMiddleware.get_current_session)
 ):
     """
     Télécharge un fichier individuel
@@ -63,30 +53,24 @@ async def download_file(
     Returns:
         FileResponse: Fichier à télécharger
     """
-    try:
-        # Décoder le chemin du fichier
-        decoded_path = urllib.parse.unquote(file_path)
-        file_path_obj = Path(decoded_path)
-        
-        logger.info(f"Tentative de téléchargement: {file_path_obj}")
-        
-        return download_service.download_file(file_path_obj)
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Erreur lors du téléchargement du fichier {file_path}: {e}")
-        raise HTTPException(status_code=500, detail=f"Erreur interne: {str(e)}")
+    # Décoder le chemin du fichier
+    decoded_path = urllib.parse.unquote(file_path)
+    file_path_obj = Path(decoded_path)
+    
+    logger.info(f"Tentative de téléchargement: {file_path_obj}")
+    
+    return download_service.download_file(file_path_obj)
 
 
 
 
 
 @router.get("/directory/{directory_path:path}")
+@APIUtils.handle_errors
 async def download_directory(
     directory_path: str,
     zip_name: Optional[str] = Query(None, description="Nom du fichier ZIP"),
-    session_token: str = Depends(get_current_session)
+    session_token: str = Depends(AuthMiddleware.get_current_session)
 ):
     """
     Télécharge un répertoire sous forme de ZIP
@@ -99,26 +83,20 @@ async def download_directory(
     Returns:
         FileResponse: Fichier ZIP à télécharger
     """
-    try:
-        # Décoder le chemin du répertoire
-        decoded_path = urllib.parse.unquote(directory_path)
-        directory_path_obj = Path(decoded_path)
-        
-        logger.info(f"Tentative de téléchargement du répertoire: {directory_path_obj}")
-        
-        return download_service.download_directory(directory_path_obj, zip_name)
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Erreur lors du téléchargement du répertoire {directory_path}: {e}")
-        raise HTTPException(status_code=500, detail=f"Erreur interne: {str(e)}")
+    # Décoder le chemin du répertoire
+    decoded_path = urllib.parse.unquote(directory_path)
+    directory_path_obj = Path(decoded_path)
+    
+    logger.info(f"Tentative de téléchargement du répertoire: {directory_path_obj}")
+    
+    return download_service.download_directory(directory_path_obj, zip_name)
 
 
 @router.post("/multiple")
+@APIUtils.handle_errors
 async def download_multiple_files(
     request: DownloadRequest,
-    session_token: str = Depends(get_current_session)
+    session_token: str = Depends(AuthMiddleware.get_current_session)
 ):
     """
     Télécharge plusieurs fichiers sous forme de ZIP
@@ -130,25 +108,19 @@ async def download_multiple_files(
     Returns:
         FileResponse: Fichier ZIP à télécharger
     """
-    try:
-        # Convertir les chemins en objets Path
-        file_paths = [Path(urllib.parse.unquote(path)) for path in request.file_paths]
-        
-        logger.info(f"Tentative de téléchargement multiple: {len(file_paths)} fichiers")
-        
-        return download_service.download_multiple_files(file_paths, request.zip_name)
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Erreur lors du téléchargement multiple: {e}")
-        raise HTTPException(status_code=500, detail=f"Erreur interne: {str(e)}")
+    # Convertir les chemins en objets Path
+    file_paths = [Path(urllib.parse.unquote(path)) for path in request.file_paths]
+    
+    logger.info(f"Tentative de téléchargement multiple: {len(file_paths)} fichiers")
+    
+    return download_service.download_multiple_files(file_paths, request.zip_name)
 
 
 @router.get("/info/{file_path:path}", response_model=FileInfo)
+@APIUtils.handle_errors
 async def get_file_info(
     file_path: str,
-    session_token: str = Depends(get_current_session)
+    session_token: str = Depends(AuthMiddleware.get_current_session)
 ):
     """
     Récupère les informations d'un fichier ou répertoire
@@ -160,23 +132,17 @@ async def get_file_info(
     Returns:
         FileInfo: Informations du fichier/répertoire
     """
-    try:
-        # Décoder le chemin
-        decoded_path = urllib.parse.unquote(file_path)
-        file_path_obj = Path(decoded_path)
-        
-        file_info = download_service.get_file_info(file_path_obj)
-        return FileInfo(**file_info)
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Erreur lors de la récupération des infos du fichier {file_path}: {e}")
-        raise HTTPException(status_code=500, detail=f"Erreur interne: {str(e)}")
+    # Décoder le chemin
+    decoded_path = urllib.parse.unquote(file_path)
+    file_path_obj = Path(decoded_path)
+    
+    file_info = download_service.get_file_info(file_path_obj)
+    return FileInfo(**file_info)
 
 
 @router.get("/stats")
-async def get_download_stats(session_token: str = Depends(get_current_session)):
+@APIUtils.handle_errors
+async def get_download_stats(session_token: str = Depends(AuthMiddleware.get_current_session)):
     """
     Récupère les statistiques de téléchargement
     
@@ -186,16 +152,16 @@ async def get_download_stats(session_token: str = Depends(get_current_session)):
     Returns:
         Dict: Statistiques de téléchargement
     """
-    try:
-        return download_service.get_download_stats()
-        
-    except Exception as e:
-        logger.error(f"Erreur lors de la récupération des statistiques: {e}")
-        raise HTTPException(status_code=500, detail=f"Erreur interne: {str(e)}")
+    stats_data = download_service.get_download_stats()
+    return ResponseFormatter.success_response(
+        data=stats_data,
+        message="Statistiques de téléchargement récupérées"
+    )
 
 
 @router.post("/cleanup")
-async def cleanup_temp_files(session_token: str = Depends(get_current_session)):
+@APIUtils.handle_errors
+async def cleanup_temp_files(session_token: str = Depends(AuthMiddleware.get_current_session)):
     """
     Nettoie les fichiers temporaires anciens
     
@@ -205,19 +171,15 @@ async def cleanup_temp_files(session_token: str = Depends(get_current_session)):
     Returns:
         Dict: Confirmation du nettoyage
     """
-    try:
-        download_service.cleanup_temp_files()
-        return {"success": True, "message": "Fichiers temporaires nettoyés"}
-        
-    except Exception as e:
-        logger.error(f"Erreur lors du nettoyage des fichiers temporaires: {e}")
-        raise HTTPException(status_code=500, detail=f"Erreur interne: {str(e)}")
+    download_service.cleanup_temp_files()
+    return ResponseFormatter.success_response(message="Fichiers temporaires nettoyés")
 
 
 @router.get("/browse/{directory_path:path}")
+@APIUtils.handle_errors
 async def browse_directory(
     directory_path: str,
-    session_token: str = Depends(get_current_session)
+    session_token: str = Depends(AuthMiddleware.get_current_session)
 ):
     """
     Parcourt un répertoire et retourne son contenu
@@ -229,45 +191,43 @@ async def browse_directory(
     Returns:
         Dict: Contenu du répertoire
     """
-    try:
-        # Décoder le chemin
-        decoded_path = urllib.parse.unquote(directory_path)
-        directory_path_obj = Path(decoded_path)
-        
-        if not directory_path_obj.exists():
-            raise HTTPException(status_code=404, detail="Répertoire non trouvé")
-        
-        if not directory_path_obj.is_dir():
-            raise HTTPException(status_code=400, detail="Le chemin ne correspond pas à un répertoire")
-        
-        # Lister le contenu
-        items = []
-        for item in directory_path_obj.iterdir():
-            try:
-                item_info = download_service.get_file_info(item)
-                items.append(item_info)
-            except Exception as e:
-                logger.warning(f"Impossible de récupérer les infos pour {item}: {e}")
-                continue
-        
-        # Trier : dossiers d'abord, puis fichiers
-        directories = [item for item in items if item['is_directory']]
-        files = [item for item in items if item['is_file']]
-        
-        directories.sort(key=lambda x: x['name'].lower())
-        files.sort(key=lambda x: x['name'].lower())
-        
-        return {
-            "directory": str(directory_path_obj),
-            "parent": str(directory_path_obj.parent) if directory_path_obj.parent != directory_path_obj else None,
-            "items": directories + files,
-            "total_items": len(items),
-            "directories_count": len(directories),
-            "files_count": len(files)
-        }
-        
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Erreur lors du parcours du répertoire {directory_path}: {e}")
-        raise HTTPException(status_code=500, detail=f"Erreur interne: {str(e)}") 
+    # Décoder le chemin
+    decoded_path = urllib.parse.unquote(directory_path)
+    directory_path_obj = Path(decoded_path)
+    
+    if not directory_path_obj.exists():
+        raise HTTPException(status_code=404, detail="Répertoire non trouvé")
+    
+    if not directory_path_obj.is_dir():
+        raise HTTPException(status_code=400, detail="Le chemin ne correspond pas à un répertoire")
+    
+    # Lister le contenu
+    items = []
+    for item in directory_path_obj.iterdir():
+        try:
+            item_info = download_service.get_file_info(item)
+            items.append(item_info)
+        except Exception as e:
+            logger.warning(f"Impossible de récupérer les infos pour {item}: {e}")
+            continue
+    
+    # Trier : dossiers d'abord, puis fichiers
+    directories = [item for item in items if item['is_directory']]
+    files = [item for item in items if item['is_file']]
+    
+    directories.sort(key=lambda x: x['name'].lower())
+    files.sort(key=lambda x: x['name'].lower())
+    
+    browse_data = {
+        "directory": str(directory_path_obj),
+        "parent": str(directory_path_obj.parent) if directory_path_obj.parent != directory_path_obj else None,
+        "items": directories + files,
+        "total_items": len(items),
+        "directories_count": len(directories),
+        "files_count": len(files)
+    }
+    
+    return ResponseFormatter.success_response(
+        data=browse_data,
+        message="Contenu du répertoire récupéré"
+    ) 

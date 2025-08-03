@@ -6,7 +6,6 @@ Handles application configuration management
 import json
 from typing import Dict, Any, Optional, List
 from sqlalchemy.orm import Session
-import logging
 from datetime import datetime
 import asyncio
 from fastapi import HTTPException
@@ -14,8 +13,8 @@ from fastapi import HTTPException
 from ..models.config import Config
 from ..core.config import settings
 from .ai_service import get_ai_service
-
-logger = logging.getLogger(__name__)
+from .base_service import BaseService, log_service_operation
+from ..core.types import ServiceResponse, ConfigData
 
 
 # Variables globales pour éviter les logs répétitifs
@@ -23,85 +22,82 @@ _config_cache_loaded = False
 _ai_providers_loaded = False
 _config_initialized = False
 
-class ConfigService:
+class ConfigService(BaseService):
     """Service for configuration management"""
 
     def __init__(self, db: Session):
-        self.db = db
+        super().__init__(db)
         self._cache = {}
         self._load_cache()
 
+    @log_service_operation("load_cache")
     def _load_cache(self):
         """Load all configurations into cache"""
-        try:
-            configs = self.db.query(Config).all()
-            for config in configs:
-                self._cache[config.key] = config.value
-            # Log seulement au premier chargement global
-            global _config_cache_loaded
-            if not _config_cache_loaded:
-                logger.info(f"{len(configs)} configurations chargées en cache")
-                _config_cache_loaded = True
-        except Exception as e:
-            logger.error(f"Error loading config cache: {str(e)}")
-            # En cas d'échec, utiliser les valeurs par défaut du fichier config
-            self._load_default_configs()
+        self.safe_execute("load_cache", self._load_cache_logic)
+
+    def _load_cache_logic(self):
+        """Logic for loading cache"""
+        configs = self.db.query(Config).all()
+        for config in configs:
+            self._cache[config.key] = config.value
+        # Log seulement au premier chargement global
+        global _config_cache_loaded
+        if not _config_cache_loaded:
+            self.logger.info(f"{len(configs)} configurations chargées en cache")
+            _config_cache_loaded = True
     
+    @log_service_operation("load_default_configs")
     def _load_default_configs(self):
         """Load default configurations from settings"""
-        try:
-            # NOUVEAU: Charger les clés API depuis la base de données d'abord
-            self.load_api_keys_from_database()
-            
-            # Configurations AI par défaut depuis les variables d'environnement
-            # (seulement si pas déjà chargées depuis la base de données)
-            from ..core.config import settings
-            
-            self._cache.update({
-                'provider_openai': settings.openai_api_key or '',
-                'provider_anthropic': settings.anthropic_api_key or '',
-                'provider_mistral': settings.mistral_api_key or '',
-                'provider_ollama': settings.ollama_base_url or 'http://localhost:11434',
-                'system_max_file_size': str(settings.max_file_size),
-                'system_ocr_enabled': str(settings.ocr_enabled),
-                'system_max_concurrent_analyses': str(settings.max_concurrent_analyses),
-                'ui_theme': 'dark',
-                'ui_language': 'fr',
-                'ui_sidebar_width': '320',
-                'ui_auto_refresh_interval': '10',
-                'ui_show_queue_panel': 'true'
-            })
-            logger.info("Configurations par défaut chargées avec clés API persistantes")
-        except Exception as e:
-            logger.error(f"Error loading default configs: {str(e)}")
-            # En cas d'échec, initialiser les configurations par défaut complètes
-            self.initialize_default_configs()
+        self.safe_execute("load_default_configs", self._load_default_configs_logic)
 
-    def get_config(
-            self,
-            key: str,
-            default: Optional[str] = None) -> Optional[str]:
+    def _load_default_configs_logic(self):
+        """Logic for loading default configs"""
+        # NOUVEAU: Charger les clés API depuis la base de données d'abord
+        self.load_api_keys_from_database()
+        
+        # Configurations AI par défaut depuis les variables d'environnement
+        # (seulement si pas déjà chargées depuis la base de données)
+        from ..core.config import settings
+        
+        self._cache.update({
+            'provider_openai': settings.openai_api_key or '',
+            'provider_anthropic': settings.anthropic_api_key or '',
+            'provider_mistral': settings.mistral_api_key or '',
+            'provider_ollama': settings.ollama_base_url or 'http://localhost:11434',
+            'system_max_file_size': str(settings.max_file_size),
+            'system_ocr_enabled': str(settings.ocr_enabled),
+            'system_max_concurrent_analyses': str(settings.max_concurrent_analyses),
+            'ui_theme': 'dark',
+            'ui_language': 'fr',
+            'ui_sidebar_width': '320',
+            'ui_auto_refresh_interval': '10',
+            'ui_show_queue_panel': 'true'
+        })
+        self.logger.info("Configurations par défaut chargées avec clés API persistantes")
+
+    @log_service_operation("get_config")
+    def get_config(self, key: str, default: Optional[str] = None) -> Optional[str]:
         """
         Get configuration value by key
         """
-        try:
-            # Check cache first
-            if key in self._cache:
-                return self._cache[key]
+        return self.safe_execute("get_config", self._get_config_logic, key, default)
 
-            # Query database
-            config = self.db.query(Config).filter(Config.key == key).first()
-            if config:
-                self._cache[key] = config.value
-                return config.value
+    def _get_config_logic(self, key: str, default: Optional[str] = None) -> Optional[str]:
+        """Logic for getting config"""
+        # Check cache first
+        if key in self._cache:
+            return self._cache[key]
 
-            return default
+        # Query database
+        config = self.db.query(Config).filter(Config.key == key).first()
+        if config:
+            self._cache[key] = config.value
+            return config.value
 
-        except Exception as e:
-            logger.error(f"Error getting config {key}: {str(e)}")
-            # En cas d'échec de la base, retourner la valeur par défaut ou depuis le cache
-            return self._cache.get(key, default)
+        return default
 
+    @log_service_operation("set_config")
     def set_config(
         self,
         key: str,
@@ -113,107 +109,108 @@ class ConfigService:
         """
         Set configuration value
         """
-        try:
-            # Check if config exists
-            config = self.db.query(Config).filter(Config.key == key).first()
+        return self.safe_execute("set_config", self._set_config_logic, key, value, description, category, is_encrypted)
 
-            if config:
-                # Update existing config
-                config.value = value
-                if description:
-                    config.description = description
-                if is_encrypted is not None:
-                    config.is_encrypted = is_encrypted
-            else:
-                # Create new config
-                config = Config(
-                    key=key,
-                    value=value,
-                    description=description,
-                    category=category,
-                    is_encrypted=is_encrypted
-                )
-                self.db.add(config)
+    def _set_config_logic(self, key: str, value: str, description: Optional[str] = None, category: str = "system", is_encrypted: bool = False) -> Config:
+        """Logic for setting config"""
+        # Check if config exists
+        config = self.db.query(Config).filter(Config.key == key).first()
 
-            self.db.commit()
-            self.db.refresh(config)
+        if config:
+            # Update existing config
+            config.value = value
+            if description:
+                config.description = description
+            if is_encrypted is not None:
+                config.is_encrypted = is_encrypted
+        else:
+            # Create new config
+            config = Config(
+                key=key,
+                value=value,
+                description=description,
+                category=category,
+                is_encrypted=is_encrypted
+            )
+            self.db.add(config)
 
-            # Update cache
-            self._cache[key] = value
+        self.db.commit()
+        self.db.refresh(config)
 
-            logger.info(f"Set config {key}")
-            return config
+        # Update cache
+        self._cache[key] = value
 
-        except Exception as e:
-            logger.error(f"Error setting config {key}: {str(e)}")
-            self.db.rollback()
-            raise
+        self.logger.info(f"Set config {key}")
+        return config
 
+    @log_service_operation("delete_config")
     def delete_config(self, key: str) -> bool:
         """
         Delete configuration
         """
-        try:
-            config = self.db.query(Config).filter(Config.key == key).first()
-            if not config:
-                return False
+        return self.safe_execute("delete_config", self._delete_config_logic, key)
 
-            self.db.delete(config)
-            self.db.commit()
+    def _delete_config_logic(self, key: str) -> bool:
+        """Logic for deleting config"""
+        config = self.db.query(Config).filter(Config.key == key).first()
+        if not config:
+            return False
 
-            # Remove from cache
-            if key in self._cache:
-                del self._cache[key]
+        self.db.delete(config)
+        self.db.commit()
 
-            logger.info(f"Deleted config {key}")
-            return True
+        # Remove from cache
+        if key in self._cache:
+            del self._cache[key]
 
-        except Exception as e:
-            logger.error(f"Error deleting config {key}: {str(e)}")
-            self.db.rollback()
-            raise
+        self.logger.info(f"Deleted config {key}")
+        return True
 
+    @log_service_operation("get_configs_by_category")
     def get_configs_by_category(self, category: str) -> List[Config]:
         """
         Get all configurations for a category
         """
-        try:
-            return self.db.query(Config).filter(
-                Config.category == category).all()
-        except Exception as e:
-            logger.error(
-                f"Error getting configs for category {category}: {
-                    str(e)}")
-            return []
+        return self.safe_execute("get_configs_by_category", self._get_configs_by_category_logic, category)
 
+    def _get_configs_by_category_logic(self, category: str) -> List[Config]:
+        """Logic for getting configs by category"""
+        return self.db.query(Config).filter(Config.category == category).all()
+
+    @log_service_operation("get_all_configs")
     def get_all_configs(self) -> List[Config]:
         """
         Get all configurations
         """
-        try:
-            return self.db.query(Config).order_by(
-                Config.category, Config.key).all()
-        except Exception as e:
-            logger.error(f"Error getting all configs: {str(e)}")
-            return []
+        return self.safe_execute("get_all_configs", self._get_all_configs_logic)
 
+    def _get_all_configs_logic(self) -> List[Config]:
+        """Logic for getting all configs"""
+        return self.db.query(Config).order_by(Config.category, Config.key).all()
+
+    @log_service_operation("get_categories")
     def get_categories(self) -> List[str]:
         """
         Get all configuration categories
         """
-        try:
-            categories = self.db.query(Config.category).distinct().all()
-            return [cat[0] for cat in categories]
-        except Exception as e:
-            logger.error(f"Error getting config categories: {str(e)}")
-            return []
+        return self.safe_execute("get_categories", self._get_categories_logic)
+
+    def _get_categories_logic(self) -> List[str]:
+        """Logic for getting categories"""
+        categories = self.db.query(Config.category).distinct().all()
+        return [cat[0] for cat in categories]
 
     # AI Provider Configuration Methods
+    @log_service_operation("get_ai_provider_config")
     def get_ai_provider_config(
             self, provider: str) -> Optional[Dict[str, Any]]:
         """
         Get AI provider configuration
         """
+        return self.safe_execute("get_ai_provider_config", self._get_ai_provider_config_logic, provider)
+
+    def _get_ai_provider_config_logic(self, provider: str) -> Optional[Dict[str, Any]]:
+        """Logic for getting AI provider config"""
         try:
             config_key = f"provider_{provider}"
             config_value = self.get_config(config_key)
@@ -223,16 +220,21 @@ class ConfigService:
             return None
 
         except Exception as e:
-            logger.error(
+            self.logger.error(
                 f"Error getting AI provider config for {provider}: {
                     str(e)}")
             return None
 
+    @log_service_operation("set_ai_provider_config")
     def set_ai_provider_config(
             self, provider: str, config: Dict[str, Any]) -> bool:
         """
         Set AI provider configuration
         """
+        return self.safe_execute("set_ai_provider_config", self._set_ai_provider_config_logic, provider, config)
+
+    def _set_ai_provider_config_logic(self, provider: str, config: Dict[str, Any]) -> bool:
+        """Logic for setting AI provider config"""
         try:
             config_key = f"provider_{provider}"
             config_value = json.dumps(config)
@@ -248,29 +250,39 @@ class ConfigService:
             return True
 
         except Exception as e:
-            logger.error(
+            self.logger.error(
                 f"Error setting AI provider config for {provider}: {
                     str(e)}")
             return False
 
+    @log_service_operation("delete_ai_provider_config")
     def delete_ai_provider_config(self, provider: str) -> bool:
         """
         Delete AI provider configuration
         """
+        return self.safe_execute("delete_ai_provider_config", self._delete_ai_provider_config_logic, provider)
+
+    def _delete_ai_provider_config_logic(self, provider: str) -> bool:
+        """Logic for deleting AI provider config"""
         try:
             config_key = f"provider_{provider}"
             return self.delete_config(config_key)
         except Exception as e:
-            logger.error(
+            self.logger.error(
                 f"Error deleting AI provider config for {provider}: {
                     str(e)}")
             return False
 
     # UI Configuration Methods
+    @log_service_operation("get_ui_config")
     def get_ui_config(self) -> Dict[str, Any]:
         """
         Get UI configuration
         """
+        return self.safe_execute("get_ui_config", self._get_ui_config_logic)
+
+    def _get_ui_config_logic(self) -> Dict[str, Any]:
+        """Logic for getting UI config"""
         try:
             return {
                 "theme": self.get_config(
@@ -282,13 +294,18 @@ class ConfigService:
                             "ui_auto_refresh_interval", "10")), "show_queue_panel": self.get_config(
                                 "ui_show_queue_panel", "true").lower() == "true"}
         except Exception as e:
-            logger.error(f"Error getting UI config: {str(e)}")
+            self.logger.error(f"Error getting UI config: {str(e)}")
             return {}
 
+    @log_service_operation("set_ui_config")
     def set_ui_config(self, config: Dict[str, Any]) -> bool:
         """
         Set UI configuration
         """
+        return self.safe_execute("set_ui_config", self._set_ui_config_logic, config)
+
+    def _set_ui_config_logic(self, config: Dict[str, Any]) -> bool:
+        """Logic for setting UI config"""
         try:
             for key, value in config.items():
                 config_key = f"ui_{key}"
@@ -300,14 +317,19 @@ class ConfigService:
                 )
             return True
         except Exception as e:
-            logger.error(f"Error setting UI config: {str(e)}")
+            self.logger.error(f"Error setting UI config: {str(e)}")
             return False
 
     # System Configuration Methods
+    @log_service_operation("get_system_config")
     def get_system_config(self) -> Dict[str, Any]:
         """
         Get system configuration
         """
+        return self.safe_execute("get_system_config", self._get_system_config_logic)
+
+    def _get_system_config_logic(self) -> Dict[str, Any]:
+        """Logic for getting system config"""
         try:
             return {
                 # 100MB
@@ -319,13 +341,18 @@ class ConfigService:
                 "retry_attempts": int(self.get_config("system_retry_attempts", "3"))
             }
         except Exception as e:
-            logger.error(f"Error getting system config: {str(e)}")
+            self.logger.error(f"Error getting system config: {str(e)}")
             return {}
 
+    @log_service_operation("set_system_config")
     def set_system_config(self, config: Dict[str, Any]) -> bool:
         """
         Set system configuration
         """
+        return self.safe_execute("set_system_config", self._set_system_config_logic, config)
+
+    def _set_system_config_logic(self, config: Dict[str, Any]) -> bool:
+        """Logic for setting system config"""
         try:
             for key, value in config.items():
                 config_key = f"system_{key}"
@@ -342,10 +369,11 @@ class ConfigService:
                 )
             return True
         except Exception as e:
-            logger.error(f"Error setting system config: {str(e)}")
+            self.logger.error(f"Error setting system config: {str(e)}")
             return False
 
     # Initialize default configurations
+    @log_service_operation("initialize_default_configs")
     def initialize_default_configs(self):
         """
         Initialize default configurations if they don't exist
@@ -413,11 +441,12 @@ class ConfigService:
             self._initialize_ai_provider_configs()
 
             _config_initialized = True
-            logger.info("Configurations par défaut initialisées")
+            self.logger.info("Configurations par défaut initialisées")
 
         except Exception as e:
-            logger.error(f"Error initializing default configs: {str(e)}")
+            self.logger.error(f"Error initializing default configs: {str(e)}")
 
+    @log_service_operation("initialize_ai_provider_configs")
     def _initialize_ai_provider_configs(self):
         """
         Initialize default AI provider configurations
@@ -489,15 +518,20 @@ class ConfigService:
                 if not self.get_ai_provider_config(provider):
                     self.set_ai_provider_config(provider, config)
 
-            logger.info("Configurations des fournisseurs AI initialisées")
+            self.logger.info("Configurations des fournisseurs AI initialisées")
 
         except Exception as e:
-            logger.error(f"Error initializing AI provider configs: {str(e)}")
+            self.logger.error(f"Error initializing AI provider configs: {str(e)}")
 
+    @log_service_operation("export_configs")
     def export_configs(self) -> Dict[str, Any]:
         """
         Export all configurations
         """
+        return self.safe_execute("export_configs", self._export_configs_logic)
+
+    def _export_configs_logic(self) -> Dict[str, Any]:
+        """Logic for exporting configs"""
         try:
             configs = self.get_all_configs()
             export_data = {}
@@ -517,13 +551,18 @@ class ConfigService:
             return export_data
 
         except Exception as e:
-            logger.error(f"Error exporting configs: {str(e)}")
+            self.logger.error(f"Error exporting configs: {str(e)}")
             return {}
 
+    @log_service_operation("import_configs")
     def import_configs(self, config_data: Dict[str, Any]) -> bool:
         """
         Import configurations
         """
+        return self.safe_execute("import_configs", self._import_configs_logic, config_data)
+
+    def _import_configs_logic(self, config_data: Dict[str, Any]) -> bool:
+        """Logic for importing configs"""
         try:
             for category, configs in config_data.items():
                 for key, config_info in configs.items():
@@ -535,19 +574,24 @@ class ConfigService:
                         is_encrypted=config_info.get("is_encrypted", False)
                     )
 
-            logger.info("Imported configurations successfully")
+            self.logger.info("Imported configurations successfully")
             return True
 
         except Exception as e:
-            logger.error(f"Error importing configs: {str(e)}")
+            self.logger.error(f"Error importing configs: {str(e)}")
             return False
 
     # === AI Provider Priority Management ===
 
+    @log_service_operation("get_ai_provider_priority")
     def get_ai_provider_priority(self, provider: str) -> int:
         """
         Get priority for an AI provider (1 = highest, 4 = lowest)
         """
+        return self.safe_execute("get_ai_provider_priority", self._get_ai_provider_priority_logic, provider)
+
+    def _get_ai_provider_priority_logic(self, provider: str) -> int:
+        """Logic for getting AI provider priority"""
         try:
             priority_key = f"ai_provider_priority_{provider}"
             priority = self.get_config(priority_key, "4")
@@ -555,12 +599,17 @@ class ConfigService:
         except (ValueError, TypeError):
             return 4  # Default to lowest priority
 
+    @log_service_operation("set_ai_provider_priority")
     def set_ai_provider_priority(self, provider: str, priority: int) -> bool:
         """
         Set priority for an AI provider (1 = highest, max = lowest)
         Each provider must have a unique priority
         Priority cannot exceed the number of active providers
         """
+        return self.safe_execute("set_ai_provider_priority", self._set_ai_provider_priority_logic, provider, priority)
+
+    def _set_ai_provider_priority_logic(self, provider: str, priority: int) -> bool:
+        """Logic for setting AI provider priority"""
         try:
             # Get active providers (those with API keys or local setup)
             active_providers = self._get_active_providers()
@@ -587,7 +636,7 @@ class ConfigService:
                 category="ai")
             return True
         except Exception as e:
-            logger.error(f"Error setting AI provider priority: {str(e)}")
+            self.logger.error(f"Error setting AI provider priority: {str(e)}")
             return False
 
     def _get_active_providers(self) -> List[str]:
@@ -612,14 +661,19 @@ class ConfigService:
 
             return active_providers
         except Exception as e:
-            logger.error(f"Error getting active providers: {str(e)}")
+            self.logger.error(f"Error getting active providers: {str(e)}")
             # Fallback to all providers
             return ["openai", "claude", "mistral", "ollama"]
 
+    @log_service_operation("get_ai_provider_cost")
     def get_ai_provider_cost(self, provider: str, model: str) -> float:
         """
         Get cost per 1K tokens for an AI provider/model combination
         """
+        return self.safe_execute("get_ai_provider_cost", self._get_ai_provider_cost_logic, provider, model)
+
+    def _get_ai_provider_cost_logic(self, provider: str, model: str) -> float:
+        """Logic for getting AI provider cost"""
         try:
             cost_key = f"ai_provider_cost_{provider}_{model}"
             cost = self.get_config(cost_key, "0.01")  # Default cost
@@ -627,6 +681,26 @@ class ConfigService:
         except (ValueError, TypeError):
             return 0.01  # Default cost
 
+    @log_service_operation("get_provider_avg_response_time")
+    def get_provider_avg_response_time(self, provider: str) -> Optional[float]:
+        """
+        Get average response time for a provider
+        """
+        return self.safe_execute("get_provider_avg_response_time", self._get_provider_avg_response_time_logic, provider)
+
+    def _get_provider_avg_response_time_logic(self, provider: str) -> Optional[float]:
+        """Logic for getting provider average response time"""
+        try:
+            time_key = f"{provider}_avg_response_time"
+            time_str = self.get_config(time_key)
+            if time_str:
+                return float(time_str)
+            return None
+        except Exception as e:
+            self.logger.error(f"Error getting response time for {provider}: {str(e)}")
+            return None
+
+    @log_service_operation("set_ai_provider_cost")
     def set_ai_provider_cost(
             self,
             provider: str,
@@ -635,6 +709,14 @@ class ConfigService:
         """
         Set cost per 1K tokens for an AI provider/model combination
         """
+        return self.safe_execute("set_ai_provider_cost", self._set_ai_provider_cost_logic, provider, model, cost)
+
+    def _set_ai_provider_cost_logic(
+            self,
+            provider: str,
+            model: str,
+            cost: float) -> bool:
+        """Logic for setting AI provider cost"""
         try:
             if cost < 0:
                 raise ValueError("Cost cannot be negative")
@@ -648,24 +730,30 @@ class ConfigService:
             )
             return True
         except Exception as e:
-            logger.error(f"Error setting AI provider cost: {str(e)}")
+            self.logger.error(f"Error setting AI provider cost: {str(e)}")
             return False
 
+    @log_service_operation("get_ai_provider_strategy")
     def get_ai_provider_strategy(self) -> str:
         """
         Get the current AI provider selection strategy
         """
         return self.get_config("ai_provider_strategy", "priority")
 
+    @log_service_operation("set_ai_provider_strategy")
     def set_ai_provider_strategy(self, strategy: str) -> bool:
         """
         Set AI provider strategy
         """
+        return self.safe_execute("set_ai_provider_strategy", self._set_ai_provider_strategy_logic, strategy)
+
+    def _set_ai_provider_strategy_logic(self, strategy: str) -> bool:
+        """Logic for setting AI provider strategy"""
         try:
             # Validate strategy
             valid_strategies = ['priority', 'fallback', 'cost', 'speed']
             if strategy not in valid_strategies:
-                logger.warning(f"Invalid strategy '{strategy}'. Using 'priority' as default.")
+                self.logger.warning(f"Invalid strategy '{strategy}'. Using 'priority' as default.")
                 strategy = 'priority'
             
             self.set_config(
@@ -674,16 +762,21 @@ class ConfigService:
                 description='AI provider selection strategy',
                 category='ai'
             )
-            logger.info(f"Set AI provider strategy to {strategy}")
+            self.logger.info(f"Set AI provider strategy to {strategy}")
             return True
         except Exception as e:
-            logger.error(f"Error setting AI provider strategy: {str(e)}")
+            self.logger.error(f"Error setting AI provider strategy: {str(e)}")
             return False
 
+    @log_service_operation("validate_and_fix_priorities")
     def validate_and_fix_priorities(self) -> Dict[str, Any]:
         """
         Validate and fix AI provider priorities based on active and connected providers
         """
+        return self.safe_execute("validate_and_fix_priorities", self._validate_and_fix_priorities_logic)
+
+    def _validate_and_fix_priorities_logic(self) -> Dict[str, Any]:
+        """Logic for validating and fixing priorities"""
         try:
             # Get all providers and their current priorities
             all_providers = ["openai", "claude", "mistral", "ollama"]
@@ -712,7 +805,7 @@ class ConfigService:
             
             if duplicates:
                 # Fix duplicate priorities by reassigning them
-                logger.info(f"Found duplicate priorities: {duplicates}")
+                self.logger.info(f"Found duplicate priorities: {duplicates}")
                 
                 # Sort active providers by name for consistent ordering
                 sorted_active_providers = sorted(active_providers)
@@ -727,7 +820,7 @@ class ConfigService:
                             "old_priority": old_priority,
                             "new_priority": i
                         })
-                        logger.info(f"Fixed priority for {provider}: {old_priority} -> {i}")
+                        self.logger.info(f"Fixed priority for {provider}: {old_priority} -> {i}")
             
             # Ensure priorities are sequential for active providers
             active_providers_after_fix = []
@@ -759,18 +852,23 @@ class ConfigService:
             }
             
         except Exception as e:
-            logger.error(f"Error validating priorities: {str(e)}")
+            self.logger.error(f"Error validating priorities: {str(e)}")
             return {
                 "success": False,
                 "error": str(e),
                 "message": "Failed to validate priorities"
             }
 
+    @log_service_operation("reset_all_priorities")
     def reset_all_priorities(self) -> bool:
         """
         Reset all AI provider priorities to avoid conflicts during strategy changes
         Resets priorities for ALL providers (not just active ones)
         """
+        return self.safe_execute("reset_all_priorities", self._reset_all_priorities_logic)
+
+    def _reset_all_priorities_logic(self) -> bool:
+        """Logic for resetting all priorities"""
         try:
             all_providers = ["openai", "claude", "mistral", "ollama"]
 
@@ -784,19 +882,24 @@ class ConfigService:
                     category="ai"
                 )
 
-            logger.info(
+            self.logger.info(
                 f"Reset priorities for all {
                     len(all_providers)} providers")
             return True
         except Exception as e:
-            logger.error(f"Error resetting priorities: {str(e)}")
+            self.logger.error(f"Error resetting priorities: {str(e)}")
             return False
 
+    @log_service_operation("get_available_ai_providers_with_priority")
     def get_available_ai_providers_with_priority(self) -> List[Dict[str, Any]]:
         """
         Get all available AI providers with their priorities and costs
         Only returns providers that are active, have valid API keys, and are functional
         """
+        return self.safe_execute("get_available_ai_providers_with_priority", self._get_available_ai_providers_with_priority_logic)
+
+    def _get_available_ai_providers_with_priority_logic(self) -> List[Dict[str, Any]]:
+        """Logic for getting available AI providers with priority"""
         try:
             providers = []
             
@@ -811,7 +914,7 @@ class ConfigService:
                 
                 # Only include providers that were previously tested as functional
                 if not is_functional:
-                    logger.warning(f"Provider {provider} is not functional (cached status) - skipping")
+                    self.logger.warning(f"Provider {provider} is not functional (cached status) - skipping")
                     continue
                 
                 priority = self.get_ai_provider_priority(provider)
@@ -856,9 +959,10 @@ class ConfigService:
             return providers
 
         except Exception as e:
-            logger.error(f"Error getting AI providers with priority: {str(e)}")
+            self.logger.error(f"Error getting AI providers with priority: {str(e)}")
             return []
 
+    @log_service_operation("get_available_ai_providers_with_priority_async")
     async def get_available_ai_providers_with_priority_async(self) -> List[Dict[str, Any]]:
         """
         Async version of get_available_ai_providers_with_priority
@@ -882,18 +986,13 @@ class ConfigService:
                 if not api_key:
                     continue
                 
-                # Test provider connectivity
-                is_functional = False
-                try:
-                    # Test the provider with its current configuration
-                    is_functional = await ai_service.test_provider_async(provider)
-                except Exception as e:
-                    logger.warning(f"Provider {provider} test failed: {str(e)}")
-                    is_functional = False
+                # Get saved functionality status from database
+                is_functional = self.get_provider_functionality_status(provider)
+                last_tested = self.get_provider_last_tested(provider)
                 
                 # Only include functional providers
                 if not is_functional:
-                    logger.warning(f"Provider {provider} is not functional - skipping")
+                    self.logger.warning(f"Provider {provider} is not functional (saved status) - skipping")
                     continue
                 
                 priority = self.get_ai_provider_priority(provider)
@@ -930,7 +1029,7 @@ class ConfigService:
                     "api_key_configured": bool(api_key),
                     "is_available": True,
                     "is_functional": is_functional,
-                    "last_tested": datetime.now().isoformat()
+                    "last_tested": last_tested
                 })
 
             # Sort by priority (ascending) - only functional providers
@@ -938,14 +1037,19 @@ class ConfigService:
             return providers
 
         except Exception as e:
-            logger.error(f"Error getting AI providers with priority: {str(e)}")
+            self.logger.error(f"Error getting AI providers with priority: {str(e)}")
             return []
 
+    @log_service_operation("validate_provider_key")
     async def validate_provider_key(self, provider: str, api_key: str) -> Dict[str, Any]:
         """
         Validate an API key by testing the connection to the provider
         Returns validation result with details
         """
+        return self.safe_execute("validate_provider_key", self._validate_provider_key_logic, provider, api_key)
+
+    async def _validate_provider_key_logic(self, provider: str, api_key: str) -> Dict[str, Any]:
+        """Logic for validating API key"""
         try:
             from .ai_service import get_ai_service
             
@@ -962,15 +1066,15 @@ class ConfigService:
             }
             
             if is_valid:
-                logger.info(f"API key validation successful for {provider}")
+                self.logger.info(f"API key validation successful for {provider}")
             else:
                 result["error_message"] = f"Failed to connect to {provider} with provided API key"
-                logger.warning(f"API key validation failed for {provider}")
+                self.logger.warning(f"API key validation failed for {provider}")
             
             return result
             
         except Exception as e:
-            logger.error(f"Error validating API key for {provider}: {str(e)}")
+            self.logger.error(f"Error validating API key for {provider}: {str(e)}")
             return {
                 "provider": provider,
                 "is_valid": False,
@@ -978,21 +1082,31 @@ class ConfigService:
                 "error_message": str(e)
             }
 
+    @log_service_operation("get_functional_providers_count")
     def get_functional_providers_count(self) -> int:
         """
         Get the count of functional providers
         """
+        return self.safe_execute("get_functional_providers_count", self._get_functional_providers_count_logic)
+
+    def _get_functional_providers_count_logic(self) -> int:
+        """Logic for getting functional providers count"""
         try:
             providers = self.get_available_ai_providers_with_priority()
             return len([p for p in providers if p.get("is_functional", False)])
         except Exception as e:
-            logger.error(f"Error getting functional providers count: {str(e)}")
+            self.logger.error(f"Error getting functional providers count: {str(e)}")
             return 0
 
+    @log_service_operation("update_provider_functionality_status")
     def update_provider_functionality_status(self, provider: str, is_functional: bool) -> bool:
         """
         Update the functionality status of a provider
         """
+        return self.safe_execute("update_provider_functionality_status", self._update_provider_functionality_status_logic, provider, is_functional)
+
+    def _update_provider_functionality_status_logic(self, provider: str, is_functional: bool) -> bool:
+        """Logic for updating functionality status"""
         try:
             status_key = f"{provider}_is_functional"
             self.set_config(
@@ -1010,17 +1124,61 @@ class ConfigService:
                 category="ai"
             )
             
-            logger.info(f"Updated functionality status for {provider}: {is_functional}")
+            self.logger.info(f"Updated functionality status for {provider}: {is_functional}")
             return True
             
         except Exception as e:
-            logger.error(f"Error updating functionality status for {provider}: {str(e)}")
+            self.logger.error(f"Error updating functionality status for {provider}: {str(e)}")
             return False
 
+    @log_service_operation("get_provider_functionality_status")
+    def get_provider_functionality_status(self, provider: str) -> bool:
+        """
+        Get the saved functionality status of a provider from database
+        """
+        return self.safe_execute("get_provider_functionality_status", self._get_provider_functionality_status_logic, provider)
+
+    def _get_provider_functionality_status_logic(self, provider: str) -> bool:
+        """Logic for getting functionality status"""
+        try:
+            status_key = f"{provider}_is_functional"
+            status_value = self.get_config(status_key)
+            
+            if status_value is None:
+                return False  # Si pas de statut sauvegardé, considérer comme non fonctionnel
+                
+            return status_value.lower() == "true"
+            
+        except Exception as e:
+            self.logger.error(f"Error getting functionality status for {provider}: {str(e)}")
+            return False
+
+    @log_service_operation("get_provider_last_tested")
+    def get_provider_last_tested(self, provider: str) -> Optional[str]:
+        """
+        Get the last test time of a provider from database
+        """
+        return self.safe_execute("get_provider_last_tested", self._get_provider_last_tested_logic, provider)
+
+    def _get_provider_last_tested_logic(self, provider: str) -> Optional[str]:
+        """Logic for getting last test time"""
+        try:
+            last_tested_key = f"{provider}_last_tested"
+            return self.get_config(last_tested_key)
+            
+        except Exception as e:
+            self.logger.error(f"Error getting last test time for {provider}: {str(e)}")
+            return None
+
+    @log_service_operation("set_ai_provider_key")
     def set_ai_provider_key(self, provider: str, api_key: str) -> bool:
         """
         Set API key for an AI provider
         """
+        return self.safe_execute("set_ai_provider_key", self._set_ai_provider_key_logic, provider, api_key)
+
+    def _set_ai_provider_key_logic(self, provider: str, api_key: str) -> bool:
+        """Logic for setting API key"""
         try:
             key_name = f"{provider}_api_key"
             self.set_config(
@@ -1034,10 +1192,10 @@ class ConfigService:
             # NOUVEAU: Sauvegarder aussi dans les settings pour la persistance
             self._save_api_key_to_settings(provider, api_key)
             
-            logger.info(f"Set API key for {provider}")
+            self.logger.info(f"Set API key for {provider}")
             return True
         except Exception as e:
-            logger.error(f"Error setting API key for {provider}: {str(e)}")
+            self.logger.error(f"Error setting API key for {provider}: {str(e)}")
             return False
 
     def _save_api_key_to_settings(self, provider: str, api_key: str):
@@ -1058,16 +1216,21 @@ class ConfigService:
             if provider in provider_mapping:
                 attr_name = provider_mapping[provider]
                 setattr(settings, attr_name, api_key)
-                logger.info(f"API key saved to settings for {provider}")
+                self.logger.info(f"API key saved to settings for {provider}")
                 
         except Exception as e:
-            logger.error(f"Error saving API key to settings for {provider}: {str(e)}")
+            self.logger.error(f"Error saving API key to settings for {provider}: {str(e)}")
 
+    @log_service_operation("load_api_keys_from_database")
     def load_api_keys_from_database(self):
         """
         Charge toutes les clés API depuis la base de données
         et les met à jour dans les settings
         """
+        return self.safe_execute("load_api_keys_from_database", self._load_api_keys_from_database_logic)
+
+    def _load_api_keys_from_database_logic(self):
+        """Logic for loading API keys from database"""
         try:
             from ..core.config import settings
             
@@ -1085,26 +1248,36 @@ class ConfigService:
                     attr_name = provider_mapping.get(provider)
                     if attr_name:
                         setattr(settings, attr_name, api_key)
-                        logger.info(f"Loaded API key for {provider} from database")
+                        self.logger.info(f"Loaded API key for {provider} from database")
                         
         except Exception as e:
-            logger.error(f"Error loading API keys from database: {str(e)}")
+            self.logger.error(f"Error loading API keys from database: {str(e)}")
 
+    @log_service_operation("get_ai_provider_key")
     def get_ai_provider_key(self, provider: str) -> Optional[str]:
         """
         Get API key for an AI provider
         """
+        return self.safe_execute("get_ai_provider_key", self._get_ai_provider_key_logic, provider)
+
+    def _get_ai_provider_key_logic(self, provider: str) -> Optional[str]:
+        """Logic for getting API key"""
         try:
             key_name = f"{provider}_api_key"
             return self.get_config(key_name)
         except Exception as e:
-            logger.error(f"Error getting API key for {provider}: {str(e)}")
+            self.logger.error(f"Error getting API key for {provider}: {str(e)}")
             return None
 
+    @log_service_operation("set_ai_provider_model")
     def set_ai_provider_model(self, provider: str, model: str) -> bool:
         """
         Set default model for an AI provider
         """
+        return self.safe_execute("set_ai_provider_model", self._set_ai_provider_model_logic, provider, model)
+
+    def _set_ai_provider_model_logic(self, provider: str, model: str) -> bool:
+        """Logic for setting default model"""
         try:
             model_key = f"{provider}_default_model"
             self.set_config(
@@ -1113,31 +1286,41 @@ class ConfigService:
                 description=f"Default model for {provider}",
                 category="ai"
             )
-            logger.info(f"Set default model {model} for {provider}")
+            self.logger.info(f"Set default model {model} for {provider}")
             return True
         except Exception as e:
-            logger.error(
+            self.logger.error(
                 f"Error setting default model for {provider}: {
                     str(e)}")
             return False
 
+    @log_service_operation("get_ai_provider_model")
     def get_ai_provider_model(self, provider: str) -> Optional[str]:
         """
         Get default model for an AI provider
         """
+        return self.safe_execute("get_ai_provider_model", self._get_ai_provider_model_logic, provider)
+
+    def _get_ai_provider_model_logic(self, provider: str) -> Optional[str]:
+        """Logic for getting default model"""
         try:
             model_key = f"{provider}_default_model"
             return self.get_config(model_key)
         except Exception as e:
-            logger.error(
+            self.logger.error(
                 f"Error getting default model for {provider}: {
                     str(e)}")
             return None
 
+    @log_service_operation("get_ai_metrics")
     def get_ai_metrics(self) -> Dict[str, Any]:
         """
         Get AI provider metrics
         """
+        return self.safe_execute("get_ai_metrics", self._get_ai_metrics_logic)
+
+    def _get_ai_metrics_logic(self) -> Dict[str, Any]:
+        """Logic for getting AI metrics"""
         try:
             metrics = {}
             for provider in ["openai", "claude", "mistral", "ollama"]:
@@ -1157,99 +1340,49 @@ class ConfigService:
 
             return metrics
         except Exception as e:
-            logger.error(f"Error getting AI metrics: {str(e)}")
+            self.logger.error(f"Error getting AI metrics: {str(e)}")
             return {}
 
+    @log_service_operation("get_ai_providers_config")
     async def get_ai_providers_config(self) -> Dict[str, Any]:
         """
         Get AI providers configuration with detailed status information
         """
+        return await self.safe_execute_async("get_ai_providers_config", self._get_ai_providers_config_logic)
+
+    async def _get_ai_providers_config_logic(self) -> Dict[str, Any]:
+        """Logic for getting AI providers config"""
         try:
-            config_service = ConfigService(self.db)
-            ai_service = get_ai_service(self.db)
-
-            # Get all provider configurations with defaults
+            # Utiliser la méthode asynchrone unifiée pour la cohérence
+            providers_data = await self.get_available_ai_providers_with_priority_async()
+            
+            # Convertir le format pour la compatibilité
             providers = []
-            for provider in ["openai", "claude", "mistral", "ollama"]:
-                config = config_service.get_ai_provider_config(provider)
-                api_key = config_service.get_ai_provider_key(provider)
+            for provider_data in providers_data:
+                providers.append({
+                    "name": provider_data["name"],
+                    "priority": provider_data["priority"],
+                    "models": provider_data["models"],
+                    "default_model": provider_data.get("default_model"),
+                    "base_url": provider_data.get("base_url"),
+                    "is_active": provider_data.get("is_active", True),
+                    "has_api_key": provider_data.get("api_key_configured", False),
+                    "is_connected": provider_data.get("is_functional", False),
+                    "is_functional": provider_data.get("is_functional", False),
+                    "api_key": None,  # Ne pas exposer les clés API
+                    "last_tested": provider_data.get("last_tested")
+                })
 
-                # Default models for each provider
-                default_models = {
-                    "openai": [
-                        "gpt-4",
-                        "gpt-3.5-turbo",
-                        "gpt-4o"],
-                    "claude": [
-                        "claude-3-opus",
-                        "claude-3-sonnet",
-                        "claude-3-haiku"],
-                    "mistral": [
-                        "mistral-large",
-                        "mistral-medium",
-                        "mistral-small"],
-                    "ollama": [
-                        "llama2",
-                        "mistral",
-                        "codellama",
-                        "phi"]}
-
-                # Default model for each provider
-                default_model_map = {
-                    "openai": "gpt-3.5-turbo",
-                    "claude": "claude-3-sonnet",
-                    "mistral": "mistral-medium",
-                    "ollama": "llama2"
-                }
-
-                # Check if provider has API key and test connection
-                has_api_key = bool(api_key)
-                is_connected = False
-                is_functional = False
-                
-                if has_api_key:
-                    try:
-                        # Test connection asynchronously with timeout
-                        is_connected = await ai_service.test_provider_async(provider)
-                        is_functional = is_connected
-                        
-                        # Update functionality status in database
-                        self.update_provider_functionality_status(provider, is_functional)
-                    except Exception as e:
-                        logger.warning(f"Connection test failed for {provider}: {str(e)}")
-                        is_connected = False
-                        is_functional = False
-                        self.update_provider_functionality_status(provider, False)
-
-                provider_data = {
-                    "name": provider,
-                    "priority": config_service.get_ai_provider_priority(provider),
-                    "models": config.get("models", default_models.get(provider, [])) if config else default_models.get(provider, []),
-                    "default_model": config.get("default_model", default_model_map.get(provider)) if config else default_model_map.get(provider),
-                    "base_url": config.get("base_url") if config else None,
-                    "is_active": config.get("is_active", True) if config else True,
-                    "has_api_key": has_api_key,
-                    "is_connected": is_connected,
-                    "is_functional": is_functional,
-                    "api_key": api_key if api_key else None,  # Include API key for frontend validation
-                    "last_tested": datetime.now().isoformat() if has_api_key else None
-                }
-
-                providers.append(provider_data)
-
-            # Sort providers by priority, but only include active and connected ones
+            # Séparer les providers actifs et inactifs
             active_providers = [p for p in providers if p["has_api_key"] and p["is_functional"]]
             inactive_providers = [p for p in providers if not (p["has_api_key"] and p["is_functional"])]
             
-            # Sort active providers by priority (ascending)
-            active_providers.sort(key=lambda x: x["priority"])
-            
-            # Combine active (sorted) and inactive providers
+            # Combiner les providers actifs (triés) et inactifs
             sorted_providers = active_providers + inactive_providers
 
             return {
                 "providers": sorted_providers,
-                "strategy": config_service.get_ai_provider_strategy(),
+                "strategy": self.get_ai_provider_strategy(),
                 "available_providers": [p["name"] for p in active_providers],
                 "active_count": len(active_providers),
                 "total_count": len(providers),
@@ -1257,5 +1390,5 @@ class ConfigService:
                 "configured_count": len([p for p in providers if p["has_api_key"]])
             }
         except Exception as e:
-            logger.error(f"Error getting AI providers config: {str(e)}")
+            self.logger.error(f"Error getting AI providers config: {str(e)}")
             raise HTTPException(status_code=500, detail=str(e))

@@ -181,7 +181,7 @@ class MultimediaService {
         compressor.connect(audioContext.destination);
       }
 
-      console.log('✅ Optimisations audio appliquées en temps réel');
+      
     } catch (error) {
       console.warn('Erreur lors de l\'application des optimisations audio:', error);
     }
@@ -217,7 +217,7 @@ class MultimediaService {
         videoElement.style.filter = 'contrast(1.1) brightness(1.05)';
       }
 
-      console.log('✅ Optimisations vidéo appliquées');
+      
     } catch (error) {
       console.warn('Erreur lors de l\'application des optimisations vidéo:', error);
     }

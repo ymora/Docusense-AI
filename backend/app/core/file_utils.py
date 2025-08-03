@@ -11,109 +11,8 @@ from datetime import datetime
 logger = logging.getLogger(__name__)
 
 
-class FileFormatManager:
-    """
-    Gestionnaire centralisé des formats de fichiers supportés
-    """
-
-    # Formats supportés centralisés - source unique de vérité
-    SUPPORTED_FORMATS = [
-        # Documents
-        "pdf", "docx", "doc", "txt", "html", "rtf", "odt", "pages",
-        # Emails
-        "eml", "msg", "pst", "ost",
-        # Tableurs
-        "xlsx", "xls", "csv", "ods", "numbers",
-        # Images
-        "jpg", "jpeg", "png", "gif", "bmp", "tiff", "svg", "webp", "ico", "raw", "heic", "heif",
-        # Vidéos
-        "mp4", "avi", "mov", "wmv", "flv", "webm", "mkv", "m4v", "3gp", "ogv", "ts", "mts", "m2ts", "vob", "asf", "rm", "rmvb", "divx", "xvid", "evo", "ogm", "ogx", "mxf", "nut", "m3u8", "hls",
-        # Audio
-        "mp3", "wav", "flac", "aac", "ogg", "wma", "m4a", "opus", "aiff", "alac", "ra", "rm", "wv", "ape", "ac3", "dts", "amr", "3ga", "mka", "tta",
-        # Archives
-        "zip", "rar", "7z", "tar", "gz", "bz2",
-        # Présentations
-        "ppt", "pptx", "odp", "key",
-        # Code source
-        "py", "js", "ts", "java", "cpp", "c", "cs", "php", "rb", "go", "rs", "swift", "kt",
-        "html", "css", "xml", "json", "yaml", "yml", "sql", "sh", "bat", "ps1",
-        # Autres
-        "md", "tex", "log", "ini", "cfg", "conf"
-    ]
-
-    # Catégories de formats pour organisation
-    FORMAT_CATEGORIES = {
-        "documents": ["pdf", "docx", "doc", "txt", "html", "rtf", "odt", "pages", "md", "tex"],
-        "emails": ["eml", "msg", "pst", "ost"],
-        "spreadsheets": ["xlsx", "xls", "csv", "ods", "numbers"],
-        "presentations": ["ppt", "pptx", "odp", "key"],
-        "images": ["jpg", "jpeg", "png", "gif", "bmp", "tiff", "svg", "webp", "ico", "raw", "heic", "heif"],
-        "videos": ["mp4", "avi", "mov", "wmv", "flv", "webm", "mkv", "m4v", "3gp", "ogv", "ts", "mts", "m2ts", "vob", "asf", "rm", "rmvb", "divx", "xvid", "evo", "ogm", "ogx", "mxf", "nut", "m3u8", "hls"],
-        "audio": ["mp3", "wav", "flac", "aac", "ogg", "wma", "m4a", "opus", "aiff", "alac", "ra", "rm", "wv", "ape", "ac3", "dts", "amr", "3ga", "mka", "tta"],
-        "archives": ["zip", "rar", "7z", "tar", "gz", "bz2"],
-        "code": ["py", "js", "ts", "java", "cpp", "c", "cs", "php", "rb", "go", "rs", "swift", "kt", "html", "css", "xml", "json", "yaml", "yml", "sql", "sh", "bat", "ps1"],
-        "logs": ["log", "ini", "cfg", "conf"]
-    }
-
-    @classmethod
-    def is_format_supported(cls, extension: str) -> bool:
-        """
-        Vérifie si un format de fichier est supporté
-
-        Args:
-            extension: Extension du fichier (avec ou sans point)
-
-        Returns:
-            bool: True si le format est supporté
-        """
-        # Normaliser l'extension
-        extension = extension.lower().strip().lstrip('.')
-
-        is_supported = extension in cls.SUPPORTED_FORMATS
-
-        return is_supported
-
-    @classmethod
-    def get_format_category(cls, extension: str) -> Optional[str]:
-        """
-        Retourne la catégorie d'un format
-
-        Args:
-            extension: Extension du fichier
-
-        Returns:
-            str: Catégorie du format ou None
-        """
-        extension = extension.lower().strip().lstrip('.')
-
-        for category, formats in cls.FORMAT_CATEGORIES.items():
-            if extension in formats:
-                return category
-
-        return None
-
-    @classmethod
-    def get_supported_formats(cls) -> List[str]:
-        """
-        Retourne la liste des formats supportés
-
-        Returns:
-            List[str]: Liste des formats supportés
-        """
-        return cls.SUPPORTED_FORMATS.copy()
-
-    @classmethod
-    def get_formats_by_category(cls, category: str) -> List[str]:
-        """
-        Retourne les formats d'une catégorie
-
-        Args:
-            category: Catégorie de formats
-
-        Returns:
-            List[str]: Formats de la catégorie
-        """
-        return cls.FORMAT_CATEGORIES.get(category, [])
+# FileFormatManager a été supprimé car redondant avec FileValidator dans core/file_validation.py
+# Utilisez FileValidator depuis core/file_validation.py pour la gestion des formats
 
 
 class FileInfoExtractor:
@@ -142,8 +41,10 @@ class FileInfoExtractor:
             extension = file_path.suffix.lower().lstrip('.')
 
             # Vérifier si le format est supporté
-            if not FileFormatManager.is_format_supported(extension):
-
+            # Utiliser FileValidator pour vérifier si le format est supporté
+            from .file_validation import FileValidator
+            mime_type, _ = mimetypes.guess_type(str(file_path))
+            if mime_type and not FileValidator.is_format_supported(mime_type):
                 return None
 
             # Obtenir les statistiques du fichier
@@ -153,7 +54,12 @@ class FileInfoExtractor:
             mime_type = FileInfoExtractor._get_mime_type(file_path, extension)
 
             # Obtenir la catégorie du format
-            format_category = FileFormatManager.get_format_category(extension)
+            # Utiliser FileValidator pour obtenir la catégorie
+            if mime_type:
+                file_type = FileValidator.get_file_type(mime_type)
+                format_category = file_type
+            else:
+                format_category = None
 
             file_info = {
                 "name": file_path.name,

@@ -40,7 +40,6 @@ export const QueueContent: React.FC<QueueContentProps> = ({ onClose, onMinimize,
   // Écouter les événements de rechargement de la queue
   useEffect(() => {
     const handleReloadQueue = () => {
-      console.log('🔍 QueuePanel: Événement reloadQueue reçu, rechargement...');
       loadQueueStatus();
     };
 
@@ -162,15 +161,15 @@ export const QueueContent: React.FC<QueueContentProps> = ({ onClose, onMinimize,
 
   // Actions individuelles (à implémenter dans le store)
   const handlePauseItem = async (itemId: string) => {
-    // TODO: Implémenter dans le store
+    // Implémentation future dans le store
   };
 
   const handleCancelItem = async (itemId: string) => {
-    // TODO: Implémenter dans le store
+    // Implémentation future dans le store
   };
 
   const handleRetryItem = async (itemId: string) => {
-    // TODO: Implémenter dans le store
+    // Implémentation future dans le store
   };
 
   // Rendu d'un élément de queue compact et épuré

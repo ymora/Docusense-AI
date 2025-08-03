@@ -125,7 +125,7 @@ export const useAIConfig = (): AIConfigState & AIConfigActions => {
 
   // Tester un provider
   const testProvider = useCallback(async (provider: string) => {
-    console.log(`🔍 Début du test pour ${provider}`);
+    
     
     // Marquer comme en cours de test
     setState(prev => ({
@@ -140,9 +140,9 @@ export const useAIConfig = (): AIConfigState & AIConfigActions => {
     }));
 
     try {
-      console.log(`📡 Appel de ConfigService.testProvider pour ${provider}`);
+      
       const result = await ConfigService.testProvider(provider);
-      console.log(`📊 Résultat du test pour ${provider}:`, result);
+      
       
       // Mettre à jour le statut selon le résultat
       setState(prev => ({
@@ -159,10 +159,10 @@ export const useAIConfig = (): AIConfigState & AIConfigActions => {
       
       // Recharger les providers si le test réussit
       if (result.success) {
-        console.log(`✅ Test réussi pour ${provider}, rechargement des providers`);
+        
         await loadProviders();
       } else {
-        console.log(`❌ Test échoué pour ${provider}: ${result.message}`);
+        
       }
       
       return result;

@@ -6,85 +6,72 @@ Handles text extraction from images, PDFs, and Office documents
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 from sqlalchemy.orm import Session
-import logging
 import asyncio
 
 from ..models.file import File, FileStatus
 from .document_extractor_service import DocumentExtractorService
+from .base_service import BaseService, log_service_operation
+from ..core.types import ServiceResponse, FileData
 
-logger = logging.getLogger(__name__)
 
-
-class OCRService:
+class OCRService(BaseService):
     """Service for OCR and text extraction"""
 
     def __init__(self, db: Session):
-        self.db = db
+        super().__init__(db)
         self.supported_image_formats = ["jpg", "jpeg", "png", "tiff", "bmp"]
         self.supported_pdf_formats = ["pdf"]
         self.supported_text_formats = ["txt", "html", "htm"]
         # Service d'extraction de documents Office
-        self.document_extractor = DocumentExtractorService()
+        self.document_extractor = DocumentExtractorService(db)
 
+    @log_service_operation("extract_text_from_file")
     async def extract_text_from_file(self, file_id: int) -> Optional[str]:
         """
         Extract text from a file using OCR if needed
         """
-        try:
-            file = self.db.query(File).filter(File.id == file_id).first()
-            if not file:
-                raise ValueError(f"File {file_id} not found")
+        return await self.safe_execute("extract_text_from_file", self._extract_text_from_file_logic, file_id)
 
-            # Check if already has extracted text
-            if file.extracted_text:
-                return file.extracted_text
+    async def _extract_text_from_file_logic(self, file_id: int) -> Optional[str]:
+        """Logic for extracting text from file"""
+        file = self.db.query(File).filter(File.id == file_id).first()
+        if not file:
+            raise ValueError(f"File {file_id} not found")
 
-            # Get file extension
-            extension = Path(file.path).suffix.lower().lstrip('.')
+        # Check if already has extracted text
+        if file.extracted_text:
+            return file.extracted_text
 
-            # Extract text based on file type
-            if extension in self.supported_image_formats:
-                text = await self._extract_text_from_image(file.path)
-            elif extension in self.supported_pdf_formats:
-                text = await self._extract_text_from_pdf(file.path)
-            elif extension in self.supported_text_formats:
-                text = await self._extract_text_from_text_file(file.path)
-            elif self.document_extractor.is_format_supported(extension):
-                # Utiliser le service d'extraction de documents Office
-                text = await self.document_extractor.extract_text(file.path)
-            else:
-                # For other files, try direct extraction
-                text = await self._extract_text_from_text_file(file.path)
+        # Get file extension
+        extension = Path(file.path).suffix.lower().lstrip('.')
 
-            # Update file with extracted text
-            if text:
-                file.extracted_text = text
-                file.status = FileStatus.COMPLETED
-                self.db.commit()
-                logger.info(
-                    f"Extracted text from file {file_id}: {
-                        len(text)} characters")
-                return text
-            else:
-                file.status = FileStatus.FAILED
-                file.error_message = "No text could be extracted"
-                self.db.commit()
-                logger.warning(f"No text extracted from file {file_id}")
-                return None
+        # Extract text based on file type
+        if extension in self.supported_image_formats:
+            text = await self._extract_text_from_image(file.path)
+        elif extension in self.supported_pdf_formats:
+            text = await self._extract_text_from_pdf(file.path)
+        elif extension in self.supported_text_formats:
+            text = await self._extract_text_from_text_file(file.path)
+        elif self.document_extractor.is_format_supported(extension):
+            # Utiliser le service d'extraction de documents Office
+            text = await self.document_extractor.extract_text(file.path)
+        else:
+            # For other files, try direct extraction
+            text = await self._extract_text_from_text_file(file.path)
 
-        except Exception as e:
-            logger.error(
-                f"Error extracting text from file {file_id}: {
-                    str(e)}")
-
-            # Update file status on error
-            file = self.db.query(File).filter(File.id == file_id).first()
-            if file:
-                file.status = FileStatus.FAILED
-                file.error_message = str(e)
-                self.db.commit()
-
-            raise
+        # Update file with extracted text
+        if text:
+            file.extracted_text = text
+            file.status = FileStatus.COMPLETED
+            self.db.commit()
+            self.logger.info(f"Extracted text from file {file_id}: {len(text)} characters")
+            return text
+        else:
+            file.status = FileStatus.FAILED
+            file.error_message = "No text could be extracted"
+            self.db.commit()
+            self.logger.warning(f"No text extracted from file {file_id}")
+            return None
 
     async def _extract_text_from_image(self, image_path: str) -> Optional[str]:
         """
@@ -109,14 +96,12 @@ class OCRService:
             return None
 
         except ImportError:
-            logger.warning("pytesseract not available, falling back to mock OCR")
+            self.logger.warning("pytesseract not available, falling back to mock OCR")
             # Fallback to mock OCR if pytesseract is not available
             await asyncio.sleep(1)
             return f"Extracted text from image: {Path(image_path).name}"
         except Exception as e:
-            logger.error(
-                f"Error extracting text from image {image_path}: {
-                    str(e)}")
+            self.logger.error(f"Error extracting text from image {image_path}: {str(e)}")
             raise
 
     async def _extract_text_from_pdf(self, pdf_path: str) -> Optional[str]:
@@ -141,7 +126,7 @@ class OCRService:
                     return '\n\n'.join(text_content)
                     
             except Exception as e:
-                logger.warning(f"pdfplumber failed, trying PyPDF2: {e}")
+                self.logger.warning(f"pdfplumber failed, trying PyPDF2: {e}")
             
             # Fallback to PyPDF2
             try:
@@ -157,25 +142,22 @@ class OCRService:
                     return '\n\n'.join(text_content)
                     
             except Exception as e:
-                logger.warning(f"PyPDF2 failed: {e}")
+                self.logger.warning(f"PyPDF2 failed: {e}")
             
             # If both methods fail, return None
-            logger.warning(f"Could not extract text from PDF: {pdf_path}")
+            self.logger.warning(f"Could not extract text from PDF: {pdf_path}")
             return None
 
         except ImportError:
-            logger.warning("PDF libraries not available, falling back to mock extraction")
+            self.logger.warning("PDF libraries not available, falling back to mock extraction")
             # Fallback to mock extraction if libraries are not available
             await asyncio.sleep(1)
             return f"Extracted text from PDF: {Path(pdf_path).name}"
         except Exception as e:
-            logger.error(
-                f"Error extracting text from PDF {pdf_path}: {
-                    str(e)}")
+            self.logger.error(f"Error extracting text from PDF {pdf_path}: {str(e)}")
             raise
 
-    async def _extract_text_from_text_file(
-            self, file_path: str) -> Optional[str]:
+    async def _extract_text_from_text_file(self, file_path: str) -> Optional[str]:
         """
         Extract text from text-based files
         """
@@ -193,7 +175,7 @@ class OCRService:
             return text if text.strip() else None
 
         except Exception as e:
-            logger.error(f"Error reading text file {file_path}: {str(e)}")
+            self.logger.error(f"Error reading text file {file_path}: {str(e)}")
             raise
 
     async def _extract_text_from_html(self, html_path: str) -> Optional[str]:
@@ -226,15 +208,18 @@ class OCRService:
             return text if text else None
 
         except Exception as e:
-            logger.error(
-                f"Error extracting text from HTML {html_path}: {
-                    str(e)}")
+            self.logger.error(f"Error extracting text from HTML {html_path}: {str(e)}")
             raise
 
+    @log_service_operation("extract_text_batch")
     async def extract_text_batch(self, file_ids: List[int]) -> Dict[int, str]:
         """
         Extract text from multiple files in batch
         """
+        return await self.safe_execute("extract_text_batch", self._extract_text_batch_logic, file_ids)
+
+    async def _extract_text_batch_logic(self, file_ids: List[int]) -> Dict[int, str]:
+        """Logic for batch text extraction"""
         results = {}
 
         # Process files concurrently
@@ -250,9 +235,7 @@ class OCRService:
                 if text:
                     results[file_id] = text
             except Exception as e:
-                logger.error(
-                    f"Error in batch extraction for file {file_id}: {
-                        str(e)}")
+                self.logger.error(f"Error in batch extraction for file {file_id}: {str(e)}")
 
         return results
 
@@ -263,126 +246,116 @@ class OCRService:
         try:
             return await self.extract_text_from_file(file_id)
         except Exception as e:
-            logger.error(
-                f"Safe extraction failed for file {file_id}: {
-                    str(e)}")
+            self.logger.error(f"Safe extraction failed for file {file_id}: {str(e)}")
             return None
 
+    @log_service_operation("validate_ocr_quality")
     def validate_ocr_quality(self, text: str) -> Dict[str, Any]:
         """
         Validate the quality of OCR extracted text
         """
-        try:
-            # Basic quality metrics
-            total_chars = len(text)
-            total_words = len(text.split())
-            avg_word_length = total_chars / total_words if total_words > 0 else 0
+        return self.safe_execute("validate_ocr_quality", self._validate_ocr_quality_logic, text)
 
-            # Check for common OCR errors
-            suspicious_patterns = [
-                '|', '1', '0', 'O', 'l', 'I',  # Common OCR confusions
-                'rn', 'm', 'cl', 'd', 'ci'     # Common character confusions
-            ]
+    def _validate_ocr_quality_logic(self, text: str) -> Dict[str, Any]:
+        """Logic for validating OCR quality"""
+        # Basic quality metrics
+        total_chars = len(text)
+        total_words = len(text.split())
+        avg_word_length = total_chars / total_words if total_words > 0 else 0
 
-            error_count = sum(text.count(pattern)
-                              for pattern in suspicious_patterns)
-            error_rate = error_count / total_chars if total_chars > 0 else 0
+        # Check for common OCR errors
+        suspicious_patterns = [
+            '|', '1', '0', 'O', 'l', 'I',  # Common OCR confusions
+            'rn', 'm', 'cl', 'd', 'ci'     # Common character confusions
+        ]
 
-            # Quality score (0-100)
-            quality_score = max(0, 100 - (error_rate * 1000))
+        error_count = sum(text.count(pattern) for pattern in suspicious_patterns)
+        error_rate = error_count / total_chars if total_chars > 0 else 0
 
-            return {
-                "total_characters": total_chars,
-                "total_words": total_words,
-                "average_word_length": round(avg_word_length, 2),
-                "error_count": error_count,
-                "error_rate": round(error_rate, 4),
-                "quality_score": round(quality_score, 2),
-                "is_acceptable": quality_score >= 70
-            }
+        # Quality score (0-100)
+        quality_score = max(0, 100 - (error_rate * 1000))
 
-        except Exception as e:
-            logger.error(f"Error validating OCR quality: {str(e)}")
-            return {
-                "error": str(e),
-                "is_acceptable": False
-            }
+        return {
+            "total_characters": total_chars,
+            "total_words": total_words,
+            "average_word_length": round(avg_word_length, 2),
+            "error_count": error_count,
+            "error_rate": round(error_rate, 4),
+            "quality_score": round(quality_score, 2),
+            "is_acceptable": quality_score >= 70
+        }
 
+    @log_service_operation("get_ocr_stats")
     def get_ocr_stats(self) -> Dict[str, Any]:
         """
         Get OCR processing statistics
         """
-        try:
-            # Count files by status
-            total_files = self.db.query(File).count()
-            completed_files = self.db.query(File).filter(
-                File.status == FileStatus.COMPLETED
-            ).count()
-            failed_files = self.db.query(File).filter(
-                File.status == FileStatus.FAILED
-            ).count()
+        return self.safe_execute("get_ocr_stats", self._get_ocr_stats_logic)
 
-            # Count files with extracted text
-            files_with_text = self.db.query(File).filter(
-                File.extracted_text.isnot(None)
-            ).count()
+    def _get_ocr_stats_logic(self) -> Dict[str, Any]:
+        """Logic for getting OCR stats"""
+        # Count files by status
+        total_files = self.db.query(File).count()
+        completed_files = self.db.query(File).filter(
+            File.status == FileStatus.COMPLETED
+        ).count()
+        failed_files = self.db.query(File).filter(
+            File.status == FileStatus.FAILED
+        ).count()
 
-            # Calculate success rate
-            success_rate = (
-                completed_files /
-                total_files *
-                100) if total_files > 0 else 0
+        # Count files with extracted text
+        files_with_text = self.db.query(File).filter(
+            File.extracted_text.isnot(None)
+        ).count()
 
-            return {
-                "total_files": total_files,
-                "completed_files": completed_files,
-                "failed_files": failed_files,
-                "files_with_text": files_with_text,
-                "success_rate": round(success_rate, 2)
-            }
+        # Calculate success rate
+        success_rate = (completed_files / total_files * 100) if total_files > 0 else 0
 
-        except Exception as e:
-            logger.error(f"Error getting OCR stats: {str(e)}")
-            raise
+        return {
+            "total_files": total_files,
+            "completed_files": completed_files,
+            "failed_files": failed_files,
+            "files_with_text": files_with_text,
+            "success_rate": round(success_rate, 2)
+        }
 
+    @log_service_operation("cleanup_temp_files")
     def cleanup_temp_files(self):
         """
         Clean up temporary files created during OCR processing
         """
-        try:
-            # Clean up any temporary files
-            # This would be implemented based on your temporary file strategy
-            logger.info("Cleaned up temporary OCR files")
+        self.safe_execute("cleanup_temp_files", self._cleanup_temp_files_logic)
 
-        except Exception as e:
-            logger.error(f"Error cleaning up temp files: {str(e)}")
+    def _cleanup_temp_files_logic(self):
+        """Logic for cleaning up temp files"""
+        # Clean up any temporary files
+        # This would be implemented based on your temporary file strategy
+        self.logger.info("Cleaned up temporary OCR files")
 
+    @log_service_operation("is_ocr_needed")
     def is_ocr_needed(self, file_path: str) -> bool:
         """
         Determine if OCR is needed for a file
         """
-        try:
-            extension = Path(file_path).suffix.lower().lstrip('.')
+        return self.safe_execute("is_ocr_needed", self._is_ocr_needed_logic, file_path)
 
-            # Images always need OCR
-            if extension in self.supported_image_formats:
-                return True
+    def _is_ocr_needed_logic(self, file_path: str) -> bool:
+        """Logic for determining if OCR is needed"""
+        extension = Path(file_path).suffix.lower().lstrip('.')
 
-            # PDFs might need OCR if they're scanned
-            if extension in self.supported_pdf_formats:
-                # PDF content analysis will be implemented in future version
-                # For now, assume all PDFs need OCR
-                return True
+        # Images always need OCR
+        if extension in self.supported_image_formats:
+            return True
 
-            # Text files (including HTML) don't need OCR
-            if extension in self.supported_text_formats:
-                return False
+        # PDFs might need OCR if they're scanned
+        if extension in self.supported_pdf_formats:
+            # PDF content analysis will be implemented in future version
+            # For now, assume all PDFs need OCR
+            return True
 
-            # Other files don't need OCR
+        # Text files (including HTML) don't need OCR
+        if extension in self.supported_text_formats:
             return False
 
-        except Exception as e:
-            logger.error(
-                f"Error checking if OCR needed for {file_path}: {
-                    str(e)}")
-            return False
+        # Other files don't need OCR
+        return False

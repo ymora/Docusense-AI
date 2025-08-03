@@ -33,9 +33,7 @@ import {
   FilmIcon,
   MusicalNoteIcon,
   EyeIcon,
-  DocumentMagnifyingGlassIcon as SearchIcon,
-  ArrowsPointingOutIcon,
-  PaperClipIcon
+  DocumentMagnifyingGlassIcon as SearchIcon
 } from '@heroicons/react/24/outline';
 import { ConfigContent } from '../Config/ConfigWindow';
 import QueueContent from '../Queue/QueuePanel';
@@ -90,7 +88,6 @@ const MainPanel: React.FC<MainPanelProps> = ({
   // Écouter les événements de rechargement de la queue
   useEffect(() => {
     const handleReloadQueue = () => {
-      console.log('🔍 MainPanel: Événement reloadQueue reçu, rechargement...');
       loadQueueStatus();
     };
 
@@ -130,32 +127,7 @@ const MainPanel: React.FC<MainPanelProps> = ({
     setEmailAttachmentPreview(null);
   };
 
-  // Vérifier si le fichier a des pièces jointes
-  const hasAttachments = (file: any) => {
-    const mimeType = file.mime_type?.toLowerCase() || '';
-    const fileName = file.name?.toLowerCase() || '';
-    const extension = fileName.split('.').pop()?.toLowerCase() || '';
-    
-    // Emails peuvent avoir des pièces jointes
-    if (mimeType === 'message/rfc822' || extension === 'eml' || extension === 'msg') {
-      return true;
-    }
-    
-    // Vérifier si le fichier a des pièces jointes dans ses métadonnées
-    if (file.attachments && Array.isArray(file.attachments) && file.attachments.length > 0) {
-      return true;
-    }
-    
-    return false;
-  };
 
-  // Fonction pour gérer l'affichage des pièces jointes
-  const handleShowAttachments = () => {
-    if (selectedFile && hasAttachments(selectedFile)) {
-      // Ouvrir le visualiseur d'email avec focus sur les pièces jointes
-      setEmailAttachmentPreview({ attachment: null, index: -1 });
-    }
-  };
 
   // Données de statistiques simulées (à remplacer par les vraies données)
   const statsData = {
@@ -455,29 +427,7 @@ const MainPanel: React.FC<MainPanelProps> = ({
               {/* Section Fichier sélectionné avec visualisation automatique */}
               {selectedFile && (
                 <div className="mb-6">
-                  <div className="flex items-center justify-end mb-4">
-                    <div className="flex items-center space-x-2">
-                      {hasAttachments(selectedFile) && (
-                        <button
-                          onClick={handleShowAttachments}
-                          className="p-2 rounded-lg hover:bg-slate-700 transition-colors"
-                          style={{ color: colors.textSecondary }}
-                          title="Voir les pièces jointes"
-                        >
-                          <PaperClipIcon className="h-4 w-4" />
-                        </button>
-                      )}
-                      <button
-                        onClick={() => window.open(`/api/files/stream-by-path/${encodeURIComponent(selectedFile.path)}`, '_blank')}
-                        className="p-2 rounded-lg hover:bg-slate-700 transition-colors"
-                        style={{ color: colors.textSecondary }}
-                        title="Ouvrir en plein écran"
-                      >
-                        <ArrowsPointingOutIcon className="h-4 w-4" />
-                      </button>
-                      {/* Bouton de téléchargement supprimé - géré par UnifiedFileViewer */}
-                    </div>
-                  </div>
+                  
                   
                   {/* Visualisation directe du contenu */}
                   <div className="rounded-lg overflow-hidden border" style={{ borderColor: colors.border }}>

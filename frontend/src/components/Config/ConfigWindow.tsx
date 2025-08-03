@@ -72,7 +72,7 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
     
     try {
       const result = await testProvider(provider);
-      console.log(`Test de ${provider}:`, result);
+      
     } catch (error) {
       console.error(`Erreur lors du test de ${provider}:`, error);
     } finally {
@@ -482,7 +482,7 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                 <button
                   onClick={async () => {
                     const result = await validateAndFixPriorities();
-                    console.log('Validation des priorités:', result);
+            
                   }}
                   className="px-3 py-1 text-xs font-medium rounded border transition-colors"
                   style={{
@@ -497,7 +497,7 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                 <button
                   onClick={async () => {
                     const result = await resetPriorities();
-                    console.log('Réinitialisation des priorités:', result);
+            
                   }}
                   className="px-3 py-1 text-xs font-medium rounded border transition-colors"
                   style={{

@@ -19,9 +19,14 @@ from ..services.download_service import download_service
 from ..core.file_validation import FileValidator
 from ..models.file import FileStatus, FileListResponse, FileStatusUpdate, DirectoryTreeResponse
 
+
+
+
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/files", tags=["files"])
+router = APIRouter(tags=["files"])
+
+
 
 
 @router.get("/", response_model=FileListResponse)
@@ -240,7 +245,7 @@ async def list_directory_content(
                 "total_subdirectories": 0
             }
 
-        # Log seulement pour les grands répertoires ou en mode debug
+        # Log pour les grands répertoires ou nettoyage
         if page_size > 50 or cleanup_orphaned:
             logger.info(f"[API] Listing directory content: {directory} (page={page}, page_size={page_size})")
         
@@ -262,7 +267,7 @@ async def list_directory_content(
             offset=offset
         )
         
-        # Log seulement pour les grands répertoires ou en mode debug
+        # Log pour les grands répertoires ou nettoyage
         if page_size > 50 or cleanup_orphaned:
             logger.info(f"[API] Successfully retrieved content: {len(content.get('files', []))} files, {len(content.get('subdirectories', []))} subdirectories")
 
@@ -405,41 +410,7 @@ async def get_available_directories(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/drives")
-def list_drives():
-    """
-    ULTRA-FAST: List available drives without slow psutil calls
-    """
-    drives = []
-    
-    if os.name == "nt":  # Windows
-        # ULTRA-FAST: Direct drive letter check instead of psutil
-        import string
-        for letter in string.ascii_uppercase:
-            drive_path = f"{letter}:\\"
-            try:
-                # Quick access test
-                os.listdir(drive_path)
-                drives.append(f"{letter}:")
-            except (OSError, PermissionError):
-                pass  # Drive not accessible
-    else:
-        # Linux/Mac: Use psutil but with timeout
-        try:
-            for part in psutil.disk_partitions(all=False):
-                try:
-                    os.listdir(part.mountpoint)
-                    drives.append(part.mountpoint)
-                except Exception:
-                    pass
-        except Exception:
-            # Fallback to common mount points
-            common_mounts = ["/", "/home", "/mnt", "/media"]
-            for mount in common_mounts:
-                if os.path.exists(mount):
-                    drives.append(mount)
-    
-    return JSONResponse({"drives": drives})
+
 
 
 @router.get("/{file_id}")
@@ -880,7 +851,9 @@ async def stream_file(
 @router.get("/stream-by-path/{file_path:path}")
 async def stream_file_by_path(
     file_path: str,
-    range: Optional[str] = Header(None, alias="Range")
+    range: Optional[str] = Header(None, alias="Range"),
+    native: Optional[bool] = Query(False, description="Force native browser player"),
+    direct: Optional[bool] = Query(False, description="Force direct download")
 ) -> FileResponse:
     """
     Stream a file by its path directly from disk for visualization
@@ -923,17 +896,40 @@ async def stream_file_by_path(
         
         logger.info(f"STREAM-BY-PATH - File validated successfully, streaming: {file_path_obj}")
         
+        # Déterminer le type de réponse selon les paramètres
+        if direct:
+            # Mode téléchargement direct
+            headers = {
+                "Content-Disposition": f"attachment; filename=\"{file_path_obj.name}\"",
+                "Content-Type": mime_type,
+                "Cache-Control": "no-cache",
+            }
+        elif native:
+            # Mode lecteur natif du navigateur
+            headers = {
+                "Accept-Ranges": "bytes",
+                "Cache-Control": "public, max-age=3600",
+                "Content-Disposition": "inline",
+                "X-Content-Type-Options": "nosniff",
+                "Content-Type": mime_type,
+                "X-Player-Mode": "native",
+            }
+        else:
+            # Mode React (par défaut)
+            headers = {
+                "Accept-Ranges": "bytes",
+                "Cache-Control": "public, max-age=3600",
+                "Content-Disposition": "inline",
+                "X-Content-Type-Options": "nosniff",
+                "Content-Type": mime_type,
+                "X-Player-Mode": "react",
+            }
+        
         # Utiliser FileResponse qui gère automatiquement les range requests et le streaming
         return FileResponse(
             path=str(file_path_obj),
             media_type=mime_type,
-            headers={
-                "Accept-Ranges": "bytes",
-                "Cache-Control": "public, max-age=3600",  # Cache pour 1 heure
-                "Content-Disposition": "inline",  # Force l'affichage dans le navigateur
-                "X-Content-Type-Options": "nosniff",  # Empêche le navigateur de deviner le type
-                "Content-Type": mime_type,  # Force le type MIME
-            }
+            headers=headers
         )
         
     except HTTPException:

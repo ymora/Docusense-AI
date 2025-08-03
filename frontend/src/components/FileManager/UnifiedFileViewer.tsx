@@ -1,11 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import {
   ArrowDownTrayIcon,
-  ArrowsPointingOutIcon,
-  ArrowsPointingInIcon,
   MagnifyingGlassPlusIcon,
   MagnifyingGlassMinusIcon,
-  XMarkIcon,
 } from '@heroicons/react/24/outline';
 import MediaPlayer from './MediaPlayer';
 import EmailViewer from './EmailViewer';
@@ -19,7 +16,6 @@ interface UnifiedFileViewerProps {
 }
 
 const UnifiedFileViewer: React.FC<UnifiedFileViewerProps> = ({ file, onClose, onPreviewAttachment }) => {
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const [showImageControls, setShowImageControls] = useState(false);
@@ -46,12 +42,7 @@ const UnifiedFileViewer: React.FC<UnifiedFileViewerProps> = ({ file, onClose, on
     }
   };
 
-  const toggleFullscreen = () => {
-    setIsFullscreen(!isFullscreen);
-    if (!isFullscreen) {
-      setZoom(1); // Reset zoom when entering fullscreen
-    }
-  };
+
 
   const handleZoomIn = () => {
     setZoom(prev => Math.min(prev + 0.25, 3));
@@ -75,6 +66,15 @@ const UnifiedFileViewer: React.FC<UnifiedFileViewerProps> = ({ file, onClose, on
     if (type === 'document' || type === 'spreadsheet' || type === 'text') return 'document';
     if (type === 'email') return 'email';
     if (type === 'image') return 'image';
+    
+    // Vérification supplémentaire pour les emails
+    const fileName = file.name?.toLowerCase() || '';
+    const mimeType = file.mime_type?.toLowerCase() || '';
+    if (fileName.endsWith('.eml') || fileName.endsWith('.msg') || 
+        mimeType === 'message/rfc822' || mimeType === 'application/vnd.ms-outlook') {
+      return 'email';
+    }
+    
     return 'generic';
   };
 
@@ -363,191 +363,14 @@ const UnifiedFileViewer: React.FC<UnifiedFileViewerProps> = ({ file, onClose, on
           <ArrowDownTrayIcon className="h-4 w-4" />
         </button>
         
-        {/* Fullscreen */}
-        <button
-          onClick={toggleFullscreen}
-          className="p-2 bg-black/50 hover:bg-black/70 rounded-lg transition-colors text-white"
-          title="Mode plein écran"
-        >
-          <ArrowsPointingOutIcon className="h-4 w-4" />
-        </button>
+        
       </div>
     );
   };
 
-  // Barre d'outils commune pour tous les types de fichiers
-  const renderToolbar = () => {
-    // Ne pas afficher de barre d'outils pour les formats avec lecteurs natifs
-    if (fileCategory === 'media' || fileCategory === 'image' || fileCategory === 'pdf') {
-      return null;
-    }
 
-    return (
-      <div className="flex items-center justify-between p-3 bg-slate-800 border-b border-slate-700">
-        <div className="flex items-center space-x-2">
-          <span className="text-sm font-medium text-slate-200">{file.name}</span>
-          <span className="text-xs text-slate-400">
-            {fileCategory === 'document' ? '📄 Document' : 
-             fileCategory === 'email' ? '📧 Email' : '📄 Fichier'}
-          </span>
-        </div>
-        <div className="flex items-center space-x-2">
-          <button
-            onClick={handleDownload}
-            className="p-2 hover:bg-slate-700 rounded-lg transition-colors text-slate-300 hover:text-slate-100"
-            title="Télécharger"
-          >
-            <ArrowDownTrayIcon className="h-4 w-4" />
-          </button>
-          <button
-            onClick={toggleFullscreen}
-            className="p-2 hover:bg-slate-700 rounded-lg transition-colors text-slate-300 hover:text-slate-100"
-            title="Mode plein écran"
-          >
-            <ArrowsPointingOutIcon className="h-4 w-4" />
-          </button>
-        </div>
-      </div>
-    );
-  };
 
-  // Mode plein écran
-  if (isFullscreen) {
-    return (
-      <div className="fixed inset-0 z-[9999] bg-black flex flex-col">
-        {/* Barre d'outils plein écran (uniquement pour les formats sans lecteur natif) */}
-        {(fileCategory === 'document' || fileCategory === 'generic') && (
-          <div className="flex items-center justify-between p-4 bg-black/80 text-white">
-            <div className="flex items-center space-x-2">
-              <span className="text-sm font-medium">{file.name}</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={handleDownload}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                title="Télécharger"
-              >
-                <ArrowDownTrayIcon className="h-5 w-5" />
-              </button>
-              <button
-                onClick={toggleFullscreen}
-                className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                title="Quitter le plein écran"
-              >
-                <ArrowsPointingInIcon className="h-5 w-5" />
-              </button>
-            </div>
-          </div>
-        )}
-        
-        {/* Barre d'outils minimale pour les formats avec lecteur natif (sauf images) */}
-        {(fileCategory === 'media' || fileCategory === 'pdf') && (
-          <div className="flex items-center justify-end p-4 bg-black/80 text-white">
-            <button
-              onClick={toggleFullscreen}
-              className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-              title="Quitter le plein écran"
-            >
-              <ArrowsPointingInIcon className="h-5 w-5" />
-            </button>
-          </div>
-        )}
-        
-                 {/* Contenu en plein écran */}
-         <div className="flex-1 overflow-hidden">
-           {fileCategory === 'media' ? (
-             <MediaPlayer file={file} />
-           ) : fileCategory === 'pdf' ? (
-             <iframe
-               src={`/api/files/stream-by-path/${encodeURIComponent(file.path)}`}
-               className="w-full h-full border-0"
-               title={file.name}
-               style={{ 
-                 width: '100%', 
-                 height: '100%',
-                 display: 'block'
-               }}
-             />
-           ) : fileCategory === 'image' ? (
-            <div className="w-full h-full flex items-center justify-center p-4 relative">
-              <img
-                src={`/api/files/stream-by-path/${encodeURIComponent(file.path)}`}
-                alt={file.name}
-                className="max-w-full max-h-full object-contain transition-transform duration-200"
-                style={{ 
-                  maxHeight: '100vh',
-                  maxWidth: '100vw',
-                  transform: `scale(${zoom})`,
-                  transformOrigin: 'center center'
-                }}
-              />
-              <div className="absolute top-4 right-4 flex items-center space-x-2">
-                {/* Zoom Out */}
-                <button
-                  onClick={handleZoomOut}
-                  className="p-2 bg-black/50 hover:bg-black/70 rounded-lg transition-colors text-white"
-                  title="Zoom arrière"
-                >
-                  <MagnifyingGlassMinusIcon className="h-5 w-5" />
-                </button>
-                
-                {/* Zoom Level Indicator */}
-                <span className="px-2 py-1 bg-black/50 text-white text-xs rounded-lg font-medium">
-                  {Math.round(zoom * 100)}%
-                </span>
-                
-                {/* Zoom In */}
-                <button
-                  onClick={handleZoomIn}
-                  className="p-2 bg-black/50 hover:bg-black/70 rounded-lg transition-colors text-white"
-                  title="Zoom avant"
-                >
-                  <MagnifyingGlassPlusIcon className="h-5 w-5" />
-                </button>
-                
-                {/* Reset Zoom */}
-                {zoom !== 1 && (
-                  <button
-                    onClick={resetZoom}
-                    className="p-2 bg-black/50 hover:bg-black/70 rounded-lg transition-colors text-white"
-                    title="Zoom normal"
-                  >
-                    <span className="text-xs font-bold">1:1</span>
-                  </button>
-                )}
-                
-                {/* Download */}
-                <button
-                  onClick={handleDownload}
-                  className="p-2 bg-black/50 hover:bg-black/70 rounded-lg transition-colors text-white"
-                  title="Télécharger"
-                >
-                  <ArrowDownTrayIcon className="h-5 w-5" />
-                </button>
-                
-                {/* Close Fullscreen */}
-                <button
-                  onClick={toggleFullscreen}
-                  className="p-2 bg-black/50 hover:bg-black/70 rounded-lg transition-colors text-white"
-                  title="Quitter le plein écran"
-                >
-                  <XMarkIcon className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="w-full h-full flex items-center justify-center">
-              <div className="text-center text-white">
-                <div className="text-6xl mb-4">📄</div>
-                <p className="text-lg">{file.name}</p>
-                <p className="text-sm text-gray-400">Mode plein écran non supporté pour ce type de fichier</p>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    );
-  }
+
 
   // Mode normal
   return (
@@ -573,8 +396,7 @@ const UnifiedFileViewer: React.FC<UnifiedFileViewerProps> = ({ file, onClose, on
         </div>
       )}
 
-      {/* Barre d'outils (uniquement pour les formats sans lecteur natif) */}
-      {renderToolbar()}
+
       
       {/* Contenu principal */}
       <div className="flex-1 overflow-hidden relative" style={{ height: '100%' }}>

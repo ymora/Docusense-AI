@@ -138,11 +138,21 @@ export const useFileStore = create<FileState>()(
         loadDirectoryTree: async (directory: string) => {
           set({ loading: true, error: null });
           try {
-            // Requête directe sans cache - données toujours fraîches
+            // Utiliser l'endpoint /list et transformer le format pour FileTree
             const encodedDirectory = encodeURIComponent(directory.replace(/\\/g, '/'));
-            const tree = await apiRequest(`/api/files/tree/${encodedDirectory}`);
+            const response = await apiRequest(`/api/files/list/${encodedDirectory}?page=1&page_size=100&nocache=${Date.now()}`);
+            
+            // Transformer le format de réponse pour correspondre à ce qu'attend FileTree
+            const transformedData = {
+              directory: directory,
+              total_subdirectories: response.data.directories?.length || 0,
+              total_files: response.data.files?.length || 0,
+              subdirectories: response.data.directories || [],
+              files: response.data.files || []
+            };
+            
             set({
-              directoryTree: tree as DirectoryTree,
+              directoryTree: transformedData as DirectoryTree,
               currentDirectory: directory,
               loading: false,
             });

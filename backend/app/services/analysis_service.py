@@ -3,7 +3,6 @@ Analysis service for DocuSense AI
 Handles analysis creation, management, and processing
 """
 
-import logging
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 from datetime import datetime
@@ -16,19 +15,20 @@ from ..models.queue import QueueItem, QueueStatus, QueuePriority
 from .ai_service import get_ai_service
 from .queue_service import QueueService
 from .prompt_service import PromptService
+from .base_service import BaseService, log_service_operation
+from ..core.types import ServiceResponse, AnalysisData
 
-logger = logging.getLogger(__name__)
 
-
-class AnalysisService:
+class AnalysisService(BaseService):
     """Service for analysis management"""
 
     def __init__(self, db: Session):
-        self.db = db
+        super().__init__(db)
         self.ai_service = get_ai_service(db)
         self.queue_service = QueueService(db)
         self.prompt_service = PromptService()
 
+    @log_service_operation("create_analysis")
     def create_analysis(
         self,
         file_id: int,
@@ -41,57 +41,59 @@ class AnalysisService:
         """
         Create a new analysis
         """
-        try:
-            # Check if file exists
-            file = self.db.query(File).filter(File.id == file_id).first()
-            if not file:
-                raise ValueError(f"File {file_id} not found")
+        return self.safe_execute("create_analysis", self._create_analysis_logic, file_id, analysis_type, provider, model, custom_prompt, add_to_queue)
 
-            # Generate prompt
-            if custom_prompt:
-                prompt = custom_prompt
-            else:
-                prompt = self.prompt_service.get_default_prompt(
-                    analysis_type.value)
-                if not prompt:
-                    # Fallback to general prompt if specific one not found
-                    prompt = self.prompt_service.get_default_prompt("GENERAL")
+    def _create_analysis_logic(self, file_id: int, analysis_type: AnalysisType, provider: str, model: str, custom_prompt: Optional[str], add_to_queue: bool) -> Analysis:
+        """Logic for creating analysis"""
+        # Check if file exists
+        file = self.db.query(File).filter(File.id == file_id).first()
+        if not file:
+            raise ValueError(f"File {file_id} not found")
 
-            # Create analysis
-            analysis = Analysis(
-                file_id=file_id,
-                analysis_type=analysis_type,
-                provider=provider,
-                model=model,
-                prompt=prompt,
-                status=AnalysisStatus.PENDING
-            )
+        # Generate prompt
+        if custom_prompt:
+            prompt = custom_prompt
+        else:
+            prompt = self.prompt_service.get_default_prompt(analysis_type.value)
+            if not prompt:
+                # Fallback to general prompt if specific one not found
+                prompt = self.prompt_service.get_default_prompt("GENERAL")
 
-            self.db.add(analysis)
-            self.db.commit()
-            self.db.refresh(analysis)
+        # Create analysis
+        analysis = Analysis(
+            file_id=file_id,
+            analysis_type=analysis_type,
+            provider=provider,
+            model=model,
+            prompt=prompt,
+            status=AnalysisStatus.PENDING
+        )
 
-            # Update file status
-            file.status = FileStatus.PROCESSING
-            self.db.commit()
+        self.db.add(analysis)
+        self.db.commit()
+        self.db.refresh(analysis)
 
-            # Add to queue if requested
-            if add_to_queue:
-                self.queue_service.add_to_queue(analysis.id)
+        # Update file status
+        file.status = FileStatus.PROCESSING
+        self.db.commit()
 
-            logger.info(f"Created analysis {analysis.id} for file {file_id}")
-            return analysis
+        # Add to queue if requested
+        if add_to_queue:
+            self.queue_service.add_to_queue(analysis.id)
 
-        except Exception as e:
-            logger.error(f"Error creating analysis: {str(e)}")
-            self.db.rollback()
-            raise
+        self.logger.info(f"Created analysis {analysis.id} for file {file_id}")
+        return analysis
 
+    @log_service_operation("get_analysis")
     def get_analysis(self, analysis_id: int) -> Optional[Analysis]:
         """Get analysis by ID"""
-        return self.db.query(Analysis).filter(
-            Analysis.id == analysis_id).first()
+        return self.safe_execute("get_analysis", self._get_analysis_logic, analysis_id)
 
+    def _get_analysis_logic(self, analysis_id: int) -> Optional[Analysis]:
+        """Logic for getting analysis"""
+        return self.db.query(Analysis).filter(Analysis.id == analysis_id).first()
+
+    @log_service_operation("get_analyses")
     def get_analyses(
         self,
         file_id: Optional[int] = None,
@@ -104,6 +106,10 @@ class AnalysisService:
         """
         Get analyses with filtering
         """
+        return self.safe_execute("get_analyses", self._get_analyses_logic, file_id, status, analysis_type, provider, limit, offset)
+
+    def _get_analyses_logic(self, file_id: Optional[int], status: Optional[AnalysisStatus], analysis_type: Optional[AnalysisType], provider: Optional[str], limit: int, offset: int) -> List[Analysis]:
+        """Logic for getting analyses"""
         query = self.db.query(Analysis)
 
         if file_id:
@@ -118,9 +124,9 @@ class AnalysisService:
         if provider:
             query = query.filter(Analysis.provider == provider)
 
-        return query.order_by(desc(Analysis.created_at)).offset(
-            offset).limit(limit).all()
+        return query.order_by(desc(Analysis.created_at)).offset(offset).limit(limit).all()
 
+    @log_service_operation("update_analysis")
     def update_analysis(
         self,
         analysis_id: int,
@@ -129,56 +135,52 @@ class AnalysisService:
         """
         Update analysis
         """
-        try:
-            analysis = self.db.query(Analysis).filter(
-                Analysis.id == analysis_id).first()
-            if not analysis:
-                return None
+        return self.safe_execute("update_analysis", self._update_analysis_logic, analysis_id, update_data)
 
-            # Update fields
-            for field, value in update_data.dict(exclude_unset=True).items():
-                setattr(analysis, field, value)
+    def _update_analysis_logic(self, analysis_id: int, update_data: AnalysisUpdate) -> Optional[Analysis]:
+        """Logic for updating analysis"""
+        analysis = self.db.query(Analysis).filter(Analysis.id == analysis_id).first()
+        if not analysis:
+            return None
 
-            self.db.commit()
-            self.db.refresh(analysis)
+        # Update fields
+        for field, value in update_data.dict(exclude_unset=True).items():
+            setattr(analysis, field, value)
 
-            logger.info(f"Updated analysis {analysis_id}")
-            return analysis
+        self.db.commit()
+        self.db.refresh(analysis)
 
-        except Exception as e:
-            logger.error(f"Error updating analysis: {str(e)}")
-            self.db.rollback()
-            raise
+        self.logger.info(f"Updated analysis {analysis_id}")
+        return analysis
 
+    @log_service_operation("delete_analysis")
     def delete_analysis(self, analysis_id: int) -> bool:
         """
         Delete analysis
         """
-        try:
-            analysis = self.db.query(Analysis).filter(
-                Analysis.id == analysis_id).first()
-            if not analysis:
-                return False
+        return self.safe_execute("delete_analysis", self._delete_analysis_logic, analysis_id)
 
-            # Remove from queue if exists
-            queue_item = self.db.query(QueueItem).filter(
-                QueueItem.analysis_id == analysis_id
-            ).first()
-            if queue_item:
-                self.db.delete(queue_item)
+    def _delete_analysis_logic(self, analysis_id: int) -> bool:
+        """Logic for deleting analysis"""
+        analysis = self.db.query(Analysis).filter(Analysis.id == analysis_id).first()
+        if not analysis:
+            return False
 
-            # Delete analysis
-            self.db.delete(analysis)
-            self.db.commit()
+        # Remove from queue if exists
+        queue_item = self.db.query(QueueItem).filter(
+            QueueItem.analysis_id == analysis_id
+        ).first()
+        if queue_item:
+            self.db.delete(queue_item)
 
-            logger.info(f"Deleted analysis {analysis_id}")
-            return True
+        # Delete analysis
+        self.db.delete(analysis)
+        self.db.commit()
 
-        except Exception as e:
-            logger.error(f"Error deleting analysis: {str(e)}")
-            self.db.rollback()
-            raise
+        self.logger.info(f"Deleted analysis {analysis_id}")
+        return True
 
+    @log_service_operation("create_bulk_analyses")
     def create_bulk_analyses(
         self,
         file_ids: List[int],
@@ -191,156 +193,147 @@ class AnalysisService:
         """
         Create multiple analyses for multiple files
         """
-        try:
-            analyses = []
+        return self.safe_execute("create_bulk_analyses", self._create_bulk_analyses_logic, file_ids, analysis_type, provider, model, custom_prompt, priority)
 
-            for file_id in file_ids:
-                analysis = self.create_analysis(
-                    file_id=file_id,
-                    analysis_type=analysis_type,
-                    provider=provider,
-                    model=model,
-                    custom_prompt=custom_prompt,
-                    add_to_queue=False  # We'll add to queue manually with priority
-                )
-                analyses.append(analysis)
+    def _create_bulk_analyses_logic(self, file_ids: List[int], analysis_type: AnalysisType, provider: str, model: str, custom_prompt: Optional[str], priority: QueuePriority) -> List[Analysis]:
+        """Logic for creating bulk analyses"""
+        analyses = []
 
-            # Add all to queue with specified priority
-            for analysis in analyses:
-                self.queue_service.add_to_queue(analysis.id, priority)
+        for file_id in file_ids:
+            analysis = self.create_analysis(
+                file_id=file_id,
+                analysis_type=analysis_type,
+                provider=provider,
+                model=model,
+                custom_prompt=custom_prompt,
+                add_to_queue=False  # We'll add to queue manually with priority
+            )
+            analyses.append(analysis)
 
-            logger.info(f"Created {len(analyses)} bulk analyses")
-            return analyses
+        # Add all to queue with specified priority
+        for analysis in analyses:
+            self.queue_service.add_to_queue(analysis.id, priority)
 
-        except Exception as e:
-            logger.error(f"Error creating bulk analyses: {str(e)}")
-            self.db.rollback()
-            raise
+        self.logger.info(f"Created {len(analyses)} bulk analyses")
+        return analyses
 
+    @log_service_operation("get_analysis_stats")
     def get_analysis_stats(self) -> Dict[str, Any]:
         """
         Get analysis statistics
         """
-        try:
-            total_analyses = self.db.query(Analysis).count()
+        return self.safe_execute("get_analysis_stats", self._get_analysis_stats_logic)
 
-            # Status counts
-            status_counts = {}
-            for status in AnalysisStatus:
-                count = self.db.query(Analysis).filter(
-                    Analysis.status == status).count()
-                status_counts[status.value] = count
+    def _get_analysis_stats_logic(self) -> Dict[str, Any]:
+        """Logic for getting analysis stats"""
+        total_analyses = self.db.query(Analysis).count()
 
-            # Type counts
-            type_counts = {}
-            for analysis_type in AnalysisType:
-                count = self.db.query(Analysis).filter(
-                    Analysis.analysis_type == analysis_type
-                ).count()
-                type_counts[analysis_type.value] = count
+        # Status counts
+        status_counts = {}
+        for status in AnalysisStatus:
+            count = self.db.query(Analysis).filter(Analysis.status == status).count()
+            status_counts[status.value] = count
 
-            # Provider counts
-            provider_counts = {}
-            providers = self.db.query(
-                Analysis.provider, func.count(
-                    Analysis.id)).group_by(
-                Analysis.provider).all()
-            for provider, count in providers:
-                provider_counts[provider] = count
+        # Type counts
+        type_counts = {}
+        for analysis_type in AnalysisType:
+            count = self.db.query(Analysis).filter(
+                Analysis.analysis_type == analysis_type
+            ).count()
+            type_counts[analysis_type.value] = count
 
-            # Recent activity
-            recent_analyses = self.db.query(Analysis).order_by(
-                desc(Analysis.created_at)
-            ).limit(10).all()
+        # Provider counts
+        provider_counts = {}
+        providers = self.db.query(
+            Analysis.provider, func.count(Analysis.id)
+        ).group_by(Analysis.provider).all()
+        for provider, count in providers:
+            provider_counts[provider] = count
 
-            return {
-                "total_analyses": total_analyses,
-                "status_counts": status_counts,
-                "type_counts": type_counts,
-                "provider_counts": provider_counts,
-                "recent_analyses": recent_analyses
-            }
+        # Recent activity
+        recent_analyses = self.db.query(Analysis).order_by(
+            desc(Analysis.created_at)
+        ).limit(10).all()
 
-        except Exception as e:
-            logger.error(f"Error getting analysis stats: {str(e)}")
-            raise
+        return {
+            "total_analyses": total_analyses,
+            "status_counts": status_counts,
+            "type_counts": type_counts,
+            "provider_counts": provider_counts,
+            "recent_analyses": recent_analyses
+        }
 
+    @log_service_operation("retry_failed_analysis")
     def retry_failed_analysis(self, analysis_id: int) -> Optional[Analysis]:
         """
         Retry a failed analysis
         """
-        try:
-            analysis = self.db.query(Analysis).filter(
-                Analysis.id == analysis_id).first()
-            if not analysis:
-                return None
+        return self.safe_execute("retry_failed_analysis", self._retry_failed_analysis_logic, analysis_id)
 
-            if analysis.status != AnalysisStatus.FAILED:
-                raise ValueError("Analysis is not in failed status")
+    def _retry_failed_analysis_logic(self, analysis_id: int) -> Optional[Analysis]:
+        """Logic for retrying failed analysis"""
+        analysis = self.db.query(Analysis).filter(Analysis.id == analysis_id).first()
+        if not analysis:
+            return None
 
-            # Reset analysis status
-            analysis.status = AnalysisStatus.PENDING
-            analysis.error_message = None
-            analysis.retry_count += 1
+        if analysis.status != AnalysisStatus.FAILED:
+            raise ValueError("Analysis is not in failed status")
 
-            # Update file status
-            file = self.db.query(File).filter(
-                File.id == analysis.file_id).first()
-            if file:
-                file.status = FileStatus.PROCESSING
-                file.error_message = None
+        # Reset analysis status
+        analysis.status = AnalysisStatus.PENDING
+        analysis.error_message = None
+        analysis.retry_count += 1
 
-            self.db.commit()
+        # Update file status
+        file = self.db.query(File).filter(File.id == analysis.file_id).first()
+        if file:
+            file.status = FileStatus.PROCESSING
+            file.error_message = None
 
-            # Add to queue
-            self.queue_service.add_to_queue(analysis.id)
+        self.db.commit()
 
-            logger.info(f"Retried failed analysis {analysis_id}")
-            return analysis
+        # Add to queue
+        self.queue_service.add_to_queue(analysis.id)
 
-        except Exception as e:
-            logger.error(f"Error retrying analysis: {str(e)}")
-            self.db.rollback()
-            raise
+        self.logger.info(f"Retried failed analysis {analysis_id}")
+        return analysis
 
+    @log_service_operation("cancel_analysis")
     def cancel_analysis(self, analysis_id: int) -> Optional[Analysis]:
         """
         Cancel an analysis
         """
-        try:
-            analysis = self.db.query(Analysis).filter(
-                Analysis.id == analysis_id).first()
-            if not analysis:
-                return None
+        return self.safe_execute("cancel_analysis", self._cancel_analysis_logic, analysis_id)
 
-            # Update analysis status
-            analysis.status = AnalysisStatus.FAILED
-            analysis.error_message = "Analysis cancelled by user"
+    def _cancel_analysis_logic(self, analysis_id: int) -> Optional[Analysis]:
+        """Logic for cancelling analysis"""
+        analysis = self.db.query(Analysis).filter(Analysis.id == analysis_id).first()
+        if not analysis:
+            return None
 
-            # Update file status if it was processing
-            file = self.db.query(File).filter(
-                File.id == analysis.file_id).first()
-            if file and file.status == FileStatus.PROCESSING:
-                file.status = FileStatus.PENDING
+        # Update analysis status
+        analysis.status = AnalysisStatus.FAILED
+        analysis.error_message = "Analysis cancelled by user"
 
-            # Remove from queue if exists
-            queue_item = self.db.query(QueueItem).filter(
-                QueueItem.analysis_id == analysis_id
-            ).first()
-            if queue_item:
-                queue_item.status = QueueStatus.FAILED
-                queue_item.error_message = "Analysis cancelled by user"
+        # Update file status if it was processing
+        file = self.db.query(File).filter(File.id == analysis.file_id).first()
+        if file and file.status == FileStatus.PROCESSING:
+            file.status = FileStatus.PENDING
 
-            self.db.commit()
+        # Remove from queue if exists
+        queue_item = self.db.query(QueueItem).filter(
+            QueueItem.analysis_id == analysis_id
+        ).first()
+        if queue_item:
+            queue_item.status = QueueStatus.FAILED
+            queue_item.error_message = "Analysis cancelled by user"
 
-            logger.info(f"Cancelled analysis {analysis_id}")
-            return analysis
+        self.db.commit()
 
-        except Exception as e:
-            logger.error(f"Error cancelling analysis: {str(e)}")
-            self.db.rollback()
-            raise
+        self.logger.info(f"Cancelled analysis {analysis_id}")
+        return analysis
 
+    @log_service_operation("analyze_text")
     async def analyze_text(
         self,
         text: str,
@@ -352,22 +345,22 @@ class AnalysisService:
         """
         Analyze text using AI service
         """
-        try:
-            # Use AI service to analyze text
-            result = await self.ai_service.analyze_text(
-                text=text,
-                analysis_type=analysis_type,
-                provider=provider,
-                model=model,
-                custom_prompt=custom_prompt
-            )
+        return await self.safe_execute("analyze_text", self._analyze_text_logic, text, analysis_type, provider, model, custom_prompt)
 
-            return result
+    async def _analyze_text_logic(self, text: str, analysis_type: AnalysisType, provider: Optional[str], model: Optional[str], custom_prompt: Optional[str]) -> Dict[str, Any]:
+        """Logic for analyzing text"""
+        # Use AI service to analyze text
+        result = await self.ai_service.analyze_text(
+            text=text,
+            analysis_type=analysis_type,
+            provider=provider,
+            model=model,
+            custom_prompt=custom_prompt
+        )
 
-        except Exception as e:
-            logger.error(f"Error analyzing text: {str(e)}")
-            raise
+        return result
 
+    @log_service_operation("create_analysis_with_prompt")
     def create_analysis_with_prompt(
         self,
         file_id: int,
@@ -379,36 +372,33 @@ class AnalysisService:
         """
         Create analysis with specific prompt
         """
-        try:
-            # Check if file exists
-            file = self.db.query(File).filter(File.id == file_id).first()
-            if not file:
-                raise ValueError(f"File {file_id} not found")
+        return self.safe_execute("create_analysis_with_prompt", self._create_analysis_with_prompt_logic, file_id, analysis_type, prompt_id, custom_prompt, status)
 
-            # Create analysis
-            analysis = Analysis(
-                file_id=file_id,
-                analysis_type=analysis_type,
-                provider="",  # Will be determined by AI service
-                model="",     # Will be determined by AI service
-                prompt=custom_prompt,
-                status=status
-            )
+    def _create_analysis_with_prompt_logic(self, file_id: int, analysis_type: AnalysisType, prompt_id: str, custom_prompt: str, status: AnalysisStatus) -> Analysis:
+        """Logic for creating analysis with prompt"""
+        # Check if file exists
+        file = self.db.query(File).filter(File.id == file_id).first()
+        if not file:
+            raise ValueError(f"File {file_id} not found")
 
-            self.db.add(analysis)
-            self.db.commit()
-            self.db.refresh(analysis)
+        # Create analysis
+        analysis = Analysis(
+            file_id=file_id,
+            analysis_type=analysis_type,
+            provider="",  # Will be determined by AI service
+            model="",     # Will be determined by AI service
+            prompt=custom_prompt,
+            status=status
+        )
 
-            logger.info(
-                f"Created analysis {
-                    analysis.id} for file {file_id} with prompt {prompt_id}")
-            return analysis
+        self.db.add(analysis)
+        self.db.commit()
+        self.db.refresh(analysis)
 
-        except Exception as e:
-            logger.error(f"Error creating analysis with prompt: {str(e)}")
-            self.db.rollback()
-            raise
+        self.logger.info(f"Created analysis {analysis.id} for file {file_id} with prompt {prompt_id}")
+        return analysis
 
+    @log_service_operation("update_analysis_result")
     def update_analysis_result(
         self,
         analysis_id: int,
@@ -418,31 +408,28 @@ class AnalysisService:
         """
         Update analysis with result
         """
-        try:
-            analysis = self.get_analysis(analysis_id)
-            if not analysis:
-                return None
+        return self.safe_execute("update_analysis_result", self._update_analysis_result_logic, analysis_id, result, status)
 
-            # Update analysis
-            analysis.result = result
-            analysis.status = status
-            analysis.completed_at = func.now()
-
-            self.db.commit()
-            self.db.refresh(analysis)
-
-            # Update file status if analysis completed
-            if status == AnalysisStatus.COMPLETED:
-                file = self.db.query(File).filter(
-                    File.id == analysis.file_id).first()
-                if file:
-                    file.status = FileStatus.COMPLETED
-                    self.db.commit()
-
-            logger.info(f"Updated analysis {analysis_id} with result")
-            return analysis
-
-        except Exception as e:
-            logger.error(f"Error updating analysis result: {str(e)}")
-            self.db.rollback()
+    def _update_analysis_result_logic(self, analysis_id: int, result: Dict[str, Any], status: AnalysisStatus) -> Optional[Analysis]:
+        """Logic for updating analysis result"""
+        analysis = self.get_analysis(analysis_id)
+        if not analysis:
             return None
+
+        # Update analysis
+        analysis.result = result
+        analysis.status = status
+        analysis.completed_at = func.now()
+
+        self.db.commit()
+        self.db.refresh(analysis)
+
+        # Update file status if analysis completed
+        if status == AnalysisStatus.COMPLETED:
+            file = self.db.query(File).filter(File.id == analysis.file_id).first()
+            if file:
+                file.status = FileStatus.COMPLETED
+                self.db.commit()
+
+        self.logger.info(f"Updated analysis {analysis_id} with result")
+        return analysis

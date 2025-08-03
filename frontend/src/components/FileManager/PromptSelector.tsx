@@ -85,7 +85,7 @@ const PromptSelector: React.FC<PromptSelectorProps> = ({
         onClose();
         
         // Afficher un message de succès
-        console.log(`${results.length} analyse(s) créée(s) en attente`);
+
         
       } catch (error) {
         console.error('Erreur lors de la création des analyses:', error);

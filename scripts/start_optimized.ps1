@@ -1,185 +1,137 @@
-# DocuSense AI - Script de Démarrage Optimisé
-# Usage: .\scripts\start_optimized.ps1 [-Analyze] [-Optimize] [-Force]
+# Script de démarrage optimisé pour DocuSense AI
+# Garantit que l'environnement virtuel est utilisé et surveille les erreurs
 
-param(
-    [switch]$Analyze,
-    [switch]$Optimize,
-    [switch]$Force
-)
+Write-Host "🚀 Démarrage optimisé de DocuSense AI..." -ForegroundColor Green
 
-Write-Host "🚀 DocuSense AI - Démarrage Optimisé" -ForegroundColor Cyan
-Write-Host "=====================================" -ForegroundColor Cyan
-
-# Fonction pour vérifier si un port est utilisé
-function Test-Port {
-    param([int]$Port)
-    try {
-        $connection = Test-NetConnection -ComputerName localhost -Port $Port -WarningAction SilentlyContinue
-        return $connection.TcpTestSucceeded
-    }
-    catch {
-        return $false
-    }
+# Vérifier que nous sommes dans le bon répertoire
+if (-not (Test-Path "backend")) {
+    Write-Host "❌ Erreur: Répertoire 'backend' non trouvé. Exécutez ce script depuis la racine du projet." -ForegroundColor Red
+    exit 1
 }
 
-# Fonction pour tuer les processus sur les ports
-function Stop-ProcessOnPort {
-    param([int]$Port)
+# Vérifier l'environnement virtuel
+$venvPath = "backend\venv\Scripts\python.exe"
+if (-not (Test-Path $venvPath)) {
+    Write-Host "❌ Erreur: Environnement virtuel non trouvé. Exécutez d'abord: python -m venv backend\venv" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "✅ Environnement virtuel détecté: $venvPath" -ForegroundColor Green
+
+# Arrêter les processus Python existants
+Write-Host "🛑 Arrêt des processus Python existants..." -ForegroundColor Yellow
+taskkill /F /IM python.exe 2>$null
+
+# Attendre que les processus se terminent
+Start-Sleep 2
+
+# Vérifier que le port 8000 est libre
+$portCheck = netstat -an | findstr ":8000"
+if ($portCheck) {
+    Write-Host "⚠️  Port 8000 encore occupé, attente..." -ForegroundColor Yellow
+    Start-Sleep 3
+}
+
+# Démarrer le backend avec l'environnement virtuel
+Write-Host "🔧 Démarrage du backend..." -ForegroundColor Green
+cd backend
+
+# Démarrer le serveur en arrière-plan avec redirection des logs
+$logFile = "logs\startup_$(Get-Date -Format 'yyyyMMdd_HHmmss').log"
+New-Item -ItemType Directory -Force -Path "logs" | Out-Null
+
+Write-Host "📝 Logs disponibles dans: $logFile" -ForegroundColor Cyan
+
+# Démarrer le serveur
+Start-Process -FilePath "venv\Scripts\python.exe" -ArgumentList "main.py" -RedirectStandardOutput $logFile -WindowStyle Hidden
+
+# Attendre que le serveur démarre
+Write-Host "⏳ Attente du démarrage du serveur..." -ForegroundColor Yellow
+Start-Sleep 8
+
+# Vérifier que le serveur répond
+$maxAttempts = 10
+$attempt = 0
+$serverReady = $false
+
+while ($attempt -lt $maxAttempts -and -not $serverReady) {
+    $attempt++
+    Write-Host "🔍 Test de connexion (tentative $attempt/$maxAttempts)..." -ForegroundColor Cyan
+    
     try {
-        $processes = Get-NetTCPConnection -LocalPort $Port -ErrorAction SilentlyContinue | Select-Object -ExpandProperty OwningProcess
-        foreach ($pid in $processes) {
-            Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
-            Write-Host "✅ Processus $pid arrêté sur le port $Port" -ForegroundColor Green
+        $response = Invoke-WebRequest -Uri "http://localhost:8000/" -TimeoutSec 5 -UseBasicParsing
+        if ($response.StatusCode -eq 200) {
+            $serverReady = $true
+            Write-Host "✅ Serveur démarré avec succès!" -ForegroundColor Green
         }
     }
     catch {
-        Write-Host "⚠️ Aucun processus trouvé sur le port $Port" -ForegroundColor Yellow
+        Write-Host "⏳ Serveur pas encore prêt, attente..." -ForegroundColor Yellow
+        Start-Sleep 3
     }
 }
 
-# Vérification des prérequis
-Write-Host "📋 Vérification des prérequis..." -ForegroundColor Yellow
-
-# Vérifier Python
-if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
-    Write-Host "❌ Python n'est pas installé ou n'est pas dans le PATH" -ForegroundColor Red
-    Write-Host "💡 Installez Python 3.8+ depuis https://python.org" -ForegroundColor Yellow
+if (-not $serverReady) {
+    Write-Host "❌ Le serveur n'a pas démarré correctement" -ForegroundColor Red
+    Write-Host "📋 Vérifiez les logs dans: $logFile" -ForegroundColor Yellow
+    
+    # Afficher les dernières lignes du log
+    if (Test-Path $logFile) {
+        Write-Host "📄 Dernières lignes du log:" -ForegroundColor Cyan
+        Get-Content $logFile -Tail 10
+    }
+    
     exit 1
 }
 
-# Vérifier Node.js
-if (-not (Get-Command node -ErrorAction SilentlyContinue)) {
-    Write-Host "❌ Node.js n'est pas installé ou n'est pas dans le PATH" -ForegroundColor Red
-    Write-Host "💡 Installez Node.js 16+ depuis https://nodejs.org" -ForegroundColor Yellow
-    exit 1
-}
+# Test des endpoints critiques
+Write-Host "🧪 Test des endpoints critiques..." -ForegroundColor Green
 
-Write-Host "✅ Prérequis vérifiés" -ForegroundColor Green
+$endpoints = @(
+    @{url="/api/health/"; name="Health Check"},
+    @{url="/api/files/drives"; name="Drives List"},
+    @{url="/api/analysis/list"; name="Analysis List"},
+    @{url="/api/queue/status"; name="Queue Status"}
+)
 
-# Arrêt des processus existants si -Force
-if ($Force) {
-    Write-Host "🔄 Arrêt des processus existants..." -ForegroundColor Yellow
-    Stop-ProcessOnPort 8000  # Backend
-    Stop-ProcessOnPort 3000  # Frontend
-    Start-Sleep -Seconds 2
-}
-
-# Vérification des ports
-if (Test-Port 8000) {
-    Write-Host "⚠️ Le port 8000 (backend) est déjà utilisé" -ForegroundColor Yellow
-    if (-not $Force) {
-        Write-Host "💡 Utilisez -Force pour arrêter les processus existants" -ForegroundColor Yellow
-        exit 1
+foreach ($endpoint in $endpoints) {
+    try {
+        $response = Invoke-WebRequest -Uri "http://localhost:8000$($endpoint.url)" -TimeoutSec 5 -UseBasicParsing
+        if ($response.StatusCode -eq 200) {
+            Write-Host "✅ $($endpoint.name): OK" -ForegroundColor Green
+        } else {
+            Write-Host "⚠️  $($endpoint.name): Status $($response.StatusCode)" -ForegroundColor Yellow
+        }
+    }
+    catch {
+        Write-Host "❌ $($endpoint.name): Erreur" -ForegroundColor Red
     }
 }
 
-if (Test-Port 3000) {
-    Write-Host "⚠️ Le port 3000 (frontend) est déjà utilisé" -ForegroundColor Yellow
-    if (-not $Force) {
-        Write-Host "💡 Utilisez -Force pour arrêter les processus existants" -ForegroundColor Yellow
-        exit 1
-    }
-}
+Write-Host ""
+Write-Host "🎉 DocuSense AI est prêt!" -ForegroundColor Green
+Write-Host "📊 Backend: http://localhost:8000" -ForegroundColor Cyan
+Write-Host "📚 Documentation: http://localhost:8000/docs" -ForegroundColor Cyan
+Write-Host "📋 Logs: $logFile" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "💡 Pour arrêter le serveur: Ctrl+C ou fermez cette fenêtre" -ForegroundColor Yellow
 
-# Configuration du Backend
-Write-Host "🔧 Configuration du Backend..." -ForegroundColor Yellow
-Set-Location backend
+# Retourner au répertoire racine
+cd ..
 
-# Vérifier si l'environnement virtuel existe
-if (-not (Test-Path "venv")) {
-    Write-Host "📦 Création de l'environnement virtuel..." -ForegroundColor Yellow
-    python -m venv venv
-}
-
-# Activer l'environnement virtuel
-Write-Host "🔌 Activation de l'environnement virtuel..." -ForegroundColor Yellow
-& "venv\Scripts\Activate.ps1"
-
-# Installation des dépendances
-Write-Host "📦 Installation des dépendances Python..." -ForegroundColor Yellow
-& "venv\Scripts\pip.exe" install -r requirements.txt
-
-# Optimisation si demandée
-if ($Optimize) {
-    Write-Host "⚡ Optimisation du système..." -ForegroundColor Yellow
-    # Nettoyage des caches
-    & "venv\Scripts\pip.exe" cache purge
-    # Optimisation de la base de données
-    if (Test-Path "docusense.db") {
-        Write-Host "🗄️ Optimisation de la base de données..." -ForegroundColor Yellow
-    }
-}
-
-# Démarrage du Backend
-Write-Host "🚀 Démarrage du Backend..." -ForegroundColor Green
-Start-Process -FilePath "venv\Scripts\python.exe" -ArgumentList "main.py" -WindowStyle Minimized
-
-# Retour au répertoire racine
-Set-Location ..
-
-# Configuration du Frontend
-Write-Host "🎨 Configuration du Frontend..." -ForegroundColor Yellow
-Set-Location frontend
-
-# Installation des dépendances Node.js
-if (-not (Test-Path "node_modules")) {
-    Write-Host "📦 Installation des dépendances Node.js..." -ForegroundColor Yellow
-    npm install
-}
-
-# Démarrage du Frontend
-Write-Host "🚀 Démarrage du Frontend..." -ForegroundColor Green
-Start-Process -FilePath "npm" -ArgumentList "run", "dev" -WindowStyle Minimized
-
-# Retour au répertoire racine
-Set-Location ..
-
-# Attendre que les services démarrent
-Write-Host "⏳ Attente du démarrage des services..." -ForegroundColor Yellow
-Start-Sleep -Seconds 5
-
-# Vérification des services
-Write-Host "🔍 Vérification des services..." -ForegroundColor Yellow
-
-$backendReady = $false
-$frontendReady = $false
-
-for ($i = 0; $i -lt 10; $i++) {
-    if (Test-Port 8000) {
-        $backendReady = $true
-        Write-Host "✅ Backend démarré sur http://localhost:8000" -ForegroundColor Green
-    }
+# Garder le script actif pour surveiller
+while ($true) {
+    Start-Sleep 10
     
-    if (Test-Port 3000) {
-        $frontendReady = $true
-        Write-Host "✅ Frontend démarré sur http://localhost:3000" -ForegroundColor Green
+    # Vérifier que le serveur est toujours en cours d'exécution
+    try {
+        $response = Invoke-WebRequest -Uri "http://localhost:8000/" -TimeoutSec 3 -UseBasicParsing
+        if ($response.StatusCode -ne 200) {
+            Write-Host "⚠️  Le serveur ne répond plus correctement" -ForegroundColor Yellow
+        }
     }
-    
-    if ($backendReady -and $frontendReady) {
+    catch {
+        Write-Host "❌ Le serveur s'est arrêté!" -ForegroundColor Red
         break
     }
-    
-    Start-Sleep -Seconds 2
-}
-
-if (-not $backendReady) {
-    Write-Host "❌ Le Backend n'a pas démarré correctement" -ForegroundColor Red
-}
-
-if (-not $frontendReady) {
-    Write-Host "❌ Le Frontend n'a pas démarré correctement" -ForegroundColor Red
-}
-
-# Ouverture automatique du navigateur
-if ($backendReady -and $frontendReady) {
-    Write-Host "🌐 Ouverture du navigateur..." -ForegroundColor Green
-    Start-Process "http://localhost:3000"
-}
-
-Write-Host ""
-Write-Host "🎉 DocuSense AI est prêt !" -ForegroundColor Green
-Write-Host "📱 Frontend: http://localhost:3000" -ForegroundColor Cyan
-Write-Host "🔧 Backend: http://localhost:8000" -ForegroundColor Cyan
-Write-Host "📚 API Docs: http://localhost:8000/docs" -ForegroundColor Cyan
-Write-Host ""
-Write-Host "💡 Pour arrêter les services, fermez les fenêtres ou utilisez Ctrl+C" -ForegroundColor Yellow 
+} 

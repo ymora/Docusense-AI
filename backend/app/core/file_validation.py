@@ -5,15 +5,61 @@ Support de tous les formats courants sans limite de taille
 
 import logging
 from pathlib import Path
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Tuple, Optional, Union, Any
 import mimetypes
+from dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass
+class ValidationError:
+    """
+    Erreur de validation
+    """
+    field: str
+    message: str
+    code: str
+    value: Any = None
+
+
+@dataclass
+class ValidationResult:
+    """
+    Résultat de validation
+    """
+    is_valid: bool
+    errors: List[ValidationError]
+    warnings: List[str] = None
+
+    def __post_init__(self):
+        if self.warnings is None:
+            self.warnings = []
+
 
 class FileValidator:
     """
     Service de validation des fichiers - Support de tous les formats courants
+    Source unique de vérité pour la validation des fichiers
     """
+    
+    # Tailles maximales par type de fichier (en bytes)
+    MAX_FILE_SIZES = {
+        "pdf": 50 * 1024 * 1024,      # 50MB
+        "docx": 20 * 1024 * 1024,     # 20MB
+        "doc": 20 * 1024 * 1024,      # 20MB
+        "txt": 10 * 1024 * 1024,      # 10MB
+        "eml": 5 * 1024 * 1024,       # 5MB
+        "msg": 5 * 1024 * 1024,       # 5MB
+        "xlsx": 20 * 1024 * 1024,     # 20MB
+        "xls": 20 * 1024 * 1024,      # 20MB
+        "csv": 10 * 1024 * 1024,      # 10MB
+        "jpg": 10 * 1024 * 1024,      # 10MB
+        "jpeg": 10 * 1024 * 1024,     # 10MB
+        "png": 10 * 1024 * 1024,      # 10MB
+        "html": 5 * 1024 * 1024,      # 5MB
+        "default": 50 * 1024 * 1024   # 50MB par défaut
+    }
     
     # Formats supportés (tous les formats courants)
     SUPPORTED_FORMATS = {
@@ -105,18 +151,37 @@ class FileValidator:
             'application/vnd.oasis.opendocument.text',  # ODT
             'application/vnd.oasis.opendocument.spreadsheet',  # ODS
             'application/vnd.oasis.opendocument.presentation',  # ODP
-            'application/vnd.apple.pages',  # Pages
-            'application/vnd.apple.numbers',  # Numbers
-            'application/vnd.apple.keynote',  # Keynote
-            # Autres formats
+            # Email formats
+            'message/rfc822',      # EML
+            'application/vnd.ms-outlook',  # MSG
+            'application/vnd.ms-pst',  # PST
+            'application/vnd.ms-ost',  # OST
+            # Archives
             'application/zip',
             'application/x-rar-compressed',
             'application/x-7z-compressed',
             'application/x-tar',
             'application/gzip',
             'application/x-bzip2',
-            'application/x-lzma',
-            'application/x-lz4',
+            # Code source
+            'text/x-python',
+            'text/javascript',
+            'text/x-java-source',
+            'text/x-c++src',
+            'text/x-csrc',
+            'text/x-csharp',
+            'text/x-php',
+            'text/x-ruby',
+            'text/x-go',
+            'text/x-rust',
+            'text/x-swift',
+            'text/x-kotlin',
+            'text/x-yaml',
+            'text/x-sql',
+            'text/x-shellscript',
+            'text/x-bat',
+            'text/x-powershell',
+            # Autres
             'application/x-zstd',
         ]
     }
@@ -195,6 +260,156 @@ class FileValidator:
             return False, f"Erreur de validation: {str(e)}", None
     
     @classmethod
+    def validate_file_path(cls, file_path: Union[str, Path]) -> ValidationResult:
+        """
+        Valide un chemin de fichier avec vérification de taille
+        
+        Args:
+            file_path: Chemin du fichier
+            
+        Returns:
+            ValidationResult: Résultat de la validation
+        """
+        errors = []
+        warnings = []
+
+        try:
+            path = Path(file_path)
+
+            # Vérifier que le chemin existe
+            if not path.exists():
+                errors.append(ValidationError(
+                    field="path",
+                    message="Le fichier n'existe pas",
+                    code="FILE_NOT_FOUND",
+                    value=str(file_path)
+                ))
+                return ValidationResult(
+                    is_valid=False, errors=errors, warnings=warnings)
+
+            # Vérifier que c'est bien un fichier
+            if not path.is_file():
+                errors.append(ValidationError(
+                    field="path",
+                    message="Le chemin ne correspond pas à un fichier",
+                    code="NOT_A_FILE",
+                    value=str(file_path)
+                ))
+                return ValidationResult(
+                    is_valid=False, errors=errors, warnings=warnings)
+
+            # Vérifier les permissions de lecture
+            if not path.is_readable():
+                errors.append(ValidationError(
+                    field="path",
+                    message="Le fichier n'est pas accessible en lecture",
+                    code="NOT_READABLE",
+                    value=str(file_path)
+                ))
+                return ValidationResult(
+                    is_valid=False, errors=errors, warnings=warnings)
+
+            # Vérifier la taille du fichier
+            file_size = path.stat().st_size
+            extension = path.suffix.lower().lstrip('.')
+            max_size = cls.MAX_FILE_SIZES.get(
+                extension, cls.MAX_FILE_SIZES["default"])
+
+            if file_size > max_size:
+                errors.append(
+                    ValidationError(
+                        field="size",
+                        message=f"Le fichier est trop volumineux ({file_size} bytes > {max_size} bytes)",
+                        code="FILE_TOO_LARGE",
+                        value=file_size))
+
+            # Avertissement si le fichier est vide
+            if file_size == 0:
+                warnings.append("Le fichier est vide")
+
+            return ValidationResult(
+                is_valid=len(errors) == 0,
+                errors=errors,
+                warnings=warnings)
+
+        except Exception as e:
+            logger.error(f"Erreur lors de la validation du chemin {file_path}: {e}")
+            errors.append(ValidationError(
+                field="path",
+                message=f"Erreur de validation: {str(e)}",
+                code="VALIDATION_ERROR",
+                value=str(file_path)
+            ))
+            return ValidationResult(
+                is_valid=False, errors=errors, warnings=warnings)
+    
+    @classmethod
+    def validate_directory_path(cls, dir_path: Union[str, Path]) -> ValidationResult:
+        """
+        Valide un chemin de répertoire
+        
+        Args:
+            dir_path: Chemin du répertoire
+            
+        Returns:
+            ValidationResult: Résultat de la validation
+        """
+        errors = []
+        warnings = []
+
+        try:
+            path = Path(dir_path)
+
+            # Vérifier que le chemin existe
+            if not path.exists():
+                errors.append(ValidationError(
+                    field="path",
+                    message="Le répertoire n'existe pas",
+                    code="DIRECTORY_NOT_FOUND",
+                    value=str(dir_path)
+                ))
+                return ValidationResult(
+                    is_valid=False, errors=errors, warnings=warnings)
+
+            # Vérifier que c'est bien un répertoire
+            if not path.is_dir():
+                errors.append(ValidationError(
+                    field="path",
+                    message="Le chemin ne correspond pas à un répertoire",
+                    code="NOT_A_DIRECTORY",
+                    value=str(dir_path)
+                ))
+                return ValidationResult(
+                    is_valid=False, errors=errors, warnings=warnings)
+
+            # Vérifier les permissions de lecture
+            if not path.is_readable():
+                errors.append(ValidationError(
+                    field="path",
+                    message="Le répertoire n'est pas accessible en lecture",
+                    code="NOT_READABLE",
+                    value=str(dir_path)
+                ))
+                return ValidationResult(
+                    is_valid=False, errors=errors, warnings=warnings)
+
+            return ValidationResult(
+                is_valid=len(errors) == 0,
+                errors=errors,
+                warnings=warnings)
+
+        except Exception as e:
+            logger.error(f"Erreur lors de la validation du répertoire {dir_path}: {e}")
+            errors.append(ValidationError(
+                field="path",
+                message=f"Erreur de validation: {str(e)}",
+                code="VALIDATION_ERROR",
+                value=str(dir_path)
+            ))
+            return ValidationResult(
+                is_valid=False, errors=errors, warnings=warnings)
+    
+    @classmethod
     def _get_mime_type_from_extension(cls, extension: str) -> Optional[str]:
         """
         Fallback pour déterminer le type MIME à partir de l'extension
@@ -220,40 +435,38 @@ class FileValidator:
             '.mp3': 'audio/mpeg',
             '.wav': 'audio/wav',
             '.flac': 'audio/flac',
+            '.aac': 'audio/mp4',
             '.ogg': 'audio/ogg',
-            '.m4a': 'audio/mp4',
-            '.txt': 'text/plain',
-            '.html': 'text/html',
-            '.htm': 'text/html',
-            '.css': 'text/css',
-            '.js': 'text/javascript',
-            '.json': 'application/json',
-            '.xml': 'application/xml',
-            '.md': 'text/markdown',
-            '.csv': 'text/csv',
-            '.rtf': 'application/rtf',
-            '.ini': 'text/plain',
-            '.cfg': 'text/plain',
-            '.conf': 'text/plain',
-            '.config': 'text/plain',
-            '.log': 'text/plain',
+            '.wma': 'audio/x-ms-wma',
             '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
             '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
             '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
             '.doc': 'application/msword',
             '.xls': 'application/vnd.ms-excel',
             '.ppt': 'application/vnd.ms-powerpoint',
-            '.odt': 'application/vnd.oasis.opendocument.text',
-            '.ods': 'application/vnd.oasis.opendocument.spreadsheet',
-            '.odp': 'application/vnd.oasis.opendocument.presentation',
+            '.txt': 'text/plain',
+            '.html': 'text/html',
+            '.css': 'text/css',
+            '.js': 'text/javascript',
+            '.json': 'application/json',
+            '.xml': 'application/xml',
+            '.csv': 'text/csv',
+            '.md': 'text/markdown',
+            '.eml': 'message/rfc822',
+            '.zip': 'application/zip',
+            '.rar': 'application/x-rar-compressed',
+            '.7z': 'application/x-7z-compressed',
+            '.tar': 'application/x-tar',
+            '.gz': 'application/gzip',
+            '.bz2': 'application/x-bzip2',
         }
         
-        return extension_mime_map.get(extension)
+        return extension_mime_map.get(extension.lower())
     
     @classmethod
     def get_supported_formats_for_type(cls, file_type: str) -> List[str]:
         """
-        Retourne la liste des formats supportés pour un type
+        Retourne les formats supportés pour un type de fichier
         """
         return cls.SUPPORTED_FORMATS.get(file_type, [])
     

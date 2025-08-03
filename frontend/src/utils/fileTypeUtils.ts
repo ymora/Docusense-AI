@@ -44,7 +44,9 @@ export const getFileType = (fileName: string, mimeType?: string): FileType => {
 
   // Emails - Support étendu incluant formats Outlook
   if (['eml', 'msg', 'pst', 'ost'].includes(extension || '') ||
-      mimeType?.startsWith('message/')) {
+      mimeType?.startsWith('message/') || 
+      mimeType === 'message/rfc822' ||
+      mimeType === 'application/vnd.ms-outlook') {
     return 'email';
   }
 

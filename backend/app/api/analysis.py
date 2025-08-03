@@ -16,7 +16,95 @@ from ..models.file import File, FileStatus
 
 logger = logging.getLogger(__name__)
 
-router = APIRouter(prefix="/analysis", tags=["analysis"])
+router = APIRouter(tags=["analysis"])
+
+@router.get("/list")
+async def get_analyses_list(
+    db: Session = Depends(get_db),
+    sort_by: str = Query("created_at", description="Sort by field"),
+    sort_order: str = Query("desc", description="Sort order (asc/desc)"),
+    status_filter: Optional[str] = Query(None, description="Filter by status"),
+    prompt_filter: Optional[str] = Query(None, description="Filter by prompt type"),
+    limit: int = Query(50, description="Number of items to return"),
+    offset: int = Query(0, description="Offset for pagination")
+) -> Dict[str, Any]:
+    """
+    Get analyses list with sorting and filtering
+    """
+    try:
+        from sqlalchemy import desc, asc
+        
+        # Build query
+        query = db.query(Analysis)
+        
+        # Apply filters
+        if status_filter:
+            query = query.filter(Analysis.status == status_filter)
+        
+        if prompt_filter:
+            # Filter by prompt type in metadata
+            query = query.filter(Analysis.analysis_metadata.contains({"prompt_id": prompt_filter}))
+        
+        # Apply sorting
+        if sort_by == "created_at":
+            query = query.order_by(desc(Analysis.created_at) if sort_order == "desc" else asc(Analysis.created_at))
+        elif sort_by == "status":
+            query = query.order_by(desc(Analysis.status) if sort_order == "desc" else asc(Analysis.status))
+        elif sort_by == "provider":
+            query = query.order_by(desc(Analysis.provider) if sort_order == "desc" else asc(Analysis.provider))
+        else:
+            query = query.order_by(desc(Analysis.created_at))
+        
+        # Apply pagination
+        total = query.count()
+        analyses = query.offset(offset).limit(limit).all()
+        
+        # Convert to response format
+        analyses_list = []
+        for analysis in analyses:
+            # Get file info
+            file_info = None
+            if analysis.file_id:
+                file = db.query(File).filter(File.id == analysis.file_id).first()
+                if file:
+                    file_info = {
+                        "id": file.id,
+                        "name": file.name,
+                        "path": file.path,
+                        "size": file.size,
+                        "mime_type": file.mime_type
+                    }
+            
+            analyses_list.append({
+                "id": analysis.id,
+                "file_info": file_info,
+                "analysis_type": analysis.analysis_type.value,
+                "status": analysis.status.value,
+                "provider": analysis.provider,
+                "model": analysis.model,
+                "prompt": analysis.prompt,
+                "result": analysis.result,
+                "analysis_metadata": analysis.analysis_metadata,
+                "created_at": analysis.created_at.isoformat() if analysis.created_at else None,
+                "started_at": analysis.started_at.isoformat() if analysis.started_at else None,
+                "completed_at": analysis.completed_at.isoformat() if analysis.completed_at else None,
+                "error_message": analysis.error_message,
+                "retry_count": analysis.retry_count
+            })
+        
+        return {
+            "analyses": analyses_list,
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "sort_by": sort_by,
+            "sort_order": sort_order
+        }
+        
+    except Exception as e:
+        logger.error(f"Error getting analyses list: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/test")
 async def test_endpoint():
@@ -423,93 +511,6 @@ async def get_prompts(db: Session = Depends(get_db)) -> Dict[str, Any]:
         
     except Exception as e:
         logger.error(f"Error loading prompts: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
-
-@router.get("/list")
-async def get_analyses_list(
-    db: Session = Depends(get_db),
-    sort_by: str = Query("created_at", description="Sort by field"),
-    sort_order: str = Query("desc", description="Sort order (asc/desc)"),
-    status_filter: Optional[str] = Query(None, description="Filter by status"),
-    prompt_filter: Optional[str] = Query(None, description="Filter by prompt type"),
-    limit: int = Query(50, description="Number of items to return"),
-    offset: int = Query(0, description="Offset for pagination")
-) -> Dict[str, Any]:
-    """
-    Get analyses list with sorting and filtering
-    """
-    try:
-        from sqlalchemy import desc, asc
-        
-        # Build query
-        query = db.query(Analysis)
-        
-        # Apply filters
-        if status_filter:
-            query = query.filter(Analysis.status == status_filter)
-        
-        if prompt_filter:
-            # Filter by prompt type in metadata
-            query = query.filter(Analysis.analysis_metadata.contains({"prompt_id": prompt_filter}))
-        
-        # Apply sorting
-        if sort_by == "created_at":
-            query = query.order_by(desc(Analysis.created_at) if sort_order == "desc" else asc(Analysis.created_at))
-        elif sort_by == "status":
-            query = query.order_by(desc(Analysis.status) if sort_order == "desc" else asc(Analysis.status))
-        elif sort_by == "provider":
-            query = query.order_by(desc(Analysis.provider) if sort_order == "desc" else asc(Analysis.provider))
-        else:
-            query = query.order_by(desc(Analysis.created_at))
-        
-        # Apply pagination
-        total = query.count()
-        analyses = query.offset(offset).limit(limit).all()
-        
-        # Convert to response format
-        analyses_list = []
-        for analysis in analyses:
-            # Get file info
-            file_info = None
-            if analysis.file_id:
-                file = db.query(File).filter(File.id == analysis.file_id).first()
-                if file:
-                    file_info = {
-                        "id": file.id,
-                        "name": file.name,
-                        "path": file.path,
-                        "size": file.size,
-                        "mime_type": file.mime_type
-                    }
-            
-            analyses_list.append({
-                "id": analysis.id,
-                "file_info": file_info,
-                "analysis_type": analysis.analysis_type.value,
-                "status": analysis.status.value,
-                "provider": analysis.provider,
-                "model": analysis.model,
-                "prompt": analysis.prompt,
-                "result": analysis.result,
-                "analysis_metadata": analysis.analysis_metadata,
-                "created_at": analysis.created_at.isoformat() if analysis.created_at else None,
-                "started_at": analysis.started_at.isoformat() if analysis.started_at else None,
-                "completed_at": analysis.completed_at.isoformat() if analysis.completed_at else None,
-                "error_message": analysis.error_message,
-                "retry_count": analysis.retry_count
-            })
-        
-        return {
-            "analyses": analyses_list,
-            "total": total,
-            "limit": limit,
-            "offset": offset,
-            "sort_by": sort_by,
-            "sort_order": sort_order
-        }
-        
-    except Exception as e:
-        logger.error(f"Error getting analyses list: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/stats")

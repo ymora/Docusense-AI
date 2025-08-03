@@ -8,7 +8,6 @@ from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import and_, desc
-import logging
 
 from ..core.database import get_db
 from ..models.queue import QueueItem, QueueStatus, QueuePriority
@@ -16,45 +15,45 @@ from ..models.analysis import Analysis, AnalysisStatus, AnalysisType
 from ..models.file import File, FileStatus
 from .ai_service import get_ai_service
 from .ocr_service import OCRService
+from .base_service import BaseService, log_service_operation
+from ..core.types import ServiceResponse, QueueData
 
-logger = logging.getLogger(__name__)
 
-
-class QueueService:
+class QueueService(BaseService):
     """Service for managing analysis queue"""
 
     def __init__(self, db: Session):
-        self.db = db
+        super().__init__(db)
         self.ai_service = get_ai_service(db)
         self.ocr_service = OCRService(db)
         self.is_processing = False
         self.processing_task = None
 
+    @log_service_operation("add_to_queue")
     def add_to_queue(
         self,
         analysis_id: int,
         priority: QueuePriority = QueuePriority.NORMAL
     ) -> QueueItem:
         """Add analysis to queue"""
-        try:
-            # Validate analysis exists
-            self._validate_analysis_exists(analysis_id)
-            
-            # Check for duplicate
-            self._check_duplicate_queue_item(analysis_id)
-            
-            # Create queue item
-            queue_item = self._create_queue_item(analysis_id, priority)
-            
-            # Save to database
-            self._save_queue_item(queue_item)
-            
-            logger.info(f"Added analysis {analysis_id} to queue with priority {priority}")
-            return queue_item
-            
-        except Exception as e:
-            logger.error(f"Error adding to queue: {str(e)}")
-            raise
+        return self.safe_execute("add_to_queue", self._add_to_queue_logic, analysis_id, priority)
+
+    def _add_to_queue_logic(self, analysis_id: int, priority: QueuePriority) -> QueueItem:
+        """Logic for adding to queue"""
+        # Validate analysis exists
+        self._validate_analysis_exists(analysis_id)
+        
+        # Check for duplicate
+        self._check_duplicate_queue_item(analysis_id)
+        
+        # Create queue item
+        queue_item = self._create_queue_item(analysis_id, priority)
+        
+        # Save to database
+        self._save_queue_item(queue_item)
+        
+        self.logger.info(f"Added analysis {analysis_id} to queue with priority {priority}")
+        return queue_item
 
     def _validate_analysis_exists(self, analysis_id: int) -> None:
         """Validate that analysis exists"""
@@ -87,6 +86,7 @@ class QueueService:
         self.db.commit()
         self.db.refresh(queue_item)
 
+    @log_service_operation("get_queue_items")
     def get_queue_items(
         self,
         status: Optional[QueueStatus] = None,
@@ -95,21 +95,20 @@ class QueueService:
         offset: int = 0
     ) -> List[QueueItem]:
         """Get queue items with optional filtering"""
-        try:
-            query = self.db.query(QueueItem)
-            
-            # Apply filters
-            query = self._apply_queue_filters(query, status, priority)
-            
-            # Apply pagination
-            query = query.order_by(QueueItem.created_at.desc())
-            query = query.offset(offset).limit(limit)
-            
-            return query.all()
-            
-        except Exception as e:
-            logger.error(f"Error getting queue items: {str(e)}")
-            return []
+        return self.safe_execute("get_queue_items", self._get_queue_items_logic, status, priority, limit, offset)
+
+    def _get_queue_items_logic(self, status: Optional[QueueStatus], priority: Optional[QueuePriority], limit: int, offset: int) -> List[QueueItem]:
+        """Logic for getting queue items"""
+        query = self.db.query(QueueItem)
+        
+        # Apply filters
+        query = self._apply_queue_filters(query, status, priority)
+        
+        # Apply pagination
+        query = query.order_by(QueueItem.created_at.desc())
+        query = query.offset(offset).limit(limit)
+        
+        return query.all()
 
     def _apply_queue_filters(self, query, status: Optional[QueueStatus], 
                            priority: Optional[QueuePriority]):
@@ -120,103 +119,97 @@ class QueueService:
             query = query.filter(QueueItem.priority == priority)
         return query
 
+    @log_service_operation("get_queue_status")
     def get_queue_status(self) -> Dict[str, Any]:
         """Get queue status and statistics"""
-        try:
-            total_items = self.db.query(QueueItem).count()
-            pending_items = self.db.query(QueueItem).filter(
-                QueueItem.status == QueueStatus.PENDING
-            ).count()
-            processing_items = self.db.query(QueueItem).filter(
-                QueueItem.status == QueueStatus.PROCESSING
-            ).count()
-            completed_items = self.db.query(QueueItem).filter(
-                QueueItem.status == QueueStatus.COMPLETED
-            ).count()
-            failed_items = self.db.query(QueueItem).filter(
-                QueueItem.status == QueueStatus.FAILED
-            ).count()
-            paused_items = self.db.query(QueueItem).filter(
-                QueueItem.status == QueueStatus.PAUSED
-            ).count()
+        return self.safe_execute("get_queue_status", self._get_queue_status_logic)
 
-            return {
-                "total_items": total_items,
-                "pending_items": pending_items,
-                "processing_items": processing_items,
-                "completed_items": completed_items,
-                "failed_items": failed_items,
-                "paused_items": paused_items,
-                "is_processing": self.is_processing
-            }
-            
-        except Exception as e:
-            logger.error(f"Error getting queue status: {str(e)}")
-            return {
-                "total_items": 0,
-                "pending_items": 0,
-                "processing_items": 0,
-                "completed_items": 0,
-                "failed_items": 0,
-                "paused_items": 0,
-                "is_processing": False
-            }
+    def _get_queue_status_logic(self) -> Dict[str, Any]:
+        """Logic for getting queue status"""
+        total_items = self.db.query(QueueItem).count()
+        pending_items = self.db.query(QueueItem).filter(
+            QueueItem.status == QueueStatus.PENDING
+        ).count()
+        processing_items = self.db.query(QueueItem).filter(
+            QueueItem.status == QueueStatus.PROCESSING
+        ).count()
+        completed_items = self.db.query(QueueItem).filter(
+            QueueItem.status == QueueStatus.COMPLETED
+        ).count()
+        failed_items = self.db.query(QueueItem).filter(
+            QueueItem.status == QueueStatus.FAILED
+        ).count()
+        paused_items = self.db.query(QueueItem).filter(
+            QueueItem.status == QueueStatus.PAUSED
+        ).count()
 
+        return {
+            "total_items": total_items,
+            "pending_items": pending_items,
+            "processing_items": processing_items,
+            "completed_items": completed_items,
+            "failed_items": failed_items,
+            "paused_items": paused_items,
+            "is_processing": self.is_processing
+        }
+
+    @log_service_operation("pause_queue")
     def pause_queue(self) -> bool:
         """Pause queue processing"""
-        try:
-            # Update all pending items to paused
-            self.db.query(QueueItem).filter(
-                QueueItem.status == QueueStatus.PENDING
-            ).update({QueueItem.status: QueueStatus.PAUSED})
-            
-            # Update processing items to paused
-            self.db.query(QueueItem).filter(
-                QueueItem.status == QueueStatus.PROCESSING
-            ).update({QueueItem.status: QueueStatus.PAUSED})
-            
-            self.db.commit()
-            logger.info("Queue paused")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error pausing queue: {str(e)}")
-            return False
+        return self.safe_execute("pause_queue", self._pause_queue_logic)
 
+    def _pause_queue_logic(self) -> bool:
+        """Logic for pausing queue"""
+        # Update all pending items to paused
+        self.db.query(QueueItem).filter(
+            QueueItem.status == QueueStatus.PENDING
+        ).update({QueueItem.status: QueueStatus.PAUSED})
+        
+        # Update processing items to paused
+        self.db.query(QueueItem).filter(
+            QueueItem.status == QueueStatus.PROCESSING
+        ).update({QueueItem.status: QueueStatus.PAUSED})
+        
+        self.db.commit()
+        self.logger.info("Queue paused")
+        return True
+
+    @log_service_operation("resume_queue")
     def resume_queue(self) -> bool:
         """Resume queue processing"""
-        try:
-            # Update all paused items back to pending
-            self.db.query(QueueItem).filter(
-                QueueItem.status == QueueStatus.PAUSED
-            ).update({QueueItem.status: QueueStatus.PENDING})
-            
-            self.db.commit()
-            logger.info("Queue resumed")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error resuming queue: {str(e)}")
-            return False
+        return self.safe_execute("resume_queue", self._resume_queue_logic)
 
+    def _resume_queue_logic(self) -> bool:
+        """Logic for resuming queue"""
+        # Update all paused items back to pending
+        self.db.query(QueueItem).filter(
+            QueueItem.status == QueueStatus.PAUSED
+        ).update({QueueItem.status: QueueStatus.PENDING})
+        
+        self.db.commit()
+        self.logger.info("Queue resumed")
+        return True
+
+    @log_service_operation("start_processing")
     async def start_processing(self):
         """Start queue processing"""
         if self.is_processing:
-            logger.warning("Queue processing already started")
+            self.logger.warning("Queue processing already started")
             return
         
         self.is_processing = True
-        logger.info("Traitement de queue démarré")
+        self.logger.info("Traitement de queue démarré")
         
         # Start processing in background
         self.processing_task = asyncio.create_task(self._process_queue())
 
+    @log_service_operation("stop_processing")
     def stop_processing(self):
         """Stop queue processing"""
         self.is_processing = False
         if self.processing_task:
             self.processing_task.cancel()
-        logger.info("Traitement de queue arrêté")
+        self.logger.info("Traitement de queue arrêté")
 
     async def _process_queue(self):
         """Main queue processing loop"""
@@ -243,7 +236,7 @@ class QueueService:
                 self._cleanup_completed_tasks()
                 
             except Exception as e:
-                logger.error(f"Error in queue processing: {str(e)}")
+                self.logger.error(f"Error in queue processing: {str(e)}")
                 await asyncio.sleep(5)
 
     def _calculate_available_slots(self) -> int:
@@ -262,27 +255,28 @@ class QueueService:
             await self._process_item(item)
             
         except Exception as e:
-            logger.error(f"Error processing item {item.id}: {str(e)}")
+            self.logger.error(f"Error processing item {item.id}: {str(e)}")
             await self._handle_processing_error(item, None, str(e))
 
+    @log_service_operation("cleanup_completed_tasks")
     def _cleanup_completed_tasks(self) -> None:
         """Clean up completed tasks"""
-        try:
-            # Remove completed items older than 1 hour
-            cutoff_time = datetime.now()
-            cutoff_time = cutoff_time.replace(hour=cutoff_time.hour - 1)
-            
-            deleted_count = self.db.query(QueueItem).filter(
-                QueueItem.status == QueueStatus.COMPLETED,
-                QueueItem.completed_at < cutoff_time
-            ).delete()
-            
-            if deleted_count > 0:
-                self.db.commit()
-                logger.info(f"Cleaned up {deleted_count} completed queue items")
-                
-        except Exception as e:
-            logger.error(f"Error cleaning up completed tasks: {str(e)}")
+        self.safe_execute("cleanup_completed_tasks", self._cleanup_completed_tasks_logic)
+
+    def _cleanup_completed_tasks_logic(self) -> None:
+        """Logic for cleaning up completed tasks"""
+        # Remove completed items older than 1 hour
+        cutoff_time = datetime.now()
+        cutoff_time = cutoff_time.replace(hour=cutoff_time.hour - 1)
+        
+        deleted_count = self.db.query(QueueItem).filter(
+            QueueItem.status == QueueStatus.COMPLETED,
+            QueueItem.completed_at < cutoff_time
+        ).delete()
+        
+        if deleted_count > 0:
+            self.db.commit()
+            self.logger.info(f"Cleaned up {deleted_count} completed queue items")
 
     async def _process_item(self, queue_item: QueueItem):
         """Process a single queue item"""
@@ -303,7 +297,7 @@ class QueueService:
             self._mark_item_completed(queue_item, analysis)
             
         except Exception as e:
-            logger.error(f"Error processing item {queue_item.id}: {str(e)}")
+            self.logger.error(f"Error processing item {queue_item.id}: {str(e)}")
             await self._handle_processing_error(queue_item, None, str(e))
 
     def _get_analysis_and_file(self, analysis_id: int) -> tuple[Analysis, File]:
@@ -336,7 +330,7 @@ class QueueService:
                     file.extracted_text = extracted_text
                     file.status = "completed"
                     self.db.commit()
-                    logger.info(f"Extracted text from file {file.id}: {len(extracted_text)} characters")
+                    self.logger.info(f"Extracted text from file {file.id}: {len(extracted_text)} characters")
                 else:
                     file.status = "failed"
                     file.error_message = "Aucun texte extrait"
@@ -344,7 +338,7 @@ class QueueService:
                     raise Exception("Aucun texte extrait du fichier")
                     
             except Exception as e:
-                logger.error(f"Error extracting text from file {file.id}: {str(e)}")
+                self.logger.error(f"Error extracting text from file {file.id}: {str(e)}")
                 file.status = "failed"
                 file.error_message = str(e)
                 self.db.commit()
@@ -370,7 +364,7 @@ class QueueService:
                 self._update_analysis_result(analysis, result)
                 
             except Exception as e:
-                logger.error(f"Error during AI analysis: {str(e)}")
+                self.logger.error(f"Error during AI analysis: {str(e)}")
                 raise
     
     def _update_progress(self, queue_item: QueueItem, progress: float, step: str) -> None:
@@ -401,7 +395,7 @@ class QueueService:
         queue_item.completed_at = datetime.now()
         self.db.commit()
         
-        logger.info(f"Completed processing queue item {queue_item.id}")
+        self.logger.info(f"Completed processing queue item {queue_item.id}")
     
     async def _handle_processing_error(self, queue_item: QueueItem, analysis: Analysis, error: str) -> None:
         """Handle processing error"""
@@ -415,107 +409,107 @@ class QueueService:
         
         self.db.commit()
         
-        logger.error(f"Failed processing queue item {queue_item.id}: {error}")
+        self.logger.error(f"Failed processing queue item {queue_item.id}: {error}")
 
+    @log_service_operation("clear_queue")
     def clear_queue(self, status: Optional[QueueStatus] = None):
         """Clear queue items by status"""
-        try:
-            query = self.db.query(QueueItem)
-            if status:
-                query = query.filter(QueueItem.status == status)
-            
-            deleted_count = query.delete()
-            self.db.commit()
-            
-            logger.info(f"Cleared {deleted_count} queue items")
-            return deleted_count
-            
-        except Exception as e:
-            logger.error(f"Error clearing queue: {str(e)}")
-            return 0
+        return self.safe_execute("clear_queue", self._clear_queue_logic, status)
 
+    def _clear_queue_logic(self, status: Optional[QueueStatus]) -> int:
+        """Logic for clearing queue"""
+        query = self.db.query(QueueItem)
+        if status:
+            query = query.filter(QueueItem.status == status)
+        
+        deleted_count = query.delete()
+        self.db.commit()
+        
+        self.logger.info(f"Cleared {deleted_count} queue items")
+        return deleted_count
+
+    @log_service_operation("retry_failed_items")
     def retry_failed_items(self, item_ids: Optional[List[int]] = None):
         """Retry failed queue items"""
-        try:
-            query = self.db.query(QueueItem).filter(QueueItem.status == QueueStatus.FAILED)
-            
-            if item_ids:
-                query = query.filter(QueueItem.id.in_(item_ids))
-            
-            failed_items = query.all()
-            
-            for item in failed_items:
-                item.status = QueueStatus.PENDING
-                item.error_message = None
-                item.progress = 0.0
-                item.current_step = None
-                item.started_at = None
-                item.completed_at = None
-            
-            self.db.commit()
-            
-            logger.info(f"Retried {len(failed_items)} failed queue items")
-            return len(failed_items)
-            
-        except Exception as e:
-            logger.error(f"Error retrying failed items: {str(e)}")
-            return 0
+        return self.safe_execute("retry_failed_items", self._retry_failed_items_logic, item_ids)
 
+    def _retry_failed_items_logic(self, item_ids: Optional[List[int]]) -> int:
+        """Logic for retrying failed items"""
+        query = self.db.query(QueueItem).filter(QueueItem.status == QueueStatus.FAILED)
+        
+        if item_ids:
+            query = query.filter(QueueItem.id.in_(item_ids))
+        
+        failed_items = query.all()
+        
+        for item in failed_items:
+            item.status = QueueStatus.PENDING
+            item.error_message = None
+            item.progress = 0.0
+            item.current_step = None
+            item.started_at = None
+            item.completed_at = None
+        
+        self.db.commit()
+        
+        self.logger.info(f"Retried {len(failed_items)} failed queue items")
+        return len(failed_items)
+
+    @log_service_operation("delete_queue_item")
     def delete_queue_item(self, item_id: int) -> bool:
         """Delete a specific queue item"""
-        try:
-            item = self.db.query(QueueItem).filter(QueueItem.id == item_id).first()
-            if not item:
-                return False
-            
-            self.db.delete(item)
-            self.db.commit()
-            
-            logger.info(f"Deleted queue item {item_id}")
-            return True
-            
-        except Exception as e:
-            logger.error(f"Error deleting queue item {item_id}: {str(e)}")
-            return False
+        return self.safe_execute("delete_queue_item", self._delete_queue_item_logic, item_id)
 
+    def _delete_queue_item_logic(self, item_id: int) -> bool:
+        """Logic for deleting queue item"""
+        item = self.db.query(QueueItem).filter(QueueItem.id == item_id).first()
+        if not item:
+            return False
+        
+        self.db.delete(item)
+        self.db.commit()
+        
+        self.logger.info(f"Deleted queue item {item_id}")
+        return True
+
+    @log_service_operation("get_queue_item_details")
     def get_queue_item_details(self, item_id: int) -> Optional[Dict[str, Any]]:
         """Get detailed information about a queue item"""
-        try:
-            item = self.db.query(QueueItem).filter(QueueItem.id == item_id).first()
-            if not item:
-                return None
-            
-            analysis = self.db.query(Analysis).filter(Analysis.id == item.analysis_id).first()
-            file = None
-            if analysis:
-                file = self.db.query(File).filter(File.id == analysis.file_id).first()
-            
-            return {
-                "id": item.id,
-                "status": item.status.value,
-                "priority": item.priority.value,
-                "progress": item.progress,
-                "current_step": item.current_step,
-                "error_message": item.error_message,
-                "created_at": item.created_at.isoformat() if item.created_at else None,
-                "started_at": item.started_at.isoformat() if item.started_at else None,
-                "completed_at": item.completed_at.isoformat() if item.completed_at else None,
-                "analysis": {
-                    "id": analysis.id if analysis else None,
-                    "type": analysis.analysis_type.value if analysis else None,
-                    "provider": analysis.provider if analysis else None,
-                    "model": analysis.model if analysis else None,
-                    "status": analysis.status.value if analysis else None
-                } if analysis else None,
-                "file": {
-                    "id": file.id if file else None,
-                    "name": file.name if file else None,
-                    "path": file.path if file else None,
-                    "mime_type": file.mime_type if file else None,
-                    "size": file.size if file else None
-                } if file else None
-            }
-            
-        except Exception as e:
-            logger.error(f"Error getting queue item details {item_id}: {str(e)}")
+        return self.safe_execute("get_queue_item_details", self._get_queue_item_details_logic, item_id)
+
+    def _get_queue_item_details_logic(self, item_id: int) -> Optional[Dict[str, Any]]:
+        """Logic for getting queue item details"""
+        item = self.db.query(QueueItem).filter(QueueItem.id == item_id).first()
+        if not item:
             return None
+        
+        analysis = self.db.query(Analysis).filter(Analysis.id == item.analysis_id).first()
+        file = None
+        if analysis:
+            file = self.db.query(File).filter(File.id == analysis.file_id).first()
+        
+        return {
+            "id": item.id,
+            "status": item.status.value,
+            "priority": item.priority.value,
+            "progress": item.progress,
+            "current_step": item.current_step,
+            "error_message": item.error_message,
+            "created_at": item.created_at.isoformat() if item.created_at else None,
+            "started_at": item.started_at.isoformat() if item.started_at else None,
+            "completed_at": item.completed_at.isoformat() if item.completed_at else None,
+            "analysis": {
+                "id": analysis.id if analysis else None,
+                "type": analysis.analysis_type.value if analysis else None,
+                "provider": analysis.provider if analysis else None,
+                "model": analysis.model if analysis else None,
+                "status": analysis.status.value if analysis else None
+            } if analysis else None,
+            "file": {
+                "id": file.id if file else None,
+                "name": file.name if file else None,
+                "path": file.path if file else None,
+                "mime_type": file.mime_type if file else None,
+                "size": file.size if file else None
+            } if file else None
+        }

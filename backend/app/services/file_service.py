@@ -7,136 +7,114 @@ from pathlib import Path
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
 from sqlalchemy import or_, func
-import logging
+from datetime import datetime
 
 from ..models.file import File, FileCreate, FileListResponse, DirectoryStructure, DirectoryTreeResponse, FileResponse
-from ..core.file_utils import FileFormatManager, FileInfoExtractor, DirectoryInfoExtractor
+from ..core.file_utils import FileInfoExtractor, DirectoryInfoExtractor
+from ..core.file_validation import FileValidator
 from ..core.status_manager import FileStatus
 from ..core.database_utils import DatabaseMetrics
 from ..core.cache import cached
 from ..core.performance_monitor import monitor_performance
-from .format_optimizer_service import FormatOptimizerService
+from .base_service import BaseService, log_service_operation
+from ..core.types import ServiceResponse, FileData
 
-logger = logging.getLogger(__name__)
 
-
-class FileService:
+class FileService(BaseService):
     """Service for file operations"""
 
     def __init__(self, db: Session):
-        self.db = db
-        # Utilisation des formats centralisés depuis FileFormatManager
-        self.supported_formats = FileFormatManager.get_supported_formats()
-        # Service d'optimisation des formats pour décharger l'application
-        self.format_optimizer = FormatOptimizerService()
+        super().__init__(db)
+        # Utilisation des formats centralisés depuis FileValidator
+        self.supported_formats = [format for formats in FileValidator.get_all_supported_formats().values() for format in formats]
 
+    @log_service_operation("scan_directory")
     def scan_directory(self, directory_path: str) -> Dict[str, Any]:
         """
         Scan a directory and create virtual mirror of structure
         """
+        return self.safe_execute("scan_directory", self._scan_directory_logic, directory_path)
+
+    def _scan_directory_logic(self, directory_path: str) -> Dict[str, Any]:
+        """Logic for scanning directory"""
+        directory = Path(directory_path)
+        
+        if not directory.exists() or not directory.is_dir():
+            raise ValueError(f"Directory does not exist: {directory_path}")
+
+        self.logger.info(f"Scan du répertoire: {directory_path}")
+
+        # Clear existing directory structure for this root
+        self._clear_directory_structure(directory_path)
+
+        files = []
+        directories = []
+
+        # Create root directory entry first
+        root_dir_info = DirectoryInfoExtractor.extract_directory_info(directory)
+
+        if root_dir_info:
+            root_dir = self._create_directory_structure(root_dir_info)
+            directories.append(root_dir)
+        else:
+            self.logger.error(f"Failed to get directory info for root: {directory}")
+
+        # Scan all files and directories with error handling
         try:
-            directory = Path(directory_path)
-            
-            if not directory.exists() or not directory.is_dir():
-                raise ValueError(f"Directory does not exist: {directory_path}")
+            for item_path in directory.rglob("*"):
+                try:
+                    if item_path.is_file():
+                        # Utilisation de FileInfoExtractor centralisé
+                        file_info = FileInfoExtractor.extract_file_info(item_path)
+                        if file_info:
+                            # Check if file already exists in database
+                            existing_file = self.db.query(File).filter(
+                                File.path == str(item_path)).first()
+                            if not existing_file:
+                                file_create = FileCreate(**file_info)
+                                db_file = self._create_file(file_create)
+                                files.append(db_file)
+                            else:
+                                files.append(existing_file)
 
-            logger.info(f"Scan du répertoire: {directory_path}")
+                    elif item_path.is_dir():
+                        # Utilisation de DirectoryInfoExtractor centralisé
+                        dir_info = DirectoryInfoExtractor.extract_directory_info(item_path)
+                        if dir_info:
+                            db_dir = self._create_directory_structure(dir_info)
+                            directories.append(db_dir)
+                except PermissionError:
+                    # Skip files/directories without permission
+                    continue
+                except Exception as e:
+                    self.logger.warning(f"Error processing {item_path}: {str(e)}")
+                    continue
 
-            # Clear existing directory structure for this root
-            self._clear_directory_structure(directory_path)
+            # Update file counts for directories
+            self._update_directory_file_counts(directory_path)
 
-            files = []
-            directories = []
+            self.db.commit()
+            self.logger.info(f"Scanned directory {directory_path}: found {len(files)} files and {len(directories)} directories")
 
-            # Create root directory entry first
-            root_dir_info = DirectoryInfoExtractor.extract_directory_info(
-                directory)
+            return {
+                "files": files,
+                "directories": directories,
+                "total_files": len(files),
+                "total_directories": len(directories)
+            }
 
-            if root_dir_info:
-                root_dir = self._create_directory_structure(root_dir_info)
-                directories.append(root_dir)
-            else:
-                logger.error(
-                    f"Failed to get directory info for root: {directory}")
-
-            # Scan all files and directories with error handling
-            try:
-                for item_path in directory.rglob("*"):
-                    try:
-                        if item_path.is_file():
-                            # Utilisation de FileInfoExtractor centralisé
-                            file_info = FileInfoExtractor.extract_file_info(
-                                item_path)
-                            if file_info:
-                                # Check if file already exists in database
-                                existing_file = self.db.query(File).filter(
-                                    File.path == str(item_path)).first()
-                                if not existing_file:
-                                    file_create = FileCreate(**file_info)
-                                    db_file = self._create_file(file_create)
-                                    files.append(db_file)
-                                else:
-                                    files.append(existing_file)
-
-                        elif item_path.is_dir():
-                            # Utilisation de DirectoryInfoExtractor centralisé
-                            dir_info = DirectoryInfoExtractor.extract_directory_info(
-                                item_path)
-                            if dir_info:
-                                db_dir = self._create_directory_structure(
-                                    dir_info)
-                                directories.append(db_dir)
-                    except PermissionError:
-                        # Skip files/directories without permission
-                        continue
-                    except Exception as e:
-                        logger.warning(
-                            f"Error processing {item_path}: {
-                                str(e)}")
-                        continue
-
-                # Update file counts for directories
-                self._update_directory_file_counts(directory_path)
-
-                self.db.commit()
-                logger.info(
-                    f"Scanned directory {directory_path}: found {
-                        len(files)} files and {
-                        len(directories)} directories")
-
-                return {
-                    "files": files,
-                    "directories": directories,
-                    "total_files": len(files),
-                    "total_directories": len(directories)
-                }
-
-            except Exception:
-                logger.error(
-                    f"Failed to create directory structure for {directory_path}")
-                self.db.rollback()
-                # Return empty result instead of raising
-                return {
-                    "files": [],
-                    "directories": [],
-                    "total_files": 0,
-                    "total_directories": 0
-                }
-
-        except Exception as e:
-            logger.error(
-                f"Error scanning directory {directory_path}: {
-                    str(e)}")
+        except Exception:
+            self.logger.error(f"Failed to create directory structure for {directory_path}")
             self.db.rollback()
-            raise
+            # Return empty result instead of raising
+            return {
+                "files": [],
+                "directories": [],
+                "total_files": 0,
+                "total_directories": 0
+            }
 
-    # Méthodes supprimées car centralisées dans les modules core
-    # _get_file_info() → FileInfoExtractor.extract_file_info()
-    # _is_format_supported() → FileFormatManager.is_format_supported()
-    # _get_directory_info() → DirectoryInfoExtractor.extract_directory_info()
-
-    def _create_directory_structure(
-            self, dir_info: Dict[str, Any]) -> DirectoryStructure:
+    def _create_directory_structure(self, dir_info: Dict[str, Any]) -> DirectoryStructure:
         """
         Create a directory structure entry
         """
@@ -155,7 +133,7 @@ class FileService:
             return db_dir
 
         except Exception as e:
-            logger.error(f"Error creating directory structure: {str(e)}")
+            self.logger.error(f"Error creating directory structure: {str(e)}")
             raise
 
     def _clear_directory_structure(self, root_path: str):
@@ -174,7 +152,7 @@ class FileService:
             ).delete()
 
         except Exception as e:
-            logger.error(f"Error clearing directory structure: {str(e)}")
+            self.logger.error(f"Error clearing directory structure: {str(e)}")
             raise
 
     def _update_directory_file_counts(self, root_path: str):
@@ -196,7 +174,7 @@ class FileService:
                 directory.file_count = file_count
 
         except Exception as e:
-            logger.error(f"Error updating directory file counts: {str(e)}")
+            self.logger.error(f"Error updating directory file counts: {str(e)}")
             raise
 
     def _create_file(self, file_create: FileCreate) -> File:
@@ -214,8 +192,8 @@ class FileService:
             
             # Mettre à jour le type MIME si optimisé
             if optimization_result['optimized_mime'] != file_data['mime_type']:
-                logger.info(f"Format optimisé: {file_data['mime_type']} → {optimization_result['optimized_mime']} "
-                           f"(support: {optimization_result['browser_support']}%)")
+                self.logger.info(f"Format optimisé: {file_data['mime_type']} → {optimization_result['optimized_mime']} "
+                               f"(support: {optimization_result['browser_support']}%)")
                 file_data['mime_type'] = optimization_result['optimized_mime']
             
             # Ajouter les informations d'optimisation aux métadonnées
@@ -239,6 +217,7 @@ class FileService:
         self.db.refresh(db_file)
         return db_file
 
+    @log_service_operation("get_files")
     def get_files(
         self,
         directory: Optional[str] = None,
@@ -251,6 +230,10 @@ class FileService:
         """
         Get files with filtering and pagination
         """
+        return self.safe_execute("get_files", self._get_files_logic, directory, status, selected_only, search, limit, offset)
+
+    def _get_files_logic(self, directory: Optional[str], status: Optional[FileStatus], selected_only: bool, search: Optional[str], limit: int, offset: int) -> FileListResponse:
+        """Logic for getting files"""
         query = self.db.query(File)
 
         # Apply filters
@@ -309,13 +292,13 @@ class FileService:
             offset=offset
         )
 
-    def _get_status_counts(
-            self, directory: Optional[str] = None) -> Dict[str, int]:
+    def _get_status_counts(self, directory: Optional[str] = None) -> Dict[str, int]:
         """
         Get count of files by status
         """
         return DatabaseMetrics.get_file_count_by_status(self.db, directory)
 
+    @log_service_operation("update_file_status")
     def update_file_status(
         self,
         file_ids: List[int],
@@ -325,92 +308,91 @@ class FileService:
         """
         Update status of multiple files
         """
-        try:
-            files = self.db.query(File).filter(File.id.in_(file_ids)).all()
+        return self.safe_execute("update_file_status", self._update_file_status_logic, file_ids, status, error_message)
 
-            for file in files:
-                file.status = status
-                if error_message:
-                    file.error_message = error_message
+    def _update_file_status_logic(self, file_ids: List[int], status: FileStatus, error_message: Optional[str]) -> List[File]:
+        """Logic for updating file status"""
+        files = self.db.query(File).filter(File.id.in_(file_ids)).all()
 
-            self.db.commit()
-            logger.info(f"Updated status of {len(files)} files to {status}")
-            return files
+        for file in files:
+            file.status = status
+            if error_message:
+                file.error_message = error_message
 
-        except Exception as e:
-            logger.error(f"Error updating file status: {str(e)}")
-            self.db.rollback()
-            raise
+        self.db.commit()
+        self.logger.info(f"Updated status of {len(files)} files to {status}")
+        return files
 
+    @log_service_operation("toggle_file_selection")
     def toggle_file_selection(self, file_id: int) -> File:
         """
         Toggle file selection status
         """
-        try:
-            file = self.db.query(File).filter(File.id == file_id).first()
-            if not file:
-                raise ValueError(f"File not found: {file_id}")
+        return self.safe_execute("toggle_file_selection", self._toggle_file_selection_logic, file_id)
 
-            file.is_selected = not file.is_selected
-            self.db.commit()
-            self.db.refresh(file)
+    def _toggle_file_selection_logic(self, file_id: int) -> File:
+        """Logic for toggling file selection"""
+        file = self.db.query(File).filter(File.id == file_id).first()
+        if not file:
+            raise ValueError(f"File not found: {file_id}")
 
-            logger.info(
-                f"Toggled selection for file {file_id}: {
-                    file.is_selected}")
-            return file
+        file.is_selected = not file.is_selected
+        self.db.commit()
+        self.db.refresh(file)
 
-        except Exception as e:
-            logger.error(f"Error toggling file selection: {str(e)}")
-            self.db.rollback()
-            raise
+        self.logger.info(f"Toggled selection for file {file_id}: {file.is_selected}")
+        return file
 
+    @log_service_operation("select_all_files")
     def select_all_files(self, directory: Optional[str] = None) -> int:
         """
         Select all files in a directory
         """
-        try:
-            query = self.db.query(File)
-            if directory:
-                query = query.filter(File.parent_directory == directory)
+        return self.safe_execute("select_all_files", self._select_all_files_logic, directory)
 
-            count = query.update({File.is_selected: True})
-            self.db.commit()
+    def _select_all_files_logic(self, directory: Optional[str]) -> int:
+        """Logic for selecting all files"""
+        query = self.db.query(File)
+        if directory:
+            query = query.filter(File.parent_directory == directory)
 
-            logger.info(f"Selected {count} files")
-            return count
+        count = query.update({File.is_selected: True})
+        self.db.commit()
 
-        except Exception as e:
-            logger.error(f"Error selecting all files: {str(e)}")
-            self.db.rollback()
-            raise
+        self.logger.info(f"Selected {count} files")
+        return count
 
+    @log_service_operation("deselect_all_files")
     def deselect_all_files(self, directory: Optional[str] = None) -> int:
         """
         Deselect all files in a directory
         """
-        try:
-            query = self.db.query(File)
-            if directory:
-                query = query.filter(File.parent_directory == directory)
+        return self.safe_execute("deselect_all_files", self._deselect_all_files_logic, directory)
 
-            count = query.update({File.is_selected: False})
-            self.db.commit()
+    def _deselect_all_files_logic(self, directory: Optional[str]) -> int:
+        """Logic for deselecting all files"""
+        query = self.db.query(File)
+        if directory:
+            query = query.filter(File.parent_directory == directory)
 
-            logger.info(f"Deselected {count} files")
-            return count
+        count = query.update({File.is_selected: False})
+        self.db.commit()
 
-        except Exception as e:
-            logger.error(f"Error deselecting all files: {str(e)}")
-            self.db.rollback()
-            raise
+        self.logger.info(f"Deselected {count} files")
+        return count
 
+    @log_service_operation("get_selected_files")
     def get_selected_files(self) -> List[File]:
         """
         Get all selected files
         """
+        return self.safe_execute("get_selected_files", self._get_selected_files_logic)
+
+    def _get_selected_files_logic(self) -> List[File]:
+        """Logic for getting selected files"""
         return self.db.query(File).filter(File.is_selected).all()
 
+    @log_service_operation("update_file_analysis_result")
     def update_file_analysis_result(
         self,
         file_id: int,
@@ -420,73 +402,69 @@ class FileService:
         """
         Update file with analysis results
         """
-        try:
-            file = self.db.query(File).filter(File.id == file_id).first()
-            if not file:
-                raise ValueError(f"File not found: {file_id}")
+        return self.safe_execute("update_file_analysis_result", self._update_file_analysis_result_logic, file_id, extracted_text, analysis_result)
 
-            if extracted_text is not None:
-                file.extracted_text = extracted_text
+    def _update_file_analysis_result_logic(self, file_id: int, extracted_text: Optional[str], analysis_result: Optional[str]) -> File:
+        """Logic for updating file analysis result"""
+        file = self.db.query(File).filter(File.id == file_id).first()
+        if not file:
+            raise ValueError(f"File not found: {file_id}")
 
-            if analysis_result is not None:
-                file.analysis_result = analysis_result
+        if extracted_text is not None:
+            file.extracted_text = extracted_text
 
-            self.db.commit()
-            self.db.refresh(file)
+        if analysis_result is not None:
+            file.analysis_result = analysis_result
 
-            logger.info(f"Updated analysis results for file {file_id}")
-            return file
+        self.db.commit()
+        self.db.refresh(file)
 
-        except Exception as e:
-            logger.error(f"Error updating file analysis result: {str(e)}")
-            self.db.rollback()
-            raise
+        self.logger.info(f"Updated analysis results for file {file_id}")
+        return file
 
+    @log_service_operation("delete_file")
     def delete_file(self, file_id: int) -> bool:
         """
         Delete a file record
         """
-        try:
-            file = self.db.query(File).filter(File.id == file_id).first()
-            if not file:
-                return False
+        return self.safe_execute("delete_file", self._delete_file_logic, file_id)
 
-            self.db.delete(file)
-            self.db.commit()
+    def _delete_file_logic(self, file_id: int) -> bool:
+        """Logic for deleting file"""
+        file = self.db.query(File).filter(File.id == file_id).first()
+        if not file:
+            return False
 
-            logger.info(f"Deleted file record {file_id}")
-            return True
+        self.db.delete(file)
+        self.db.commit()
 
-        except Exception as e:
-            logger.error(f"Error deleting file: {str(e)}")
-            self.db.rollback()
-            raise
+        self.logger.info(f"Deleted file record {file_id}")
+        return True
 
+    @log_service_operation("get_directory_stats")
     def get_directory_stats(self, directory: str) -> Dict[str, Any]:
         """
         Get statistics for a directory
         """
-        try:
-            files = self.db.query(File).filter(
-                File.parent_directory == directory).all()
+        return self.safe_execute("get_directory_stats", self._get_directory_stats_logic, directory)
 
-            total_files = len(files)
-            total_size = sum(f.size for f in files)
-            status_counts = self._get_status_counts(directory)
-            selected_count = sum(1 for f in files if f.is_selected)
+    def _get_directory_stats_logic(self, directory: str) -> Dict[str, Any]:
+        """Logic for getting directory stats"""
+        files = self.db.query(File).filter(File.parent_directory == directory).all()
 
-            return {
-                "directory": directory,
-                "total_files": total_files,
-                "total_size": total_size,
-                "status_counts": status_counts,
-                "selected_count": selected_count,
-                "supported_formats": self.supported_formats
-            }
+        total_files = len(files)
+        total_size = sum(f.size for f in files)
+        status_counts = self._get_status_counts(directory)
+        selected_count = sum(1 for f in files if f.is_selected)
 
-        except Exception as e:
-            logger.error(f"Error getting directory stats: {str(e)}")
-            raise
+        return {
+            "directory": directory,
+            "total_files": total_files,
+            "total_size": total_size,
+            "status_counts": status_counts,
+            "selected_count": selected_count,
+            "supported_formats": self.supported_formats
+        }
 
     # === MÉTHODES POUR LA GESTION DES ANALYSES ===
 
@@ -521,7 +499,7 @@ class FileService:
             }
 
         except Exception as e:
-            logger.error(f"Error getting workflow stats: {str(e)}")
+            self.logger.error(f"Error getting workflow stats: {str(e)}")
             raise
 
     def get_file_by_id(self, file_id: int) -> Optional[File]:
@@ -531,7 +509,7 @@ class FileService:
         try:
             return self.db.query(File).filter(File.id == file_id).first()
         except Exception as e:
-            logger.error(f"Error getting file by ID {file_id}: {str(e)}")
+            self.logger.error(f"Error getting file by ID {file_id}: {str(e)}")
             return None
 
     def get_file_analysis_result(
@@ -567,7 +545,7 @@ class FileService:
                 "error_message": analysis.error_message}
 
         except Exception as e:
-            logger.error(
+            self.logger.error(
                 f"Error getting analysis result for file {file_id}: {
                     str(e)}")
             return None
@@ -580,11 +558,11 @@ class FileService:
             # Check if directory exists in filesystem
             directory = Path(root_path)
             if not directory.exists() or not directory.is_dir():
-                logger.error(f"Directory does not exist: {root_path}")
+                self.logger.error(f"Directory does not exist: {root_path}")
                 return None
 
             # ULTRA-FAST: Direct filesystem scan without database queries
-            logger.info(f"ULTRA-FAST: Scanning directory tree for: {root_path}")
+            self.logger.info(f"ULTRA-FAST: Scanning directory tree for: {root_path}")
             
             # Get immediate subdirectories only (for performance)
             subdirectories = []
@@ -607,7 +585,7 @@ class FileService:
                                 "has_permission": False
                             })
             except PermissionError:
-                logger.warning(f"No permission to access directory: {root_path}")
+                self.logger.warning(f"No permission to access directory: {root_path}")
                 return None
 
             # Create a simple tree response matching DirectoryTreeResponse model
@@ -622,7 +600,7 @@ class FileService:
             )
 
         except Exception as e:
-            logger.error(f"Error getting directory tree: {str(e)}")
+            self.logger.error(f"Error getting directory tree: {str(e)}")
             return None
 
 
@@ -659,7 +637,13 @@ class FileService:
 
                             # Check if file is supported
                             extension = item_path.suffix.lower().lstrip('.')
-                            is_supported = FileFormatManager.is_format_supported(extension)
+                            # Utiliser FileValidator pour vérifier si le format est supporté
+                            mime_type, _ = mimetypes.guess_type(str(item_path))
+                            if mime_type:
+                                is_supported = FileValidator.is_format_supported(mime_type)
+                            else:
+                                # Fallback pour les extensions sans MIME type
+                                is_supported = extension in ['pdf', 'docx', 'doc', 'txt', 'html', 'jpg', 'jpeg', 'png', 'gif', 'mp4', 'avi', 'mp3', 'wav']
 
                             if is_supported:
                                 if not db_file:
@@ -667,12 +651,12 @@ class FileService:
                                     file_info = FileInfoExtractor.extract_file_info(item_path)
                                     if file_info:
                                         try:
-                                            logger.info(f"Auto-adding supported file: {item_path.name}")
+                                            self.logger.info(f"Auto-adding supported file: {item_path.name}")
                                             file_create = FileCreate(**file_info)
                                             db_file = self._create_file(file_create)
-                                            logger.info(f"[SUCCESS] Auto-added: {item_path.name} (ID: {db_file.id})")
+                                            self.logger.info(f"[SUCCESS] Auto-added: {item_path.name} (ID: {db_file.id})")
                                         except Exception as e:
-                                            logger.warning(f"[ERROR] Error auto-adding {item_path.name}: {str(e)}")
+                                            self.logger.warning(f"[ERROR] Error auto-adding {item_path.name}: {str(e)}")
                                             db_file = None
 
                                 if db_file:
@@ -715,7 +699,7 @@ class FileService:
                     except PermissionError:
                         continue
                     except Exception as e:
-                        logger.warning(f"Error processing {item_path}: {str(e)}")
+                        self.logger.warning(f"Error processing {item_path}: {str(e)}")
                         continue
 
                 return {
@@ -727,7 +711,7 @@ class FileService:
                 }
 
             except Exception as e:
-                logger.error(f"Error listing directory content: {str(e)}")
+                self.logger.error(f"Error listing directory content: {str(e)}")
                 return {
                     "directory": directory_path,
                     "files": [],
@@ -738,7 +722,7 @@ class FileService:
                 }
 
         except Exception as e:
-            logger.error(f"Error listing directory {directory_path}: {str(e)}")
+            self.logger.error(f"Error listing directory {directory_path}: {str(e)}")
             raise
 
     @cached(ttl=300)  # OPTIMIZATION: Cache de 5 minutes pour la navigation paginée
@@ -752,7 +736,7 @@ class FileService:
         """
         List directory content with pagination - ULTRA-FAST VERSION
         """
-        logger.info(f"Starting list_directory_content_paginated for: {directory_path}")
+        self.logger.info(f"Starting list_directory_content_paginated for: {directory_path}")
         try:
             directory = Path(directory_path)
             if not directory.exists() or not directory.is_dir():
@@ -788,10 +772,16 @@ class FileService:
                             extension = item_path.suffix.lower().lstrip('.')
                             
                             # Import here to avoid circular imports
-                            from app.core.file_utils import FileFormatManager, FileInfoExtractor
+                            from app.core.file_utils import FileInfoExtractor
+                            from app.core.file_validation import FileValidator
                             
                             # Determine if format is supported
-                            is_supported = FileFormatManager.is_format_supported(extension)
+                            mime_type, _ = mimetypes.guess_type(str(item_path))
+                            if mime_type:
+                                is_supported = FileValidator.is_format_supported(mime_type)
+                            else:
+                                # Fallback pour les extensions sans MIME type
+                                is_supported = extension in ['pdf', 'docx', 'doc', 'txt', 'html', 'jpg', 'jpeg', 'png', 'gif', 'mp4', 'avi', 'mp3', 'wav']
                             
                             # Get proper MIME type
                             mime_type = FileInfoExtractor._get_mime_type(item_path, extension)
@@ -808,7 +798,7 @@ class FileService:
                                 "id": None  # Will be created on demand
                             }
                             all_files.append(file_info)
-                            logger.info(f"Added file: {item_path.name} to list")
+                            self.logger.info(f"Added file: {item_path.name} to list")
 
                         elif item_path.is_dir():
                             total_subdirectories += 1
@@ -830,15 +820,15 @@ class FileService:
                     except PermissionError:
                         continue
                     except Exception as e:
-                        logger.warning(f"Error processing {item_path}: {str(e)}")
+                        self.logger.warning(f"Error processing {item_path}: {str(e)}")
                         continue
 
                 # Return all files and subdirectories without pagination for now
                 files = all_files
                 subdirectories = all_subdirectories
                 
-                # Debug logging
-                logger.info(f"Found {len(all_files)} files and {len(all_subdirectories)} subdirectories in {directory_path}")
+                # Log des résultats
+                self.logger.info(f"Found {len(all_files)} files and {len(all_subdirectories)} subdirectories in {directory_path}")
                 
 
 
@@ -856,7 +846,7 @@ class FileService:
                 }
 
             except Exception as e:
-                logger.error(f"Error listing directory content: {str(e)}")
+                self.logger.error(f"Error listing directory content: {str(e)}")
                 return {
                     "directory": directory_path,
                     "files": [],
@@ -872,7 +862,7 @@ class FileService:
                 }
 
         except Exception as e:
-            logger.error(f"Error listing directory {directory_path}: {str(e)}")
+            self.logger.error(f"Error listing directory {directory_path}: {str(e)}")
             raise
 
     def cleanup_orphaned_files(self, directory_path: str) -> int:
@@ -900,13 +890,13 @@ class FileService:
 
             if orphaned_count > 0:
                 self.db.commit()
-                logger.info(
+                self.logger.info(
                     f"Nettoyé {orphaned_count} fichiers orphelins dans {directory_path}")
 
             return orphaned_count
 
         except Exception as e:
-            logger.error(
+            self.logger.error(
                 f"Erreur lors du nettoyage des fichiers orphelins: {
                     str(e)}")
             return 0
@@ -968,7 +958,7 @@ class FileService:
             )
 
         except Exception as e:
-            logger.error(f"Error building directory tree: {str(e)}")
+            self.logger.error(f"Error building directory tree: {str(e)}")
             return None
 
 
