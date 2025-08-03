@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   ArrowPathIcon, 
   TrashIcon, 
@@ -37,11 +37,11 @@ export const QueueContent: React.FC<QueueContentProps> = ({ onClose, onMinimize,
     return () => clearInterval(interval);
   }, [loadQueueStatus]);
 
-  // Écouter les événements de rechargement de la queue
+  // Écouter les événements de rechargement de la queue (optimisé)
   useEffect(() => {
-    const handleReloadQueue = () => {
+    const handleReloadQueue = useCallback(() => {
       loadQueueStatus();
-    };
+    }, [loadQueueStatus]);
 
     window.addEventListener('reloadQueue', handleReloadQueue);
     return () => {

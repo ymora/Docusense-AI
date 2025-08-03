@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import { apiRequest, handleApiError } from '../utils/apiUtils';
+import { createLoadingActions, createCallGuard, createOptimizedUpdater } from '../utils/storeUtils';
 
 export interface File {
   id: number;
@@ -93,172 +94,202 @@ export const useFileStore = create<FileState>()(
 
         // Navigation sans cache - données toujours fraîches
 
-        loadFiles: async () => {
-          set({ loading: true, error: null });
-
-          try {
-            // Utiliser l'endpoint list_directory_content_paginated pour les données fraîches
-            const currentDir = get().currentDirectory || "C:\\Users\\ymora\\Desktop\\Docusense AI";
-            const encodedDirectory = encodeURIComponent(currentDir.replace(/\\/g, '/'));
-            const data = await apiRequest(`/api/files/list/${encodedDirectory}?page=1&page_size=100`) as any;
-
-            // Convertir les données du format list vers le format files
-            const filesFromList = (data.files || []).map((file: any) => ({
-              id: file.id || Math.random(), // ID temporaire si pas d'ID
-              name: file.name,
-              path: file.path,
-              size: file.size,
-              mime_type: file.mime_type,
-              status: file.status || 'none',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString(),
-              is_selected: false,
-              parent_directory: file.path.substring(0, file.path.lastIndexOf('\\')),
-            }));
-
-            // Fusionner avec les données de consultation persistées
-            const filesWithViewData = filesFromList.map((file: File) => {
-              const existingFile = get().files.find(f => f.id === file.id);
-              return {
-                ...file,
-                has_been_viewed: existingFile?.has_been_viewed || false,
-                viewed_at: existingFile?.viewed_at,
-              };
-            });
-
-            set({ files: filesWithViewData, loading: false });
-          } catch (error) {
-            set({
-              error: handleApiError(error),
-              loading: false,
-            });
-          }
-        },
-
-        loadDirectoryTree: async (directory: string) => {
-          set({ loading: true, error: null });
-          try {
-            // Utiliser l'endpoint /list et transformer le format pour FileTree
-            const encodedDirectory = encodeURIComponent(directory.replace(/\\/g, '/'));
-            const response = await apiRequest(`/api/files/list/${encodedDirectory}?page=1&page_size=100&nocache=${Date.now()}`);
+        loadFiles: (() => {
+          const callGuard = createCallGuard();
+          return callGuard(async () => {
+            const loadingActions = createLoadingActions(set, get);
+            const updater = createOptimizedUpdater(set, get);
             
-            // Transformer le format de réponse pour correspondre à ce qu'attend FileTree
-            const transformedData = {
-              directory: directory,
-              total_subdirectories: response.data.directories?.length || 0,
-              total_files: response.data.files?.length || 0,
-              subdirectories: response.data.directories || [],
-              files: response.data.files || []
-            };
-            
-            set({
-              directoryTree: transformedData as DirectoryTree,
-              currentDirectory: directory,
-              loading: false,
-            });
-          } catch (error) {
-            set({
-              error: handleApiError(error),
-              loading: false,
-            });
-          }
-        },
-
-        scanDirectory: async (directory: string) => {
-          set({ loading: true, error: null });
-
-          try {
-            await apiRequest('/api/files/scan', {
-              method: 'POST',
-              body: JSON.stringify({ directory_path: directory }),
-            });
-
-            // Recharger l'arborescence avec données fraîches
-            await get().loadDirectoryTree(directory);
-          } catch (error) {
-            set({
-              error: handleApiError(error),
-              loading: false,
-            });
-          }
-        },
-
-        analyzeFiles: async (fileIds: number[]) => {
-          set({ loading: true, error: null });
-
-          try {
-            await apiRequest('/api/analysis/bulk', {
-              method: 'POST',
-              body: JSON.stringify({
-                file_ids: fileIds,
-                analysis_type: 'general',
-                provider: 'openai',
-                model: 'gpt-4',
-              }),
-            });
-
-            // OPTIMISATION: Recharger les données après analyse
-
-            // Recharger les fichiers
-            await get().loadFiles();
-          } catch (error) {
-            set({
-              error: handleApiError(error),
-              loading: false,
-            });
-          }
-        },
-
-        compareFiles: async (fileIds: number[]) => {
-          set({ loading: true, error: null });
-
-          try {
-            await apiRequest('/api/analysis/compare', {
-              method: 'POST',
-              body: JSON.stringify({
-                file_ids: fileIds,
-                analysis_type: 'comparison',
-                provider: 'openai',
-                model: 'gpt-4',
-              }),
-            });
-
-            // Recharger les fichiers avec données fraîches
-            await get().loadFiles();
-          } catch (error) {
-            set({
-              error: handleApiError(error),
-              loading: false,
-            });
-          }
-        },
-
-        retryFailedFiles: async () => {
-          set({ loading: true, error: null });
-
-          try {
-            const failedFiles = get().files.filter(f => f.status === 'failed');
-            const fileIds = failedFiles.map(f => f.id);
-
-            if (fileIds.length === 0) {
-              set({ loading: false });
+            if (!loadingActions.startLoading()) {
               return;
             }
+            
+            try {
+              // Utiliser l'endpoint list_directory_content_paginated pour les données fraîches
+              const currentDir = get().currentDirectory || "C:\\Users\\ymora\\Desktop\\Docusense AI";
+              const encodedDirectory = encodeURIComponent(currentDir.replace(/\\/g, '/'));
+              const data = await apiRequest(`/api/files/list/${encodedDirectory}?page=1&page_size=100`) as any;
 
-            await apiRequest('/api/analysis/retry', {
-              method: 'POST',
-              body: JSON.stringify({ file_ids: fileIds }),
-            });
+              // Convertir les données du format list vers le format files
+              const filesFromList = (data.files || []).map((file: any) => ({
+                id: file.id || Math.random(), // ID temporaire si pas d'ID
+                name: file.name,
+                path: file.path,
+                size: file.size,
+                mime_type: file.mime_type,
+                status: file.status || 'none',
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+                is_selected: false,
+                parent_directory: file.path.substring(0, file.path.lastIndexOf('\\')),
+              }));
 
-            // Recharger les fichiers avec données fraîches
-            await get().loadFiles();
-          } catch (error) {
-            set({
-              error: handleApiError(error),
-              loading: false,
-            });
-          }
-        },
+              // Fusionner avec les données de consultation persistées
+              const filesWithViewData = filesFromList.map((file: File) => {
+                const existingFile = get().files.find(f => f.id === file.id);
+                return {
+                  ...file,
+                  has_been_viewed: existingFile?.has_been_viewed || false,
+                  viewed_at: existingFile?.viewed_at,
+                };
+              });
+
+              updater.updateMultiple({ files: filesWithViewData });
+              loadingActions.finishLoading();
+            } catch (error) {
+              loadingActions.finishLoadingWithError(handleApiError(error));
+            }
+          });
+        })(),
+
+        loadDirectoryTree: (() => {
+          const callGuard = createCallGuard();
+          return callGuard(async (directory: string) => {
+            const loadingActions = createLoadingActions(set, get);
+            const updater = createOptimizedUpdater(set, get);
+            
+            if (!loadingActions.startLoading()) {
+              return;
+            }
+            
+            try {
+              // Utiliser l'endpoint /list et transformer le format pour FileTree
+              const encodedDirectory = encodeURIComponent(directory.replace(/\\/g, '/'));
+              const response = await apiRequest(`/api/files/list/${encodedDirectory}?page=1&page_size=100&nocache=${Date.now()}`);
+              
+              // Transformer le format de réponse pour correspondre à ce qu'attend FileTree
+              const transformedData = {
+                directory: directory,
+                total_subdirectories: response.data.directories?.length || 0,
+                total_files: response.data.files?.length || 0,
+                subdirectories: response.data.directories || [],
+                files: response.data.files || []
+              };
+              
+              updater.updateMultiple({
+                directoryTree: transformedData as DirectoryTree,
+                currentDirectory: directory,
+              });
+              loadingActions.finishLoading();
+            } catch (error) {
+              loadingActions.finishLoadingWithError(handleApiError(error));
+            }
+          });
+        })(),
+
+        scanDirectory: (() => {
+          const callGuard = createCallGuard();
+          return callGuard(async (directory: string) => {
+            const loadingActions = createLoadingActions(set, get);
+            
+            if (!loadingActions.startLoading()) {
+              return;
+            }
+            
+            try {
+              await apiRequest('/api/files/scan', {
+                method: 'POST',
+                body: JSON.stringify({ directory_path: directory }),
+              });
+
+              // Recharger l'arborescence avec données fraîches
+              await get().loadDirectoryTree(directory);
+              loadingActions.finishLoading();
+            } catch (error) {
+              loadingActions.finishLoadingWithError(handleApiError(error));
+            }
+          });
+        })(),
+
+        analyzeFiles: (() => {
+          const callGuard = createCallGuard();
+          return callGuard(async (fileIds: number[]) => {
+            const loadingActions = createLoadingActions(set, get);
+            
+            if (!loadingActions.startLoading()) {
+              return;
+            }
+            
+            try {
+              await apiRequest('/api/analysis/bulk', {
+                method: 'POST',
+                body: JSON.stringify({
+                  file_ids: fileIds,
+                  analysis_type: 'general',
+                  provider: 'openai',
+                  model: 'gpt-4',
+                }),
+              });
+
+              // OPTIMISATION: Recharger les données après analyse
+              await get().loadFiles();
+              loadingActions.finishLoading();
+            } catch (error) {
+              loadingActions.finishLoadingWithError(handleApiError(error));
+            }
+          });
+        })(),
+
+        compareFiles: (() => {
+          const callGuard = createCallGuard();
+          return callGuard(async (fileIds: number[]) => {
+            const loadingActions = createLoadingActions(set, get);
+            
+            if (!loadingActions.startLoading()) {
+              return;
+            }
+            
+            try {
+              await apiRequest('/api/analysis/compare', {
+                method: 'POST',
+                body: JSON.stringify({
+                  file_ids: fileIds,
+                  analysis_type: 'comparison',
+                  provider: 'openai',
+                  model: 'gpt-4',
+                }),
+              });
+
+              // Recharger les fichiers avec données fraîches
+              await get().loadFiles();
+              loadingActions.finishLoading();
+            } catch (error) {
+              loadingActions.finishLoadingWithError(handleApiError(error));
+            }
+          });
+        })(),
+
+        retryFailedFiles: (() => {
+          const callGuard = createCallGuard();
+          return callGuard(async () => {
+            const loadingActions = createLoadingActions(set, get);
+            
+            if (!loadingActions.startLoading()) {
+              return;
+            }
+            
+            try {
+              const failedFiles = get().files.filter(f => f.status === 'failed');
+              const fileIds = failedFiles.map(f => f.id);
+
+              if (fileIds.length === 0) {
+                loadingActions.finishLoading();
+                return;
+              }
+
+              await apiRequest('/api/analysis/retry', {
+                method: 'POST',
+                body: JSON.stringify({ file_ids: fileIds }),
+              });
+
+              // Recharger les fichiers avec données fraîches
+              await get().loadFiles();
+              loadingActions.finishLoading();
+            } catch (error) {
+              loadingActions.finishLoadingWithError(handleApiError(error));
+            }
+          });
+        })(),
 
         toggleFileSelection: (fileId: number | string) => {
           set((state) => {

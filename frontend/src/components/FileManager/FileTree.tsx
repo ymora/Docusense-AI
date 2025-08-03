@@ -52,14 +52,14 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
     return () => mediaQuery.removeEventListener('change', checkTheme);
   }, []);
 
-  // Navigation de répertoire - utilise le store
-  const handleDirectoryNavigation = async (directory: string) => {
+  // Navigation de répertoire - utilise le store (optimisée)
+  const handleDirectoryNavigation = useCallback(async (directory: string) => {
     try {
       onDirectorySelect(directory);
     } catch (error) {
       console.error('❌ Erreur navigation:', error);
     }
-  };
+  }, [onDirectorySelect]);
 
   // Charger les données initiales
   useEffect(() => {
@@ -68,8 +68,8 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
     }
   }, [currentDirectory]);
 
-  // Gestion des clics sur fichiers
-  const handleFileClick = (file: any, e: React.MouseEvent) => {
+  // Gestion des clics sur fichiers (optimisée)
+  const handleFileClick = useCallback((file: any, e: React.MouseEvent) => {
     e.stopPropagation();
     
     // Gestion de la sélection multiple
@@ -124,7 +124,7 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
         detail: { file, mode: displayMode }
       }));
     }
-  };
+  }, [directoryTree.files, selectedFiles, onFileSelect, toggleFileSelection]);
 
   const handleFileDoubleClick = (file: any, e: React.MouseEvent) => {
     e.stopPropagation();

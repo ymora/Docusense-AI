@@ -8,10 +8,12 @@ import {
 import LeftPanel from './LeftPanel';
 import MainPanel from './MainPanel';
 import PromptSelector from '../FileManager/PromptSelector';
+import { StartupLoader } from '../UI/StartupLoader';
 import { useUIStore } from '../../stores/uiStore';
 import { useQueueStore } from '../../stores/queueStore';
 import { useFileStore } from '../../stores/fileStore';
 import { useColors } from '../../hooks/useColors';
+import { useStartupInitialization } from '../../hooks/useStartupInitialization';
 import { analysisService } from '../../services/analysisService';
 import { queueService } from '../../services/queueService';
 import { promptService } from '../../services/promptService';
@@ -19,6 +21,7 @@ import { promptService } from '../../services/promptService';
 const Layout: React.FC = () => {
   const { selectedFile, selectedFiles, selectFile, markFileAsViewed, files } = useFileStore();
   const { queueItems, loadQueueStatus, loadQueueItems } = useQueueStore();
+  const { isInitialized, isLoading, initializationStep } = useStartupInitialization();
   const { sidebarWidth, setSidebarWidth, activePanel, setActivePanel } = useUIStore();
   const { colors } = useColors();
   const [isResizing, setIsResizing] = useState(false);
@@ -28,6 +31,8 @@ const Layout: React.FC = () => {
   const [showPromptSelector, setShowPromptSelector] = useState(false);
   const [promptSelectorMode, setPromptSelectorMode] = useState<'single' | 'comparison' | 'batch' | 'multiple_ai'>('single');
   const [promptSelectorFileIds, setPromptSelectorFileIds] = useState<number[]>([]);
+
+  // L'application est maintenant initialisée automatiquement via le hook useStartupInitialization
 
   // Gestion des actions de fichiers (menu contextuel)
   useEffect(() => {
@@ -367,10 +372,17 @@ const Layout: React.FC = () => {
   };
 
   return (
-    <div
-      className="flex min-h-screen-dynamic"
-      style={{ backgroundColor: colors.background }}
-    >
+    <>
+      <StartupLoader 
+        isLoading={isLoading}
+        initializationStep={initializationStep}
+        isInitialized={isInitialized}
+      />
+      
+      <div
+        className="flex min-h-screen-dynamic"
+        style={{ backgroundColor: colors.background }}
+      >
       {/* Panneau de gauche */}
       <div
         className="flex-shrink-0 overflow-hidden"
@@ -517,6 +529,7 @@ const Layout: React.FC = () => {
 
       </div>
     </div>
+    </>
   );
 };
 

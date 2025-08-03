@@ -131,7 +131,7 @@ while ($true) {
         }
     }
     catch {
-        Write-Host "❌ Le serveur s'est arrêté!" -ForegroundColor Red
+        Write-Host "❌ Le serveur sest arrete!" -ForegroundColor Red
         break
     }
 } 

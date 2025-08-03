@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import { queueService } from '../services/queueService';
+import { createLoadingActions, createCallGuard, createOptimizedUpdater } from '../utils/storeUtils';
 
 export interface QueueItem {
   id: number;
@@ -83,26 +84,41 @@ export const useQueueStore = create<QueueState>((set, get) => ({
   error: null,
   isInactive: false, // Nouveau: commence actif
 
-  loadQueueItems: async () => {
-    set({ loading: true, error: null });
-    try {
-      const items = await queueService.getQueueItems();
-      set({ queueItems: items, loading: false });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erreur lors du chargement de la queue';
-      set({ error: errorMessage, loading: false });
-    }
-  },
+  loadQueueItems: (() => {
+    const callGuard = createCallGuard();
+    return callGuard(async () => {
+      const loadingActions = createLoadingActions(set, get);
+      const updater = createOptimizedUpdater(set, get);
+      
+      if (!loadingActions.startLoading()) {
+        return;
+      }
+      
+      try {
+        const items = await queueService.getQueueItems();
+        updater.updateMultiple({ queueItems: items });
+        loadingActions.finishLoading();
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Erreur lors du chargement de la queue';
+        loadingActions.finishLoadingWithError(errorMessage);
+      }
+    });
+  })(),
 
-  loadQueueStatus: async () => {
-    try {
-      const status = await queueService.getQueueStatus();
-      set({ queueStatus: status, error: null });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erreur lors du chargement du statut de la queue';
-      set({ error: errorMessage });
-    }
-  },
+  loadQueueStatus: (() => {
+    const callGuard = createCallGuard();
+    return callGuard(async () => {
+      const updater = createOptimizedUpdater(set, get);
+      
+      try {
+        const status = await queueService.getQueueStatus();
+        updater.updateMultiple({ queueStatus: status, error: null });
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Erreur lors du chargement du statut de la queue';
+        set({ error: errorMessage });
+      }
+    });
+  })(),
 
   // Mise à jour en temps réel de la queue
   startRealTimeUpdates: () => {

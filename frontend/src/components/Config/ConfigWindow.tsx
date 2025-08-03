@@ -60,6 +60,18 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
     setLocalApiKeys(apiKeys);
   }, [apiKeys]);
 
+  // Cleanup du debounce lors du démontage
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, []);
+
+  // Debounce pour éviter les appels multiples
+  const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
   // Gérer le changement de clé API
   const handleApiKeyChange = async (provider: string, value: string) => {
     // Mettre à jour l'état local immédiatement pour permettre la saisie
@@ -70,21 +82,34 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
       return;
     }
 
-    // Sauvegarder la clé API en arrière-plan
-    try {
-      await saveAPIKey(provider, value);
-    } catch (error) {
-      console.error(`Erreur lors de la sauvegarde de la clé API pour ${provider}:`, error);
+    // Annuler le debounce précédent
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
     }
+
+    // Débouncer la sauvegarde pour éviter les appels multiples
+    debounceRef.current = setTimeout(async () => {
+      try {
+        await saveAPIKey(provider, value);
+      } catch (error) {
+        console.error(`Erreur lors de la sauvegarde de la clé API pour ${provider}:`, error);
+      }
+    }, 500); // Attendre 500ms après la dernière frappe
   };
 
   // Gérer le test d'un provider
   const handleTestProvider = async (provider: string) => {
+    // Éviter les tests multiples simultanés
+    if (testing[provider]) {
+      console.log(`Test déjà en cours pour ${provider}`);
+      return;
+    }
+    
     setTesting(prev => ({ ...prev, [provider]: true }));
     
     try {
       const result = await testProvider(provider);
-      
+      console.log(`Résultat du test pour ${provider}:`, result);
     } catch (error) {
       console.error(`Erreur lors du test de ${provider}:`, error);
     } finally {

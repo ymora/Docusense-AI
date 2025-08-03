@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { XMarkIcon, CheckIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
 import { useColors } from '../../hooks/useColors';
-import { promptService, Prompt, PromptCategory } from '../../services/promptService';
+import { usePromptStore } from '../../stores/promptStore';
+import { Prompt, PromptCategory } from '../../services/promptService';
 import { analysisService, CreateAnalysisRequest } from '../../services/analysisService';
 
 interface PromptSelectorProps {
@@ -22,29 +23,19 @@ const PromptSelector: React.FC<PromptSelectorProps> = ({
   fileType
 }) => {
   const { colors } = useColors();
-  const [prompts, setPrompts] = useState<Prompt[]>([]);
-  const [categories, setCategories] = useState<PromptCategory[]>([]);
+  const { 
+    prompts, 
+    categories, 
+    loading, 
+    getPromptsForFileType,
+    refreshPrompts,
+    isInitialized 
+  } = usePromptStore();
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
-  const [loading, setLoading] = useState(false);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
 
-  useEffect(() => {
-    if (isOpen) {
-      loadPrompts();
-    }
-  }, [isOpen]);
-
-  const loadPrompts = async () => {
-    try {
-      setLoading(true);
-      const prompts = await promptService.getPrompts();
-      setPrompts(prompts);
-    } catch (error) {
-      console.error('Erreur lors du chargement des prompts:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Filtrer les prompts selon le type de fichier si spécifié
+  const filteredPrompts = fileType ? getPromptsForFileType(fileType) : prompts;
 
   const toggleCategory = (domain: string) => {
     const newExpanded = new Set(expandedCategories);
@@ -148,14 +139,36 @@ const PromptSelector: React.FC<PromptSelectorProps> = ({
           >
             {getModeDescription()}
           </p>
+          <p 
+            className="text-xs mt-1"
+            style={{ color: colors.textSecondary }}
+          >
+            📋 {prompts.length} prompts chargés en mémoire
+            {isInitialized && !loading && (
+              <span className="ml-2 text-green-400">✓</span>
+            )}
+          </p>
         </div>
-        <button
-          onClick={onClose}
-          className="p-1 rounded hover:bg-slate-700 transition-colors"
-          style={{ color: colors.textSecondary }}
-        >
-          <XMarkIcon className="h-5 w-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={refreshPrompts}
+            disabled={loading}
+            className="p-1 rounded hover:bg-slate-700 transition-colors disabled:opacity-50"
+            style={{ color: colors.textSecondary }}
+            title="Actualiser les prompts"
+          >
+            <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          </button>
+          <button
+            onClick={onClose}
+            className="p-1 rounded hover:bg-slate-700 transition-colors"
+            style={{ color: colors.textSecondary }}
+          >
+            <XMarkIcon className="h-5 w-5" />
+          </button>
+        </div>
       </div>
 
       {/* Content */}
@@ -167,10 +180,10 @@ const PromptSelector: React.FC<PromptSelectorProps> = ({
               className="ml-3"
               style={{ color: colors.textSecondary }}
             >
-              Chargement des prompts...
+              Actualisation des prompts...
             </span>
           </div>
-        ) : prompts.length === 0 ? (
+        ) : filteredPrompts.length === 0 ? (
           <div className="text-center py-8">
             <div className="text-4xl mb-4">🤖</div>
             <p 
@@ -189,7 +202,7 @@ const PromptSelector: React.FC<PromptSelectorProps> = ({
         ) : (
           <div className="space-y-4">
             {categories.map((category) => {
-              const categoryPrompts = prompts.filter(p => p.domain === category.domain);
+              const categoryPrompts = filteredPrompts.filter(p => p.domain === category.domain);
               if (categoryPrompts.length === 0) return null;
               
               const isExpanded = expandedCategories.has(category.domain);

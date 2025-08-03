@@ -69,6 +69,8 @@ class PromptService {
     return this.categories;
   }
 
+  // Ces méthodes sont maintenant gérées par le store
+  // Elles sont conservées pour la compatibilité avec le backend
   getPromptsByDomain(domain: string): Prompt[] {
     return this.prompts.filter(prompt => prompt.domain === domain);
   }
