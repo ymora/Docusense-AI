@@ -51,6 +51,10 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
 
   function isCompatibleType(file: any) {
     if (!file || !file.mime_type) return false;
+    
+    // Vérifier d'abord si le fichier a un ID (est supporté dans la base de données)
+    if (!file.id) return false;
+    
     const supported = [
       'application/pdf',
       'text/plain',
@@ -66,6 +70,12 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
   }
 
   const handleDownload = () => {
+    console.log('🎯 ContextMenu: Téléchargement demandé pour le fichier:', {
+      name: file.name,
+      path: file.path,
+      id: file.id,
+      mime_type: file.mime_type
+    });
     onAction('download', file);
     onClose();
   };
@@ -109,7 +119,13 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
           className={`w-full px-3 py-1.5 text-left text-xs flex items-center ${
             isCompatibleType(file) ? 'hover:bg-slate-600' : 'opacity-50 cursor-not-allowed'
           }`}
-          title={isCompatibleType(file) ? 'Ouvrir le panneau Analyse IA' : 'Type de fichier non pris en charge'}
+          title={
+            isCompatibleType(file) 
+              ? 'Ouvrir le panneau Analyse IA' 
+              : !file.id 
+                ? 'Fichier non supporté pour l\'analyse' 
+                : 'Type de fichier non pris en charge'
+          }
           disabled={!isCompatibleType(file)}
         >
           <span className="mr-2">🤖</span>

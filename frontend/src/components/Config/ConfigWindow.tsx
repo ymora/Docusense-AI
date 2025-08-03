@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MinusIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { useColors } from '../../hooks/useColors';
 import { useAIConfig } from '../../hooks/useAIConfig';
@@ -21,6 +21,7 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
   const [activeTab, setActiveTab] = useState<'providers' | 'strategy' | 'metrics'>('providers');
   const [testing, setTesting] = useState<Record<string, boolean>>({});
   const [localApiKeys, setLocalApiKeys] = useState<Record<string, string>>({});
+  const hasLoadedRef = useRef(false);
 
   // Utiliser le hook personnalisé pour la configuration IA
   const {
@@ -40,8 +41,19 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
     isProviderActive,
     getProviderStatus,
     validateAndFixPriorities,
-    resetPriorities
+    resetPriorities,
+    forceRefresh,
+    loadProviders
   } = useAIConfig();
+
+  // Charger les providers seulement si pas déjà chargés
+  useEffect(() => {
+    // Ne charger que si on n'a pas de données et qu'on n'est pas déjà en train de charger
+    if (!hasLoadedRef.current && !loading && providers.length === 0) {
+      hasLoadedRef.current = true;
+      loadProviders();
+    }
+  }, [loadProviders, loading, providers.length]);
 
   // Synchroniser l'état local avec les données du hook
   useEffect(() => {
@@ -238,9 +250,24 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                     <span style={{ color: colors.textSecondary }}>
                       Providers actifs et valides:
                     </span>
-                    <span style={{ color: colors.text }}>
-                      {getActiveValidProvidersCount()} / {providers.length}
-                    </span>
+                    <div className="flex items-center space-x-2">
+                      <span style={{ color: colors.text }}>
+                        {getActiveValidProvidersCount()} / {providers.length}
+                      </span>
+                      <button
+                        onClick={forceRefresh}
+                        disabled={loading}
+                        className="px-2 py-1 text-xs rounded border transition-colors disabled:opacity-50"
+                        style={{
+                          backgroundColor: colors.config,
+                          color: 'white',
+                          borderColor: colors.config,
+                        }}
+                        title="Rafraîchir les providers"
+                      >
+                        {loading ? '🔄' : '🔄'}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
@@ -258,54 +285,48 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                         borderColor: status?.status === 'testing' ? colors.config : colors.border,
                       }}
                     >
-                      {/* En-tête du provider */}
-                      <div className="flex items-center justify-between mb-2">
-                        <div className="flex items-center space-x-2">
-                          <span className="text-lg">{getProviderIcon(provider.name)}</span>
-                          <div>
-                            <div className="font-medium" style={{ color: colors.text }}>
-                              {getProviderDisplayName(provider.name)}
-                            </div>
-                            <div className="text-xs" style={{ color: colors.textSecondary }}>
-                              {status?.status === 'valid' ? '✅ Clé API valide' : 
-                               status?.status === 'invalid' ? '❌ Clé API invalide' : 
-                               status?.status === 'testing' ? '🔄 Test en cours...' : '⚪ Aucune clé API'}
-                            </div>
-                          </div>
-                        </div>
-                        <button
-                          onClick={() => handleToggleProvider(provider.name)}
-                          disabled={status?.status === 'testing'}
-                          className="px-3 py-1 text-xs font-medium rounded border transition-colors disabled:opacity-50"
-                          style={{
-                            backgroundColor: isActive ? colors.error : colors.config,
-                            color: 'white',
-                            borderColor: isActive ? colors.error : colors.config,
-                          }}
-                          title={isActive ? "Désactiver" : "Activer"}
-                        >
-                          {isActive ? 'Désactiver' : 'Activer'}
-                        </button>
-                      </div>
+                                             {/* En-tête du provider */}
+                       <div className="flex items-center mb-2">
+                         <div className="flex items-center space-x-2">
+                           <span className="text-lg">{getProviderIcon(provider.name)}</span>
+                           <div>
+                             <div className="font-medium" style={{ color: colors.text }}>
+                               {getProviderDisplayName(provider.name)}
+                             </div>
+                             <div className="text-xs" style={{ color: colors.textSecondary }}>
+                               {status?.status === 'valid' ? '✅ Clé API valide' : 
+                                status?.status === 'invalid' ? '❌ Clé API invalide' : 
+                                status?.status === 'testing' ? '🔄 Test en cours...' : '⚪ Aucune clé API'}
+                             </div>
+                             {status?.lastTested && (
+                               <div className="text-xs" style={{ color: colors.textSecondary }}>
+                                 Testé: {new Date(status.lastTested).toLocaleString('fr-FR')}
+                               </div>
+                             )}
+                           </div>
+                         </div>
+                       </div>
 
                       {/* Champ clé API */}
                       <div className="mb-2">
-                        <div className="flex items-center space-x-2">
-                          <div className="flex-1 relative">
-                            <input
-                              type="password"
-                              value={localApiKeys[provider.name] || ''}
-                              onChange={(e) => handleApiKeyChange(provider.name, e.target.value)}
-                              placeholder="Entrez votre clé API"
-                              className="w-full text-xs px-3 py-2 rounded border focus:outline-none"
-                              style={{
-                                backgroundColor: colorMode === 'dark' ? '#475569' : '#e2e8f0',
-                                color: colors.text,
-                                borderColor: colors.border,
-                                fontSize: '12px',
-                              }}
-                            />
-                          </div>
+                        <form onSubmit={(e) => { e.preventDefault(); handleTestProvider(provider.name); }}>
+                          <div className="flex items-center space-x-2">
+                            <div className="flex-1 relative">
+                              <input
+                                type="password"
+                                value={localApiKeys[provider.name] || ''}
+                                onChange={(e) => handleApiKeyChange(provider.name, e.target.value)}
+                                placeholder="Entrez votre clé API"
+                                className="w-full text-xs px-3 py-2 rounded border focus:outline-none"
+                                style={{
+                                  backgroundColor: colorMode === 'dark' ? '#475569' : '#e2e8f0',
+                                  color: colors.text,
+                                  borderColor: colors.border,
+                                  fontSize: '12px',
+                                }}
+                                autoComplete="off"
+                              />
+                            </div>
                           <button
                             onClick={() => handleTestProvider(provider.name)}
                             disabled={testing[provider.name] || !localApiKeys[provider.name]}
@@ -331,8 +352,9 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                             ) : (
                               'Tester'
                             )}
-                          </button>
-                        </div>
+                                                      </button>
+                          </div>
+                        </form>
                       </div>
                     </div>
                   );
@@ -477,38 +499,7 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                 })}
               </div>
               
-              {/* Actions pour les priorités */}
-              <div className="flex space-x-2 mt-3">
-                <button
-                  onClick={async () => {
-                    const result = await validateAndFixPriorities();
-            
-                  }}
-                  className="px-3 py-1 text-xs font-medium rounded border transition-colors"
-                  style={{
-                    backgroundColor: colors.config,
-                    color: 'white',
-                    borderColor: colors.config,
-                  }}
-                >
-                  Valider les priorités
-                </button>
-                
-                <button
-                  onClick={async () => {
-                    const result = await resetPriorities();
-            
-                  }}
-                  className="px-3 py-1 text-xs font-medium rounded border transition-colors"
-                  style={{
-                    backgroundColor: colors.error,
-                    color: 'white',
-                    borderColor: colors.error,
-                  }}
-                >
-                  Réinitialiser
-                </button>
-              </div>
+              
             </div>
 
             <div

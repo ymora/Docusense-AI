@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import ConfigService, { AIProvider, ProviderStatus, ValidationResult } from '../services/configService';
 
 export interface AIConfigState {
@@ -10,6 +10,7 @@ export interface AIConfigState {
   metrics: any;
   loading: boolean;
   error: string | null;
+  lastLoaded: number | null; // Timestamp du dernier chargement
 }
 
 export interface AIConfigActions {
@@ -23,7 +24,18 @@ export interface AIConfigActions {
   getActiveValidProvidersCount: () => number;
   isProviderActive: (provider: AIProvider) => boolean;
   getProviderStatus: (providerName: string) => ProviderStatus | null;
+  forceRefresh: () => Promise<void>; // Nouveau: forcer le rechargement
 }
+
+// Cache global pour éviter les rechargements multiples
+// Pas de durée d'expiration - le cache reste valide jusqu'à invalidation manuelle
+let globalCache: {
+  data: AIConfigState | null;
+  timestamp: number | null;
+} = {
+  data: null,
+  timestamp: null
+};
 
 export const useAIConfig = (): AIConfigState & AIConfigActions => {
   const [state, setState] = useState<AIConfigState>({
@@ -34,18 +46,40 @@ export const useAIConfig = (): AIConfigState & AIConfigActions => {
     strategy: 'priority',
     metrics: {},
     loading: true,
-    error: null
+    error: null,
+    lastLoaded: null
   });
 
-  // Charger les providers et leur configuration
-  const loadProviders = useCallback(async () => {
+  const loadingRef = useRef(false);
+
+  // Charger les providers et leur configuration avec cache
+  const loadProviders = useCallback(async (forceRefresh = false) => {
+    // Éviter les chargements multiples simultanés
+    if (loadingRef.current && !forceRefresh) {
+      return;
+    }
+
+    // Vérifier le cache si pas de force refresh
+    if (!forceRefresh && globalCache.data) {
+      setState(prev => ({
+        ...prev,
+        ...globalCache.data!,
+        loading: false
+      }));
+      return;
+    }
+
+    loadingRef.current = true;
     setState(prev => ({ ...prev, loading: true, error: null }));
     
     try {
-      const response = await ConfigService.getAIProviders();
-      const priorities = await ConfigService.getProviderPriorities();
-      const strategy = await ConfigService.getStrategy();
-      const metrics = await ConfigService.getMetrics();
+      // Appel unique optimisé - charger toutes les données en parallèle
+      const [response, priorities, strategy, metrics] = await Promise.all([
+        ConfigService.getAIProviders(),
+        ConfigService.getProviderPriorities(),
+        ConfigService.getStrategy(),
+        ConfigService.getMetrics()
+      ]);
 
       // Extraire les clés API et créer les statuts
       const apiKeys: Record<string, string> = {};
@@ -56,7 +90,7 @@ export const useAIConfig = (): AIConfigState & AIConfigActions => {
           apiKeys[provider.name] = provider.api_key;
         }
         
-        // Définir le statut du provider
+        // Utiliser les statuts conservés en base de données
         if (provider.is_functional && provider.has_api_key) {
           providerStatuses[provider.name] = {
             status: 'valid',
@@ -77,16 +111,25 @@ export const useAIConfig = (): AIConfigState & AIConfigActions => {
         }
       });
 
-      setState(prev => ({
-        ...prev,
+      const newState = {
         providers: response.providers,
         providerStatuses,
         apiKeys,
         priorities,
         strategy,
         metrics,
-        loading: false
-      }));
+        loading: false,
+        error: null,
+        lastLoaded: Date.now()
+      };
+
+      // Mettre à jour le cache global (sans timestamp d'expiration)
+      globalCache = {
+        data: newState,
+        timestamp: null
+      };
+
+      setState(newState);
     } catch (error) {
       console.error('Erreur lors du chargement de la configuration IA:', error);
       setState(prev => ({
@@ -94,8 +137,16 @@ export const useAIConfig = (): AIConfigState & AIConfigActions => {
         loading: false,
         error: error instanceof Error ? error.message : 'Erreur inconnue'
       }));
+    } finally {
+      loadingRef.current = false;
     }
-  }, []);
+  }, []); // Dépendances vides pour éviter les re-créations
+
+  // Forcer le rechargement (invalider le cache)
+  const forceRefresh = useCallback(async () => {
+    globalCache = { data: null, timestamp: null };
+    await loadProviders(true);
+  }, [loadProviders]); // Dépendance stable
 
   // Sauvegarder une clé API
   const saveAPIKey = useCallback(async (provider: string, apiKey: string) => {
@@ -109,8 +160,8 @@ export const useAIConfig = (): AIConfigState & AIConfigActions => {
           apiKeys: { ...prev.apiKeys, [provider]: apiKey }
         }));
         
-        // Recharger les providers pour mettre à jour les statuts
-        await loadProviders();
+        // Invalider le cache et recharger
+        await forceRefresh();
       }
       
       return result;
@@ -121,12 +172,10 @@ export const useAIConfig = (): AIConfigState & AIConfigActions => {
         message: error instanceof Error ? error.message : 'Erreur inconnue'
       };
     }
-  }, [loadProviders]);
+  }, [forceRefresh]);
 
   // Tester un provider
   const testProvider = useCallback(async (provider: string) => {
-    
-    
     // Marquer comme en cours de test
     setState(prev => ({
       ...prev,
@@ -140,9 +189,7 @@ export const useAIConfig = (): AIConfigState & AIConfigActions => {
     }));
 
     try {
-      
       const result = await ConfigService.testProvider(provider);
-      
       
       // Mettre à jour le statut selon le résultat
       setState(prev => ({
@@ -157,12 +204,9 @@ export const useAIConfig = (): AIConfigState & AIConfigActions => {
         }
       }));
       
-      // Recharger les providers si le test réussit
-      if (result.success) {
-        
-        await loadProviders();
-      } else {
-        
+      // Recharger les providers seulement si le test n'était pas en cache et a réussi
+      if (result.success && !result.cached) {
+        await forceRefresh();
       }
       
       return result;
@@ -186,7 +230,7 @@ export const useAIConfig = (): AIConfigState & AIConfigActions => {
         message: error instanceof Error ? error.message : 'Erreur inconnue'
       };
     }
-  }, [loadProviders]);
+  }, [forceRefresh]);
 
   // Définir la priorité d'un provider
   const setPriority = useCallback(async (provider: string, priority: number) => {
@@ -198,6 +242,9 @@ export const useAIConfig = (): AIConfigState & AIConfigActions => {
           ...prev,
           priorities: { ...prev.priorities, [provider]: priority }
         }));
+        
+        // Invalider le cache pour refléter les changements
+        globalCache = { data: null, timestamp: null };
       }
       
       return result;
@@ -236,7 +283,7 @@ export const useAIConfig = (): AIConfigState & AIConfigActions => {
       
       if (result.success) {
         // Recharger les providers pour voir les corrections
-        await loadProviders();
+        await forceRefresh();
       }
       
       return result;
@@ -247,7 +294,7 @@ export const useAIConfig = (): AIConfigState & AIConfigActions => {
         message: error instanceof Error ? error.message : 'Erreur inconnue'
       };
     }
-  }, [loadProviders]);
+  }, [forceRefresh]);
 
   // Réinitialiser les priorités
   const resetPriorities = useCallback(async () => {
@@ -256,6 +303,8 @@ export const useAIConfig = (): AIConfigState & AIConfigActions => {
       
       if (result.success) {
         setState(prev => ({ ...prev, priorities: {} }));
+        // Invalider le cache
+        globalCache = { data: null, timestamp: null };
       }
       
       return result;
@@ -287,10 +336,8 @@ export const useAIConfig = (): AIConfigState & AIConfigActions => {
     return state.providerStatuses[providerName] || null;
   }, [state.providerStatuses]);
 
-  // Charger les données au montage
-  useEffect(() => {
-    loadProviders();
-  }, [loadProviders]);
+  // Supprimer le chargement automatique au montage
+  // Le chargement se fera maintenant seulement quand ConfigContent est monté
 
   return {
     ...state,
@@ -303,6 +350,7 @@ export const useAIConfig = (): AIConfigState & AIConfigActions => {
     resetPriorities,
     getActiveValidProvidersCount,
     isProviderActive,
-    getProviderStatus
+    getProviderStatus,
+    forceRefresh
   };
 }; 

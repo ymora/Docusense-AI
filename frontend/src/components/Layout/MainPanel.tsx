@@ -619,7 +619,7 @@ const MainPanel: React.FC<MainPanelProps> = ({
 
   return (
     <div
-      className="flex-1 flex flex-col overflow-hidden relative"
+      className="flex-1 flex flex-col overflow-hidden relative min-h-screen-dynamic"
       style={{
         backgroundColor: 'var(--background-color)',
         color: 'var(--text-color)',

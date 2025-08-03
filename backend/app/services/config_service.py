@@ -1353,29 +1353,57 @@ class ConfigService(BaseService):
     async def _get_ai_providers_config_logic(self) -> Dict[str, Any]:
         """Logic for getting AI providers config"""
         try:
-            # Utiliser la méthode asynchrone unifiée pour la cohérence
-            providers_data = await self.get_available_ai_providers_with_priority_async()
-            
-            # Convertir le format pour la compatibilité
+            # Obtenir tous les providers avec leurs configurations de base
+            all_providers = ["openai", "claude", "mistral", "ollama"]
             providers = []
-            for provider_data in providers_data:
-                providers.append({
-                    "name": provider_data["name"],
-                    "priority": provider_data["priority"],
-                    "models": provider_data["models"],
-                    "default_model": provider_data.get("default_model"),
-                    "base_url": provider_data.get("base_url"),
-                    "is_active": provider_data.get("is_active", True),
-                    "has_api_key": provider_data.get("api_key_configured", False),
-                    "is_connected": provider_data.get("is_functional", False),
-                    "is_functional": provider_data.get("is_functional", False),
+            
+            for provider_name in all_providers:
+                # Obtenir la configuration de base du provider
+                config = self.get_ai_provider_config(provider_name)
+                if not config:
+                    # Créer une configuration par défaut si elle n'existe pas
+                    config = self._get_default_provider_config(provider_name)
+                
+                # Obtenir la clé API (si elle existe)
+                api_key = self.get_ai_provider_key(provider_name)
+                has_api_key = bool(api_key and api_key.strip())
+                
+                # Obtenir le statut fonctionnel conservé en base de données
+                is_functional = self.get_provider_functionality_status(provider_name)
+                last_tested = self.get_provider_last_tested(provider_name)
+                
+                # Obtenir la priorité
+                priority = self.get_ai_provider_priority(provider_name)
+                
+                # Déterminer si le provider est actif (a une clé API et est fonctionnel)
+                is_active = has_api_key and is_functional
+                
+                # Pour Ollama, considérer comme actif si configuré (pas besoin de clé API)
+                if provider_name == "ollama" and priority > 0:
+                    is_active = True
+                
+                provider_data = {
+                    "name": provider_name,
+                    "priority": priority,
+                    "models": config.get("models", []) if config else [],
+                    "default_model": config.get("default_model") if config else None,
+                    "base_url": config.get("base_url") if config else None,
+                    "is_active": is_active,
+                    "has_api_key": has_api_key,
+                    "is_connected": is_functional,  # Compatibilité
+                    "is_functional": is_functional,
                     "api_key": None,  # Ne pas exposer les clés API
-                    "last_tested": provider_data.get("last_tested")
-                })
-
+                    "last_tested": last_tested
+                }
+                
+                providers.append(provider_data)
+            
             # Séparer les providers actifs et inactifs
-            active_providers = [p for p in providers if p["has_api_key"] and p["is_functional"]]
-            inactive_providers = [p for p in providers if not (p["has_api_key"] and p["is_functional"])]
+            active_providers = [p for p in providers if p["is_active"]]
+            inactive_providers = [p for p in providers if not p["is_active"]]
+            
+            # Trier les providers actifs par priorité
+            active_providers.sort(key=lambda x: x["priority"])
             
             # Combiner les providers actifs (triés) et inactifs
             sorted_providers = active_providers + inactive_providers
@@ -1392,3 +1420,120 @@ class ConfigService(BaseService):
         except Exception as e:
             self.logger.error(f"Error getting AI providers config: {str(e)}")
             raise HTTPException(status_code=500, detail=str(e))
+
+    def _get_default_provider_config(self, provider_name: str) -> Dict[str, Any]:
+        """Get default configuration for a provider"""
+        default_configs = {
+            "openai": {
+                "api_key": "",
+                "base_url": "https://api.openai.com/v1",
+                "models": [
+                    {"name": "gpt-4", "display_name": "GPT-4", "max_tokens": 8192},
+                    {"name": "gpt-4-turbo", "display_name": "GPT-4 Turbo", "max_tokens": 128000},
+                    {"name": "gpt-3.5-turbo", "display_name": "GPT-3.5 Turbo", "max_tokens": 4096}
+                ],
+                "default_model": "gpt-4",
+                "is_active": True
+            },
+            "claude": {
+                "api_key": "",
+                "base_url": "https://api.anthropic.com",
+                "models": [
+                    {"name": "claude-3-opus-20240229", "display_name": "Claude 3 Opus", "max_tokens": 200000},
+                    {"name": "claude-3-sonnet-20240229", "display_name": "Claude 3 Sonnet", "max_tokens": 200000},
+                    {"name": "claude-3-haiku-20240307", "display_name": "Claude 3 Haiku", "max_tokens": 200000}
+                ],
+                "default_model": "claude-3-sonnet-20240229",
+                "is_active": True
+            },
+            "mistral": {
+                "api_key": "",
+                "base_url": "https://api.mistral.ai/v1",
+                "models": [
+                    {"name": "mistral-large-latest", "display_name": "Mistral Large", "max_tokens": 32768},
+                    {"name": "mistral-medium-latest", "display_name": "Mistral Medium", "max_tokens": 32768},
+                    {"name": "mistral-small-latest", "display_name": "Mistral Small", "max_tokens": 32768}
+                ],
+                "default_model": "mistral-large-latest",
+                "is_active": True
+            },
+            "ollama": {
+                "api_key": "",
+                "base_url": "http://localhost:11434",
+                "models": [
+                    {"name": "llama2", "display_name": "Llama 2", "max_tokens": 4096},
+                    {"name": "codellama", "display_name": "Code Llama", "max_tokens": 4096},
+                    {"name": "mistral", "display_name": "Mistral", "max_tokens": 4096}
+                ],
+                "default_model": "llama2",
+                "is_active": True
+            }
+        }
+        
+        return default_configs.get(provider_name, {})
+
+    @log_service_operation("test_provider_if_needed")
+    async def test_provider_if_needed(self, provider: str, api_key: str = None) -> Dict[str, Any]:
+        """
+        Test a provider only if needed (not recently tested or forced)
+        Returns test result with details
+        """
+        return await self.safe_execute_async("test_provider_if_needed", self._test_provider_if_needed_logic, provider, api_key)
+
+    async def _test_provider_if_needed_logic(self, provider: str, api_key: str = None) -> Dict[str, Any]:
+        """Logic for testing provider if needed"""
+        try:
+            from datetime import datetime, timedelta
+            
+            # Vérifier si le provider a été testé récemment (dans les 5 minutes)
+            last_tested = self.get_provider_last_tested(provider)
+            if last_tested:
+                try:
+                    last_test_time = datetime.fromisoformat(last_tested.replace('Z', '+00:00'))
+                    time_since_test = datetime.now(last_test_time.tzinfo) - last_test_time
+                    
+                    # Si testé il y a moins de 5 minutes, retourner le statut actuel
+                    if time_since_test < timedelta(minutes=5):
+                        current_status = self.get_provider_functionality_status(provider)
+                        return {
+                            "success": current_status,
+                            "message": f"Provider {provider} testé récemment ({time_since_test.seconds//60} min ago)",
+                            "cached": True,
+                            "last_tested": last_tested
+                        }
+                except Exception as e:
+                    self.logger.warning(f"Error parsing last test time for {provider}: {str(e)}")
+            
+            # Si pas de clé API fournie, utiliser celle en base
+            if not api_key:
+                api_key = self.get_ai_provider_key(provider)
+                if not api_key:
+                    return {
+                        "success": False,
+                        "message": f"Aucune clé API configurée pour {provider}",
+                        "cached": False
+                    }
+            
+            # Tester le provider
+            from .ai_service import get_ai_service
+            ai_service = get_ai_service(self.db)
+            
+            is_functional = await ai_service.test_provider_with_key(provider, api_key)
+            
+            # Le statut est déjà sauvegardé par test_provider_with_key
+            message = f"Test de {provider} {'réussi' if is_functional else 'échoué'}"
+            
+            return {
+                "success": is_functional,
+                "message": message,
+                "cached": False,
+                "last_tested": self.get_provider_last_tested(provider)
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Error testing provider {provider}: {str(e)}")
+            return {
+                "success": False,
+                "message": f"Erreur lors du test: {str(e)}",
+                "cached": False
+            }

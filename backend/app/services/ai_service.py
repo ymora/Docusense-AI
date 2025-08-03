@@ -196,15 +196,38 @@ class AIService(BaseService):
             return False
 
     async def test_provider_with_key(self, provider: str, api_key: str) -> bool:
-        """Test AI provider connection with a specific API key"""
+        """Test AI provider connection with a specific API key and update status in database"""
         try:
             self.logger.info(f"Testing provider {provider} with provided API key")
             
             temp_config = self._create_temp_provider_config(provider, api_key)
-            return await self._test_provider(provider, temp_config)
+            is_functional = await self._test_provider(provider, temp_config)
+            
+            # Mettre à jour le statut en base de données
+            from .config_service import ConfigService
+            config_service = ConfigService(self.db)
+            
+            # Sauvegarder le statut fonctionnel
+            config_service.update_provider_functionality_status(provider, is_functional)
+            
+            if is_functional:
+                self.logger.info(f"Provider {provider} test successful - status saved to database")
+            else:
+                self.logger.warning(f"Provider {provider} test failed - status saved to database")
+            
+            return is_functional
             
         except Exception as e:
             self.logger.error(f"Error testing provider {provider} with key: {str(e)}")
+            
+            # En cas d'erreur, marquer comme non fonctionnel
+            try:
+                from .config_service import ConfigService
+                config_service = ConfigService(self.db)
+                config_service.update_provider_functionality_status(provider, False)
+            except Exception as save_error:
+                self.logger.error(f"Error saving test status for {provider}: {str(save_error)}")
+            
             return False
     
     def _create_temp_provider_config(self, provider: str, api_key: str) -> dict[str, any]:

@@ -236,17 +236,16 @@ const UnifiedFileViewer: React.FC<UnifiedFileViewerProps> = ({ file, onClose, on
         return <MediaPlayer file={file} onError={(error) => setError(error)} />;
       
       case 'pdf':
-        return (
-          <div className="w-full h-full bg-slate-900" style={{ height: '100%', minHeight: 'calc(100vh - 120px)' }}>
-            <iframe
-              src={`/api/files/stream-by-path/${encodeURIComponent(file.path)}`}
-              className="w-full h-full border-0"
-              style={{ 
-                width: '100%', 
-                height: '100%', 
-                minHeight: 'calc(100vh - 120px)',
-                display: 'block'
-              }}
+                 return (
+           <div className="w-full h-full bg-slate-900 min-h-screen-dynamic">
+             <iframe
+               src={`/api/files/stream-by-path/${encodeURIComponent(file.path)}`}
+               className="w-full h-full border-0 min-h-screen-dynamic"
+               style={{ 
+                 width: '100%', 
+                 height: '100%', 
+                 display: 'block'
+               }}
               title={file.name}
               onError={(e) => {
                 setError('Erreur lors du chargement du PDF');
@@ -374,7 +373,7 @@ const UnifiedFileViewer: React.FC<UnifiedFileViewerProps> = ({ file, onClose, on
 
   // Mode normal
   return (
-    <div className="h-full bg-slate-900 overflow-hidden flex flex-col" style={{ height: '100%', minHeight: 'calc(100vh - 120px)' }}>
+         <div className="h-full bg-slate-900 overflow-hidden flex flex-col min-h-screen-dynamic">
       {/* Affichage des erreurs */}
       {error && (
         <div className="absolute inset-0 flex items-center justify-center z-50 bg-slate-900/95">

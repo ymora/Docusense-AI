@@ -46,6 +46,7 @@ interface QueueState {
   queueStatus: QueueStatus;
   loading: boolean;
   error: string | null;
+  isInactive: boolean; // Nouveau: indique si le frontend est inactif
 
   // Actions
   loadQueueItems: () => Promise<void>;
@@ -61,6 +62,10 @@ interface QueueState {
   resumeType: (type: string) => Promise<void>;
   deleteType: (type: string) => Promise<void>;
   retryType: (type: string) => Promise<void>;
+
+  // Nouveau: gestion de l'inactivité
+  setInactive: (inactive: boolean) => void;
+  forceRefresh: () => Promise<void>;
 }
 
 export const useQueueStore = create<QueueState>((set, get) => ({
@@ -76,6 +81,7 @@ export const useQueueStore = create<QueueState>((set, get) => ({
   },
   loading: false,
   error: null,
+  isInactive: false, // Nouveau: commence actif
 
   loadQueueItems: async () => {
     set({ loading: true, error: null });
@@ -101,7 +107,14 @@ export const useQueueStore = create<QueueState>((set, get) => ({
   // Mise à jour en temps réel de la queue
   startRealTimeUpdates: () => {
     const interval = setInterval(async () => {
-      const { loadQueueItems, loadQueueStatus } = get();
+      const { loadQueueItems, loadQueueStatus, isInactive } = get();
+      
+      // Ne pas faire de requêtes si le frontend est inactif
+      if (isInactive) {
+        console.log('⏸️ Queue: Requêtes automatiques arrêtées (frontend inactif)');
+        return;
+      }
+      
       await loadQueueItems();
       await loadQueueStatus();
     }, 3000); // Mise à jour toutes les 3 secondes
@@ -239,5 +252,20 @@ export const useQueueStore = create<QueueState>((set, get) => ({
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la nouvelle tentative du type';
       set({ error: errorMessage, loading: false });
     }
+  },
+
+  // Nouveau: définir l'état d'inactivité
+  setInactive: (inactive: boolean) => {
+    console.log(`🔄 Queue: État d'inactivité changé à ${inactive}`);
+    set({ isInactive: inactive });
+  },
+
+  // Nouveau: forcer un rafraîchissement (pour la reconnexion manuelle)
+  forceRefresh: async () => {
+    console.log('🔄 Queue: Rafraîchissement forcé après reconnexion');
+    const { loadQueueItems, loadQueueStatus } = get();
+    set({ isInactive: false }); // Réactiver
+    await loadQueueItems();
+    await loadQueueStatus();
   },
 }));

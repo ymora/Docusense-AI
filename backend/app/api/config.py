@@ -248,43 +248,26 @@ async def test_ai_provider(
             # Test with provided key using new validation method
             validation_result = await config_service.validate_provider_key(provider, request.api_key)
             
-            if validation_result["is_valid"]:
-                # If test successful, save the key
-                config_service.set_ai_provider_key(provider, request.api_key)
-                config_service.update_provider_functionality_status(provider, True)
-                
-                return {
-                    "success": True,
-                    "provider": provider,
-                    "is_valid": True,
-                    "message": f"API key validated successfully for {provider}",
-                    "tested_at": validation_result["tested_at"]
-                }
-            else:
-                return {
-                    "success": False,
-                    "provider": provider,
-                    "is_valid": False,
-                    "message": validation_result.get("error_message", "Validation failed"),
-                    "tested_at": validation_result["tested_at"]
-                }
+            return {
+                "success": validation_result["is_valid"],
+                "message": validation_result.get("error_message", "Test completed"),
+                "provider": provider,
+                "tested_at": validation_result["tested_at"]
+            }
         else:
-            # Test with existing configuration
-            success = await ai_service.test_provider_async(provider)
-            
-            # Update functionality status
-            config_service.update_provider_functionality_status(provider, success)
+            # Test with existing configuration using optimized method
+            test_result = await config_service.test_provider_if_needed(provider)
             
             return {
-                "success": success,
+                "success": test_result["success"],
+                "message": test_result["message"],
                 "provider": provider,
-                "is_valid": success,
-                "message": f"Provider {provider} test {'completed successfully' if success else 'failed'}",
-                "tested_at": datetime.now().isoformat()
+                "cached": test_result.get("cached", False),
+                "last_tested": test_result.get("last_tested")
             }
             
     except Exception as e:
-        logger.error(f"Error testing provider {provider}: {str(e)}")
+        logger.error(f"Error testing AI provider {provider}: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

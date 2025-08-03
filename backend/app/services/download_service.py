@@ -80,10 +80,14 @@ class DownloadService(BaseService):
 
     def _download_file_logic(self, file_path: Path) -> FileResponse:
         """Logic for downloading file"""
+        self.logger.info(f"🎯 DownloadService: Tentative de téléchargement de: {file_path}")
+        
         if not file_path.exists():
+            self.logger.error(f"🎯 DownloadService: Fichier non trouvé: {file_path}")
             raise HTTPException(status_code=404, detail="Fichier non trouvé")
         
         if not file_path.is_file():
+            self.logger.error(f"🎯 DownloadService: Le chemin ne correspond pas à un fichier: {file_path}")
             raise HTTPException(status_code=400, detail="Le chemin ne correspond pas à un fichier")
         
         # Vérifier la taille du fichier
@@ -99,7 +103,7 @@ class DownloadService(BaseService):
         if not mime_type:
             mime_type = 'application/octet-stream'
         
-        self.logger.info(f"Téléchargement du fichier: {file_path}")
+        self.logger.info(f"🎯 DownloadService: Téléchargement du fichier: {file_path.name} ({file_size} bytes, {mime_type})")
         
         return FileResponse(
             path=str(file_path),

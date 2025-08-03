@@ -41,8 +41,25 @@ const Layout: React.FC = () => {
       } else if (action === 'download' && file) {
         // Télécharger le fichier directement
         try {
-          const fileId = file.id || file.path;
-          const downloadUrl = `/api/files/${fileId}/download`;
+          console.log('🎯 Téléchargement du fichier:', {
+            name: file.name,
+            path: file.path,
+            id: file.id,
+            mime_type: file.mime_type
+          });
+          
+          let downloadUrl;
+          
+          // Utiliser l'endpoint approprié selon si le fichier a un ID ou non
+          if (file.id && file.id !== null) {
+            // Fichier avec ID (supporté) - utiliser l'endpoint par ID
+            downloadUrl = `/api/files/${file.id}/download`;
+            console.log('🎯 Utilisation de l\'endpoint par ID:', downloadUrl);
+          } else {
+            // Fichier sans ID (non supporté) - utiliser l'endpoint par path
+            downloadUrl = `/api/files/download-by-path/${encodeURIComponent(file.path)}`;
+            console.log('🎯 Utilisation de l\'endpoint par path:', downloadUrl);
+          }
           
           // Créer un lien temporaire pour forcer le téléchargement
           const link = document.createElement('a');
@@ -54,12 +71,14 @@ const Layout: React.FC = () => {
           // Ajouter un timestamp pour éviter le cache
           link.href += `?t=${Date.now()}`;
           
+          console.log('🎯 URL finale de téléchargement:', link.href);
+          
           // Ajouter le lien au DOM, cliquer dessus, puis le supprimer
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
         } catch (error) {
-          console.error('Erreur lors du téléchargement du fichier');
+          console.error('Erreur lors du téléchargement du fichier:', error);
         }
       } else if (action === 'analyze_ia' && file) {
         // Ajouter directement à la queue d'analyse
@@ -349,7 +368,7 @@ const Layout: React.FC = () => {
 
   return (
     <div
-      className="flex h-screen"
+      className="flex min-h-screen-dynamic"
       style={{ backgroundColor: colors.background }}
     >
       {/* Panneau de gauche */}

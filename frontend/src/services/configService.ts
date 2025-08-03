@@ -72,8 +72,8 @@ export class ConfigService {
     }
   }
 
-  // Tester un provider
-  static async testProvider(provider: string): Promise<{ success: boolean; message: string }> {
+  // Tester un provider (optimisé avec cache)
+  static async testProvider(provider: string): Promise<{ success: boolean; message: string; cached?: boolean }> {
     try {
       const response = await apiRequest(`/api/config/ai/test?provider=${encodeURIComponent(provider)}`, {
         method: 'POST'
@@ -81,13 +81,15 @@ export class ConfigService {
 
       return {
         success: response.success || false,
-        message: response.message || 'Test terminé'
+        message: response.message || 'Test terminé',
+        cached: response.cached || false
       };
     } catch (error) {
       console.error(`Erreur lors du test du provider ${provider}:`, error);
       return {
         success: false,
-        message: `Erreur de test: ${handleApiError(error)}`
+        message: `Erreur de test: ${handleApiError(error)}`,
+        cached: false
       };
     }
   }

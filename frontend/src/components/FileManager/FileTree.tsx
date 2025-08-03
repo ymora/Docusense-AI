@@ -137,6 +137,13 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
     e.preventDefault();
     e.stopPropagation();
     
+    console.log('🎯 FileTree: Clic droit sur le fichier:', {
+      name: file.name,
+      path: file.path,
+      id: file.id,
+      mime_type: file.mime_type
+    });
+    
     // Afficher le menu contextuel
     setContextMenu({
       visible: true,

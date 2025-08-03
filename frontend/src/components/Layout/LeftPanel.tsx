@@ -4,14 +4,28 @@ import { useFileStore } from '../../stores/fileStore';
 import { useColors } from '../../hooks/useColors';
 import FileTree from '../FileManager/FileTree';
 import { useBackendStatus } from '../../hooks/useBackendStatus';
+import { useQueueStore } from '../../stores/queueStore';
 import { promptService } from '../../services/promptService';
 
 const LeftPanel: React.FC = () => {
   const { currentDirectory, loadDirectoryTree, setCurrentDirectory, selectedFiles, selectFile } = useFileStore();
-  const { isOnline } = useBackendStatus();
+  const { isOnline, isInactive, forceCheck } = useBackendStatus();
+  const { setInactive, forceRefresh } = useQueueStore();
   const { colors } = useColors();
 
+  // Synchroniser l'état d'inactivité entre les stores
+  useEffect(() => {
+    setInactive(isInactive);
+  }, [isInactive, setInactive]);
 
+  // Gestion du clic sur l'indicateur de statut
+  const handleStatusClick = async () => {
+    if (isInactive) {
+      // Tentative de reconnexion manuelle seulement si inactif
+      await forceCheck();
+      await forceRefresh();
+    }
+  };
 
   // Fermer le menu contextuel avec la touche Échap
   useEffect(() => {
@@ -109,7 +123,7 @@ const LeftPanel: React.FC = () => {
 
   return (
     <div
-      className="left-panel-container flex flex-col h-full overflow-hidden"
+      className="left-panel-container flex flex-col min-h-screen-dynamic overflow-hidden"
       style={{
         backgroundColor: colors.surface,
         borderRight: `1px solid ${colors.border}`,
@@ -126,10 +140,47 @@ const LeftPanel: React.FC = () => {
         >
           DocuSense IA
         </span>
-        <div
-          className="w-3 h-3 rounded-full ml-2"
-          style={{ backgroundColor: isOnline ? colors.success : colors.error }}
-        />
+        <button
+          onClick={handleStatusClick}
+          className={`ml-2 p-1 rounded-full transition-all duration-200 ${
+            isInactive 
+              ? 'hover:scale-110 cursor-pointer' 
+              : 'cursor-default'
+          }`}
+          title={
+            isInactive 
+              ? 'Cliquer pour tenter une reconnexion' 
+              : isOnline 
+                ? 'Backend connecté' 
+                : 'Backend déconnecté'
+          }
+          disabled={!isInactive}
+        >
+          <div
+            className={`w-3 h-3 rounded-full transition-all duration-300 ${
+              isInactive 
+                ? 'animate-pulse' 
+                : ''
+            }`}
+            style={{ 
+              backgroundColor: isOnline 
+                ? (isInactive ? colors.warning || '#f59e0b' : colors.success) // Orange si inactif, vert si actif
+                : colors.error // Rouge si backend déconnecté
+            }}
+          />
+        </button>
+        {/* Indicateur visuel pour l'état inactif */}
+        {isInactive && (
+          <span
+            className="ml-2 text-xs px-2 py-1 rounded-full"
+            style={{ 
+              backgroundColor: colors.warning || '#f59e0b',
+              color: '#000'
+            }}
+          >
+            Inactif
+          </span>
+        )}
       </div>
 
       {/* Sélecteur de disque ou navigation */}

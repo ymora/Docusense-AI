@@ -799,6 +799,7 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ file, onClose, onError }) => 
                     background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(currentTime / (duration || 1)) * 100}%, #475569 ${(currentTime / (duration || 1)) * 100}%, #475569 100%)`
                   }}
                   title={`Position: ${formatTime(currentTime)} / ${formatTime(duration)}`}
+                  autoComplete="off"
                 />
                 <div 
                   className="absolute top-0 left-0 h-3 bg-blue-500 rounded-lg pointer-events-none transition-all duration-100"
@@ -834,6 +835,7 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ file, onClose, onError }) => 
                   onChange={handleVolumeChange}
                   className="w-24 h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer slider"
                   title={`Volume: ${Math.round(volume * 100)}%`}
+                  autoComplete="off"
                 />
                 <span className="text-xs text-slate-400 w-8 text-right">
                   {Math.round(volume * 100)}%

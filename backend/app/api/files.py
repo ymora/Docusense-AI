@@ -712,27 +712,31 @@ async def download_file(
     db: Session = Depends(get_db)
 ) -> FileResponse:
     """
-    Download a file
+    Download a file by ID (uses original file path)
     """
     try:
+        logger.info(f"🎯 Téléchargement par ID demandé: {file_id}")
+        
         file_service = FileService(db)
         file_info = file_service.get_file_by_id(file_id)
 
         if not file_info:
+            logger.error(f"🎯 Fichier non trouvé en base: {file_id}")
             raise HTTPException(status_code=404, detail="File not found")
+
+        logger.info(f"🎯 Fichier trouvé en base: {file_info.name} -> {file_info.path}")
 
         # Vérifier que le fichier existe sur le disque
         if not os.path.exists(file_info.path):
+            logger.error(f"🎯 Fichier non trouvé sur le disque: {file_info.path}")
             raise HTTPException(
                 status_code=404,
                 detail="File not found on disk")
 
-        # Retourner le fichier
-        return FileResponse(
-            path=file_info.path,
-            filename=file_info.name,
-            media_type=file_info.mime_type
-        )
+        logger.info(f"🎯 Fichier trouvé sur le disque: {file_info.path}")
+        
+        # Utiliser le service de téléchargement pour le fichier original
+        return download_service.download_file(Path(file_info.path))
 
     except HTTPException:
         raise
@@ -749,14 +753,25 @@ async def download_file_by_path(
     Download a file by its path
     """
     try:
+        logger.info(f"🎯 Téléchargement par chemin demandé: {file_path}")
+        
         file_path_obj = Path(file_path)
+        
+        # Vérifier que le fichier existe
+        if not file_path_obj.exists():
+            logger.error(f"🎯 Fichier non trouvé: {file_path}")
+            raise HTTPException(status_code=404, detail=f"Fichier non trouvé: {file_path}")
+        
+        logger.info(f"🎯 Fichier trouvé: {file_path_obj.name} ({file_path_obj.stat().st_size} bytes)")
         
         # Valider le fichier (format et taille)
         is_valid, error_message, mime_type = FileValidator.validate_file(file_path_obj)
         
         if not is_valid:
+            logger.error(f"🎯 Fichier invalide: {error_message}")
             raise HTTPException(status_code=400, detail=error_message)
         
+        logger.info(f"🎯 Téléchargement du fichier: {file_path_obj.name}")
         return download_service.download_file(file_path_obj)
         
     except Exception as e:

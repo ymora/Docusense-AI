@@ -422,7 +422,7 @@ const EmailViewer: React.FC<EmailViewerProps> = ({ file, onClose, onPreviewAttac
 
   return (
     <>
-             <div className="h-full bg-slate-900 flex flex-col" style={{ height: '100vh', maxHeight: '100vh' }}>
+             <div className="h-full bg-slate-900 flex flex-col min-h-screen-dynamic">
         {/* Barre d'outils */}
         <div className="bg-slate-800 border-b border-slate-700 p-4">
           <div className="flex items-center justify-between">

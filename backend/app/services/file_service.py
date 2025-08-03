@@ -789,16 +789,19 @@ class FileService(BaseService):
                             # Set status based on support
                             status = "none" if is_supported else "unsupported"
                             
+                            # Vérifier si le fichier existe déjà dans la base de données
+                            existing_file = self.db.query(File).filter(File.path == item_path_str).first()
+                            
                             file_info = {
                                 "name": item_path.name,
                                 "path": item_path_str,
                                 "size": size,
                                 "mime_type": mime_type,
                                 "status": status,
-                                "id": None  # Will be created on demand
+                                "id": existing_file.id if existing_file else None  # Utiliser l'ID existant si disponible
                             }
                             all_files.append(file_info)
-                            self.logger.info(f"Added file: {item_path.name} to list")
+                            self.logger.info(f"🎯 FileService: Ajouté le fichier: {item_path.name} (ID: {file_info['id']}, Path: {item_path_str})")
 
                         elif item_path.is_dir():
                             total_subdirectories += 1

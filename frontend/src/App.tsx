@@ -1,5 +1,6 @@
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import Layout from './components/Layout/Layout';
+import { useViewportHeight } from './hooks/useViewportHeight';
 import './App.css';
 
 const router = createBrowserRouter([
@@ -10,8 +11,11 @@ const router = createBrowserRouter([
 ]);
 
 function App() {
+  // Initialiser la gestion de la hauteur d'écran
+  useViewportHeight();
+  
   return (
-    <div className="App">
+    <div className="App min-h-screen-dynamic">
       <RouterProvider router={router} />
     </div>
   );
