@@ -69,16 +69,16 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ file, onClose, onError }) => 
   const [bufferHealth, setBufferHealth] = useState<number>(100);
   const [networkLatency, setNetworkLatency] = useState<number>(0);
 
-  // État du fallback
+  // État du fallback simplifié
   const [fallbackState, setFallbackState] = useState<FallbackState>({
-    currentPlayer: 'react',
+    currentPlayer: 'native',
     fallbackAttempts: [],
     isFallbacking: false
   });
 
-  // Ajout d'un compteur pour éviter les boucles infinies
+  // Compteur pour éviter les boucles infinies
   const [fallbackCount, setFallbackCount] = useState(0);
-  const maxFallbackAttempts = 2; // Limite le nombre de tentatives
+  const maxFallbackAttempts = 1; // Réduit le nombre de tentatives
 
   const videoRef = useRef<HTMLVideoElement>(null);
   const audioRef = useRef<HTMLAudioElement>(null);
@@ -111,7 +111,7 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ file, onClose, onError }) => 
     
     // Vérifier si on a dépassé le nombre maximum de tentatives
     if (fallbackCount >= maxFallbackAttempts) {
-      const errorMessage = `Impossible de lire le fichier après ${maxFallbackAttempts + 1} tentatives. Erreur finale: ${error}`;
+      const errorMessage = `Impossible de lire le fichier audio après ${maxFallbackAttempts + 1} tentatives`;
       setError(errorMessage);
       setFallbackState(prev => ({
         ...prev,
@@ -125,55 +125,38 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ file, onClose, onError }) => 
       return;
     }
     
-    const fallbackOrder: PlayerType[] = ['react', 'native', 'direct'];
-    const currentIndex = fallbackOrder.indexOf(failedPlayer);
-    const nextPlayer = fallbackOrder[currentIndex + 1];
+    // Fallback simple : native -> direct
+    const nextPlayer: PlayerType = failedPlayer === 'native' ? 'direct' : 'native';
     
-    if (nextPlayer && !fallbackState.fallbackAttempts.includes(nextPlayer)) {
-      console.log(`🔄 Tentative de fallback vers ${nextPlayer}... (${fallbackCount + 1}/${maxFallbackAttempts})`);
-      
-      setFallbackCount(prev => prev + 1);
-      setFallbackState(prev => ({
-        currentPlayer: nextPlayer,
-        fallbackAttempts: [...prev.fallbackAttempts, failedPlayer],
-        isFallbacking: true,
-        fallbackError: error
-      }));
-      
-      setError(null);
-      setIsLoading(true);
-      
-      // Attendre plus longtemps entre les tentatives pour éviter la surcharge
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      if (videoRef.current) {
-        videoRef.current.src = getMediaUrl(nextPlayer);
-        videoRef.current.load();
-      }
-      if (audioRef.current) {
-        audioRef.current.src = getMediaUrl(nextPlayer);
-        audioRef.current.load();
-      }
-      
-      setFallbackState(prev => ({
-        ...prev,
-        isFallbacking: false
-      }));
-    } else {
-      const allAttempts = [...fallbackState.fallbackAttempts, failedPlayer];
-      const errorMessage = `Impossible de lire le fichier. Tentatives: ${allAttempts.join(', ')}. Erreur finale: ${error}`;
-      
-      setError(errorMessage);
-      setFallbackState(prev => ({
-        ...prev,
-        isFallbacking: false,
-        fallbackError: errorMessage
-      }));
-      
-      if (onError) {
-        onError(errorMessage);
-      }
+    console.log(`🔄 Tentative de fallback vers ${nextPlayer}... (${fallbackCount + 1}/${maxFallbackAttempts})`);
+    
+    setFallbackCount(prev => prev + 1);
+    setFallbackState(prev => ({
+      currentPlayer: nextPlayer,
+      fallbackAttempts: [...prev.fallbackAttempts, failedPlayer],
+      isFallbacking: true,
+      fallbackError: error
+    }));
+    
+    setError(null);
+    setIsLoading(true);
+    
+    // Attendre moins longtemps pour éviter les plantages
+    await new Promise(resolve => setTimeout(resolve, 500));
+    
+    if (videoRef.current) {
+      videoRef.current.src = getMediaUrl(nextPlayer);
+      videoRef.current.load();
     }
+    if (audioRef.current) {
+      audioRef.current.src = getMediaUrl(nextPlayer);
+      audioRef.current.load();
+    }
+    
+    setFallbackState(prev => ({
+      ...prev,
+      isFallbacking: false
+    }));
   };
 
   const handleError = (e: React.SyntheticEvent<HTMLVideoElement | HTMLAudioElement, Event>) => {
@@ -185,7 +168,7 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ file, onClose, onError }) => 
       return;
     }
     
-    let errorMessage = 'Erreur lors du chargement du fichier média';
+    let errorMessage = 'Erreur lors du chargement du fichier audio';
     
     try {
       const target = e.target as HTMLVideoElement | HTMLAudioElement;
@@ -195,7 +178,6 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ file, onClose, onError }) => 
         switch (error.code) {
           case 1:
             errorMessage = 'Lecture interrompue par l\'utilisateur';
-            // Ne pas faire de fallback pour cette erreur
             setError(errorMessage);
             return;
           case 2:
@@ -208,21 +190,18 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ file, onClose, onError }) => 
             errorMessage = 'Format de fichier non supporté par le navigateur';
             break;
           default:
-            errorMessage = `Erreur de lecture: ${error.message || 'Erreur inconnue'}`;
+            errorMessage = 'Erreur de lecture audio';
         }
       } else {
-        const extension = file.name?.split('.').pop()?.toLowerCase();
-        errorMessage = `Impossible de lire le fichier ${extension || 'média'}. Le navigateur ne supporte pas ce format.`;
+        errorMessage = 'Impossible de lire le fichier audio';
       }
     } catch (err) {
       console.error('Erreur dans handleError:', err);
-      errorMessage = 'Erreur inattendue lors de la lecture du fichier';
+      errorMessage = 'Erreur inattendue lors de la lecture audio';
     }
     
-    // Attendre un peu avant de déclencher le fallback pour éviter les erreurs temporaires
-    setTimeout(() => {
-      handleFallback(fallbackState.currentPlayer, errorMessage);
-    }, 500);
+    // Fallback immédiat pour éviter les plantages
+    handleFallback(fallbackState.currentPlayer, errorMessage);
   };
 
   const handleProgress = () => {
