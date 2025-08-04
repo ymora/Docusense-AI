@@ -20,6 +20,11 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
   const { toggleFileSelection, directoryTree, loading } = useFileStore();
   const { queueItems, loadQueueItems, loadQueueStatus } = useQueueStore();
   
+  // Debug: Afficher l'état du directoryTree
+  console.log("🎯 FileTree - directoryTree:", directoryTree);
+  console.log("🎯 FileTree - currentDirectory:", currentDirectory);
+  console.log("🎯 FileTree - loading:", loading);
+  
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
   
@@ -71,6 +76,12 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
   // Gestion des clics sur fichiers (optimisée)
   const handleFileClick = useCallback((file: any, e: React.MouseEvent) => {
     e.stopPropagation();
+    
+    // Vérification de sécurité pour directoryTree
+    if (!directoryTree || !directoryTree.files) {
+      console.warn('⚠️ FileTree: directoryTree ou directoryTree.files est null/undefined');
+      return;
+    }
     
     // Gestion de la sélection multiple
     if (e.shiftKey && selectedFiles.length > 0) {
@@ -124,7 +135,7 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
         detail: { file, mode: displayMode }
       }));
     }
-  }, [directoryTree.files, selectedFiles, onFileSelect, toggleFileSelection]);
+  }, [directoryTree?.files, selectedFiles, onFileSelect, toggleFileSelection]);
 
   const handleFileDoubleClick = (file: any, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -200,7 +211,7 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
       }
     };
 
-    const hasChildren = (dir.subdirectories && dir.subdirectories.length > 0) || (dir.files && dir.files.length > 0);
+    const hasChildren = (dir.children && dir.children.length > 0) || (dir.files && dir.files.length > 0);
 
     return (
       <div key={dir.path}>
@@ -244,9 +255,9 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
         {isExpanded && (
           <div>
             {/* Sous-dossiers */}
-            {dir.subdirectories && dir.subdirectories.length > 0 && (
+            {dir.children && dir.children.length > 0 && (
               <div>
-                {dir.subdirectories.map((subdir: any) =>
+                {dir.children.map((subdir: any) =>
                   <DirectoryItem key={subdir.path} dir={subdir} level={level + 1} />
                 )}
               </div>
@@ -337,21 +348,21 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
             {/* Répertoire racine */}
             <div
               className={`flex items-center px-2 py-1 cursor-pointer rounded transition-colors text-sm hover:bg-slate-700 ${
-                directoryTree.directory === currentDirectory ? 'bg-slate-700 text-slate-200' : 'text-slate-300'
+                directoryTree.path === currentDirectory ? 'bg-slate-700 text-slate-200' : 'text-slate-300'
               }`}
-              onClick={() => handleDirectoryNavigation(directoryTree.directory)}
+              onClick={() => handleDirectoryNavigation(directoryTree.path)}
             >
               <FolderIcon className="h-4 w-4 mr-2 text-blue-400" />
-              <span className="flex-1 truncate">{directoryTree.directory || 'Racine'}</span>
+              <span className="flex-1 truncate">{directoryTree.name || 'Racine'}</span>
               <span className="text-xs text-slate-400">
-                ({directoryTree.total_subdirectories} dossier{directoryTree.total_subdirectories > 1 ? 's' : ''}, {directoryTree.total_files} fichier{directoryTree.total_files > 1 ? 's' : ''})
+                ({directoryTree.children?.length || 0} dossier{(directoryTree.children?.length || 0) > 1 ? 's' : ''}, {directoryTree.file_count || 0} fichier{(directoryTree.file_count || 0) > 1 ? 's' : ''})
               </span>
             </div>
 
             {/* Sous-répertoires */}
-            {directoryTree.subdirectories && directoryTree.subdirectories.length > 0 && (
+            {directoryTree.children && directoryTree.children.length > 0 && (
               <div>
-                {directoryTree.subdirectories.map((subdir: any) =>
+                {directoryTree.children.map((subdir: any) =>
                   <DirectoryItem key={subdir.path} dir={subdir} level={1} />
                 )}
               </div>

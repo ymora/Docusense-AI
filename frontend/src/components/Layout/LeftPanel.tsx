@@ -8,7 +8,7 @@ import { useQueueStore } from '../../stores/queueStore';
 import { promptService } from '../../services/promptService';
 
 const LeftPanel: React.FC = () => {
-  const { currentDirectory, loadDirectoryTree, setCurrentDirectory, selectedFiles, selectFile } = useFileStore();
+  const { currentDirectory, loadDirectoryTree, setCurrentDirectory, selectedFiles, selectFile, initializeDefaultDirectory } = useFileStore();
   const { isOnline, isInactive, forceCheck } = useBackendStatus();
   const { setInactive, forceRefresh } = useQueueStore();
   const { colors } = useColors();
@@ -42,17 +42,32 @@ const LeftPanel: React.FC = () => {
     };
   }, []);
 
-  // Charger les prompts au démarrage
+  // Charger les prompts et initialiser le répertoire par défaut au démarrage
   useEffect(() => {
-    const loadPrompts = async () => {
+    const initializeApp = async () => {
       try {
+        console.log("🚀 Initialisation de l'application...");
+        
+        // Charger les prompts
         await promptService.getPrompts();
+        console.log("✅ Prompts chargés");
+        
+        // Initialiser le répertoire par défaut (disque D)
+        console.log("📁 Initialisation du répertoire par défaut...");
+        await initializeDefaultDirectory();
+        console.log("✅ Répertoire par défaut initialisé");
       } catch (error) {
-        // Gestion silencieuse des erreurs
+        console.error("❌ Erreur lors de l'initialisation:", error);
       }
     };
-    loadPrompts();
-  }, []);
+    
+    // Délai pour s'assurer que l'application est complètement chargée
+    const timer = setTimeout(() => {
+      initializeApp();
+    }, 1000);
+    
+    return () => clearTimeout(timer);
+  }, [initializeDefaultDirectory]);
 
   // Permettre de revenir à la sélection de disque
   const handleShowDrives = () => {

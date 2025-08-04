@@ -65,7 +65,10 @@ interface FileState {
   clearSelection: () => void;
   selectAllFiles: () => void;
   deselectAllFiles: () => void;
-  setCurrentDirectory: (directory: string | null) => void;
+          setCurrentDirectory: (directory: string | null) => void;
+        
+        // Initialisation automatique
+        initializeDefaultDirectory: () => Promise<void>;
 
           // Actions pour la performance sans cache
         updateFileStatus: (fileId: number, status: File['status'], result?: string) => void;
@@ -106,7 +109,7 @@ export const useFileStore = create<FileState>()(
             
             try {
               // Utiliser l'endpoint list_directory_content_paginated pour les données fraîches
-              const currentDir = get().currentDirectory || "C:\\Users\\ymora\\Desktop\\Docusense AI";
+              const currentDir = get().currentDirectory || "D:";
               const encodedDirectory = encodeURIComponent(currentDir.replace(/\\/g, '/'));
               const data = await apiRequest(`/api/files/list/${encodedDirectory}?page=1&page_size=100`) as any;
 
@@ -148,30 +151,42 @@ export const useFileStore = create<FileState>()(
             const loadingActions = createLoadingActions(set, get);
             const updater = createOptimizedUpdater(set, get);
             
+            console.log("📁 loadDirectoryTree appelé pour:", directory);
+            
             if (!loadingActions.startLoading()) {
+              console.log("⚠️ Chargement déjà en cours, abandon");
               return;
             }
             
             try {
-              // Utiliser l'endpoint /list et transformer le format pour FileTree
+              // Utiliser l'endpoint /tree pour obtenir l'arborescence complète
               const encodedDirectory = encodeURIComponent(directory.replace(/\\/g, '/'));
-              const response = await apiRequest(`/api/files/list/${encodedDirectory}?page=1&page_size=100&nocache=${Date.now()}`);
+              const url = `/api/files/tree/${encodedDirectory}?nocache=${Date.now()}`;
+              console.log("🌐 Appel API:", url);
               
-              // Transformer le format de réponse pour correspondre à ce qu'attend FileTree
-              const transformedData = {
-                directory: directory,
-                total_subdirectories: response.data.directories?.length || 0,
-                total_files: response.data.files?.length || 0,
-                subdirectories: response.data.directories || [],
-                files: response.data.files || []
+              const response = await apiRequest(url);
+              console.log("📊 Réponse API reçue:", response);
+              
+              // La réponse de /tree est déjà dans le bon format pour DirectoryTree
+              const treeData = {
+                name: response.name,
+                path: response.path,
+                is_directory: response.is_directory,
+                file_count: response.file_count,
+                children: response.children || [],
+                files: response.files || []
               };
               
+              console.log("🔄 Données d'arborescence:", treeData);
+              
               updater.updateMultiple({
-                directoryTree: transformedData as DirectoryTree,
+                directoryTree: treeData as DirectoryTree,
                 currentDirectory: directory,
               });
+              console.log("✅ Store mis à jour avec succès");
               loadingActions.finishLoading();
             } catch (error) {
+              console.error("❌ Erreur dans loadDirectoryTree:", error);
               loadingActions.finishLoadingWithError(handleApiError(error));
             }
           });
@@ -347,6 +362,40 @@ export const useFileStore = create<FileState>()(
         setCurrentDirectory: (directory: string | null) => {
           set({ currentDirectory: directory });
         },
+
+        // Initialisation automatique du répertoire par défaut
+        initializeDefaultDirectory: (() => {
+          const callGuard = createCallGuard();
+          return callGuard(async () => {
+            try {
+              console.log("🔍 Vérification du répertoire actuel...");
+              // Vérifier si un répertoire est déjà défini
+              const currentDir = get().currentDirectory;
+              console.log("📂 Répertoire actuel:", currentDir);
+              
+              if (currentDir) {
+                // Si un répertoire est déjà défini, charger son arborescence
+                console.log("🔄 Chargement de l'arborescence existante...");
+                await get().loadDirectoryTree(currentDir);
+                return;
+              }
+
+              // Sinon, essayer de charger le disque D par défaut
+              console.log("🚀 Tentative de chargement du disque D...");
+              try {
+                await get().loadDirectoryTree("D:");
+                console.log("✅ Disque D chargé avec succès");
+              } catch (error) {
+                console.warn("⚠️ Impossible de charger le disque D, tentative avec C:", error);
+                // Fallback vers le disque C si D n'est pas accessible
+                await get().loadDirectoryTree("C:");
+                console.log("✅ Disque C chargé avec succès");
+              }
+            } catch (error) {
+              console.error("❌ Erreur lors de l'initialisation du répertoire par défaut:", error);
+            }
+          });
+        })(),
 
         // Actions pour la performance sans cache
         updateFileStatus: (fileId: number, status: File['status'], result?: string) => {
