@@ -78,8 +78,8 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
     e.stopPropagation();
     
     // Vérification de sécurité pour directoryTree
-    if (!directoryTree || !directoryTree.files) {
-      console.warn('⚠️ FileTree: directoryTree ou directoryTree.files est null/undefined');
+    if (!directoryTree || !directoryTree.files || !Array.isArray(directoryTree.files)) {
+      console.warn('⚠️ FileTree: directoryTree ou directoryTree.files est null/undefined ou pas un tableau');
       return;
     }
     
@@ -311,6 +311,20 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
     );
   };
 
+  // Vérification de sécurité avant le rendu
+  if (!directoryTree) {
+    return (
+      <div className="h-full flex flex-col">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden p-2">
+          <div className="text-center py-4 text-slate-400 text-sm">
+            <div className="text-2xl mb-2 text-blue-400">📁</div>
+            <p>Chargement de l'arborescence...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="h-full flex flex-col">
       {/* Indicateur de sélection multiple avec bouton de désélection */}
@@ -338,54 +352,47 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
       
       {/* Contenu principal */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden p-2">
-        {!directoryTree ? (
-          <div className="text-center py-4 text-slate-400 text-sm">
-            <div className="text-2xl mb-2 text-blue-400">📁</div>
-            <p>Chargement de l'arborescence...</p>
+        <div>
+          {/* Répertoire racine */}
+          <div
+            className={`flex items-center px-2 py-1 cursor-pointer rounded transition-colors text-sm hover:bg-slate-700 ${
+              directoryTree.path === currentDirectory ? 'bg-slate-700 text-slate-200' : 'text-slate-300'
+            }`}
+            onClick={() => handleDirectoryNavigation(directoryTree.path)}
+          >
+            <FolderIcon className="h-4 w-4 mr-2 text-blue-400" />
+            <span className="flex-1 truncate">{directoryTree.name || 'Racine'}</span>
+            <span className="text-xs text-slate-400">
+              ({directoryTree.children?.length || 0} dossier{(directoryTree.children?.length || 0) > 1 ? 's' : ''}, {directoryTree.file_count || 0} fichier{(directoryTree.file_count || 0) > 1 ? 's' : ''})
+            </span>
           </div>
-        ) : (
-          <div>
-            {/* Répertoire racine */}
-            <div
-              className={`flex items-center px-2 py-1 cursor-pointer rounded transition-colors text-sm hover:bg-slate-700 ${
-                directoryTree.path === currentDirectory ? 'bg-slate-700 text-slate-200' : 'text-slate-300'
-              }`}
-              onClick={() => handleDirectoryNavigation(directoryTree.path)}
-            >
-              <FolderIcon className="h-4 w-4 mr-2 text-blue-400" />
-              <span className="flex-1 truncate">{directoryTree.name || 'Racine'}</span>
-              <span className="text-xs text-slate-400">
-                ({directoryTree.children?.length || 0} dossier{(directoryTree.children?.length || 0) > 1 ? 's' : ''}, {directoryTree.file_count || 0} fichier{(directoryTree.file_count || 0) > 1 ? 's' : ''})
-              </span>
+
+          {/* Sous-répertoires */}
+          {directoryTree.children && directoryTree.children.length > 0 && (
+            <div>
+              {directoryTree.children.map((subdir: any) =>
+                <DirectoryItem key={subdir.path} dir={subdir} level={1} />
+              )}
             </div>
+          )}
 
-            {/* Sous-répertoires */}
-            {directoryTree.children && directoryTree.children.length > 0 && (
-              <div>
-                {directoryTree.children.map((subdir: any) =>
-                  <DirectoryItem key={subdir.path} dir={subdir} level={1} />
-                )}
-              </div>
-            )}
+          {/* Fichiers du répertoire racine - Vérification de sécurité */}
+          {directoryTree.files && Array.isArray(directoryTree.files) && directoryTree.files.length > 0 && (
+            <div>
+              {directoryTree.files.map((file: any) => 
+                <FileItem key={file.path} file={file} level={1} />
+              )}
+            </div>
+          )}
 
-            {/* Fichiers du répertoire racine */}
-            {directoryTree.files && directoryTree.files.length > 0 && (
-              <div>
-                {directoryTree.files.map((file: any) => 
-                  <FileItem key={file.path} file={file} level={1} />
-                )}
-              </div>
-            )}
-
-            {/* Indicateur de chargement */}
-            {loading && (
-              <div className="text-center py-2 text-slate-400 text-sm">
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400 mx-auto"></div>
-                <p>Chargement...</p>
-              </div>
-            )}
-          </div>
-        )}
+          {/* Indicateur de chargement */}
+          {loading && (
+            <div className="text-center py-2 text-slate-400 text-sm">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400 mx-auto"></div>
+              <p>Chargement...</p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Menu contextuel */}

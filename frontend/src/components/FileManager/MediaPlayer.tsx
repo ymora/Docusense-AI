@@ -41,7 +41,7 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ file, onClose, onError }) => 
   const [volume, setVolume] = useState(0.8);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showOptimizationPanel, setShowOptimizationPanel] = useState(false);
@@ -205,13 +205,13 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ file, onClose, onError }) => 
   };
 
   const handleProgress = () => {
-    const media = videoRef.current || audioRef.current;
-    if (media) {
-      setCurrentTime(media.currentTime);
+    // Gestion du progrès uniquement pour la vidéo
+    if (videoRef.current) {
+      setCurrentTime(videoRef.current.currentTime);
       
-      if (media.buffered.length > 0) {
-        const bufferedEnd = media.buffered.end(media.buffered.length - 1);
-        const currentTime = media.currentTime;
+      if (videoRef.current.buffered.length > 0) {
+        const bufferedEnd = videoRef.current.buffered.end(videoRef.current.buffered.length - 1);
+        const currentTime = videoRef.current.currentTime;
         const bufferAhead = bufferedEnd - currentTime;
         const bufferHealthPercent = Math.min(100, (bufferAhead / 10) * 100);
         setBufferHealth(bufferHealthPercent);
@@ -230,10 +230,9 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ file, onClose, onError }) => 
   };
 
   const handleDuration = () => {
+    // Gestion de la durée uniquement pour la vidéo
     if (videoRef.current) {
       setDuration(videoRef.current.duration);
-    } else if (audioRef.current) {
-      setDuration(audioRef.current.duration);
     }
   };
 
@@ -244,7 +243,8 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ file, onClose, onError }) => 
     setError(null);
     handleDuration();
     
-    if (isAudio || isVideo) {
+    // Connexion audio uniquement pour la vidéo
+    if (isVideo) {
       setTimeout(() => {
         connectAudioElement();
       }, 100);
@@ -286,6 +286,7 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ file, onClose, onError }) => 
   };
 
   const togglePlay = async () => {
+    // Contrôles de lecture uniquement pour la vidéo
     try {
       if (videoRef.current) {
         if (isPlaying) {
@@ -293,58 +294,47 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ file, onClose, onError }) => 
         } else {
           await videoRef.current.play();
         }
-      } else if (audioRef.current) {
-        if (isPlaying) {
-          audioRef.current.pause();
-        } else {
-          await audioRef.current.play();
-        }
       }
     } catch (error) {
       console.error('❌ Erreur lors de la lecture:', error);
-      setError('Erreur lors de la lecture du fichier média');
+      setError('Erreur lors de la lecture du fichier vidéo');
       setIsPlaying(false);
     }
   };
 
   const stop = () => {
+    // Contrôle stop uniquement pour la vidéo
     if (videoRef.current) {
       videoRef.current.pause();
       videoRef.current.currentTime = 0;
-    } else if (audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
     }
     setIsPlaying(false);
   };
 
   const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Contrôle de position uniquement pour la vidéo
     const newTime = parseFloat(e.target.value);
     setCurrentTime(newTime);
     
     if (videoRef.current) {
       videoRef.current.currentTime = newTime;
-    } else if (audioRef.current) {
-      audioRef.current.currentTime = newTime;
     }
   };
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    // Contrôle du volume uniquement pour la vidéo
     const newVolume = parseFloat(e.target.value);
     setVolume(newVolume);
     
     if (videoRef.current) {
       videoRef.current.volume = newVolume;
-    } else if (audioRef.current) {
-      audioRef.current.volume = newVolume;
     }
   };
 
   const toggleMute = () => {
+    // Contrôle du mute uniquement pour la vidéo
     if (videoRef.current) {
       videoRef.current.muted = !videoRef.current.muted;
-    } else if (audioRef.current) {
-      audioRef.current.muted = !audioRef.current.muted;
     }
   };
 
@@ -445,7 +435,10 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ file, onClose, onError }) => 
   // Initialisation
   useEffect(() => {
     if (file && (isVideo || isAudio)) {
-      setIsLoading(true);
+      // Activer le chargement seulement pour la vidéo
+      if (isVideo) {
+        setIsLoading(true);
+      }
       setError(null);
       
       // Réinitialiser les compteurs
@@ -456,12 +449,12 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ file, onClose, onError }) => 
         isFallbacking: false
       });
       
-      if (isAudio || isVideo) {
+      if (isVideo) {
         initializeAudioContext();
       }
 
-      // Vérifier l'optimisation seulement si on a un ID de fichier
-      if (file.id) {
+      // Vérifier l'optimisation seulement si on a un ID de fichier ET que c'est une vidéo
+      if (file.id && isVideo) {
         // Délayer la vérification pour éviter la surcharge au démarrage
         setTimeout(() => {
           checkOptimizationSupport();
@@ -707,30 +700,28 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ file, onClose, onError }) => 
               playsInline
             />
           </div>
-        ) : isAudio ? (
-          <div className="w-full max-w-2xl mx-auto text-center">
-            <div className="bg-slate-800 rounded-lg p-8 mb-4">
-              <div className="text-6xl mb-4">🎵</div>
-              <h3 className="text-xl font-semibold text-slate-200 mb-2">{file.name}</h3>
-              <p className="text-slate-400 text-sm mb-6">Fichier audio</p>
-              
-              <audio
-                ref={audioRef}
-                src={getMediaUrl(fallbackState.currentPlayer)}
-                controls={false}
-                onLoadedMetadata={handleLoadedMetadata}
-                onTimeUpdate={handleProgress}
-                onError={handleError}
-                onPlay={handlePlay}
-                onPause={handlePause}
-                onEnded={handleEnded}
-                onLoadStart={() => setIsLoading(true)}
-                onCanPlay={() => setIsLoading(false)}
-                preload="metadata"
-                crossOrigin="anonymous"
-              />
-            </div>
-          </div>
+                 ) : isAudio ? (
+           <div className="w-full max-w-2xl mx-auto text-center">
+             <div className="bg-slate-800 rounded-lg p-8 mb-4">
+               <div className="text-6xl mb-4">🎵</div>
+               <h3 className="text-xl font-semibold text-slate-200 mb-2">{file.name}</h3>
+               <p className="text-slate-400 text-sm mb-6">Fichier audio</p>
+               
+               {/* Lecteur audio avec contrôles natifs uniquement - SANS gestionnaires d'événements */}
+               <audio
+                 ref={audioRef}
+                 src={getMediaUrl(fallbackState.currentPlayer)}
+                 controls={true}
+                 preload="metadata"
+                 crossOrigin="anonymous"
+                 className="w-full"
+                 style={{ 
+                   backgroundColor: 'transparent',
+                   color: '#3b82f6'
+                 }}
+               />
+             </div>
+           </div>
         ) : (
           <div className="text-center">
             <div className="text-6xl mb-4">📄</div>
@@ -739,7 +730,8 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ file, onClose, onError }) => 
         )}
       </div>
 
-      {(isVideo || isAudio) && !isFullscreen && (
+      {/* Contrôles personnalisés uniquement pour la vidéo */}
+      {isVideo && !isFullscreen && (
         <div className="bg-slate-800 border-t border-slate-700 p-4">
           <div className="flex items-center space-x-4">
             <div className="flex items-center space-x-2">
