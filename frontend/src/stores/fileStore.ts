@@ -371,21 +371,10 @@ export const useFileStore = create<FileState>()(
           const callGuard = createCallGuard();
           return callGuard(async () => {
             try {
-              console.log("🔍 Vérification du répertoire actuel...");
+              console.log("🔍 Initialisation du répertoire par défaut...");
               
-              // Vérifier si un répertoire est déjà défini
-              const currentDir = get().currentDirectory;
-              console.log("📂 Répertoire actuel:", currentDir);
-              
-              if (currentDir) {
-                // Si un répertoire est déjà défini, charger son arborescence
-                console.log("🔄 Chargement de l'arborescence existante...");
-                await get().loadDirectoryTree(currentDir);
-                return;
-              }
-
-              // Sinon, essayer de charger le disque D par défaut
-              console.log("🚀 Tentative de chargement du disque D...");
+              // TOUJOURS démarrer à la racine du disque D (pas de restauration)
+              console.log("🚀 Chargement de la racine du disque D...");
               try {
                 await get().loadDirectoryTree("D:");
                 console.log("✅ Disque D chargé avec succès");
@@ -445,7 +434,7 @@ export const useFileStore = create<FileState>()(
         partialize: (state) => ({
           selectedFiles: state.selectedFiles,
           // selectedFile: state.selectedFile, // Ne pas persister le fichier sélectionné
-          currentDirectory: state.currentDirectory,
+          // currentDirectory: state.currentDirectory, // Ne pas persister le répertoire actuel
           // NOUVEAU: Persister les données de consultation
           files: state.files.map(file => ({
             id: file.id,

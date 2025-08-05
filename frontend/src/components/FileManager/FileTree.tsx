@@ -16,14 +16,25 @@ interface FileTreeProps {
 }
 
 const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory, onFileSelect, selectedFiles, onFileAction }) => {
+  // Propriété statique pour éviter les logs répétés
+  if (!FileTree.lastLoggedState) {
+    FileTree.lastLoggedState = '';
+  }
   const { colors } = useColors();
   const { toggleFileSelection, directoryTree, loading } = useFileStore();
   const { queueItems, loadQueueItems, loadQueueStatus } = useQueueStore();
   
-  // Debug: Afficher l'état du directoryTree
-  console.log("🎯 FileTree - directoryTree:", directoryTree);
-  console.log("🎯 FileTree - currentDirectory:", currentDirectory);
-  console.log("🎯 FileTree - loading:", loading);
+  // Debug: Afficher l'état du directoryTree (optimisé - seulement si changement)
+  useEffect(() => {
+    // Éviter les logs si les données sont identiques
+    const currentState = JSON.stringify({ directoryTree, currentDirectory, loading });
+    if (currentState !== FileTree.lastLoggedState) {
+      console.log("🎯 FileTree - directoryTree:", directoryTree);
+      console.log("🎯 FileTree - currentDirectory:", currentDirectory);
+      console.log("🎯 FileTree - loading:", loading);
+      FileTree.lastLoggedState = currentState;
+    }
+  }, [directoryTree, currentDirectory, loading]);
   
   const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
   const [isDarkMode, setIsDarkMode] = useState<boolean>(true);

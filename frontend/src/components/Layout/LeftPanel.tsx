@@ -5,10 +5,10 @@ import { useColors } from '../../hooks/useColors';
 import FileTree from '../FileManager/FileTree';
 import { useBackendStatus } from '../../hooks/useBackendStatus';
 import { useQueueStore } from '../../stores/queueStore';
-import { promptService } from '../../services/promptService';
+// import { promptService } from '../../services/promptService'; // Plus utilisé
 
 const LeftPanel: React.FC = () => {
-  const { currentDirectory, loadDirectoryTree, setCurrentDirectory, selectedFiles, selectFile, initializeDefaultDirectory } = useFileStore();
+  const { currentDirectory, loadDirectoryTree, setCurrentDirectory, selectedFiles, selectFile } = useFileStore();
   const { isOnline, isInactive, forceCheck } = useBackendStatus();
   const { setInactive, forceRefresh } = useQueueStore();
   const { colors } = useColors();
@@ -42,32 +42,8 @@ const LeftPanel: React.FC = () => {
     };
   }, []);
 
-  // Charger les prompts et initialiser le répertoire par défaut au démarrage
-  useEffect(() => {
-    const initializeApp = async () => {
-      try {
-        console.log("🚀 Initialisation de l'application...");
-        
-        // Charger les prompts
-        await promptService.getPrompts();
-        console.log("✅ Prompts chargés");
-        
-        // Initialiser le répertoire par défaut (disque D)
-        console.log("📁 Initialisation du répertoire par défaut...");
-        await initializeDefaultDirectory();
-        console.log("✅ Répertoire par défaut initialisé");
-      } catch (error) {
-        console.error("❌ Erreur lors de l'initialisation:", error);
-      }
-    };
-    
-    // Délai pour s'assurer que l'application est complètement chargée
-    const timer = setTimeout(() => {
-      initializeApp();
-    }, 1000);
-    
-    return () => clearTimeout(timer);
-  }, [initializeDefaultDirectory]);
+  // NOTE: L'initialisation est maintenant gérée par useStartupInitialization
+  // Plus besoin d'initialisation dupliquée ici
 
   // Permettre de revenir à la sélection de disque
   const handleShowDrives = () => {

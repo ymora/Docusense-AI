@@ -272,7 +272,7 @@ export const useQueueStore = create<QueueState>((set, get) => ({
 
   // Nouveau: définir l'état d'inactivité
   setInactive: (inactive: boolean) => {
-    console.log(`🔄 Queue: État d'inactivité changé à ${inactive}`);
+            // console.log(`🔄 Queue: État d'inactivité changé à ${inactive}`); // Log désactivé pour réduire le bruit
     set({ isInactive: inactive });
   },
 

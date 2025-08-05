@@ -14,7 +14,7 @@ export const useStartupInitialization = () => {
       console.log('🚀 Initialisation de l\'application au démarrage...');
       initialize();
     } else {
-      console.log('🚀 Application déjà initialisée, utilisation du cache');
+      // console.log('🚀 Application déjà initialisée, utilisation du cache'); // Log désactivé pour réduire le bruit
     }
   }, [initialize, isInitialized]);
 

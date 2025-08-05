@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useColors } from '../../hooks/useColors';
-import { XMarkIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
+import { XMarkIcon, ArrowDownTrayIcon, ArrowsPointingOutIcon } from '@heroicons/react/24/outline';
 import ReactPlayer from 'react-player';
 
 interface MediaPlayerProps {
@@ -98,6 +98,24 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ file, onClose, onError }) => 
     console.log('⏳ Buffering pour:', file.name);
   };
 
+  // Gestion du Picture-in-Picture manuel
+  const handlePictureInPicture = () => {
+    try {
+      const videoElement = document.querySelector('video');
+      if (videoElement && document.pictureInPictureEnabled) {
+        if (document.pictureInPictureElement) {
+          document.exitPictureInPicture();
+        } else {
+          videoElement.requestPictureInPicture().catch(error => {
+            console.warn('⚠️ Erreur PiP:', error);
+          });
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ PiP non supporté:', error);
+    }
+  };
+
   // Retry automatique en cas d'erreur
   const handleRetry = () => {
     setHasError(false);
@@ -143,6 +161,17 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ file, onClose, onError }) => 
           </div>
         </div>
         <div className="flex items-center space-x-2">
+          {/* Bouton PiP seulement pour les vidéos */}
+          {isVideo && document.pictureInPictureEnabled && (
+            <button
+              onClick={handlePictureInPicture}
+              className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
+              style={{ color: colors.textSecondary }}
+              title="Picture-in-Picture"
+            >
+              <ArrowsPointingOutIcon className="h-5 w-5" />
+            </button>
+          )}
           <button
             onClick={handleDownload}
             className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
@@ -247,7 +276,7 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ file, onClose, onError }) => 
                 muted={false}
                 volume={1}
                 playbackRate={1}
-                pip={true}
+                pip={false}
                 stopOnUnmount={true}
                 light={false}
               />

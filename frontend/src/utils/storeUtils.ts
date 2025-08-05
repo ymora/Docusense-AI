@@ -138,7 +138,7 @@ export const createCallGuard = () => {
   ) => {
     return async (...args: T): Promise<R | undefined> => {
       if (isExecuting) {
-        console.log('🔄 Appel déjà en cours, ignoré');
+        // console.log('🔄 Appel déjà en cours, ignoré'); // Log désactivé pour réduire le bruit
         return;
       }
       
