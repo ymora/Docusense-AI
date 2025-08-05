@@ -868,11 +868,13 @@ async def stream_file_by_path(
     file_path: str,
     range: Optional[str] = Header(None, alias="Range"),
     native: Optional[bool] = Query(False, description="Force native browser player"),
-    direct: Optional[bool] = Query(False, description="Force direct download")
+    direct: Optional[bool] = Query(False, description="Force direct download"),
+    hls: Optional[bool] = Query(False, description="Convert to HLS for better compatibility")
 ) -> FileResponse:
     """
     Stream a file by its path directly from disk for visualization
     Supports range requests for seeking in media files
+    Enhanced with HLS support for better video compatibility
     """
     try:
         from urllib.parse import unquote
@@ -919,6 +921,73 @@ async def stream_file_by_path(
                 "Content-Type": mime_type,
                 "Cache-Control": "no-cache",
             }
+        elif hls and mime_type.startswith('video/'):
+            # Mode HLS pour vidéos - conversion automatique si nécessaire
+            try:
+                from ..services.video_converter_service import media_converter
+                
+                # Vérifier si le fichier est déjà en format HLS
+                if file_path_obj.suffix.lower() in ['.m3u8', '.ts']:
+                    # Déjà en HLS, streamer directement
+                    headers = {
+                        "Accept-Ranges": "bytes",
+                        "Cache-Control": "public, max-age=3600",
+                        "Content-Disposition": "inline",
+                        "X-Content-Type-Options": "nosniff",
+                        "Content-Type": "application/vnd.apple.mpegurl" if file_path_obj.suffix.lower() == '.m3u8' else "video/mp2t",
+                        "X-Player-Mode": "hls",
+                    }
+                else:
+                    # Convertir en HLS si FFmpeg est disponible
+                    if media_converter._check_ffmpeg():
+                        # Démarrer la conversion HLS
+                        hls_path = media_converter.convert_to_hls(str(file_path_obj))
+                        if hls_path and Path(hls_path).exists():
+                            headers = {
+                                "Accept-Ranges": "bytes",
+                                "Cache-Control": "public, max-age=3600",
+                                "Content-Disposition": "inline",
+                                "X-Content-Type-Options": "nosniff",
+                                "Content-Type": "application/vnd.apple.mpegurl",
+                                "X-Player-Mode": "hls",
+                            }
+                            # Retourner le fichier HLS
+                            return FileResponse(
+                                path=hls_path,
+                                media_type="application/vnd.apple.mpegurl",
+                                headers=headers
+                            )
+                        else:
+                            # Fallback vers streaming normal si conversion échoue
+                            logger.warning("HLS conversion failed, falling back to normal streaming")
+                            headers = {
+                                "Accept-Ranges": "bytes",
+                                "Cache-Control": "public, max-age=3600",
+                                "Content-Disposition": "inline",
+                                "X-Content-Type-Options": "nosniff",
+                                "Content-Type": mime_type,
+                                "X-Player-Mode": "native",
+                            }
+                    else:
+                        # FFmpeg non disponible, fallback
+                        headers = {
+                            "Accept-Ranges": "bytes",
+                            "Cache-Control": "public, max-age=3600",
+                            "Content-Disposition": "inline",
+                            "X-Content-Type-Options": "nosniff",
+                            "Content-Type": mime_type,
+                            "X-Player-Mode": "native",
+                        }
+            except Exception as e:
+                logger.warning(f"HLS conversion error, falling back to normal streaming: {e}")
+                headers = {
+                    "Accept-Ranges": "bytes",
+                    "Cache-Control": "public, max-age=3600",
+                    "Content-Disposition": "inline",
+                    "X-Content-Type-Options": "nosniff",
+                    "Content-Type": mime_type,
+                    "X-Player-Mode": "native",
+                }
         elif native:
             # Mode lecteur natif du navigateur
             headers = {
@@ -953,4 +1022,74 @@ async def stream_file_by_path(
     except Exception as e:
         logger.error(f"STREAM-BY-PATH UNEXPECTED ERROR - File: {file_path}, Error: {str(e)}")
         logger.error(f"STREAM-BY-PATH ERROR DETAILS - Type: {type(e).__name__}, Args: {e.args}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/test-media-compatibility/{file_path:path}")
+async def test_media_compatibility(file_path: str) -> Dict[str, Any]:
+    """
+    Teste la compatibilité d'un fichier média avec différents lecteurs
+    """
+    try:
+        from urllib.parse import unquote
+        
+        # Décoder l'URL
+        decoded_path = unquote(file_path)
+        file_path_obj = Path(decoded_path)
+        
+        if not file_path_obj.exists():
+            raise HTTPException(status_code=404, detail="Fichier non trouvé")
+        
+        # Valider le fichier
+        is_valid, error_message, mime_type = FileValidator.validate_file(file_path_obj)
+        
+        if not is_valid:
+            raise HTTPException(status_code=400, detail=error_message)
+        
+        # Déterminer le type de média
+        is_video = mime_type.startswith('video/')
+        is_audio = mime_type.startswith('audio/')
+        
+        # Formats supportés nativement par les navigateurs
+        native_formats = {
+            'video': ['.mp4', '.webm', '.ogg', '.mov'],
+            'audio': ['.mp3', '.wav', '.ogg', '.m4a', '.aac']
+        }
+        
+        # Formats nécessitant une conversion
+        conversion_formats = {
+            'video': ['.avi', '.mkv', '.wmv', '.flv', '.rm', '.rmvb'],
+            'audio': ['.flac', '.wma', '.ape', '.alac']
+        }
+        
+        file_ext = file_path_obj.suffix.lower()
+        
+        # Vérifier la compatibilité
+        compatibility = {
+            'file_name': file_path_obj.name,
+            'file_path': str(file_path_obj),
+            'mime_type': mime_type,
+            'file_size_mb': round(file_path_obj.stat().st_size / (1024 * 1024), 2),
+            'is_video': is_video,
+            'is_audio': is_audio,
+            'native_support': file_ext in (native_formats['video'] if is_video else native_formats['audio']),
+            'needs_conversion': file_ext in (conversion_formats['video'] if is_video else conversion_formats['audio']),
+            'recommended_player': 'native' if file_ext in (native_formats['video'] if is_video else native_formats['audio']) else 'hls',
+            'streaming_urls': {
+                'native': f"/api/files/stream-by-path/{unquote(file_path)}?native=true",
+                'hls': f"/api/files/stream-by-path/{unquote(file_path)}?hls=true" if is_video else None,
+                'download': f"/api/files/stream-by-path/{unquote(file_path)}?direct=true"
+            }
+        }
+        
+        return {
+            "success": True,
+            "compatibility": compatibility,
+            "message": "Test de compatibilité terminé"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erreur lors du test de compatibilité: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))

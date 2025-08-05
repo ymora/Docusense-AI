@@ -14,6 +14,7 @@ from .auth import router as auth_router
 from .download import router as download_router
 from .monitoring import router as monitoring_router
 from .emails import router as emails_router
+from .video_converter import router as video_converter_router
 
 __all__ = [
     "files",
@@ -26,5 +27,6 @@ __all__ = [
     "auth_router",
     "download_router",
     "monitoring_router",
-    "emails_router"
+    "emails_router",
+    "video_converter_router"
 ]

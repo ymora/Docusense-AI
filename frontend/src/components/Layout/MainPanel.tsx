@@ -117,6 +117,9 @@ const MainPanel: React.FC<MainPanelProps> = ({
     }
   }, [activePanel]);
 
+  // NOTE: L'initialisation est maintenant gérée par useStartupInitialization dans LeftPanel
+  // Plus besoin d'initialisation dupliquée ici
+
   // Fonction pour gérer la prévisualisation des pièces jointes d'email
   const handleEmailAttachmentPreview = (attachment: any, index: number) => {
     setEmailAttachmentPreview({ attachment, index });

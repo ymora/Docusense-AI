@@ -33,6 +33,7 @@ check:
 # ==========================
 
 startup:
+  script: "scripts\\start_optimized.ps1"
   backend: |
     cd backend
     venv\\Scripts\\python.exe main.py
@@ -40,6 +41,13 @@ startup:
     taskkill /F /IM node.exe /T
     cd frontend
     npm run dev
+
+# 🚀 OPTIMISATIONS STARTUP
+# - Démarrage parallèle backend/frontend
+# - Temps d'attente réduits (6s au lieu de 20s+)
+# - Vérifications rapides (3s timeout au lieu de 5s)
+# - Surveillance légère (30s au lieu de 10s)
+# - Jobs PowerShell pour parallélisation
 
 # ==========================
 # PORTS UTILISÉS

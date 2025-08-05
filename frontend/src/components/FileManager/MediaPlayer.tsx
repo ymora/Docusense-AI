@@ -1,22 +1,7 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useColors } from '../../hooks/useColors';
-import multimediaService, { OptimizationSettings, OptimizationInfo } from '../../services/multimediaService';
-import { 
-  PlayIcon, 
-  PauseIcon, 
-  StopIcon, 
-  SpeakerWaveIcon,
-  SpeakerXMarkIcon,
-  XMarkIcon,
-  ArrowDownTrayIcon,
-  ArrowsPointingOutIcon,
-  ArrowsPointingInIcon,
-  Cog6ToothIcon,
-  SignalIcon,
-  MicrophoneIcon,
-  VideoCameraIcon,
-  ExclamationTriangleIcon
-} from '@heroicons/react/24/outline';
+import { XMarkIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
+import ReactPlayer from 'react-player';
 
 interface MediaPlayerProps {
   file: any;
@@ -24,704 +9,250 @@ interface MediaPlayerProps {
   onError?: (error: string) => void;
 }
 
-// Types de lecteurs disponibles
-type PlayerType = 'react' | 'native' | 'direct';
-
-// État du fallback
-interface FallbackState {
-  currentPlayer: PlayerType;
-  fallbackAttempts: PlayerType[];
-  isFallbacking: boolean;
-  fallbackError?: string;
-}
-
 const MediaPlayer: React.FC<MediaPlayerProps> = ({ file, onClose, onError }) => {
   const { colors } = useColors();
-  const [isPlaying, setIsPlaying] = useState(false);
-  const [volume, setVolume] = useState(0.8);
-  const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
-  const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [showOptimizationPanel, setShowOptimizationPanel] = useState(false);
-  const [windowSize, setWindowSize] = useState({
-    width: window.innerWidth,
-    height: window.innerHeight
-  });
-  
-  // Configuration d'optimisation
-  const [optimizationSettings, setOptimizationSettings] = useState<OptimizationSettings>({
-    bandwidthControl: 'auto',
-    noiseReduction: false,
-    voiceEnhancement: false,
-    audioCompression: false,
-    videoCompression: false
-  });
+  const [isReady, setIsReady] = useState(false);
+  const [hasError, setHasError] = useState(false);
+  const [playerKey, setPlayerKey] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
 
-  // État d'optimisation
-  const [optimizationInfo, setOptimizationInfo] = useState<OptimizationInfo | null>(null);
-  const [ffmpegAvailable, setFfmpegAvailable] = useState<boolean>(false);
-  const [isOptimizing, setIsOptimizing] = useState<boolean>(false);
-  
-  // Indicateurs de streaming distant
-  const [streamingQuality, setStreamingQuality] = useState<'excellent' | 'good' | 'fair' | 'poor'>('good');
-  const [bufferHealth, setBufferHealth] = useState<number>(100);
-  const [networkLatency, setNetworkLatency] = useState<number>(0);
-
-  // État du fallback simplifié
-  const [fallbackState, setFallbackState] = useState<FallbackState>({
-    currentPlayer: 'native',
-    fallbackAttempts: [],
-    isFallbacking: false
-  });
-
-  // Compteur pour éviter les boucles infinies
-  const [fallbackCount, setFallbackCount] = useState(0);
-  const maxFallbackAttempts = 1; // Réduit le nombre de tentatives
-
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const audioRef = useRef<HTMLAudioElement>(null);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const audioContextRef = useRef<AudioContext | null>(null);
-  const audioSourceRef = useRef<MediaElementAudioSourceNode | null>(null);
-  const audioDestinationRef = useRef<MediaStreamAudioDestinationNode | null>(null);
-
-  // Détection du type de média
+  // Détection du type de média avec fallback sur l'extension
   const isVideo = file.mime_type?.startsWith('video/') || file.name?.match(/\.(mp4|webm|ogg|mov|m4v|3gp|ogv|ts|mts|m2ts|mkv|avi|wmv|flv|asf|rm|rmvb|divx|xvid|h264|h265|vp8|vp9|mpeg|mpg|mpe|m1v|m2v|mpv|mp2|m2p|ps|evo|ogm|ogx|mxf|nut|hls|m3u8)$/i);
   const isAudio = file.mime_type?.startsWith('audio/') || file.name?.match(/\.(mp3|wav|flac|aac|ogg|wma|m4a|opus|aiff|au|ra|rm|wv|ape|alac|ac3|dts|amr|3ga|mka|tta|mid|midi)$/i);
+  
+  // Forcer la détection audio si le MIME type est incorrect mais l'extension est audio
+  const forceAudio = file.mime_type === 'application/octet-stream' && file.name?.match(/\.(mp3|wav|flac|aac|ogg|wma|m4a|opus|aiff|au|ra|rm|wv|ape|alac|ac3|dts|amr|3ga|mka|tta|mid|midi)$/i);
+  
+  const finalIsAudio = isAudio || forceAudio;
 
-  // URLs pour différents modes de lecture
-  const getMediaUrl = (playerType: PlayerType): string => {
-    switch (playerType) {
-      case 'react':
-        return `/api/files/stream-by-path/${encodeURIComponent(file.path)}`;
-      case 'native':
-        return `/api/files/stream-by-path/${encodeURIComponent(file.path)}?native=true`;
-      case 'direct':
-        return `/api/files/download/${file.id}`;
-      default:
-        return `/api/files/stream-by-path/${encodeURIComponent(file.path)}`;
-    }
+  // URL pour le streaming natif (utilise le système existant qui fonctionne)
+  const getMediaUrl = (): string => {
+    // Utiliser le chemin absolu pour éviter les problèmes de chemin relatif
+    const baseUrl = window.location.origin;
+    const url = `${baseUrl}/api/files/stream-by-path/${encodeURIComponent(file.path)}?native=true`;
+    console.log('🎵 MediaPlayer - URL générée:', url);
+    console.log('🎵 MediaPlayer - File path:', file.path);
+    console.log('🎵 MediaPlayer - File name:', file.name);
+    console.log('🎵 MediaPlayer - File mime_type:', file.mime_type);
+    console.log('🎵 MediaPlayer - Is video:', isVideo);
+    console.log('🎵 MediaPlayer - Is audio:', finalIsAudio);
+    return url;
   };
 
-  // Gestionnaire de fallback automatique
-  const handleFallback = async (failedPlayer: PlayerType, error: string) => {
-    console.warn(`❌ Échec du lecteur ${failedPlayer}:`, error);
-    
-    // Vérifier si on a dépassé le nombre maximum de tentatives
-    if (fallbackCount >= maxFallbackAttempts) {
-      const errorMessage = `Impossible de lire le fichier audio après ${maxFallbackAttempts + 1} tentatives`;
-      setError(errorMessage);
-      setFallbackState(prev => ({
-        ...prev,
-        isFallbacking: false,
-        fallbackError: errorMessage
-      }));
-      
-      if (onError) {
-        onError(errorMessage);
-      }
-      return;
-    }
-    
-    // Fallback simple : native -> direct
-    const nextPlayer: PlayerType = failedPlayer === 'native' ? 'direct' : 'native';
-    
-    console.log(`🔄 Tentative de fallback vers ${nextPlayer}... (${fallbackCount + 1}/${maxFallbackAttempts})`);
-    
-    setFallbackCount(prev => prev + 1);
-    setFallbackState(prev => ({
-      currentPlayer: nextPlayer,
-      fallbackAttempts: [...prev.fallbackAttempts, failedPlayer],
-      isFallbacking: true,
-      fallbackError: error
-    }));
-    
-    setError(null);
-    setIsLoading(true);
-    
-    // Attendre moins longtemps pour éviter les plantages
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    if (videoRef.current) {
-      videoRef.current.src = getMediaUrl(nextPlayer);
-      videoRef.current.load();
-    }
-    if (audioRef.current) {
-      audioRef.current.src = getMediaUrl(nextPlayer);
-      audioRef.current.load();
-    }
-    
-    setFallbackState(prev => ({
-      ...prev,
-      isFallbacking: false
-    }));
-  };
-
-  const handleError = (e: React.SyntheticEvent<HTMLVideoElement | HTMLAudioElement, Event>) => {
-    console.error('❌ Erreur média:', e);
-    
-    // Éviter les erreurs multiples en cours de fallback
-    if (fallbackState.isFallbacking) {
-      console.log('⏳ Fallback en cours, ignoré cette erreur');
-      return;
-    }
-    
-    let errorMessage = 'Erreur lors du chargement du fichier audio';
-    
-    try {
-      const target = e.target as HTMLVideoElement | HTMLAudioElement;
-      
-      if (target && target.error && target.error.code) {
-        const error = target.error;
-        switch (error.code) {
-          case 1:
-            errorMessage = 'Lecture interrompue par l\'utilisateur';
-            setError(errorMessage);
-            return;
-          case 2:
-            errorMessage = 'Erreur réseau - impossible de charger le fichier';
-            break;
-          case 3:
-            errorMessage = 'Format non supporté ou fichier corrompu';
-            break;
-          case 4:
-            errorMessage = 'Format de fichier non supporté par le navigateur';
-            break;
-          default:
-            errorMessage = 'Erreur de lecture audio';
-        }
-      } else {
-        errorMessage = 'Impossible de lire le fichier audio';
-      }
-    } catch (err) {
-      console.error('Erreur dans handleError:', err);
-      errorMessage = 'Erreur inattendue lors de la lecture audio';
-    }
-    
-    // Fallback immédiat pour éviter les plantages
-    handleFallback(fallbackState.currentPlayer, errorMessage);
-  };
-
-  const handleProgress = () => {
-    // Gestion du progrès uniquement pour la vidéo
-    if (videoRef.current) {
-      setCurrentTime(videoRef.current.currentTime);
-      
-      if (videoRef.current.buffered.length > 0) {
-        const bufferedEnd = videoRef.current.buffered.end(videoRef.current.buffered.length - 1);
-        const currentTime = videoRef.current.currentTime;
-        const bufferAhead = bufferedEnd - currentTime;
-        const bufferHealthPercent = Math.min(100, (bufferAhead / 10) * 100);
-        setBufferHealth(bufferHealthPercent);
-        
-        if (bufferHealthPercent > 80) {
-          setStreamingQuality('excellent');
-        } else if (bufferHealthPercent > 50) {
-          setStreamingQuality('good');
-        } else if (bufferHealthPercent > 20) {
-          setStreamingQuality('fair');
-        } else {
-          setStreamingQuality('poor');
-        }
-      }
-    }
-  };
-
-  const handleDuration = () => {
-    // Gestion de la durée uniquement pour la vidéo
-    if (videoRef.current) {
-      setDuration(videoRef.current.duration);
-    }
-  };
-
-  const handleLoadedMetadata = () => {
-    console.log(`✅ Média chargé avec succès via le lecteur ${fallbackState.currentPlayer}`);
-    
-    setIsLoading(false);
-    setError(null);
-    handleDuration();
-    
-    // Connexion audio uniquement pour la vidéo
-    if (isVideo) {
-      setTimeout(() => {
-        connectAudioElement();
-      }, 100);
-    }
-  };
-
-  const initializeAudioContext = () => {
-    if (!audioContextRef.current) {
-      audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
-    }
-  };
-
-  const connectAudioElement = () => {
-    if (!audioContextRef.current) return;
-
-    try {
-      const mediaElement = isVideo ? videoRef.current : audioRef.current;
-      if (!mediaElement) return;
-
-      audioSourceRef.current = audioContextRef.current.createMediaElementSource(mediaElement);
-      audioSourceRef.current.connect(audioContextRef.current.destination);
-    } catch (error) {
-      console.warn('Erreur lors de la connexion audio:', error);
-    }
-  };
-
-  const handlePlay = () => {
-    setIsPlaying(true);
-    setError(null);
-  };
-
-  const handlePause = () => {
-    setIsPlaying(false);
-  };
-
-  const handleEnded = () => {
-    setIsPlaying(false);
-    setCurrentTime(0);
-  };
-
-  const togglePlay = async () => {
-    // Contrôles de lecture uniquement pour la vidéo
-    try {
-      if (videoRef.current) {
-        if (isPlaying) {
-          videoRef.current.pause();
-        } else {
-          await videoRef.current.play();
-        }
-      }
-    } catch (error) {
-      console.error('❌ Erreur lors de la lecture:', error);
-      setError('Erreur lors de la lecture du fichier vidéo');
-      setIsPlaying(false);
-    }
-  };
-
-  const stop = () => {
-    // Contrôle stop uniquement pour la vidéo
-    if (videoRef.current) {
-      videoRef.current.pause();
-      videoRef.current.currentTime = 0;
-    }
-    setIsPlaying(false);
-  };
-
-  const handleSeek = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Contrôle de position uniquement pour la vidéo
-    const newTime = parseFloat(e.target.value);
-    setCurrentTime(newTime);
-    
-    if (videoRef.current) {
-      videoRef.current.currentTime = newTime;
-    }
-  };
-
-  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Contrôle du volume uniquement pour la vidéo
-    const newVolume = parseFloat(e.target.value);
-    setVolume(newVolume);
-    
-    if (videoRef.current) {
-      videoRef.current.volume = newVolume;
-    }
-  };
-
-  const toggleMute = () => {
-    // Contrôle du mute uniquement pour la vidéo
-    if (videoRef.current) {
-      videoRef.current.muted = !videoRef.current.muted;
-    }
-  };
-
-  const toggleFullscreen = () => {
-    setIsFullscreen(!isFullscreen);
+  // URL pour le téléchargement
+  const getDownloadUrl = (): string => {
+    const baseUrl = window.location.origin;
+    return `${baseUrl}/api/files/stream-by-path/${encodeURIComponent(file.path)}?direct=true`;
   };
 
   const handleDownload = () => {
     try {
       const link = document.createElement('a');
-      link.href = getMediaUrl('direct');
+      link.href = getDownloadUrl();
       link.download = file.name;
       link.target = '_blank';
       link.rel = 'noopener noreferrer';
-      link.href += `?t=${Date.now()}`;
+      link.href += `&t=${Date.now()}`;
       
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
     } catch (error) {
       console.error('❌ Erreur lors du téléchargement:', error);
-      setError('Erreur lors du téléchargement du fichier');
-    }
-  };
-
-  const forcePlayerChange = async (newPlayer: PlayerType) => {
-    console.log(`🔄 Changement manuel vers le lecteur ${newPlayer}`);
-    
-    setFallbackState(prev => ({
-      currentPlayer: newPlayer,
-      fallbackAttempts: [...prev.fallbackAttempts, prev.currentPlayer],
-      isFallbacking: true
-    }));
-    
-    setError(null);
-    setIsLoading(true);
-    
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    if (videoRef.current) {
-      videoRef.current.src = getMediaUrl(newPlayer);
-      videoRef.current.load();
-    }
-    if (audioRef.current) {
-      audioRef.current.src = getMediaUrl(newPlayer);
-      audioRef.current.load();
-    }
-    
-    setFallbackState(prev => ({
-      ...prev,
-      isFallbacking: false
-    }));
-  };
-
-  const formatTime = (time: number) => {
-    if (isNaN(time)) return '0:00';
-    const minutes = Math.floor(time / 60);
-    const seconds = Math.floor(time % 60);
-    return `${minutes}:${seconds.toString().padStart(2, '0')}`;
-  };
-
-  const getVideoSize = () => {
-    if (isFullscreen) {
-      return {
-        maxHeight: '100vh',
-        maxWidth: '100vw',
-        width: 'auto',
-        height: 'auto'
-      };
-    }
-    
-    const containerHeight = windowSize.height - 300;
-    const containerWidth = windowSize.width - 400;
-    
-    return {
-      maxHeight: `${Math.max(containerHeight, 200)}px`,
-      maxWidth: `${Math.max(containerWidth, 300)}px`,
-      width: 'auto',
-      height: 'auto'
-    };
-  };
-
-  const checkOptimizationSupport = async () => {
-    // Éviter les appels multiples
-    if (optimizationInfo !== null) return;
-    
-    try {
-      const support = await multimediaService.checkOptimizationSupport(file.id);
-      setFfmpegAvailable(support.ffmpegAvailable);
-      setOptimizationInfo(support.optimizationInfo || null);
-    } catch (error) {
-      console.warn('Impossible de vérifier le support d\'optimisation:', error);
-      // Ne pas bloquer la lecture si l'optimisation échoue
-      setOptimizationInfo(null);
-    }
-  };
-
-  // Initialisation
-  useEffect(() => {
-    if (file && (isVideo || isAudio)) {
-      // Activer le chargement seulement pour la vidéo
-      if (isVideo) {
-        setIsLoading(true);
-      }
-      setError(null);
-      
-      // Réinitialiser les compteurs
-      setFallbackCount(0);
-      setFallbackState({
-        currentPlayer: 'react',
-        fallbackAttempts: [],
-        isFallbacking: false
-      });
-      
-      if (isVideo) {
-        initializeAudioContext();
-      }
-
-      // Vérifier l'optimisation seulement si on a un ID de fichier ET que c'est une vidéo
-      if (file.id && isVideo) {
-        // Délayer la vérification pour éviter la surcharge au démarrage
-        setTimeout(() => {
-          checkOptimizationSupport();
-        }, 1000);
-      }
-      
-      console.log(`🎬 Démarrage de la lecture avec le lecteur ${fallbackState.currentPlayer}`);
-    }
-  }, [file, isVideo, isAudio]);
-
-  useEffect(() => {
-    const handleResize = () => {
-      setWindowSize({
-        width: window.innerWidth,
-        height: window.innerHeight
-      });
-    };
-
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
-  useEffect(() => {
-    if (error) {
-      setIsLoading(false);
       if (onError) {
-        onError(error);
+        onError('Erreur lors du téléchargement du fichier');
       }
     }
-  }, [error, onError]);
+  };
 
-  if (error) {
-    return (
-      <div className="h-full flex flex-col" style={{ backgroundColor: colors.surface }}>
-        <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: colors.border }}>
-          <div className="flex items-center space-x-3">
-            <span className="text-2xl">{isVideo ? '🎬' : '🎵'}</span>
-            <div>
-              <h2 className="text-lg font-semibold" style={{ color: colors.text }}>
-                {file.name}
-              </h2>
-              <p className="text-sm" style={{ color: colors.textSecondary }}>
-                Erreur de lecture
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-2">
-            <button
-              onClick={handleDownload}
-              className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
-              style={{ color: colors.textSecondary }}
-              title="Télécharger"
-            >
-              <ArrowDownTrayIcon className="h-5 w-5" />
-            </button>
-            {onClose && (
-              <button
-                onClick={onClose}
-                className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
-                style={{ color: colors.textSecondary }}
-                title="Fermer"
-              >
-                <XMarkIcon className="h-5 w-5" />
-              </button>
-            )}
-          </div>
-        </div>
+  const handleReady = () => {
+    console.log('✅ React Player prêt pour:', file.name);
+    setIsReady(true);
+    setHasError(false);
+    setIsLoading(false);
+  };
 
-        <div className="flex-1 flex items-center justify-center p-8">
-          <div className="text-center max-w-md">
-            <div className="text-6xl mb-4">❌</div>
-            <h3 className="text-lg font-semibold mb-2" style={{ color: colors.text }}>
-              Erreur de lecture
-            </h3>
-            <p className="text-sm mb-4" style={{ color: colors.textSecondary }}>
-              {error}
-            </p>
-            <div className="text-xs mb-4" style={{ color: colors.textSecondary }}>
-              <p>Fichier: {file.name}</p>
-              <p>Type: {file.mime_type}</p>
-              <p>Taille: {file.size ? `${(file.size / 1024 / 1024).toFixed(2)} MB` : 'Inconnue'}</p>
-            </div>
-            <div className="flex items-center justify-center space-x-2">
-              <button
-                onClick={() => {
-                  setError(null);
-                  setIsLoading(true);
-                  if (videoRef.current) {
-                    videoRef.current.load();
-                  }
-                  if (audioRef.current) {
-                    audioRef.current.load();
-                  }
-                }}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors"
-              >
-                Réessayer
-              </button>
-              <button
-                onClick={handleDownload}
-                className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
-              >
-                Télécharger
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const handleError = (error: any) => {
+    console.error('❌ Erreur React Player:', error);
+    console.error('❌ Erreur détails:', {
+      error,
+      file: file.name,
+      path: file.path,
+      mime_type: file.mime_type,
+      url: getMediaUrl()
+    });
+    setHasError(true);
+    setIsReady(false);
+    setIsLoading(false);
+    if (onError) {
+      onError(`Erreur de lecture: ${error?.message || 'Format non supporté'}`);
+    }
+  };
+
+  const handleStart = () => {
+    console.log('▶️ Lecture démarrée pour:', file.name);
+    setIsLoading(false);
+  };
+
+  const handleBuffer = () => {
+    console.log('⏳ Buffering pour:', file.name);
+  };
+
+  // Retry automatique en cas d'erreur
+  const handleRetry = () => {
+    setHasError(false);
+    setIsReady(false);
+    setIsLoading(true);
+    setPlayerKey(prev => prev + 1);
+  };
+
+  // Test de l'URL avant de l'utiliser
+  useEffect(() => {
+    const testUrl = async () => {
+      try {
+        const url = getMediaUrl();
+        console.log('🧪 Test de l\'URL:', url);
+        const response = await fetch(url, { method: 'HEAD' });
+        console.log('🧪 Réponse du test:', response.status, response.statusText);
+        if (!response.ok) {
+          console.error('🧪 URL invalide:', response.status, response.statusText);
+        } else {
+          console.log('🧪 URL valide, Content-Type:', response.headers.get('content-type'));
+        }
+      } catch (error) {
+        console.error('🧪 Erreur lors du test de l\'URL:', error);
+      }
+    };
+    
+    testUrl();
+  }, [file.path]);
 
   return (
-    <div 
-      className={`flex flex-col transition-all duration-300 ${
-        isFullscreen 
-          ? 'fixed inset-0 z-50 bg-black' 
-          : 'h-full'
-      }`} 
-      style={{ backgroundColor: isFullscreen ? 'black' : colors.surface }}
-    >
-      {!isFullscreen && (
-        <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: colors.border }}>
-          <div className="flex items-center space-x-3">
-            <span className="text-2xl">{isVideo ? '🎬' : '🎵'}</span>
-            <div>
-              <h2 className="text-lg font-semibold" style={{ color: colors.text }}>
-                {file.name}
-              </h2>
-              <p className="text-sm" style={{ color: colors.textSecondary }}>
-                {isVideo ? 'Vidéo' : 'Audio'}
-              </p>
-            </div>
+    <div className="h-full flex flex-col" style={{ backgroundColor: colors.surface }}>
+      {/* Header */}
+      <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: colors.border }}>
+        <div className="flex items-center space-x-3">
+          <span className="text-2xl">{isVideo ? '🎬' : '🎵'}</span>
+          <div>
+            <h2 className="text-lg font-semibold" style={{ color: colors.text }}>
+              {file.name}
+            </h2>
+            <p className="text-sm" style={{ color: colors.textSecondary }}>
+              {isVideo ? 'Fichier vidéo' : finalIsAudio ? 'Fichier audio' : 'Fichier média'}
+            </p>
           </div>
-          <div className="flex items-center space-x-2">
+        </div>
+        <div className="flex items-center space-x-2">
+          <button
+            onClick={handleDownload}
+            className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
+            style={{ color: colors.textSecondary }}
+            title="Télécharger"
+          >
+            <ArrowDownTrayIcon className="h-5 w-5" />
+          </button>
+          {onClose && (
             <button
-              onClick={handleDownload}
+              onClick={onClose}
               className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
               style={{ color: colors.textSecondary }}
-              title="Télécharger"
+              title="Fermer"
             >
-              <ArrowDownTrayIcon className="h-5 w-5" />
-            </button>
-            {onClose && (
-              <button
-                onClick={onClose}
-                className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
-                style={{ color: colors.textSecondary }}
-                title="Fermer"
-              >
-                <XMarkIcon className="h-5 w-5" />
-              </button>
-            )}
-          </div>
-        </div>
-      )}
-
-      {!isFullscreen && (
-        <div className="absolute top-4 right-4 z-10 flex space-x-2">
-          {(isVideo || isAudio) && (
-            <button
-              onClick={() => setShowOptimizationPanel(!showOptimizationPanel)}
-              className="p-2 rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
-              title="Optimisations audio/vidéo"
-            >
-              <Cog6ToothIcon className="h-5 w-5" />
-            </button>
-          )}
-          
-          {isVideo && (
-            <button
-              onClick={toggleFullscreen}
-              className="p-2 rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
-              title="Plein écran"
-            >
-              <ArrowsPointingOutIcon className="h-5 w-5" />
+              <XMarkIcon className="h-5 w-5" />
             </button>
           )}
         </div>
-      )}
+      </div>
 
-      {isFullscreen && (
-        <div className="absolute top-4 right-4 z-10">
-          <button
-            onClick={toggleFullscreen}
-            className="p-2 rounded-lg hover:bg-slate-700 text-white hover:text-slate-300 transition-colors"
-            title="Sortir du plein écran"
-          >
-            <ArrowsPointingInIcon className="h-5 w-5" />
-          </button>
-        </div>
-      )}
+      {/* Contenu principal */}
+      <div className="flex-1 flex items-center justify-center p-4">
+        {(isVideo || finalIsAudio) ? (
+          <div className="w-full h-full flex flex-col items-center justify-center">
+            {/* Message d'information pour les formats optimisés */}
+            <div className="mb-4 p-3 bg-green-900/50 border border-green-600 rounded-lg max-w-md">
+              <div className="flex items-center space-x-2">
+                <span className="text-green-400">✅</span>
+                <div className="text-sm text-green-200">
+                  <p className="font-semibold">Streaming natif activé</p>
+                  <p>Lecture optimisée avec support des range requests.</p>
+                  <p className="text-xs mt-1">Compatibilité maximale garantie.</p>
+                </div>
+              </div>
+            </div>
 
-      {isLoading && (
-        <div className="absolute inset-0 flex items-center justify-center z-40 bg-slate-900/80">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-            <p className="text-slate-300">
-              {fallbackState.isFallbacking 
-                ? `Tentative de lecture avec le lecteur ${fallbackState.currentPlayer}...`
-                : 'Chargement du média...'
-              }
-            </p>
-            {fallbackState.fallbackAttempts.length > 0 && (
-              <p className="text-xs text-slate-400 mt-2">
-                Tentatives précédentes: {fallbackState.fallbackAttempts.join(', ')}
-              </p>
+            {/* Indicateur de chargement */}
+            {isLoading && !hasError && (
+              <div className="mb-4 p-3 bg-slate-800 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400"></div>
+                  <span className="text-sm text-slate-300">Chargement du lecteur...</span>
+                </div>
+              </div>
             )}
-          </div>
-        </div>
-      )}
 
-      <div className={`flex items-center justify-center relative ${
-        isFullscreen ? 'h-full' : 'flex-1 p-4'
-      }`} style={{ 
-        minHeight: 0,
-        overflow: 'hidden'
-      }}>
-        {isVideo ? (
-          <div className={`flex items-center justify-center ${
-            isFullscreen ? 'w-full h-full' : 'w-full h-full'
-          }`} style={{
-            maxWidth: '100%',
-            maxHeight: '100%',
-            overflow: 'hidden'
-          }}>
-            <video
-              ref={videoRef}
-              src={getMediaUrl(fallbackState.currentPlayer)}
-              controls={false}
-              onLoadedMetadata={handleLoadedMetadata}
-              onTimeUpdate={handleProgress}
-              onError={handleError}
-              onPlay={handlePlay}
-              onPause={handlePause}
-              onEnded={handleEnded}
-              onLoadStart={() => setIsLoading(true)}
-              onCanPlay={() => setIsLoading(false)}
-              className="max-w-full max-h-full object-contain"
-              style={getVideoSize()}
-              preload="metadata"
-              crossOrigin="anonymous"
-              muted={false}
-              playsInline
-            />
+            {/* Message d'erreur avec retry */}
+            {hasError && (
+              <div className="mb-4 p-3 bg-red-900/50 border border-red-600 rounded-lg max-w-md">
+                <div className="flex items-center space-x-2">
+                  <span className="text-red-400">❌</span>
+                  <div className="text-sm text-red-200">
+                    <p className="font-semibold">Erreur de lecture</p>
+                    <p>Le format n'est pas supporté ou le fichier est corrompu.</p>
+                    <div className="mt-3 flex space-x-2">
+                      <button
+                        onClick={handleRetry}
+                        className="px-3 py-1 bg-blue-600 hover:bg-blue-700 text-white text-xs rounded transition-colors"
+                      >
+                        Réessayer
+                      </button>
+                      <button
+                        onClick={handleDownload}
+                        className="px-3 py-1 bg-green-600 hover:bg-green-700 text-white text-xs rounded transition-colors flex items-center space-x-1"
+                      >
+                        <ArrowDownTrayIcon className="h-3 w-3" />
+                        <span>Télécharger</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            <div className="w-full h-full flex items-center justify-center">
+              <ReactPlayer
+                key={playerKey}
+                url={getMediaUrl()}
+                width="100%"
+                height="100%"
+                controls={true}
+                onReady={handleReady}
+                onError={handleError}
+                onStart={handleStart}
+                onBuffer={handleBuffer}
+                config={{
+                  file: {
+                    attributes: {
+                      crossOrigin: "anonymous",
+                      preload: "metadata"
+                    },
+                    forceVideo: isVideo,
+                    forceAudio: finalIsAudio
+                  }
+                }}
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: '100%'
+                }}
+                playing={false}
+                muted={false}
+                volume={1}
+                playbackRate={1}
+                pip={true}
+                stopOnUnmount={true}
+                light={false}
+              />
+            </div>
           </div>
-                 ) : isAudio ? (
-           <div className="w-full max-w-2xl mx-auto text-center">
-             <div className="bg-slate-800 rounded-lg p-8 mb-4">
-               <div className="text-6xl mb-4">🎵</div>
-               <h3 className="text-xl font-semibold text-slate-200 mb-2">{file.name}</h3>
-               <p className="text-slate-400 text-sm mb-6">Fichier audio</p>
-               
-               {/* Lecteur audio avec contrôles natifs uniquement - SANS gestionnaires d'événements */}
-               <audio
-                 ref={audioRef}
-                 src={getMediaUrl(fallbackState.currentPlayer)}
-                 controls={true}
-                 preload="metadata"
-                 crossOrigin="anonymous"
-                 className="w-full"
-                 style={{ 
-                   backgroundColor: 'transparent',
-                   color: '#3b82f6'
-                 }}
-               />
-             </div>
-           </div>
         ) : (
           <div className="text-center">
             <div className="text-6xl mb-4">📄</div>
@@ -729,150 +260,6 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ file, onClose, onError }) => 
           </div>
         )}
       </div>
-
-      {/* Contrôles personnalisés uniquement pour la vidéo */}
-      {isVideo && !isFullscreen && (
-        <div className="bg-slate-800 border-t border-slate-700 p-4">
-          <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={togglePlay}
-                className="p-2 rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
-              >
-                {isPlaying ? (
-                  <PauseIcon className="h-6 w-6" />
-                ) : (
-                  <PlayIcon className="h-6 w-6" />
-                )}
-              </button>
-              
-              <button
-                onClick={stop}
-                className="p-2 rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
-              >
-                <StopIcon className="h-6 w-6" />
-              </button>
-            </div>
-
-            <div className="flex-1 flex items-center space-x-3">
-              <span className="text-sm text-slate-300 w-14 font-mono">
-                {formatTime(currentTime)}
-              </span>
-              <div className="flex-1 relative">
-                <input
-                  type="range"
-                  min={0}
-                  max={duration || 100}
-                  value={currentTime}
-                  onChange={handleSeek}
-                  className="w-full h-3 bg-slate-600 rounded-lg appearance-none cursor-pointer slider"
-                  style={{
-                    background: `linear-gradient(to right, #3b82f6 0%, #3b82f6 ${(currentTime / (duration || 1)) * 100}%, #475569 ${(currentTime / (duration || 1)) * 100}%, #475569 100%)`
-                  }}
-                  title={`Position: ${formatTime(currentTime)} / ${formatTime(duration)}`}
-                  autoComplete="off"
-                />
-                <div 
-                  className="absolute top-0 left-0 h-3 bg-blue-500 rounded-lg pointer-events-none transition-all duration-100"
-                  style={{ width: `${(currentTime / (duration || 1)) * 100}%` }}
-                />
-              </div>
-              <span className="text-sm text-slate-300 w-14 font-mono text-right">
-                {formatTime(duration)}
-              </span>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <button
-                onClick={toggleMute}
-                className="p-2 rounded-lg hover:bg-slate-700 text-slate-300 hover:text-white transition-colors"
-                title={volume === 0 ? "Activer le son" : "Couper le son"}
-              >
-                {volume === 0 ? (
-                  <SpeakerXMarkIcon className="h-5 w-5" />
-                ) : volume < 0.5 ? (
-                  <SpeakerWaveIcon className="h-5 w-5" />
-                ) : (
-                  <SpeakerWaveIcon className="h-5 w-5" />
-                )}
-              </button>
-              <div className="flex items-center space-x-2 min-w-0">
-                <input
-                  type="range"
-                  min={0}
-                  max={1}
-                  step={0.01}
-                  value={volume}
-                  onChange={handleVolumeChange}
-                  className="w-24 h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer slider"
-                  title={`Volume: ${Math.round(volume * 100)}%`}
-                  autoComplete="off"
-                />
-                <span className="text-xs text-slate-400 w-8 text-right">
-                  {Math.round(volume * 100)}%
-                </span>
-              </div>
-            </div>
-            
-            <div className="flex items-center space-x-2 ml-4">
-              <div className="flex items-center space-x-1">
-                <SignalIcon className="h-4 w-4" style={{ 
-                  color: streamingQuality === 'excellent' ? '#10b981' : 
-                         streamingQuality === 'good' ? '#3b82f6' : 
-                         streamingQuality === 'fair' ? '#f59e0b' : '#ef4444' 
-                }} />
-                <span className="text-xs text-slate-400">
-                  {streamingQuality === 'excellent' ? 'Excellent' :
-                   streamingQuality === 'good' ? 'Bon' :
-                   streamingQuality === 'fair' ? 'Moyen' : 'Faible'}
-                </span>
-              </div>
-              <div className="w-16 h-1 bg-slate-600 rounded-full overflow-hidden">
-                <div 
-                  className="h-full transition-all duration-300"
-                  style={{ 
-                    width: `${bufferHealth}%`,
-                    backgroundColor: bufferHealth > 80 ? '#10b981' : 
-                                   bufferHealth > 50 ? '#3b82f6' : 
-                                   bufferHealth > 20 ? '#f59e0b' : '#ef4444'
-                  }}
-                />
-              </div>
-            </div>
-
-            <div className="flex items-center space-x-2 ml-4">
-              <div className="flex items-center space-x-1">
-                {fallbackState.currentPlayer === 'react' && (
-                  <VideoCameraIcon className="h-4 w-4 text-blue-500" />
-                )}
-                {fallbackState.currentPlayer === 'native' && (
-                  <MicrophoneIcon className="h-4 w-4 text-green-500" />
-                )}
-                {fallbackState.currentPlayer === 'direct' && (
-                  <ArrowDownTrayIcon className="h-4 w-4 text-orange-500" />
-                )}
-                <span className="text-xs text-slate-400">
-                  {fallbackState.currentPlayer === 'react' ? 'React' :
-                   fallbackState.currentPlayer === 'native' ? 'Natif' : 'Direct'}
-                </span>
-              </div>
-              
-              <div className="relative">
-                <select
-                  value={fallbackState.currentPlayer}
-                  onChange={(e) => forcePlayerChange(e.target.value as PlayerType)}
-                  className="text-xs bg-slate-700 text-slate-300 border border-slate-600 rounded px-2 py-1 focus:outline-none focus:border-blue-500"
-                  disabled={fallbackState.isFallbacking}
-                >
-                  <option value="react">React</option>
-                  <option value="native">Natif</option>
-                  <option value="direct">Direct</option>
-                </select>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };

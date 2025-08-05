@@ -4,7 +4,7 @@ import { devtools, persist } from 'zustand/middleware';
 interface StartupState {
   // État d'initialisation
   isInitialized: boolean;
-  initializationStep: 'idle' | 'prompts' | 'config' | 'complete' | 'error';
+  initializationStep: 'idle' | 'prompts' | 'config' | 'files' | 'complete' | 'error';
   
   // Métadonnées
   startupTime: string | null;
@@ -51,6 +51,14 @@ export const useStartupStore = create<StartupState>()(
             const { useConfigStore } = await import('../stores/configStore');
             const configStore = useConfigStore.getState();
             await configStore.loadAIProviders();
+            set({ initializationStep: 'files' });
+
+            // Initialiser le fileStore (reset + directory)
+            console.log('📁 Initialisation du fileStore...');
+            const { useFileStore } = await import('../stores/fileStore');
+            const fileStore = useFileStore.getState();
+            fileStore.resetState();
+            await fileStore.initializeDefaultDirectory();
             set({ initializationStep: 'complete' });
 
             // Marquer comme initialisé

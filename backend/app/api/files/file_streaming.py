@@ -238,4 +238,61 @@ async def stream_file_by_path(
             "X-Content-Type-Options": "nosniff",  # Empêche le navigateur de deviner le type
             "Content-Type": mime_type,  # Force le type MIME
         }
+    )
+
+
+@router.head("/stream-by-path/{file_path:path}")
+@APIUtils.handle_errors
+async def head_file_by_path(
+    file_path: str
+) -> Response:
+    """Get file headers by path for CORS preflight and validation"""
+    from urllib.parse import unquote
+    from pathlib import Path
+    
+    # Log de début avec l'URL encodée
+    logger.info(f"HEAD-STREAM-BY-PATH REQUEST - Encoded URL: {file_path}")
+    
+    # Décoder l'URL pour gérer les caractères spéciaux
+    decoded_path = unquote(file_path)
+    logger.info(f"HEAD-STREAM-BY-PATH REQUEST - Decoded path: {decoded_path}")
+    
+    file_path_obj = Path(decoded_path)
+    logger.info(f"HEAD-STREAM-BY-PATH REQUEST - Path object: {file_path_obj}")
+    
+    # Vérifier que le fichier existe
+    if not file_path_obj.exists():
+        error_msg = f"File not found: {decoded_path}"
+        logger.error(f"HEAD-STREAM-BY-PATH ERROR - {error_msg}")
+        raise HTTPException(status_code=404, detail=f"Fichier non trouvé: {file_path_obj.name}")
+    
+    if not file_path_obj.is_file():
+        error_msg = f"Path is not a file: {decoded_path}"
+        logger.error(f"HEAD-STREAM-BY-PATH ERROR - {error_msg}")
+        raise HTTPException(status_code=400, detail="Le chemin ne correspond pas à un fichier")
+    
+    logger.info(f"HEAD-STREAM-BY-PATH - File exists and is valid: {file_path_obj}")
+    
+    # Valider le fichier (format uniquement)
+    is_valid, error_message, mime_type = FileValidator.validate_file(file_path_obj)
+    
+    logger.info(f"HEAD-STREAM-BY-PATH - Validation result: valid={is_valid}, mime_type={mime_type}")
+    
+    if not is_valid:
+        logger.error(f"HEAD-STREAM-BY-PATH ERROR - File validation failed: {error_message}")
+        raise HTTPException(status_code=400, detail=error_message)
+    
+    logger.info(f"HEAD-STREAM-BY-PATH - File validated successfully, returning headers: {file_path_obj}")
+    
+    # Retourner seulement les headers sans le contenu
+    return Response(
+        status_code=200,
+        headers={
+            "Accept-Ranges": "bytes",
+            "Cache-Control": "public, max-age=3600",  # Cache pour 1 heure
+            "Content-Disposition": "inline",  # Force l'affichage dans le navigateur
+            "X-Content-Type-Options": "nosniff",  # Empêche le navigateur de deviner le type
+            "Content-Type": mime_type,  # Force le type MIME
+            "Content-Length": str(file_path_obj.stat().st_size),  # Taille du fichier
+        }
     ) 

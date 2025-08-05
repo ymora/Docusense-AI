@@ -50,7 +50,7 @@ class Settings(BaseSettings):
             "http://127.0.0.1:3003"],
         env="CORS_ORIGINS")
     cors_allow_credentials: bool = True
-    cors_allow_methods: List[str] = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+    cors_allow_methods: List[str] = ["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"]
     cors_allow_headers: List[str] = ["*"]
 
     # Rate Limiting - NOUVEAU: Protection contre les attaques

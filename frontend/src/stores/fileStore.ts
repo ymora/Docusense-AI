@@ -65,16 +65,19 @@ interface FileState {
   clearSelection: () => void;
   selectAllFiles: () => void;
   deselectAllFiles: () => void;
-          setCurrentDirectory: (directory: string | null) => void;
-        
-        // Initialisation automatique
-        initializeDefaultDirectory: () => Promise<void>;
-
-          // Actions pour la performance sans cache
-        updateFileStatus: (fileId: number, status: File['status'], result?: string) => void;
+  setCurrentDirectory: (directory: string | null) => void;
+  
+  // Initialisation automatique
+  initializeDefaultDirectory: () => Promise<void>;
+  
+  // Actions pour la performance sans cache
+  updateFileStatus: (fileId: number, status: File['status'], result?: string) => void;
 
   // NOUVEAU: Actions pour le suivi des consultations
   markFileAsViewed: (fileId: number) => void;
+  
+  // NOUVEAU: Action de réinitialisation propre
+  resetState: () => void;
 }
 
 // OPTIMISATION: Fonction utilitaire pour la gestion du cache
@@ -369,6 +372,7 @@ export const useFileStore = create<FileState>()(
           return callGuard(async () => {
             try {
               console.log("🔍 Vérification du répertoire actuel...");
+              
               // Vérifier si un répertoire est déjà défini
               const currentDir = get().currentDirectory;
               console.log("📂 Répertoire actuel:", currentDir);
@@ -422,12 +426,25 @@ export const useFileStore = create<FileState>()(
             ),
           }));
         },
+
+        // NOUVEAU: Action de réinitialisation propre
+        resetState: () => {
+          set({
+            files: [],
+            directoryTree: null,
+            currentDirectory: null,
+            selectedFiles: [],
+            selectedFile: null,
+            loading: false,
+            error: null,
+          });
+        },
       }),
       {
         name: 'docusense-file-store',
         partialize: (state) => ({
           selectedFiles: state.selectedFiles,
-          selectedFile: state.selectedFile,
+          // selectedFile: state.selectedFile, // Ne pas persister le fichier sélectionné
           currentDirectory: state.currentDirectory,
           // NOUVEAU: Persister les données de consultation
           files: state.files.map(file => ({

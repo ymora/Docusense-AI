@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test MediaPlayer</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #1a1a1a;
+            color: white;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .player-container {
+            margin: 20px 0;
+            padding: 20px;
+            background-color: #2a2a2a;
+            border-radius: 8px;
+        }
+        .info {
+            background-color: #333;
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+            font-family: monospace;
+            font-size: 12px;
+        }
+        .success { color: #4ade80; }
+        .error { color: #f87171; }
+        .warning { color: #fbbf24; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test MediaPlayer</h1>
+        
+        <div class="player-container">
+            <h2>Test Audio MP3</h2>
+            <div class="info">
+                URL: <span id="audio-url"></span><br>
+                Path: C:\Users\ymora\Desktop\Docusense AI\test_audio.mp3
+            </div>
+            <audio id="audio-player" controls>
+                Votre navigateur ne supporte pas l'élément audio.
+            </audio>
+        </div>
+
+        <div class="player-container">
+            <h2>Test avec fetch</h2>
+            <button onclick="testFetch()">Tester l'API</button>
+            <div id="fetch-result" class="info"></div>
+        </div>
+
+        <div class="player-container">
+            <h2>Test React Player (simulation)</h2>
+            <div id="react-player-test" class="info">
+                <p>Simulation des logs React Player...</p>
+                <div id="react-logs"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Test avec l'élément audio natif
+        const audioPlayer = document.getElementById('audio-player');
+        const audioUrl = 'http://localhost:8000/api/files/stream-by-path/C%3A%2FUsers%2Fymora%2FDesktop%2FDocusense%20AI%2Ftest_audio.mp3?native=true';
+        
+        document.getElementById('audio-url').textContent = audioUrl;
+        audioPlayer.src = audioUrl;
+        
+        audioPlayer.addEventListener('loadstart', () => {
+            console.log('🎵 Audio: loadstart');
+            addLog('🎵 Audio: loadstart', 'success');
+        });
+        
+        audioPlayer.addEventListener('canplay', () => {
+            console.log('🎵 Audio: canplay');
+            addLog('🎵 Audio: canplay', 'success');
+        });
+        
+        audioPlayer.addEventListener('error', (e) => {
+            console.error('🎵 Audio: error', e);
+            addLog('❌ Erreur audio: ' + e.message, 'error');
+        });
+
+        // Test avec fetch
+        async function testFetch() {
+            const resultDiv = document.getElementById('fetch-result');
+            resultDiv.innerHTML = '⏳ Test en cours...';
+            
+            try {
+                const response = await fetch(audioUrl, {
+                    method: 'HEAD',
+                    mode: 'cors',
+                    credentials: 'omit'
+                });
+                
+                resultDiv.innerHTML = `
+                    <span class="success">✅ Status: ${response.status} ${response.statusText}</span><br>
+                    Content-Type: ${response.headers.get('content-type')}<br>
+                    Content-Length: ${response.headers.get('content-length')}<br>
+                    Accept-Ranges: ${response.headers.get('accept-ranges')}<br>
+                    Cache-Control: ${response.headers.get('cache-control')}
+                `;
+                
+                console.log('✅ Fetch test réussi:', response);
+                addLog('✅ Fetch test réussi', 'success');
+            } catch (error) {
+                resultDiv.innerHTML = '<span class="error">❌ Erreur fetch: ' + error.message + '</span>';
+                console.error('❌ Fetch test échoué:', error);
+                addLog('❌ Fetch test échoué: ' + error.message, 'error');
+            }
+        }
+
+        // Simulation des logs React Player
+        function addLog(message, type = 'info') {
+            const logsDiv = document.getElementById('react-logs');
+            const timestamp = new Date().toLocaleTimeString();
+            const logEntry = document.createElement('div');
+            logEntry.className = type;
+            logEntry.innerHTML = `[${timestamp}] ${message}`;
+            logsDiv.appendChild(logEntry);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+
+        // Simuler le comportement du MediaPlayer
+        setTimeout(() => {
+            addLog('🎵 MediaPlayer - URL générée: ' + audioUrl, 'success');
+            addLog('🎵 MediaPlayer - File path: C:\\Users\\ymora\\Desktop\\Docusense AI\\test_audio.mp3', 'info');
+            addLog('🎵 MediaPlayer - File name: test_audio.mp3', 'info');
+            addLog('🎵 MediaPlayer - File mime_type: audio/mpeg', 'info');
+            addLog('🎵 MediaPlayer - Is video: false', 'info');
+            addLog('🎵 MediaPlayer - Is audio: true', 'success');
+        }, 1000);
+
+        setTimeout(() => {
+            addLog('🧪 Test de l\'URL: ' + audioUrl, 'info');
+        }, 2000);
+
+        setTimeout(() => {
+            addLog('🧪 Réponse du test: 200 OK', 'success');
+            addLog('🧪 URL valide, Content-Type: audio/mpeg', 'success');
+        }, 3000);
+
+        setTimeout(() => {
+            addLog('✅ React Player prêt pour: test_audio.mp3', 'success');
+        }, 4000);
+    </script>
+</body>
+</html> 

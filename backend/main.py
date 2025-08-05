@@ -20,7 +20,7 @@ from app.core.logging import setup_logging
 from app.middleware.log_requests import LoggingMiddleware
 from app.api import (
     analysis, auth, config, download, emails, files, health, 
-    monitoring, multimedia, prompts, queue
+    monitoring, multimedia, prompts, queue, video_converter_router
 )
 
 # Setup logging
@@ -145,7 +145,8 @@ app.include_router(health.router, prefix="/api/health", tags=["Health"])
 app.include_router(monitoring.router, prefix="/api/monitoring", tags=["Monitoring"])
 app.include_router(download.router, prefix="/api/download", tags=["Download"])
 app.include_router(emails.router, prefix="/api/emails", tags=["Emails"])
-app.include_router(multimedia.router, prefix="/api/multimedia", tags=["Multimedia"])
+# app.include_router(multimedia.router, prefix="/api/multimedia", tags=["Multimedia"])
+# app.include_router(video_converter_router, prefix="/api/media", tags=["Media Converter"])
 app.include_router(prompts.router, prefix="/api/prompts", tags=["Prompts"])
 
 
