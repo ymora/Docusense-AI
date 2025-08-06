@@ -29,6 +29,7 @@ export interface AnalysisListParams {
   sort_order?: 'asc' | 'desc';
   status_filter?: string;
   prompt_filter?: string;
+  search?: string;
   limit?: number;
   offset?: number;
 }
@@ -66,6 +67,7 @@ export const analysisService = {
       if (params.sort_order) queryParams.append('sort_order', params.sort_order);
       if (params.status_filter) queryParams.append('status_filter', params.status_filter);
       if (params.prompt_filter) queryParams.append('prompt_filter', params.prompt_filter);
+      if (params.search) queryParams.append('search', params.search);
       if (params.limit) queryParams.append('limit', params.limit.toString());
       if (params.offset) queryParams.append('offset', params.offset.toString());
       

@@ -5,7 +5,7 @@ import { useColors } from '../../hooks/useColors';
 import FileTree from '../FileManager/FileTree';
 import { useBackendStatus } from '../../hooks/useBackendStatus';
 import { useQueueStore } from '../../stores/queueStore';
-// import { promptService } from '../../services/promptService'; // Plus utilisé
+
 
 const LeftPanel: React.FC = () => {
   const { currentDirectory, loadDirectoryTree, setCurrentDirectory, selectedFiles, selectFile } = useFileStore();

@@ -128,16 +128,13 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
       const mimeType = file.mime_type?.toLowerCase() || '';
       const fileName = file.name?.toLowerCase() || '';
       
-      // Détection simplifiée basée sur le MIME type
-      const isAudio = mimeType.startsWith('audio/');
-      const isVideo = mimeType.startsWith('video/');
-      const isImage = mimeType.startsWith('image/');
-      const isPDF = mimeType === 'application/pdf';
+      // Détection centralisée utilisant getFileType
+      const fileType = getFileType(file.name, file.mime_type);
       
       let displayMode = 'details';
-      if (isAudio || isVideo) {
+      if (fileType === 'audio' || fileType === 'video') {
         displayMode = 'media';
-      } else if (isImage || isPDF) {
+      } else if (fileType === 'image' || fileType === 'document') {
         displayMode = 'details'; // Affichage direct dans le MainPanel
       }
       

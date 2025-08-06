@@ -25,6 +25,7 @@ async def get_analyses_list(
     sort_order: str = Query("desc", description="Sort order (asc/desc)"),
     status_filter: Optional[str] = Query(None, description="Filter by status"),
     prompt_filter: Optional[str] = Query(None, description="Filter by prompt type"),
+    search: Optional[str] = Query(None, description="Search in file names and results"),
     limit: int = Query(50, description="Number of items to return"),
     offset: int = Query(0, description="Offset for pagination")
 ) -> Dict[str, Any]:
@@ -44,6 +45,17 @@ async def get_analyses_list(
         if prompt_filter:
             # Filter by prompt type in metadata
             query = query.filter(Analysis.analysis_metadata.contains({"prompt_id": prompt_filter}))
+        
+        if search:
+            # Search in file names and results
+            from sqlalchemy import or_
+            query = query.join(File, Analysis.file_id == File.id).filter(
+                or_(
+                    File.name.ilike(f"%{search}%"),
+                    Analysis.result.ilike(f"%{search}%"),
+                    Analysis.prompt.ilike(f"%{search}%")
+                )
+            )
         
         # Apply sorting
         if sort_by == "created_at":
@@ -555,6 +567,42 @@ async def get_analysis_stats(db: Session = Depends(get_db)) -> Dict[str, Any]:
         
     except Exception as e:
         logger.error(f"Error getting analysis stats: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/{analysis_id}/fix-status")
+async def fix_analysis_status(
+    analysis_id: int,
+    new_status: str = "failed",
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    Fix analysis status (for stuck analyses)
+    """
+    try:
+        # Check if analysis exists
+        analysis = db.query(Analysis).filter(Analysis.id == analysis_id).first()
+        if not analysis:
+            raise HTTPException(status_code=404, detail="Analysis not found")
+        
+        # Update status directly
+        old_status = analysis.status.value
+        analysis.status = AnalysisStatus(new_status)
+        analysis.error_message = f"Status manually corrected from {old_status} to {new_status}"
+        
+        db.commit()
+        
+        logger.info(f"Successfully fixed analysis {analysis_id} status: {old_status} → {new_status}")
+        return {
+            "message": "Analysis status fixed successfully",
+            "analysis_id": analysis_id,
+            "old_status": old_status,
+            "new_status": new_status
+        }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error fixing analysis {analysis_id} status: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/{analysis_id}")

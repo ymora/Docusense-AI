@@ -9,7 +9,20 @@ from typing import Dict, List, Tuple, Optional, Union, Any
 import mimetypes
 from dataclasses import dataclass
 
+# Importer la configuration centralisée des formats
+from .media_formats import (
+    initialize_mime_types,
+    get_supported_formats,
+    get_file_type_by_extension,
+    get_mime_type_by_extension,
+    is_supported_format,
+    get_format_statistics
+)
+
 logger = logging.getLogger(__name__)
+
+# Initialiser les types MIME avec la configuration centralisée
+initialize_mime_types()
 
 
 @dataclass
@@ -61,130 +74,8 @@ class FileValidator:
         "default": 50 * 1024 * 1024   # 50MB par défaut
     }
     
-    # Formats supportés (tous les formats courants)
-    SUPPORTED_FORMATS = {
-        # Images (formats courants)
-        'image': [
-            'image/jpeg',
-            'image/png', 
-            'image/gif',
-            'image/webp',
-            'image/svg+xml',
-            'image/bmp',
-            'image/tiff',
-            'image/x-icon',
-            'image/vnd.microsoft.icon',
-            'image/heic',
-            'image/heif',
-            'image/avif',
-            'image/jxl',
-        ],
-        
-        # Vidéo (formats courants)
-        'video': [
-            'video/mp4',           # H.264/AVC - Support universel
-            'video/webm',          # VP8/VP9 - Chrome, Firefox, Edge
-            'video/ogg',           # Theora - Firefox, Chrome
-            'video/quicktime',     # MOV - Safari, Chrome
-            'video/x-msvideo',     # AVI - Windows Media
-            'video/avi',           # AVI - Format alternatif
-            'video/x-ms-wmv',      # WMV - Windows Media
-            'video/x-flv',         # FLV - Flash
-            'video/x-matroska',    # MKV - Conteneur
-            'video/3gpp',          # 3GP - Mobile
-            'video/mp2t',          # TS - Transport Stream
-            'video/mpeg',          # MPEG
-            'video/x-ms-asf',      # ASF - Windows Media
-            'video/x-pn-realvideo', # RM - RealMedia
-            'video/x-nut',         # NUT - FFmpeg
-            'application/x-mpegURL', # HLS - Safari, Chrome
-            'application/vnd.apple.mpegurl', # HLS alternatif
-            'video/dash',          # DASH
-            'application/dash+xml', # DASH XML
-        ],
-        
-        # Audio (formats courants)
-        'audio': [
-            'audio/mpeg',          # MP3 - Support universel
-            'audio/wav',           # WAV - Support universel
-            'audio/mp4',           # AAC - Support universel
-            'audio/ogg',           # OGG - Firefox, Chrome
-            'audio/webm',          # WebM audio
-            'audio/flac',          # FLAC - Chrome, Firefox
-            'audio/opus',          # Opus - Chrome, Firefox
-            'audio/aiff',          # AIFF - Safari
-            'audio/basic',         # AU - Unix
-            'audio/x-ms-wma',      # WMA - Windows Media
-            'audio/3gpp',          # 3GP audio
-            'audio/amr',           # AMR - Mobile
-            'audio/x-pn-realaudio', # RA - RealMedia
-            'audio/x-wavpack',     # WV - WavPack
-            'audio/x-ape',         # APE - Monkey's Audio
-            'audio/ac3',           # AC3 - Dolby
-            'audio/vnd.dts',       # DTS - Digital Theater
-            'audio/x-matroska',    # MKA - Matroska Audio
-            'audio/x-tta',         # TTA - True Audio
-            'audio/midi',          # MIDI
-            'audio/x-midi',        # MIDI alternatif
-        ],
-        
-        # Documents (formats courants)
-        'document': [
-            'application/pdf',
-            'text/plain',
-            'text/html',
-            'text/css',
-            'text/javascript',
-            'application/json',
-            'application/xml',
-            'text/xml',
-            'text/markdown',
-            'text/csv',
-            'application/rtf',
-            # Office formats
-            'application/vnd.openxmlformats-officedocument.wordprocessingml.document',  # DOCX
-            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',        # XLSX
-            'application/vnd.openxmlformats-officedocument.presentationml.presentation', # PPTX
-            'application/msword',  # DOC
-            'application/vnd.ms-excel',  # XLS
-            'application/vnd.ms-powerpoint',  # PPT
-            'application/vnd.oasis.opendocument.text',  # ODT
-            'application/vnd.oasis.opendocument.spreadsheet',  # ODS
-            'application/vnd.oasis.opendocument.presentation',  # ODP
-            # Email formats
-            'message/rfc822',      # EML
-            'application/vnd.ms-outlook',  # MSG
-            'application/vnd.ms-pst',  # PST
-            'application/vnd.ms-ost',  # OST
-            # Archives
-            'application/zip',
-            'application/x-rar-compressed',
-            'application/x-7z-compressed',
-            'application/x-tar',
-            'application/gzip',
-            'application/x-bzip2',
-            # Code source
-            'text/x-python',
-            'text/javascript',
-            'text/x-java-source',
-            'text/x-c++src',
-            'text/x-csrc',
-            'text/x-csharp',
-            'text/x-php',
-            'text/x-ruby',
-            'text/x-go',
-            'text/x-rust',
-            'text/x-swift',
-            'text/x-kotlin',
-            'text/x-yaml',
-            'text/x-sql',
-            'text/x-shellscript',
-            'text/x-bat',
-            'text/x-powershell',
-            # Autres
-            'application/x-zstd',
-        ]
-    }
+    # Formats supportés (utilise la configuration centralisée)
+    SUPPORTED_FORMATS = get_supported_formats()
     
     @classmethod
     def get_file_type(cls, mime_type: str) -> str:
@@ -197,7 +88,7 @@ class FileValidator:
             return 'video'
         elif mime_type.startswith('audio/'):
             return 'audio'
-        elif mime_type.startswith('text/') or mime_type in cls.SUPPORTED_FORMATS['document']:
+        elif mime_type.startswith('text/') or mime_type in cls.SUPPORTED_FORMATS.get('document', []):
             return 'document'
         else:
             return 'default'
@@ -211,7 +102,7 @@ class FileValidator:
         if file_type == 'default':
             return False
         
-        return mime_type in cls.SUPPORTED_FORMATS[file_type]
+        return mime_type in cls.SUPPORTED_FORMATS.get(file_type, [])
     
     @classmethod
     def validate_file(cls, file_path: Path) -> Tuple[bool, str, Optional[str]]:
@@ -413,55 +304,9 @@ class FileValidator:
     def _get_mime_type_from_extension(cls, extension: str) -> Optional[str]:
         """
         Fallback pour déterminer le type MIME à partir de l'extension
+        Utilise la configuration centralisée
         """
-        extension_mime_map = {
-            '.pdf': 'application/pdf',
-            '.jpg': 'image/jpeg',
-            '.jpeg': 'image/jpeg',
-            '.png': 'image/png',
-            '.gif': 'image/gif',
-            '.bmp': 'image/bmp',
-            '.tiff': 'image/tiff',
-            '.webp': 'image/webp',
-            '.svg': 'image/svg+xml',
-            '.ico': 'image/x-icon',
-            '.mp4': 'video/mp4',
-            '.avi': 'video/x-msvideo',
-            '.mov': 'video/quicktime',
-            '.wmv': 'video/x-ms-wmv',
-            '.flv': 'video/x-flv',
-            '.webm': 'video/webm',
-            '.mkv': 'video/x-matroska',
-            '.mp3': 'audio/mpeg',
-            '.wav': 'audio/wav',
-            '.flac': 'audio/flac',
-            '.aac': 'audio/mp4',
-            '.ogg': 'audio/ogg',
-            '.wma': 'audio/x-ms-wma',
-            '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-            '.doc': 'application/msword',
-            '.xls': 'application/vnd.ms-excel',
-            '.ppt': 'application/vnd.ms-powerpoint',
-            '.txt': 'text/plain',
-            '.html': 'text/html',
-            '.css': 'text/css',
-            '.js': 'text/javascript',
-            '.json': 'application/json',
-            '.xml': 'application/xml',
-            '.csv': 'text/csv',
-            '.md': 'text/markdown',
-            '.eml': 'message/rfc822',
-            '.zip': 'application/zip',
-            '.rar': 'application/x-rar-compressed',
-            '.7z': 'application/x-7z-compressed',
-            '.tar': 'application/x-tar',
-            '.gz': 'application/gzip',
-            '.bz2': 'application/x-bzip2',
-        }
-        
-        return extension_mime_map.get(extension.lower())
+        return get_mime_type_by_extension(f"test{extension}")
     
     @classmethod
     def get_supported_formats_for_type(cls, file_type: str) -> List[str]:
@@ -475,4 +320,11 @@ class FileValidator:
         """
         Retourne tous les formats supportés
         """
-        return cls.SUPPORTED_FORMATS.copy() 
+        return cls.SUPPORTED_FORMATS.copy()
+    
+    @classmethod
+    def get_format_statistics(cls) -> Dict[str, int]:
+        """
+        Retourne les statistiques des formats supportés
+        """
+        return get_format_statistics() 

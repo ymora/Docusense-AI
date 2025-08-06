@@ -55,16 +55,9 @@ const Layout: React.FC = () => {
           
           let downloadUrl;
           
-          // Utiliser l'endpoint approprié selon si le fichier a un ID ou non
-          if (file.id && file.id !== null) {
-            // Fichier avec ID (supporté) - utiliser l'endpoint par ID
-            downloadUrl = `/api/files/${file.id}/download`;
-            console.log('🎯 Utilisation de l\'endpoint par ID:', downloadUrl);
-          } else {
-            // Fichier sans ID (non supporté) - utiliser l'endpoint par path
-            downloadUrl = `/api/files/download-by-path/${encodeURIComponent(file.path)}`;
-            console.log('🎯 Utilisation de l\'endpoint par path:', downloadUrl);
-          }
+          // Toujours utiliser l'endpoint par path car les fichiers n'ont pas d'ID valide
+          downloadUrl = `/api/files/download-by-path/${encodeURIComponent(file.path)}`;
+          console.log('🎯 Utilisation de l\'endpoint par path:', downloadUrl);
           
           // Créer un lien temporaire pour forcer le téléchargement
           const link = document.createElement('a');

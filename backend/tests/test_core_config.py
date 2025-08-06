@@ -1,255 +1,204 @@
 """
-Unit tests for core config module
+Unit tests for configuration module
 """
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
 import os
-from typing import List
+from unittest.mock import patch, Mock
+from pydantic import ValidationError
 
-from app.core.config import Settings
+from app.core.config import Settings, ensure_directories, load_api_keys_from_database
 
 
 class TestSettings:
     """Test cases for Settings class"""
-    
+
     def test_default_values(self):
         """Test default configuration values"""
         settings = Settings()
         
         assert settings.app_name == "DocuSense AI"
-        assert settings.debug is False
-        assert settings.api_v1_prefix == "/api/v1"
-        assert settings.max_file_size == 100 * 1024 * 1024  # 100MB
-        assert settings.upload_dir == "uploads"
-        assert settings.database_url.startswith("sqlite:///")
-        assert settings.secret_key is not None
-        assert len(settings.secret_key) >= 32
-    
+        assert settings.app_version == "1.0.0"
+        assert settings.host == "0.0.0.0"
+        assert settings.port == 8000
+        assert settings.database_url == "sqlite:///./docusense.db"
+        assert settings.algorithm == "HS256"
+        assert settings.access_token_expire_minutes == 30
+        assert settings.cors_allow_credentials is True
+        assert "GET" in settings.cors_allow_methods
+        assert "HEAD" in settings.cors_allow_methods
+        assert settings.rate_limit_enabled is True
+        assert settings.rate_limit_requests == 100
+        assert settings.rate_limit_window == 60
+        assert settings.ollama_base_url == "http://localhost:11434"
+        assert settings.log_level == "INFO"
+        assert settings.max_file_size == 100 * 1024 * 1024
+        assert settings.ocr_enabled is True
+        assert settings.max_concurrent_analyses == 3
+        assert settings.queue_poll_interval == 2
+        assert settings.cache_enabled is True
+        assert settings.cache_ttl == 3600
+        assert settings.compression_enabled is True
+        assert settings.gzip_min_size == 500
+        assert settings.metrics_enabled is True
+        assert settings.health_check_interval == 30
+
     def test_environment_override(self):
-        """Test environment variable overrides"""
+        """Test environment variable override"""
         with patch.dict(os.environ, {
-            "APP_NAME": "Test App",
-            "DEBUG": "true",
-            "MAX_FILE_SIZE": "52428800",  # 50MB
-            "SECRET_KEY": "test_secret_key_32_chars_long"
+            'APP_NAME': 'Test App',
+            'PORT': '9000',
+            'DEBUG': 'true',
+            'LOG_LEVEL': 'DEBUG'
         }):
             settings = Settings()
             
             assert settings.app_name == "Test App"
+            assert settings.port == 9000
             assert settings.debug is True
-            assert settings.max_file_size == 52428800
-            assert settings.secret_key == "test_secret_key_32_chars_long"
-    
+            assert settings.log_level == "DEBUG"
+
     def test_cors_origins_parsing(self):
         """Test CORS origins parsing"""
         with patch.dict(os.environ, {
-            "CORS_ORIGINS": "http://localhost:3000,https://example.com"
+            'CORS_ORIGINS': 'http://localhost:3000,http://example.com'
         }):
             settings = Settings()
             
-            assert isinstance(settings.cors_origins, List)
             assert "http://localhost:3000" in settings.cors_origins
-            assert "https://example.com" in settings.cors_origins
-    
+            assert "http://example.com" in settings.cors_origins
+
     def test_cors_origins_single_value(self):
         """Test CORS origins with single value"""
         with patch.dict(os.environ, {
-            "CORS_ORIGINS": "http://localhost:3000"
+            'CORS_ORIGINS': 'http://localhost:3000'
         }):
             settings = Settings()
             
-            assert isinstance(settings.cors_origins, List)
-            assert len(settings.cors_origins) == 1
-            assert settings.cors_origins[0] == "http://localhost:3000"
-    
+            assert settings.cors_origins == ["http://localhost:3000"]
+
     def test_cors_origins_empty(self):
         """Test CORS origins with empty value"""
         with patch.dict(os.environ, {
-            "CORS_ORIGINS": ""
+            'CORS_ORIGINS': ''
         }):
             settings = Settings()
             
-            assert isinstance(settings.cors_origins, List)
-            assert len(settings.cors_origins) == 0
-    
+            assert settings.cors_origins == []
+
     def test_secret_key_validation(self):
         """Test secret key validation"""
-        # Test with short key
+        # Test with valid secret key
         with patch.dict(os.environ, {
-            "SECRET_KEY": "short"
+            'SECRET_KEY': 'test-secret-key-32-chars-long-valid'
         }):
-            with pytest.raises(ValueError, match="SECRET_KEY must be at least 32 characters"):
+            settings = Settings()
+            assert len(settings.secret_key) >= 32
+
+        # Test with invalid secret key (too short)
+        with patch.dict(os.environ, {
+            'SECRET_KEY': 'short'
+        }):
+            with pytest.raises(ValidationError):
                 Settings()
-        
-        # Test with valid key
+
+    def test_ai_provider_config(self):
+        """Test AI provider configuration"""
         with patch.dict(os.environ, {
-            "SECRET_KEY": "valid_secret_key_that_is_long_enough_32_chars"
+            'OPENAI_API_KEY': 'test-openai-key',
+            'ANTHROPIC_API_KEY': 'test-anthropic-key',
+            'MISTRAL_API_KEY': 'test-mistral-key',
+            'OLLAMA_BASE_URL': 'http://localhost:11435'
         }):
             settings = Settings()
-            assert settings.secret_key == "valid_secret_key_that_is_long_enough_32_chars"
-    
-    def test_database_url_construction(self):
-        """Test database URL construction"""
-        with patch.dict(os.environ, {
-            "DATABASE_URL": "sqlite:///test.db"
-        }):
-            settings = Settings()
-            assert settings.database_url == "sqlite:///test.db"
-    
-    def test_redis_url_construction(self):
-        """Test Redis URL construction"""
-        with patch.dict(os.environ, {
-            "REDIS_URL": "redis://localhost:6379"
-        }):
-            settings = Settings()
-            assert settings.redis_url == "redis://localhost:6379"
-    
-    def test_openai_config(self):
-        """Test OpenAI configuration"""
-        with patch.dict(os.environ, {
-            "OPENAI_API_KEY": "test_openai_key",
-            "OPENAI_BASE_URL": "https://api.openai.com/v1",
-            "OPENAI_DEFAULT_MODEL": "gpt-4"
-        }):
-            settings = Settings()
-            assert settings.openai_api_key == "test_openai_key"
-            assert settings.openai_base_url == "https://api.openai.com/v1"
-            assert settings.openai_default_model == "gpt-4"
-    
-    def test_anthropic_config(self):
-        """Test Anthropic configuration"""
-        with patch.dict(os.environ, {
-            "ANTHROPIC_API_KEY": "test_anthropic_key",
-            "ANTHROPIC_BASE_URL": "https://api.anthropic.com",
-            "ANTHROPIC_DEFAULT_MODEL": "claude-3-sonnet"
-        }):
-            settings = Settings()
-            assert settings.anthropic_api_key == "test_anthropic_key"
-            assert settings.anthropic_base_url == "https://api.anthropic.com"
-            assert settings.anthropic_default_model == "claude-3-sonnet"
-    
-    def test_mistral_config(self):
-        """Test Mistral configuration"""
-        with patch.dict(os.environ, {
-            "MISTRAL_API_KEY": "test_mistral_key",
-            "MISTRAL_BASE_URL": "https://api.mistral.ai",
-            "MISTRAL_DEFAULT_MODEL": "mistral-large"
-        }):
-            settings = Settings()
-            assert settings.mistral_api_key == "test_mistral_key"
-            assert settings.mistral_base_url == "https://api.mistral.ai"
-            assert settings.mistral_default_model == "mistral-large"
-    
-    def test_ollama_config(self):
-        """Test Ollama configuration"""
-        with patch.dict(os.environ, {
-            "OLLAMA_BASE_URL": "http://localhost:11434",
-            "OLLAMA_DEFAULT_MODEL": "llama2"
-        }):
-            settings = Settings()
-            assert settings.ollama_base_url == "http://localhost:11434"
-            assert settings.ollama_default_model == "llama2"
-    
-    def test_logging_config(self):
-        """Test logging configuration"""
-        with patch.dict(os.environ, {
-            "LOG_LEVEL": "DEBUG",
-            "LOG_FILE": "test.log"
-        }):
-            settings = Settings()
-            assert settings.log_level == "DEBUG"
-            assert settings.log_file == "test.log"
-    
-    def test_security_config(self):
-        """Test security configuration"""
-        with patch.dict(os.environ, {
-            "ACCESS_TOKEN_EXPIRE_MINUTES": "30",
-            "ALGORITHM": "HS256"
-        }):
-            settings = Settings()
-            assert settings.access_token_expire_minutes == 30
-            assert settings.algorithm == "HS256"
-    
+            
+            assert settings.openai_api_key == 'test-openai-key'
+            assert settings.anthropic_api_key == 'test-anthropic-key'
+            assert settings.mistral_api_key == 'test-mistral-key'
+            assert settings.ollama_base_url == 'http://localhost:11435'
+
     def test_file_processing_config(self):
         """Test file processing configuration"""
         with patch.dict(os.environ, {
-            "MAX_CONCURRENT_UPLOADS": "5",
-            "CHUNK_SIZE": "8192",
-            "ENABLE_OCR": "true"
+            'MAX_FILE_SIZE': '52428800',  # 50MB
+            'OCR_ENABLED': 'false',
+            'TESSERACT_CMD': '/usr/bin/tesseract'
         }):
             settings = Settings()
-            assert settings.max_concurrent_uploads == 5
-            assert settings.chunk_size == 8192
-            assert settings.enable_ocr is True
-    
-    def test_cache_config(self):
-        """Test cache configuration"""
-        with patch.dict(os.environ, {
-            "CACHE_TTL": "300",
-            "CACHE_MAX_SIZE": "1000"
-        }):
-            settings = Settings()
-            assert settings.cache_ttl == 300
-            assert settings.cache_max_size == 1000
-    
+            
+            assert settings.max_file_size == 52428800
+            assert settings.ocr_enabled is False
+            assert settings.tesseract_cmd == '/usr/bin/tesseract'
+
     def test_queue_config(self):
         """Test queue configuration"""
         with patch.dict(os.environ, {
-            "MAX_CONCURRENT_ANALYSES": "3",
-            "QUEUE_TIMEOUT": "300"
+            'MAX_CONCURRENT_ANALYSES': '5',
+            'QUEUE_POLL_INTERVAL': '5'
         }):
             settings = Settings()
-            assert settings.max_concurrent_analyses == 3
-            assert settings.queue_timeout == 300
-    
-    def test_validation_config(self):
-        """Test validation configuration"""
+            
+            assert settings.max_concurrent_analyses == 5
+            assert settings.queue_poll_interval == 5
+
+    def test_cache_config(self):
+        """Test cache configuration"""
         with patch.dict(os.environ, {
-            "ALLOWED_FILE_TYPES": "pdf,docx,jpg,png",
-            "MAX_FILE_COUNT": "100"
+            'CACHE_ENABLED': 'false',
+            'CACHE_TTL': '7200'
         }):
             settings = Settings()
-            assert isinstance(settings.allowed_file_types, List)
-            assert "pdf" in settings.allowed_file_types
-            assert "docx" in settings.allowed_file_types
-            assert settings.max_file_count == 100
-    
-    def test_development_config(self):
-        """Test development-specific configuration"""
+            
+            assert settings.cache_enabled is False
+            assert settings.cache_ttl == 7200
+
+    def test_performance_config(self):
+        """Test performance configuration"""
         with patch.dict(os.environ, {
-            "ENVIRONMENT": "development",
-            "RELOAD": "true"
+            'COMPRESSION_ENABLED': 'false',
+            'GZIP_MIN_SIZE': '1000'
         }):
             settings = Settings()
-            assert settings.environment == "development"
-            assert settings.reload is True
-    
-    def test_production_config(self):
-        """Test production-specific configuration"""
+            
+            assert settings.compression_enabled is False
+            assert settings.gzip_min_size == 1000
+
+    def test_monitoring_config(self):
+        """Test monitoring configuration"""
         with patch.dict(os.environ, {
-            "ENVIRONMENT": "production",
-            "RELOAD": "false"
+            'METRICS_ENABLED': 'false',
+            'HEALTH_CHECK_INTERVAL': '60'
         }):
             settings = Settings()
-            assert settings.environment == "production"
-            assert settings.reload is False
+            
+            assert settings.metrics_enabled is False
+            assert settings.health_check_interval == 60
 
 
-class TestSettingsSingleton:
-    """Test cases for Settings singleton behavior"""
-    
-    def test_settings_initialization(self):
-        """Test Settings initialization"""
-        settings = Settings()
+class TestConfigFunctions:
+    """Test cases for configuration functions"""
+
+    @patch('os.makedirs')
+    def test_ensure_directories(self, mock_makedirs):
+        """Test ensure_directories function"""
+        ensure_directories()
         
-        assert isinstance(settings, Settings)
-        assert settings.app_name == "DocuSense AI"
-    
-    def test_settings_with_env_override(self):
-        """Test Settings with environment override"""
-        with patch.dict(os.environ, {
-            "APP_NAME": "Test App Override"
-        }):
-            settings = Settings()
-            assert settings.app_name == "Test App Override" 
+        # Should create logs directory
+        mock_makedirs.assert_called_with('logs', exist_ok=True)
+
+    @patch('app.core.config.get_db')
+    def test_load_api_keys_from_database(self, mock_get_db):
+        """Test load_api_keys_from_database function"""
+        mock_db = Mock()
+        mock_get_db.return_value = mock_db
+        
+        # Mock database query
+        mock_config = Mock()
+        mock_config.key = "openai_api_key"
+        mock_config.value = "test-key"
+        mock_db.query.return_value.filter.return_value.first.return_value = mock_config
+        
+        load_api_keys_from_database()
+        
+        # Should query database for API keys
+        mock_db.query.assert_called() 

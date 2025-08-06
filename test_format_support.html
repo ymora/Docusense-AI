@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Support Formats HTML5</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #1a1a1a;
+            color: white;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        .test-section {
+            background: #2a2a2a;
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 8px;
+        }
+        .log {
+            background: #333;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .status {
+            padding: 10px;
+            border-radius: 4px;
+            margin: 10px 0;
+        }
+        .status.success { background: #28a745; }
+        .status.error { background: #dc3545; }
+        .status.warning { background: #ffc107; color: #000; }
+        .player-container {
+            margin: 20px 0;
+            padding: 20px;
+            background: #333;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎬 Test Support Formats HTML5</h1>
+        
+        <div class="test-section">
+            <h3>1. Test Audio MP3</h3>
+            <div class="player-container">
+                <h4>Lecteur Audio HTML5</h4>
+                <audio id="audioPlayer" controls>
+                    <source id="audioSource" type="audio/mpeg">
+                    Votre navigateur ne supporte pas l'élément audio.
+                </audio>
+                <br>
+                <button class="test-button" onclick="testAudioMP3()">Test MP3</button>
+                <button class="test-button" onclick="testAudioWAV()">Test WAV</button>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h3>2. Test Vidéo</h3>
+            <div class="player-container">
+                <h4>Lecteur Vidéo HTML5</h4>
+                <video id="videoPlayer" controls width="100%" style="max-height: 300px;">
+                    <source id="videoSource" type="video/mp4">
+                    Votre navigateur ne supporte pas l'élément vidéo.
+                </video>
+                <br>
+                <button class="test-button" onclick="testVideoMP4()">Test MP4</button>
+                <button class="test-button" onclick="testVideoAVI()">Test AVI</button>
+                <button class="test-button" onclick="testVideoWebM()">Test WebM</button>
+            </div>
+        </div>
+        
+        <div class="test-section">
+            <h3>3. Support Navigateur</h3>
+            <div id="browserSupport"></div>
+        </div>
+        
+        <div class="test-section">
+            <h3>4. Logs</h3>
+            <div id="logs" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        function addLog(message, type = 'info') {
+            const logs = document.getElementById('logs');
+            const timestamp = new Date().toLocaleTimeString();
+            const color = type === 'error' ? '#ff6b6b' : type === 'success' ? '#51cf66' : type === 'warning' ? '#ffd43b' : '#ffffff';
+            logs.innerHTML += `<div style="color: ${color}">[${timestamp}] ${message}</div>`;
+            logs.scrollTop = logs.scrollHeight;
+            console.log(message);
+        }
+        
+        function addResult(title, content, type = 'info') {
+            const results = document.getElementById('browserSupport');
+            const statusClass = type === 'success' ? 'success' : type === 'error' ? 'error' : type === 'warning' ? 'warning' : '';
+            results.innerHTML += `
+                <div class="status ${statusClass}">
+                    <strong>${title}</strong><br>
+                    ${content}
+                </div>
+            `;
+        }
+        
+        // Test support navigateur
+        function testBrowserSupport() {
+            addLog('🔍 Test support navigateur...');
+            
+            const audio = document.createElement('audio');
+            const video = document.createElement('video');
+            
+            // Test formats audio
+            const audioFormats = {
+                'mp3': 'audio/mpeg',
+                'wav': 'audio/wav',
+                'ogg': 'audio/ogg',
+                'aac': 'audio/aac',
+                'flac': 'audio/flac'
+            };
+            
+            // Test formats vidéo
+            const videoFormats = {
+                'mp4': 'video/mp4',
+                'webm': 'video/webm',
+                'ogg': 'video/ogg',
+                'avi': 'video/avi',
+                'mkv': 'video/x-matroska'
+            };
+            
+            addLog('📋 Support Audio:');
+            for (const [format, mime] of Object.entries(audioFormats)) {
+                const canPlay = audio.canPlayType(mime);
+                const status = canPlay === 'probably' ? '✅ Probablement' : 
+                             canPlay === 'maybe' ? '⚠️ Peut-être' : '❌ Non supporté';
+                addLog(`  ${format}: ${status} (${canPlay})`);
+            }
+            
+            addLog('📋 Support Vidéo:');
+            for (const [format, mime] of Object.entries(videoFormats)) {
+                const canPlay = video.canPlayType(mime);
+                const status = canPlay === 'probably' ? '✅ Probablement' : 
+                             canPlay === 'maybe' ? '⚠️ Peut-être' : '❌ Non supporté';
+                addLog(`  ${format}: ${status} (${canPlay})`);
+            }
+        }
+        
+        function testAudioMP3() {
+            addLog('🎵 Test Audio MP3...');
+            
+            const audio = document.getElementById('audioPlayer');
+            const source = document.getElementById('audioSource');
+            
+            const url = "/api/files/stream-by-path/D%3A%5CMusique%5C90's%20Dance%20Hits%5C02%20TH%20Express%20_%20Missing%20In%20The%20Rain.mp3?native=true";
+            
+            source.src = url;
+            audio.load();
+            
+            addLog(`🎵 URL MP3: ${url}`);
+            
+            audio.addEventListener('loadstart', () => {
+                addLog('🎵 MP3: loadstart');
+            });
+            
+            audio.addEventListener('canplay', () => {
+                addLog('✅ MP3: canplay - Peut être lu');
+                addResult('✅ MP3 Streaming', 'Fonctionne avec HTML5', 'success');
+            });
+            
+            audio.addEventListener('error', (e) => {
+                addLog(`❌ MP3 error: ${e.target.error?.message || 'Erreur inconnue'}`, 'error');
+                addResult('❌ MP3 Streaming', 'Erreur de lecture', 'error');
+            });
+        }
+        
+        function testAudioWAV() {
+            addLog('🎵 Test Audio WAV...');
+            
+            const audio = document.getElementById('audioPlayer');
+            const source = document.getElementById('audioSource');
+            
+            // URL WAV exemple (à adapter)
+            const url = "/api/files/stream-by-path/chemin/vers/fichier.wav?native=true";
+            
+            source.src = url;
+            source.type = 'audio/wav';
+            audio.load();
+            
+            addLog(`🎵 URL WAV: ${url}`);
+            
+            audio.addEventListener('canplay', () => {
+                addLog('✅ WAV: canplay - Peut être lu');
+                addResult('✅ WAV Streaming', 'Fonctionne avec HTML5', 'success');
+            });
+            
+            audio.addEventListener('error', (e) => {
+                addLog(`❌ WAV error: ${e.target.error?.message || 'Erreur inconnue'}`, 'error');
+                addResult('❌ WAV Streaming', 'Erreur de lecture', 'error');
+            });
+        }
+        
+        function testVideoMP4() {
+            addLog('🎬 Test Vidéo MP4...');
+            
+            const video = document.getElementById('videoPlayer');
+            const source = document.getElementById('videoSource');
+            
+            // URL MP4 exemple (à adapter)
+            const url = "/api/files/stream-by-path/chemin/vers/video.mp4?native=true";
+            
+            source.src = url;
+            source.type = 'video/mp4';
+            video.load();
+            
+            addLog(`🎬 URL MP4: ${url}`);
+            
+            video.addEventListener('canplay', () => {
+                addLog('✅ MP4: canplay - Peut être lu');
+                addResult('✅ MP4 Streaming', 'Fonctionne avec HTML5', 'success');
+            });
+            
+            video.addEventListener('error', (e) => {
+                addLog(`❌ MP4 error: ${e.target.error?.message || 'Erreur inconnue'}`, 'error');
+                addResult('❌ MP4 Streaming', 'Erreur de lecture', 'error');
+            });
+        }
+        
+        function testVideoAVI() {
+            addLog('🎬 Test Vidéo AVI...');
+            
+            const video = document.getElementById('videoPlayer');
+            const source = document.getElementById('videoSource');
+            
+            const url = "/api/files/stream-by-path/D%3A%5CVid%C3%A9os%5C2008%2004%20Avril%5CMasque%20visage%20Marjo.AVI?native=true";
+            
+            source.src = url;
+            source.type = 'video/avi';
+            video.load();
+            
+            addLog(`🎬 URL AVI: ${url}`);
+            
+            video.addEventListener('canplay', () => {
+                addLog('✅ AVI: canplay - Peut être lu');
+                addResult('✅ AVI Streaming', 'Fonctionne avec HTML5', 'success');
+            });
+            
+            video.addEventListener('error', (e) => {
+                addLog(`❌ AVI error: ${e.target.error?.message || 'Erreur inconnue'}`, 'error');
+                addResult('❌ AVI Streaming', 'Non supporté par HTML5', 'error');
+            });
+        }
+        
+        function testVideoWebM() {
+            addLog('🎬 Test Vidéo WebM...');
+            
+            const video = document.getElementById('videoPlayer');
+            const source = document.getElementById('videoSource');
+            
+            // URL WebM exemple (à adapter)
+            const url = "/api/files/stream-by-path/chemin/vers/video.webm?native=true";
+            
+            source.src = url;
+            source.type = 'video/webm';
+            video.load();
+            
+            addLog(`🎬 URL WebM: ${url}`);
+            
+            video.addEventListener('canplay', () => {
+                addLog('✅ WebM: canplay - Peut être lu');
+                addResult('✅ WebM Streaming', 'Fonctionne avec HTML5', 'success');
+            });
+            
+            video.addEventListener('error', (e) => {
+                addLog(`❌ WebM error: ${e.target.error?.message || 'Erreur inconnue'}`, 'error');
+                addResult('❌ WebM Streaming', 'Erreur de lecture', 'error');
+            });
+        }
+        
+        // Test automatique au chargement
+        window.onload = function() {
+            addLog('🚀 Test support formats démarré');
+            testBrowserSupport();
+        };
+    </script>
+</body>
+</html> 

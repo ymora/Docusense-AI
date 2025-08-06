@@ -1,4 +1,5 @@
 // Service pour la gestion des prompts
+import { getFileTypeFromMime } from '../utils/fileTypeUtils';
 
 export interface Prompt {
   id: string;
@@ -393,7 +394,7 @@ class PromptService {
 
   // Méthodes pour obtenir les prompts adaptés au type de fichier
   getPromptsForFileType(mimeType: string): Prompt[] {
-    const fileType = this.getFileTypeFromMime(mimeType);
+    const fileType = getFileTypeFromMime(mimeType);
     
     switch (fileType) {
       case 'document':
@@ -404,17 +405,6 @@ class PromptService {
         return this.prompts.filter(p => p.type === 'analysis' || p.type === 'extraction');
       default:
         return this.prompts;
-    }
-  }
-
-  private getFileTypeFromMime(mimeType: string): string {
-    const mime = mimeType.toLowerCase();
-    if (mime.startsWith('audio/') || mime.startsWith('video/')) {
-      return 'media';
-    } else if (mime.startsWith('image/')) {
-      return 'image';
-    } else {
-      return 'document';
     }
   }
 }

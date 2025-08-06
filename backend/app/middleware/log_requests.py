@@ -19,6 +19,14 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         
         try:
             response = await call_next(request)
+            
+            # OPTIMISATION: Log seulement les erreurs et les requêtes importantes
+            process_time = time.time() - start_time
+            
+            # Log seulement si c'est une erreur ou une requête lente (> 1s)
+            if response.status_code >= 400 or process_time > 1.0:
+                logger.warning(f"SLOW/ERROR REQUEST - {request.method} {request.url.path} - Status: {response.status_code} - Time: {process_time:.3f}s")
+            
             return response
             
         except Exception as e:

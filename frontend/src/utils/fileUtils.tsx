@@ -33,7 +33,7 @@ export interface FileStatus {
   text: string;
 }
 
-import { getFileType } from './fileTypeUtils';
+import { getFileType, FileType } from './fileTypeUtils';
 
 /**
  * Obtient l'icône appropriée selon le type de fichier
@@ -98,53 +98,26 @@ export const getEmailAttachmentEmoji = (contentType: string, filename: string): 
 
 /**
  * Vérifie si un fichier peut être prévisualisé
+ * Version améliorée utilisant la détection centralisée
  */
 export const canPreviewFile = (contentType: string, filename: string): boolean => {
-  const extension = filename.split('.').pop()?.toLowerCase();
+  const fileType = getFileType(filename, contentType);
   
-  // Formats vidéo supportés par les navigateurs
-  const supportedVideoFormats = [
-    'video/mp4', 'video/webm', 'video/ogg', 'video/ogv',
-    'video/quicktime', 'video/x-msvideo', 'video/x-ms-wmv'
+  // Types de fichiers qui peuvent être prévisualisés
+  const previewableTypes: FileType[] = [
+    'image', 'audio', 'video', 'document', 'text', 'spreadsheet'
   ];
   
-  // Extensions vidéo supportées
-  const supportedVideoExtensions = ['mp4', 'webm', 'ogv', 'ogg', 'mov'];
-  
-  return (
-    contentType.startsWith('image/') ||
-    contentType.startsWith('text/') ||
-    contentType === 'application/pdf' ||
-    (contentType.startsWith('video/') && (
-      supportedVideoFormats.includes(contentType) || 
-      supportedVideoExtensions.includes(extension || '')
-    )) ||
-    contentType.startsWith('audio/') ||
-    contentType.includes('json') ||
-    contentType.includes('xml') ||
-    contentType.includes('csv') ||
-    extension === 'txt' || extension === 'md' || extension === 'log' ||
-    extension === 'json' || extension === 'xml' || extension === 'csv' ||
-    extension === 'html' || extension === 'htm' || extension === 'css' ||
-    extension === 'js' || extension === 'py' || extension === 'java' ||
-    extension === 'cpp' || extension === 'c' || extension === 'php'
-  );
+  return previewableTypes.includes(fileType);
 };
 
 /**
  * Vérifie si un format vidéo est supporté par le navigateur
+ * Version améliorée utilisant la détection centralisée
  */
 export const isVideoFormatSupported = (contentType: string, filename: string): boolean => {
-  const extension = filename.split('.').pop()?.toLowerCase();
-  
-  // Formats vidéo supportés par les navigateurs modernes
-  const supportedFormats = [
-    'video/mp4', 'video/webm', 'video/ogg', 'video/ogv'
-  ];
-  
-  const supportedExtensions = ['mp4', 'webm', 'ogv', 'ogg'];
-  
-  return supportedFormats.includes(contentType) || supportedExtensions.includes(extension || '');
+  const fileType = getFileType(filename, contentType);
+  return fileType === 'video';
 };
 
 /**

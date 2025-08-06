@@ -8,7 +8,7 @@ export interface BackendStatus {
   isInactive: boolean; // Nouveau: indique si le frontend est inactif
 }
 
-export const useBackendStatus = (checkInterval: number = 30000) => { // OPTIMISATION: Augmenté de 10s à 30s
+export const useBackendStatus = (checkInterval: number = 60000) => { // OPTIMISATION: Augmenté à 60s pour réduire les logs
   const [status, setStatus] = useState<BackendStatus>({
     isOnline: true, // On commence optimiste
     lastCheck: null,
@@ -86,17 +86,17 @@ export const useBackendStatus = (checkInterval: number = 30000) => { // OPTIMISA
   // Détection d'inactivité
   useEffect(() => {
     let inactivityTimer: NodeJS.Timeout;
-    const INACTIVITY_TIMEOUT = 60000; // 1 minute d'inactivité
+    const INACTIVITY_TIMEOUT = 30000; // 30 secondes d'inactivité pour réduire les logs
 
     const resetInactivityTimer = () => {
       clearTimeout(inactivityTimer);
       if (status.isInactive) {
-        console.log('🔄 Activité détectée - Réactivation de la surveillance');
+        // console.log('🔄 Activité détectée - Réactivation de la surveillance'); // Log désactivé pour réduire le bruit
         setStatus(prev => ({ ...prev, isInactive: false }));
       }
       inactivityTimer = setTimeout(() => {
         // L'état inactif se déclenche indépendamment du statut du backend
-        console.log('⏸️ Frontend inactif - Arrêt des requêtes automatiques');
+        // console.log('⏸️ Frontend inactif - Arrêt des requêtes automatiques'); // Log désactivé pour réduire le bruit
         setStatus(prev => ({ ...prev, isInactive: true }));
       }, INACTIVITY_TIMEOUT);
     };
@@ -138,7 +138,7 @@ export const useBackendStatus = (checkInterval: number = 30000) => { // OPTIMISA
 
   // Fonction pour forcer une vérification manuelle (reconnexion)
   const forceCheck = async () => {
-    console.log('🔌 Tentative de reconnexion manuelle...');
+    // console.log('🔌 Tentative de reconnexion manuelle...'); // Log désactivé pour réduire le bruit
     
     // Réactiver la surveillance si elle était désactivée
     if (!isMonitoring) {
@@ -154,13 +154,13 @@ export const useBackendStatus = (checkInterval: number = 30000) => { // OPTIMISA
 
   // Fonction pour arrêter la surveillance (quand inactif)
   const stopMonitoring = () => {
-    console.log('⏹️ Arrêt de la surveillance automatique');
+    // console.log('⏹️ Arrêt de la surveillance automatique'); // Log désactivé pour réduire le bruit
     setIsMonitoring(false);
   };
 
   // Fonction pour reprendre la surveillance
   const resumeMonitoring = () => {
-    console.log('▶️ Reprise de la surveillance automatique');
+    // console.log('▶️ Reprise de la surveillance automatique'); // Log désactivé pour réduire le bruit
     setIsMonitoring(true);
   };
 

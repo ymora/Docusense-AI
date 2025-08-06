@@ -73,7 +73,7 @@ class Settings(BaseSettings):
     redis_url: Optional[str] = Field(default=None, env="REDIS_URL")
 
     # Logging
-    log_level: str = Field(default="INFO", env="LOG_LEVEL")
+    log_level: str = Field(default="WARNING", env="LOG_LEVEL")  # OPTIMISATION: Réduit de INFO à WARNING
     log_format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
     # File Processing
@@ -88,7 +88,7 @@ class Settings(BaseSettings):
     # Queue
     max_concurrent_analyses: int = Field(
         default=3, env="MAX_CONCURRENT_ANALYSES")
-    queue_poll_interval: int = Field(default=2, env="QUEUE_POLL_INTERVAL")
+    queue_poll_interval: int = Field(default=5, env="QUEUE_POLL_INTERVAL")  # OPTIMISATION: Augmenté de 2s à 5s
 
     # Cache
     cache_enabled: bool = Field(default=True, env="CACHE_ENABLED")
@@ -101,9 +101,9 @@ class Settings(BaseSettings):
         default=86400, env="STATIC_FILES_CACHE_TTL")  # 24 hours
 
     # Monitoring - NOUVEAU: Observabilité
-    metrics_enabled: bool = Field(default=True, env="METRICS_ENABLED")
+    metrics_enabled: bool = Field(default=False, env="METRICS_ENABLED")  # OPTIMISATION: Désactivé par défaut
     health_check_interval: int = Field(
-        default=30, env="HEALTH_CHECK_INTERVAL")  # seconds
+        default=60, env="HEALTH_CHECK_INTERVAL")  # OPTIMISATION: Augmenté à 60s
 
     @validator('cors_origins', pre=True)
     def parse_cors_origins(cls, v):

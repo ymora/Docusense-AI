@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import { promptService, Prompt, PromptCategory } from '../services/promptService';
 import { createLoadingActions, createCallGuard, createOptimizedUpdater } from '../utils/storeUtils';
+import { getFileTypeFromMime } from '../utils/fileTypeUtils';
 
 interface PromptState {
   prompts: Prompt[];
@@ -156,14 +157,4 @@ export const usePromptStore = create<PromptState>()(
   )
 );
 
-// Fonction utilitaire pour déterminer le type de fichier
-function getFileTypeFromMime(mimeType: string): string {
-  const mime = mimeType.toLowerCase();
-  if (mime.startsWith('audio/') || mime.startsWith('video/')) {
-    return 'media';
-  } else if (mime.startsWith('image/')) {
-    return 'image';
-  } else {
-    return 'document';
-  }
-} 
+ 

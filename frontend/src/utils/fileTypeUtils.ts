@@ -4,30 +4,20 @@
 
 export type FileType = 'image' | 'audio' | 'video' | 'document' | 'spreadsheet' | 'email' | 'text' | 'other' | 'unknown';
 
+import { getFileTypeByExtension } from './mediaFormats';
+
 /**
  * Détecte le type de fichier basé sur l'extension et le type MIME
- * Version améliorée basée sur la meilleure implémentation de FileTree.tsx
+ * Version améliorée utilisant la configuration centralisée
  */
 export const getFileType = (fileName: string, mimeType?: string): FileType => {
+  // Utiliser la configuration centralisée pour les types média
+  const mediaType = getFileTypeByExtension(fileName);
+  if (mediaType !== 'unknown') {
+    return mediaType as FileType;
+  }
+
   const extension = fileName.split('.').pop()?.toLowerCase();
-
-  // Images - Support étendu incluant formats RAW et HEIC
-  if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg', 'tiff', 'ico', 'raw', 'heic', 'heif', 'cr2', 'nef', 'arw'].includes(extension || '') ||
-      mimeType?.startsWith('image/')) {
-    return 'image';
-  }
-
-  // Audio - Support étendu incluant formats haute qualité
-  if (['mp3', 'wav', 'ogg', 'flac', 'aac', 'm4a', 'wma', 'opus', 'aiff', 'alac'].includes(extension || '') ||
-      mimeType?.startsWith('audio/')) {
-    return 'audio';
-  }
-
-  // Vidéo - Support étendu incluant formats professionnels
-  if (['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv', 'm4v', '3gp', 'ogv', 'ts', 'mts', 'm2ts'].includes(extension || '') ||
-      mimeType?.startsWith('video/')) {
-    return 'video';
-  }
 
   // Documents - Support étendu incluant formats OpenDocument
   if (['pdf', 'docx', 'doc', 'rtf', 'odt', 'pages', 'ppt', 'pptx', 'odp', 'key'].includes(extension || '') ||
@@ -57,4 +47,19 @@ export const getFileType = (fileName: string, mimeType?: string): FileType => {
   }
 
   return 'other';
+};
+
+/**
+ * Détermine le type de fichier basé sur le type MIME
+ * Version centralisée pour éviter la duplication
+ */
+export const getFileTypeFromMime = (mimeType: string): string => {
+  const mime = mimeType.toLowerCase();
+  if (mime.startsWith('audio/') || mime.startsWith('video/')) {
+    return 'media';
+  } else if (mime.startsWith('image/')) {
+    return 'image';
+  } else {
+    return 'document';
+  }
 };

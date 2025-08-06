@@ -19,17 +19,10 @@ class MediaConverterService:
         
     def get_media_type(self, file_path: str) -> str:
         """Détermine le type de média (video/audio)"""
-        audio_extensions = {'.mp3', '.wav', '.flac', '.aac', '.ogg', '.wma', '.m4a', '.opus', '.aiff', '.au', '.ra', '.rm', '.wv', '.ape', '.alac', '.ac3', '.dts', '.amr', '.3ga', '.mka', '.tta', '.mid', '.midi'}
-        video_extensions = {'.mp4', '.webm', '.ogg', '.mov', '.m4v', '.3gp', '.ogv', '.ts', '.mts', '.m2ts', '.mkv', '.avi', '.wmv', '.flv', '.asf', '.rm', '.rmvb', '.divx', '.xvid', '.h264', '.h265', '.vp8', '.vp9', '.mpeg', '.mpg', '.mpe', '.m1v', '.m2v', '.mpv', '.mp2', '.m2p', '.ps', '.evo', '.ogm', '.ogx', '.mxf', '.nut', '.hls', '.m3u8'}
+        # Importer la configuration centralisée des formats
+        from ..core.media_formats import get_file_type_by_extension
         
-        file_ext = Path(file_path).suffix.lower()
-        
-        if file_ext in audio_extensions:
-            return 'audio'
-        elif file_ext in video_extensions:
-            return 'video'
-        else:
-            return 'unknown'
+        return get_file_type_by_extension(file_path)
     
     def is_format_web_optimized(self, file_path: str) -> bool:
         """Vérifie si le format est déjà optimisé pour le web"""
@@ -317,10 +310,10 @@ class MediaConverterService:
 
     def convert_to_hls(self, input_path: str) -> Optional[str]:
         """
-        Convertit une vidéo en format HLS (.m3u8 + segments .ts)
+        Convertit un fichier média (vidéo ou audio) en format HLS (.m3u8 + segments .ts)
         
         Args:
-            input_path: Chemin du fichier vidéo d'entrée
+            input_path: Chemin du fichier média d'entrée
             
         Returns:
             str: Chemin du fichier .m3u8 ou None si échec
@@ -334,6 +327,9 @@ class MediaConverterService:
             if not self._check_ffmpeg():
                 logger.error("FFmpeg n'est pas disponible pour la conversion HLS")
                 return None
+            
+            # Déterminer le type de média
+            media_type = self.get_media_type(input_path)
             
             # Créer le dossier de sortie HLS
             input_name = Path(input_path).stem
@@ -351,23 +347,41 @@ class MediaConverterService:
                 logger.info(f"Fichier HLS existant trouvé: {m3u8_path}")
                 return str(m3u8_path)
             
-            # Commande FFmpeg pour la conversion HLS
-            cmd = [
-                'ffmpeg', '-i', input_path,
-                '-c:v', 'libx264',  # Codec vidéo H.264
-                '-c:a', 'aac',      # Codec audio AAC
-                '-preset', 'fast',   # Preset rapide
-                '-crf', '23',       # Qualité constante
-                '-sc_threshold', '0',  # Désactiver la détection de scène
-                '-g', '48',         # GOP size
-                '-keyint_min', '48', # Keyframe interval minimum
-                '-hls_time', '4',   # Durée des segments (4 secondes)
-                '-hls_list_size', '0',  # Garder tous les segments
-                '-hls_segment_filename', str(output_dir / 'segment_%03d.ts'),
-                '-f', 'hls',        # Format de sortie HLS
-                '-y',               # Écraser le fichier de sortie
-                str(m3u8_path)
-            ]
+            # Commande FFmpeg selon le type de média
+            if media_type == 'video':
+                # Conversion HLS pour vidéo
+                cmd = [
+                    'ffmpeg', '-i', input_path,
+                    '-c:v', 'libx264',  # Codec vidéo H.264
+                    '-c:a', 'aac',      # Codec audio AAC
+                    '-preset', 'fast',   # Preset rapide
+                    '-crf', '23',       # Qualité constante
+                    '-sc_threshold', '0',  # Désactiver la détection de scène
+                    '-g', '48',         # GOP size
+                    '-keyint_min', '48', # Keyframe interval minimum
+                    '-hls_time', '4',   # Durée des segments (4 secondes)
+                    '-hls_list_size', '0',  # Garder tous les segments
+                    '-hls_segment_filename', str(output_dir / 'segment_%03d.ts'),
+                    '-f', 'hls',        # Format de sortie HLS
+                    '-y',               # Écraser le fichier de sortie
+                    str(m3u8_path)
+                ]
+            elif media_type == 'audio':
+                # Conversion HLS pour audio (audio-only HLS)
+                cmd = [
+                    'ffmpeg', '-i', input_path,
+                    '-c:a', 'aac',      # Codec audio AAC
+                    '-b:a', '128k',     # Bitrate audio
+                    '-hls_time', '4',   # Durée des segments (4 secondes)
+                    '-hls_list_size', '0',  # Garder tous les segments
+                    '-hls_segment_filename', str(output_dir / 'segment_%03d.ts'),
+                    '-f', 'hls',        # Format de sortie HLS
+                    '-y',               # Écraser le fichier de sortie
+                    str(m3u8_path)
+                ]
+            else:
+                logger.error(f"Type de média non supporté pour HLS: {media_type}")
+                return None
             
             logger.info(f"Conversion HLS démarrée: {' '.join(cmd)}")
             

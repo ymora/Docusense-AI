@@ -95,3 +95,12 @@ rules:
   - "NE JAMAIS créer de code doublon ou redondant"
   - "Si du code existe déjà, l'utiliser et l'améliorer"
   - "Supprimer le code obsolète au lieu de le laisser en place"
+  
+  # Lecture vidéo
+  - "Les types MIME vidéo sont initialisés dans file_validation.py avec mimetypes.init()"
+  - "Utiliser finalIsVideo et finalIsAudio pour la détection des types de média"
+  - "Le streaming vidéo utilise l'endpoint /api/files/stream-by-path avec native=true"
+  - "Support des formats: mp4, avi, mov, mkv, webm, m4v, 3gp, flv, wmv, etc."
+  - "ReactPlayer forceVideo et forceAudio pour corriger les détections incorrectes"
+  - "Tous les composants utilisent getFileType centralisé pour la détection des types"
+  - "FileTree, UnifiedFileViewer et utilitaires sont synchronisés avec MediaPlayer"
