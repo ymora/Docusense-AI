@@ -3,7 +3,8 @@ import {
   ChevronLeftIcon,
   ChevronRightIcon,
   DocumentTextIcon,
-  Cog6ToothIcon
+  Cog6ToothIcon,
+  ChartBarIcon
 } from '@heroicons/react/24/outline';
 import LeftPanel from './LeftPanel';
 import MainPanel from './MainPanel';
@@ -31,6 +32,8 @@ const Layout: React.FC = () => {
   const [showPromptSelector, setShowPromptSelector] = useState(false);
   const [promptSelectorMode, setPromptSelectorMode] = useState<'single' | 'comparison' | 'batch' | 'multiple_ai'>('single');
   const [promptSelectorFileIds, setPromptSelectorFileIds] = useState<number[]>([]);
+  
+
 
   // L'application est maintenant initialisée automatiquement via le hook useStartupInitialization
 
@@ -94,9 +97,7 @@ const Layout: React.FC = () => {
       } else if (action === 'analyze_with_prompt' && file && file.selectedPrompt) {
         const fileIds = selectedFiles && selectedFiles.length > 1
           ? selectedFiles
-          : [selectedFile?.id || selectedFile?.path];
-        
-        // Lancer l'analyse avec le prompt sélectionné
+          : [file.id || file.path];
         handleAnalyzeWithPrompt(fileIds, file.selectedPrompt);
       } else if (action === 'analyze_general' && file) {
         const fileIds = selectedFiles && selectedFiles.length > 1
@@ -108,9 +109,14 @@ const Layout: React.FC = () => {
         setActivePanel('main');
       }
     };
+
+    // Écouter les événements d'action de fichiers
     window.addEventListener('fileAction', handleFileAction as EventListener);
-    return () => window.removeEventListener('fileAction', handleFileAction as EventListener);
-  }, [setActivePanel, selectedFiles, selectedFile]);
+    
+    return () => {
+      window.removeEventListener('fileAction', handleFileAction as EventListener);
+    };
+  }, [selectedFiles, selectFile, setActivePanel]);
 
   // Gestion de la sélection de prompt
   const handlePromptSelect = (promptId: string, prompt: any) => {
@@ -334,6 +340,15 @@ const Layout: React.FC = () => {
     }
   };
 
+  const handleStatsButtonClick = () => {
+    // Toggle : si on est déjà sur stats, revenir à main, sinon aller à stats
+    if (activePanel === 'stats') {
+      setActivePanel('main');
+    } else {
+      setActivePanel('stats');
+    }
+  };
+
   // Styles des boutons
   const getButtonStyles = (isActive: boolean) => ({
     backgroundColor: isActive ? colors.primary : 'transparent',
@@ -433,6 +448,18 @@ const Layout: React.FC = () => {
               >
                 <DocumentTextIcon className="h-4 w-4" />
                 <span>Analyse IA {queueItems && queueItems.length > 0 && `(${queueItems.length})`}</span>
+              </button>
+              
+              {/* Bouton Statistiques */}
+              <button
+                onClick={handleStatsButtonClick}
+                className={`p-2 rounded-md text-sm font-medium transition-colors ${
+                  activePanel === 'stats' ? 'bg-blue-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
+                }`}
+                style={getButtonStyles(activePanel === 'stats')}
+                title="Afficher/Masquer les statistiques"
+              >
+                <ChartBarIcon className="h-4 w-4" />
               </button>
             </div>
 

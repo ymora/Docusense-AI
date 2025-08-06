@@ -45,13 +45,13 @@ import { analysisService } from '../../services/analysisService';
 import { useUIStore } from '../../stores/uiStore';
 
 interface MainPanelProps {
-  activePanel: 'main' | 'config' | 'analyses' | 'queue';
+  activePanel: 'main' | 'config' | 'analyses' | 'queue' | 'stats';
   showPromptSelector?: boolean;
   promptSelectorMode?: 'single' | 'comparison' | 'batch';
   promptSelectorFileIds?: number[];
   onPromptSelect?: (promptId: string, prompt: any) => void;
   onClosePromptSelector?: () => void;
-  onSetActivePanel?: (panel: 'main' | 'config' | 'analyses' | 'queue') => void;
+  onSetActivePanel?: (panel: 'main' | 'config' | 'analyses' | 'queue' | 'stats') => void;
 }
 
 const MainPanel: React.FC<MainPanelProps> = ({ 
@@ -101,18 +101,20 @@ const MainPanel: React.FC<MainPanelProps> = ({
   const loadAnalysisStats = async () => {
     try {
       setStatsLoading(true);
+      console.log('🔄 Chargement des statistiques...');
       const stats = await analysisService.getAnalysisStats();
+      console.log('📊 Statistiques reçues:', stats);
       setAnalysisStats(stats);
     } catch (error) {
-      console.error('Erreur lors du chargement des statistiques:', error);
+      console.error('❌ Erreur lors du chargement des statistiques:', error);
     } finally {
       setStatsLoading(false);
     }
   };
 
-  // Charger les statistiques au montage
+  // Charger les statistiques quand on passe au panneau stats
   useEffect(() => {
-    if (activePanel === 'main') {
+    if (activePanel === 'stats') {
       loadAnalysisStats();
     }
   }, [activePanel]);
@@ -373,7 +375,121 @@ const MainPanel: React.FC<MainPanelProps> = ({
       case 'analyses':
         return <AnalysisListContent />;
 
+      case 'stats':
+        return (
+          <div className="h-full flex flex-col">
+            <div className="p-4 border-b" style={{ borderColor: colors.border }}>
+              <div className="flex items-center space-x-3">
+                <ChartBarIcon className="h-6 w-6" style={{ color: colors.primary }} />
+                <div>
+                  <h2 className="text-xl font-semibold" style={{ color: colors.text }}>
+                    Statistiques IA
+                  </h2>
+                  <p className="text-sm" style={{ color: colors.textSecondary }}>
+                    Métriques et performances des analyses IA
+                  </p>
+                </div>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              {/* Contenu des statistiques */}
+              {statsLoading ? (
+                <div className="flex items-center justify-center h-32">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: colors.primary }}></div>
+                  <span className="ml-2" style={{ color: colors.textSecondary }}>Chargement des statistiques...</span>
+                </div>
+              ) : analysisStats ? (
+                <div className="space-y-6">
+                  {/* Cartes de métriques principales */}
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <MetricCard
+                      title="Analyses totales"
+                      value={analysisStats.total || 0}
+                      icon={DocumentTextIcon}
+                      color={colors.text}
+                    />
+                    <MetricCard
+                      title="Terminées"
+                      value={analysisStats.completed || 0}
+                      icon={CheckCircleIcon}
+                      color={colors.success}
+                    />
+                    <MetricCard
+                      title="Échecs"
+                      value={analysisStats.failed || 0}
+                      icon={ExclamationTriangleIcon}
+                      color={colors.error}
+                    />
+                    <MetricCard
+                      title="Taux de succès"
+                      value={`${Math.round(analysisStats.success_rate || 0)}%`}
+                      icon={ArrowTrendingUpIcon}
+                      color={colors.warning}
+                    />
+                  </div>
 
+                  {/* Graphiques et détails */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    {/* Répartition par statut */}
+                    <div className="p-4 rounded-lg border" style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
+                      <h3 className="text-lg font-semibold mb-4" style={{ color: colors.text }}>
+                        Répartition par statut
+                      </h3>
+                      <SimpleBarChart
+                        data={{
+                          'Terminées': analysisStats.completed || 0,
+                          'En cours': analysisStats.processing || 0,
+                          'En attente': analysisStats.pending || 0,
+                          'Échecs': analysisStats.failed || 0
+                        }}
+                        title="Statuts des analyses"
+                        maxValue={Math.max(
+                          analysisStats.completed || 0,
+                          analysisStats.processing || 0,
+                          analysisStats.pending || 0,
+                          analysisStats.failed || 0
+                        )}
+                      />
+                    </div>
+
+                    {/* Performance temporelle */}
+                    <div className="p-4 rounded-lg border" style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
+                      <h3 className="text-lg font-semibold mb-4" style={{ color: colors.text }}>
+                        Performance
+                      </h3>
+                      <div className="space-y-3">
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm" style={{ color: colors.textSecondary }}>Temps moyen par analyse</span>
+                          <span className="font-medium" style={{ color: colors.text }}>
+                            {analysisStats.avg_processing_time || 'N/A'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm" style={{ color: colors.textSecondary }}>Analyses aujourd'hui</span>
+                          <span className="font-medium" style={{ color: colors.text }}>
+                            {analysisStats.today_count || 0}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center">
+                          <span className="text-sm" style={{ color: colors.textSecondary }}>Analyses cette semaine</span>
+                          <span className="font-medium" style={{ color: colors.text }}>
+                            {analysisStats.week_count || 0}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-32">
+                  <span className="text-sm" style={{ color: colors.textSecondary }}>
+                    Aucune donnée de statistiques disponible
+                  </span>
+                </div>
+              )}
+            </div>
+          </div>
+        );
 
       case 'main':
       default:
@@ -540,80 +656,7 @@ const MainPanel: React.FC<MainPanelProps> = ({
                 </div>
               )}
 
-              {/* Statistiques IA */}
-              {activePanel === 'main' && (
-                <div className="mt-8 p-4 rounded-lg border" style={{ 
-                  backgroundColor: colors.surface,
-                  borderColor: colors.border 
-                }}>
-                  <div className="flex items-center justify-between mb-4">
-                    <div className="flex items-center space-x-2">
-                      <ChartBarIcon className="h-5 w-5" style={{ color: colors.config }} />
-                      <span className="text-sm font-medium" style={{ color: colors.text }}>
-                        Statistiques IA
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <button
-                        onClick={() => onSetActivePanel?.('analyses')}
-                        className="text-xs px-3 py-1 rounded-lg transition-colors"
-                        style={{ 
-                          backgroundColor: colors.queue,
-                          color: colors.background
-                        }}
-                      >
-                        Voir les analyses
-                      </button>
-                      <button
-                        onClick={loadAnalysisStats}
-                        disabled={statsLoading}
-                        className="text-xs px-3 py-1 rounded-lg transition-colors"
-                        style={{ 
-                          backgroundColor: colors.config,
-                          color: colors.background
-                        }}
-                      >
-                        {statsLoading ? 'Chargement...' : 'Actualiser'}
-                      </button>
-                    </div>
-                  </div>
-                  
-                  {analysisStats ? (
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                      <div className="text-center">
-                        <div className="text-lg font-bold" style={{ color: colors.text }}>
-                          {analysisStats.total_analyses || 0}
-                        </div>
-                        <span className="text-xs" style={{ color: colors.textSecondary }}>Analyses totales</span>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-lg font-bold" style={{ color: colors.success }}>
-                          {analysisStats.success_rate || 0}%
-                        </div>
-                        <span className="text-xs" style={{ color: colors.textSecondary }}>Taux de succès</span>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-lg font-bold" style={{ color: colors.warning }}>
-                          {analysisStats.avg_processing_time || 0}s
-                        </div>
-                        <span className="text-xs" style={{ color: colors.textSecondary }}>Temps moyen</span>
-                      </div>
-                      <div className="text-center">
-                        <div className="text-lg font-bold" style={{ color: colors.error }}>
-                          ${analysisStats.total_cost || 0}
-                        </div>
-                        <span className="text-xs" style={{ color: colors.textSecondary }}>Coût total</span>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-4">
-                      <span className="text-sm" style={{ color: colors.textSecondary }}>
-                        {statsLoading ? 'Chargement des statistiques...' : 'Aucune statistique disponible'}
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
+
             </div>
           </div>
         );

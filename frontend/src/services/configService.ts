@@ -73,10 +73,13 @@ export class ConfigService {
   }
 
   // Tester un provider (optimisé avec cache)
-  static async testProvider(provider: string): Promise<{ success: boolean; message: string; cached?: boolean }> {
+  static async testProvider(provider: string, apiKey?: string): Promise<{ success: boolean; message: string; cached?: boolean }> {
     try {
+      const requestBody = apiKey ? { api_key: apiKey } : {};
+      
       const response = await apiRequest(`/api/config/ai/test?provider=${encodeURIComponent(provider)}`, {
-        method: 'POST'
+        method: 'POST',
+        body: JSON.stringify(requestBody)
       }, 30000); // 30 secondes de timeout pour les tests
 
       return {

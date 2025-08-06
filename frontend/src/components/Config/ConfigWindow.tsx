@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MinusIcon, XMarkIcon } from '@heroicons/react/24/outline';
 import { useColors } from '../../hooks/useColors';
-import { useAIConfig } from '../../hooks/useAIConfig';
+import ConfigService from '../../services/configService';
 
 interface ConfigWindowProps {
   onClose?: () => void;
@@ -17,144 +17,108 @@ interface ConfigContentProps {
 // Composant de contenu sans header pour utilisation dans MainPanel
 export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimize, isStandalone = false }) => {
   
-  const { colors, colorMode } = useColors();
+  const { colors } = useColors();
   const [activeTab, setActiveTab] = useState<'providers' | 'strategy' | 'metrics'>('providers');
+  const [loading, setLoading] = useState(false);
+  const [providers, setProviders] = useState<any[]>([]);
+  const [apiKeys, setApiKeys] = useState<Record<string, string>>({});
   const [testing, setTesting] = useState<Record<string, boolean>>({});
-  const [localApiKeys, setLocalApiKeys] = useState<Record<string, string>>({});
-  const hasLoadedRef = useRef(false);
+  const [validKeys, setValidKeys] = useState<Record<string, boolean>>({});
+  const [hasLoaded, setHasLoaded] = useState(false);
 
-  // Utiliser le hook personnalisé pour la configuration IA
-  const {
-    providers,
-    providerStatuses,
-    apiKeys,
-    priorities,
-    strategy,
-    metrics,
-    loading,
-    error,
-    saveAPIKey,
-    testProvider,
-    setPriority,
-    setStrategy,
-    getActiveValidProvidersCount,
-    isProviderActive,
-    getProviderStatus,
-    validateAndFixPriorities,
-    resetPriorities,
-    forceRefresh,
-    loadProviders
-  } = useAIConfig();
-
-  // Charger les providers seulement si pas déjà chargés
+  // Charger les providers une seule fois au démarrage
   useEffect(() => {
-    // Ne charger que si on n'a pas de données et qu'on n'est pas déjà en train de charger
-    if (!hasLoadedRef.current && !loading && providers.length === 0) {
-      hasLoadedRef.current = true;
+    if (!hasLoaded) {
       loadProviders();
+      setHasLoaded(true);
     }
-  }, [loadProviders, loading, providers.length]);
+  }, [hasLoaded]);
 
-  // Synchroniser l'état local avec les données du hook
-  useEffect(() => {
-    setLocalApiKeys(apiKeys);
-  }, [apiKeys]);
-
-  // Cleanup du debounce lors du démontage
-  useEffect(() => {
-    return () => {
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current);
-      }
-    };
-  }, []);
-
-  // Debounce pour éviter les appels multiples
-  const debounceRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Gérer le changement de clé API
-  const handleApiKeyChange = async (provider: string, value: string) => {
-    // Mettre à jour l'état local immédiatement pour permettre la saisie
-    setLocalApiKeys(prev => ({ ...prev, [provider]: value }));
-    
-    // Si la clé est vide, ne pas faire de sauvegarde
-    if (!value.trim()) {
-      return;
+  const loadProviders = async () => {
+    try {
+      setLoading(true);
+      const response = await ConfigService.getAIProviders();
+      setProviders(response.providers || []);
+      
+      // Remplir les clés API existantes et leur statut
+      const keys: Record<string, string> = {};
+      const valid: Record<string, boolean> = {};
+      response.providers?.forEach((provider: any) => {
+        if (provider.api_key) {
+          keys[provider.name] = provider.api_key;
+          valid[provider.name] = provider.status === 'valid';
+        }
+      });
+      setApiKeys(keys);
+      setValidKeys(valid);
+    } catch (error) {
+      console.error('Erreur chargement providers:', error);
+    } finally {
+      setLoading(false);
     }
-
-    // Annuler le debounce précédent
-    if (debounceRef.current) {
-      clearTimeout(debounceRef.current);
-    }
-
-    // Débouncer la sauvegarde pour éviter les appels multiples
-    debounceRef.current = setTimeout(async () => {
-      try {
-        await saveAPIKey(provider, value);
-      } catch (error) {
-        console.error(`Erreur lors de la sauvegarde de la clé API pour ${provider}:`, error);
-      }
-    }, 500); // Attendre 500ms après la dernière frappe
   };
 
-  // Gérer le test d'un provider
+  // Gérer le changement de clé API
+  const handleApiKeyChange = (provider: string, value: string) => {
+    setApiKeys(prev => ({ ...prev, [provider]: value }));
+    // Réinitialiser le statut de validité quand la clé change
+    setValidKeys(prev => ({ ...prev, [provider]: false }));
+  };
+
+  // Tester une clé API spécifique
   const handleTestProvider = async (provider: string) => {
-    // Éviter les tests multiples simultanés
-    if (testing[provider]) {
-      console.log(`Test déjà en cours pour ${provider}`);
+    const apiKey = apiKeys[provider];
+    if (!apiKey?.trim()) {
+      alert('Veuillez entrer une clé API pour tester');
       return;
     }
+
+    if (testing[provider]) return;
     
     setTesting(prev => ({ ...prev, [provider]: true }));
     
     try {
-      const result = await testProvider(provider);
-      console.log(`Résultat du test pour ${provider}:`, result);
+      const result = await ConfigService.testProvider(provider, apiKey);
+      if (result.success) {
+        // Sauvegarder la clé si le test réussit
+        await ConfigService.saveAPIKey(provider, apiKey);
+        // Marquer la clé comme valide
+        setValidKeys(prev => ({ ...prev, [provider]: true }));
+        alert(`✅ Test réussi pour ${provider}`);
+        // Recharger les providers pour mettre à jour l'état
+        await loadProviders();
+      } else {
+        // Marquer la clé comme invalide
+        setValidKeys(prev => ({ ...prev, [provider]: false }));
+        alert(`❌ Test échoué pour ${provider}: ${result.message}`);
+      }
     } catch (error) {
-      console.error(`Erreur lors du test de ${provider}:`, error);
+      console.error(`Erreur test ${provider}:`, error);
+      // Marquer la clé comme invalide en cas d'erreur
+      setValidKeys(prev => ({ ...prev, [provider]: false }));
+      alert(`❌ Erreur lors du test de ${provider}`);
     } finally {
       setTesting(prev => ({ ...prev, [provider]: false }));
-    }
-  };
-
-  // Gérer le changement de stratégie
-  const handleStrategyChange = async (newStrategy: string) => {
-    await setStrategy(newStrategy);
-  };
-
-  // Gérer l'activation/désactivation d'un provider
-  const handleToggleProvider = async (providerName: string) => {
-    const currentPriority = priorities[providerName] || 0;
-    const isCurrentlyActive = currentPriority > 0;
-    const providerStatus = getProviderStatus(providerName);
-    
-    // Vérifier que le provider est valide avant activation
-    if (!isCurrentlyActive && providerStatus?.status !== 'valid') {
-      console.warn('Le provider doit avoir une clé API valide pour être activé');
-      return;
-    }
-    
-    if (isCurrentlyActive) {
-      // Désactiver le provider
-      await setPriority(providerName, 0);
-    } else {
-      // Activer le provider avec la priorité la plus basse disponible
-      const activeProviders = providers.filter(p => (priorities[p.name] || 0) > 0);
-      const maxPriority = Math.max(...activeProviders.map(p => priorities[p.name] || 0), 0);
-      const newPriority = maxPriority + 1;
-      await setPriority(providerName, newPriority);
     }
   };
 
   // Obtenir l'icône d'un provider
   const getProviderIcon = (providerName: string) => {
     switch (providerName.toLowerCase()) {
-      case 'openai': return '🔵'; // OpenAI
-      case 'claude': return '🟠'; // Claude (Anthropic)
-      case 'mistral': return '🟣'; // Mistral AI
-      case 'ollama': return '🐙'; // Ollama
+      case 'openai': return '🔵';
+      case 'claude': return '🟠';
+      case 'mistral': return '🟣';
+      case 'ollama': return '🐙';
       default: return '❓';
     }
+  };
+
+  // Obtenir l'icône de la clé selon le statut
+  const getKeyIcon = (provider: string) => {
+    if (testing[provider]) return '⏳';
+    if (validKeys[provider]) return '🔑'; // Clé verte (validée)
+    if (apiKeys[provider]) return '🔑'; // Clé normale (non testée)
+    return '🔑'; // Clé vide
   };
 
   // Obtenir le nom d'affichage d'un provider
@@ -168,20 +132,89 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
     }
   };
 
-  // Obtenir la couleur d'un provider
-  const getProviderColor = (providerName: string) => {
-    switch (providerName.toLowerCase()) {
-      case 'openai': return 'bg-green-500';
-      case 'claude': return 'bg-orange-500';
-      case 'mistral': return 'bg-purple-500';
-      case 'ollama': return 'bg-blue-500';
-      default: return 'bg-gray-500';
+  // Obtenir le statut d'un provider
+  const getProviderStatus = (provider: any) => {
+    if (provider.api_key) {
+      return provider.status === 'valid' ? '✅ Valide' : '❌ Invalide';
     }
+    return 'Non configuré';
+  };
+
+  // États pour la stratégie
+  const [strategy, setStrategy] = useState<string>('priority');
+  const [priorities, setPriorities] = useState<Record<string, number>>({});
+  const [strategyLoading, setStrategyLoading] = useState(false);
+
+  // Charger la stratégie et les priorités
+  useEffect(() => {
+    if (activeTab === 'strategy' && !strategyLoading) {
+      loadStrategy();
+    }
+  }, [activeTab]);
+
+  const loadStrategy = async () => {
+    try {
+      setStrategyLoading(true);
+      const response = await ConfigService.getAIProviders();
+      
+      // Charger la stratégie actuelle
+      setStrategy(response.strategy || 'priority');
+      
+      // Charger les priorités des providers
+      const providerPriorities: Record<string, number> = {};
+      response.providers?.forEach((provider: any) => {
+        if (provider.priority) {
+          providerPriorities[provider.name] = provider.priority;
+        }
+      });
+      setPriorities(providerPriorities);
+    } catch (error) {
+      console.error('Erreur chargement stratégie:', error);
+    } finally {
+      setStrategyLoading(false);
+    }
+  };
+
+  // Changer la stratégie
+  const handleStrategyChange = async (newStrategy: string) => {
+    try {
+      setStrategyLoading(true);
+      await ConfigService.setStrategy(newStrategy);
+      setStrategy(newStrategy);
+      alert(`✅ Stratégie mise à jour: ${newStrategy}`);
+    } catch (error) {
+      console.error('Erreur changement stratégie:', error);
+      alert('❌ Erreur lors du changement de stratégie');
+    } finally {
+      setStrategyLoading(false);
+    }
+  };
+
+  // Changer la priorité d'un provider
+  const handlePriorityChange = async (provider: string, newPriority: number) => {
+    try {
+      setStrategyLoading(true);
+      await ConfigService.setProviderPriority(provider, newPriority);
+      setPriorities(prev => ({ ...prev, [provider]: newPriority }));
+      alert(`✅ Priorité mise à jour pour ${provider}: ${newPriority}`);
+    } catch (error) {
+      console.error(`Erreur changement priorité ${provider}:`, error);
+      alert(`❌ Erreur lors du changement de priorité pour ${provider}`);
+    } finally {
+      setStrategyLoading(false);
+    }
+  };
+
+  // Obtenir les providers triés par priorité
+  const getProvidersByPriority = () => {
+    return providers
+      .filter(provider => priorities[provider.name])
+      .sort((a, b) => (priorities[a.name] || 999) - (priorities[b.name] || 999));
   };
 
   return (
     <div className={isStandalone ? 'h-full' : 'flex-1 overflow-y-auto p-2'}>
-      {/* Tabs avec couleurs centralisées */}
+      {/* Tabs */}
       <div
         className="flex border-b mb-4"
         style={{
@@ -199,10 +232,10 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
           style={{
             backgroundColor: activeTab === 'providers' ? colors.surface : 'transparent',
             color: activeTab === 'providers' ? colors.text : colors.textSecondary,
-            borderBottomColor: activeTab === 'providers' ? colors.config : 'transparent',
+            borderColor: activeTab === 'providers' ? colors.primary : 'transparent'
           }}
         >
-          Providers
+          Providers IA
         </button>
         <button
           onClick={() => setActiveTab('strategy')}
@@ -214,7 +247,7 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
           style={{
             backgroundColor: activeTab === 'strategy' ? colors.surface : 'transparent',
             color: activeTab === 'strategy' ? colors.text : colors.textSecondary,
-            borderBottomColor: activeTab === 'strategy' ? colors.config : 'transparent',
+            borderColor: activeTab === 'strategy' ? colors.primary : 'transparent'
           }}
         >
           Stratégie
@@ -229,465 +262,271 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
           style={{
             backgroundColor: activeTab === 'metrics' ? colors.surface : 'transparent',
             color: activeTab === 'metrics' ? colors.text : colors.textSecondary,
-            borderBottomColor: activeTab === 'metrics' ? colors.config : 'transparent',
+            borderColor: activeTab === 'metrics' ? colors.primary : 'transparent'
           }}
         >
           Métriques
         </button>
       </div>
 
-      {/* Affichage des erreurs */}
-      {error && (
-        <div
-          className="rounded-lg p-2 mb-2 text-xs"
-          style={{
-            backgroundColor: colors.error + '20',
-            border: `1px solid ${colors.error}`,
-            color: colors.error
-          }}
-        >
-          ⚠️ {error}
+      {/* Contenu des tabs */}
+      {activeTab === 'providers' && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold" style={{ color: colors.text }}>
+            Configuration des Providers IA
+          </h3>
+          
+          {loading ? (
+            <div className="flex items-center justify-center p-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: colors.primary }}></div>
+              <span className="ml-2" style={{ color: colors.textSecondary }}>Chargement...</span>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {providers.map((provider) => (
+                <div
+                  key={provider.name}
+                  className="p-3 rounded-lg border"
+                  style={{
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border
+                  }}
+                >
+                  {/* Ligne 1: Nom du provider et statut */}
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center space-x-2">
+                      <span className="text-xl">{getProviderIcon(provider.name)}</span>
+                      <div>
+                        <h4 className="font-medium text-sm" style={{ color: colors.text }}>
+                          {getProviderDisplayName(provider.name)}
+                        </h4>
+                        <p className="text-xs" style={{ color: colors.textSecondary }}>
+                          {getProviderStatus(provider)}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Ligne 2: Clé API et bouton test */}
+                  <div className="flex items-center space-x-2">
+                    <span 
+                      className="text-lg"
+                      style={{ 
+                        color: validKeys[provider.name] ? '#10b981' : colors.textSecondary 
+                      }}
+                      title={validKeys[provider.name] ? 'Clé validée' : 'Clé non validée'}
+                    >
+                      {getKeyIcon(provider.name)}
+                    </span>
+                    <input
+                      type="password"
+                      value={apiKeys[provider.name] || ''}
+                      onChange={(e) => handleApiKeyChange(provider.name, e.target.value)}
+                      placeholder="Clé API"
+                      className="flex-1 px-2 py-1 rounded border text-xs"
+                      style={{
+                        backgroundColor: colors.background,
+                        borderColor: colors.border,
+                        color: colors.text
+                      }}
+                    />
+                    <button
+                      onClick={() => handleTestProvider(provider.name)}
+                      disabled={testing[provider.name] || !apiKeys[provider.name]?.trim()}
+                      className="px-3 py-1 rounded text-xs font-medium transition-colors disabled:opacity-50"
+                      style={{
+                        backgroundColor: colors.primary,
+                        color: colors.background
+                      }}
+                    >
+                      {testing[provider.name] ? 'Test...' : 'Test'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
-      {/* Contenu compact avec couleurs centralisées */}
-      <div className="space-y-2">
-        {activeTab === 'providers' && (
-          <div className="space-y-2">
-            {loading ? (
-              <div
-                className="text-center py-4 text-xs"
-                style={{ color: colors.textSecondary }}
-              >
-                Chargement...
-              </div>
-            ) : (
-              <>
-                {/* Résumé des providers */}
-                <div
-                  className="rounded-lg p-2 border text-xs"
-                  style={{
-                    backgroundColor: colors.surface,
-                    borderColor: colors.border,
-                  }}
-                >
-                  <div className="flex justify-between items-center">
-                    <span style={{ color: colors.textSecondary }}>
-                      Providers actifs et valides:
-                    </span>
-                    <div className="flex items-center space-x-2">
-                      <span style={{ color: colors.text }}>
-                        {getActiveValidProvidersCount()} / {providers.length}
-                      </span>
-                      <button
-                        onClick={forceRefresh}
-                        disabled={loading}
-                        className="px-2 py-1 text-xs rounded border transition-colors disabled:opacity-50"
-                        style={{
-                          backgroundColor: colors.config,
-                          color: 'white',
-                          borderColor: colors.config,
-                        }}
-                        title="Rafraîchir les providers"
-                      >
-                        {loading ? '🔄' : '🔄'}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Liste des providers */}
-                {providers.map((provider) => {
-                  const status = getProviderStatus(provider.name);
-                  const isActive = isProviderActive(provider);
-                  
-                  return (
-                    <div
-                      key={provider.name}
-                      className="rounded-lg p-3 border flex flex-col text-xs mb-2"
-                      style={{
-                        backgroundColor: colors.surface,
-                        borderColor: status?.status === 'testing' ? colors.config : colors.border,
-                      }}
-                    >
-                                             {/* En-tête du provider */}
-                       <div className="flex items-center mb-2">
-                         <div className="flex items-center space-x-2">
-                           <span className="text-lg">{getProviderIcon(provider.name)}</span>
-                           <div>
-                             <div className="font-medium" style={{ color: colors.text }}>
-                               {getProviderDisplayName(provider.name)}
-                             </div>
-                             <div className="text-xs" style={{ color: colors.textSecondary }}>
-                               {status?.status === 'valid' ? '✅ Clé API valide' : 
-                                status?.status === 'invalid' ? '❌ Clé API invalide' : 
-                                status?.status === 'testing' ? '🔄 Test en cours...' : '⚪ Aucune clé API'}
-                             </div>
-                             {status?.lastTested && (
-                               <div className="text-xs" style={{ color: colors.textSecondary }}>
-                                 Testé: {new Date(status.lastTested).toLocaleString('fr-FR')}
-                               </div>
-                             )}
-                           </div>
-                         </div>
-                       </div>
-
-                      {/* Champ clé API */}
-                      <div className="mb-2">
-                        <form onSubmit={(e) => { e.preventDefault(); handleTestProvider(provider.name); }}>
-                          <div className="flex items-center space-x-2">
-                            <div className="flex-1 relative">
-                              <input
-                                type="password"
-                                value={localApiKeys[provider.name] || ''}
-                                onChange={(e) => handleApiKeyChange(provider.name, e.target.value)}
-                                placeholder="Entrez votre clé API"
-                                className="w-full text-xs px-3 py-2 rounded border focus:outline-none"
-                                style={{
-                                  backgroundColor: colorMode === 'dark' ? '#475569' : '#e2e8f0',
-                                  color: colors.text,
-                                  borderColor: colors.border,
-                                  fontSize: '12px',
-                                }}
-                                autoComplete="off"
-                              />
-                            </div>
-                          <button
-                            onClick={() => handleTestProvider(provider.name)}
-                            disabled={testing[provider.name] || !localApiKeys[provider.name]}
-                            className="px-3 py-2 text-xs font-medium rounded border transition-colors disabled:opacity-50"
-                            style={{
-                              backgroundColor: testing[provider.name] ? colors.textSecondary : colors.config,
-                              color: 'white',
-                              borderColor: colors.config,
-                            }}
-                            title="Tester la clé"
-                          >
-                            {testing[provider.name] ? (
-                              <div className="flex items-center">
-                                <div
-                                  className="w-3 h-3 border border-t-transparent rounded-full animate-spin mr-1"
-                                  style={{
-                                    borderColor: 'white',
-                                    borderTopColor: 'transparent',
-                                  }}
-                                ></div>
-                                Test...
-                              </div>
-                            ) : (
-                              'Tester'
-                            )}
-                                                      </button>
-                          </div>
-                        </form>
-                      </div>
-                    </div>
-                  );
-                })}
-              </>
-            )}
-          </div>
-        )}
-
-        {activeTab === 'strategy' && (
-          <div className="space-y-4">
-            <div
-              className="rounded-lg p-3 border"
-              style={{
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-              }}
-            >
-              <h4
-                className="text-sm font-medium mb-3"
-                style={{ color: colors.text }}
-              >
-                Stratégie de sélection des providers
-              </h4>
-              <select
-                value={strategy}
-                onChange={(e) => handleStrategyChange(e.target.value)}
-                className="w-full text-sm px-3 py-2 rounded border focus:outline-none mb-3"
-                style={{
-                  backgroundColor: colorMode === 'dark' ? '#475569' : '#e2e8f0',
-                  color: colors.text,
-                  borderColor: colors.border,
-                }}
-              >
-                <option value="priority">Ordre de priorité</option>
-                <option value="fallback">Avec repli automatique</option>
-                <option value="cost">Coût le plus bas</option>
-                <option value="speed">Plus rapide</option>
-              </select>
-              
-              <div
-                className="text-xs p-3 rounded"
-                style={{
-                  backgroundColor: colorMode === 'dark' ? '#1e293b' : '#f1f5f9',
-                  color: colors.textSecondary,
-                }}
-              >
-                <div className="font-medium mb-2" style={{ color: colors.text }}>
-                  {strategy === 'priority' && '🔄 Ordre de priorité'}
-                  {strategy === 'fallback' && '🛡️ Avec repli automatique'}
-                  {strategy === 'cost' && '💰 Coût le plus bas'}
-                  {strategy === 'speed' && '⚡ Plus rapide'}
-                </div>
-                <p>
-                  {strategy === 'priority' && 'Utilise les providers dans l\'ordre de priorité que vous avez défini. Si le premier échoue, passe au suivant.'}
-                  {strategy === 'fallback' && 'Utilise le provider principal, mais bascule automatiquement vers un autre si celui-ci échoue ou est indisponible.'}
-                  {strategy === 'cost' && 'Sélectionne automatiquement le provider avec le coût le plus bas pour chaque requête.'}
-                  {strategy === 'speed' && 'Sélectionne automatiquement le provider le plus rapide en fonction des performances récentes.'}
-                </p>
-              </div>
+      {activeTab === 'strategy' && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold" style={{ color: colors.text }}>
+            Stratégie d'utilisation des Providers
+          </h3>
+          
+          {strategyLoading ? (
+            <div className="flex items-center justify-center p-8">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2" style={{ borderColor: colors.primary }}></div>
+              <span className="ml-2" style={{ color: colors.textSecondary }}>Chargement...</span>
             </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Sélection de la stratégie */}
+              <div className="p-4 rounded-lg border" style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
+                <h4 className="font-medium mb-3" style={{ color: colors.text }}>Stratégie de sélection</h4>
+                <div className="space-y-2">
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      name="strategy"
+                      value="priority"
+                      checked={strategy === 'priority'}
+                      onChange={(e) => handleStrategyChange(e.target.value)}
+                      className="text-blue-600"
+                    />
+                    <span className="text-sm" style={{ color: colors.text }}>
+                      <strong>Priorité</strong> - Utilise les providers dans l'ordre de priorité défini
+                    </span>
+                  </label>
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      name="strategy"
+                      value="round_robin"
+                      checked={strategy === 'round_robin'}
+                      onChange={(e) => handleStrategyChange(e.target.value)}
+                      className="text-blue-600"
+                    />
+                    <span className="text-sm" style={{ color: colors.text }}>
+                      <strong>Round Robin</strong> - Alterne entre les providers disponibles
+                    </span>
+                  </label>
+                  <label className="flex items-center space-x-2">
+                    <input
+                      type="radio"
+                      name="strategy"
+                      value="random"
+                      checked={strategy === 'random'}
+                      onChange={(e) => handleStrategyChange(e.target.value)}
+                      className="text-blue-600"
+                    />
+                    <span className="text-sm" style={{ color: colors.text }}>
+                      <strong>Aléatoire</strong> - Sélectionne un provider au hasard
+                    </span>
+                  </label>
+                </div>
+              </div>
 
-            {/* Section des priorités des providers */}
-            <div
-              className="rounded-lg p-3 border"
-              style={{
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-              }}
-            >
-              <h4
-                className="text-sm font-medium mb-3"
-                style={{ color: colors.text }}
-              >
-                Priorités des providers
-              </h4>
-              
-              {/* Liste des providers avec leurs priorités */}
-              <div className="space-y-2">
-                {providers.map((provider) => {
-                  const status = getProviderStatus(provider.name);
-                  const currentPriority = priorities[provider.name] || 0;
-                  const isActive = currentPriority > 0;
-                  
-                  return (
-                    <div
-                      key={provider.name}
-                      className="flex items-center justify-between p-2 rounded border"
-                      style={{
-                        backgroundColor: colorMode === 'dark' ? '#1e293b' : '#f8fafc',
-                        borderColor: colors.border,
-                      }}
-                    >
+              {/* Configuration des priorités */}
+              <div className="p-4 rounded-lg border" style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
+                <h4 className="font-medium mb-3" style={{ color: colors.text }}>Ordre de priorité des providers</h4>
+                <p className="text-xs mb-3" style={{ color: colors.textSecondary }}>
+                  Définissez l'ordre de priorité (1 = plus haute priorité)
+                </p>
+                
+                <div className="space-y-2">
+                  {getProvidersByPriority().map((provider, index) => (
+                    <div key={provider.name} className="flex items-center justify-between p-2 rounded border" style={{ borderColor: colors.border }}>
                       <div className="flex items-center space-x-2">
                         <span className="text-lg">{getProviderIcon(provider.name)}</span>
-                        <div>
-                          <div className="font-medium text-xs" style={{ color: colors.text }}>
-                            {getProviderDisplayName(provider.name)}
-                          </div>
-                          <div className="text-xs" style={{ color: colors.textSecondary }}>
-                            {status?.status === 'valid' ? '✅ Clé API valide' : 
-                             status?.status === 'invalid' ? '❌ Clé API invalide' : 
-                             status?.status === 'testing' ? '🔄 Test en cours...' : '⚪ Aucune clé API'}
-                          </div>
-                        </div>
+                        <span className="text-sm font-medium" style={{ color: colors.text }}>
+                          {getProviderDisplayName(provider.name)}
+                        </span>
                       </div>
-                      
                       <div className="flex items-center space-x-2">
+                        <span className="text-xs" style={{ color: colors.textSecondary }}>Priorité:</span>
                         <select
-                          value={currentPriority}
-                          onChange={(e) => setPriority(provider.name, parseInt(e.target.value))}
-                          disabled={status?.status !== 'valid'}
-                          className="text-xs px-2 py-1 rounded border focus:outline-none"
+                          value={priorities[provider.name] || 1}
+                          onChange={(e) => handlePriorityChange(provider.name, parseInt(e.target.value))}
+                          className="px-2 py-1 rounded border text-xs"
                           style={{
-                            backgroundColor: colorMode === 'dark' ? '#475569' : '#e2e8f0',
-                            color: status?.status === 'valid' ? colors.text : colors.textSecondary,
+                            backgroundColor: colors.background,
                             borderColor: colors.border,
+                            color: colors.text
                           }}
                         >
-                          <option value={0}>Désactivé</option>
-                          <option value={1}>Priorité 1</option>
-                          <option value={2}>Priorité 2</option>
-                          <option value={3}>Priorité 3</option>
+                          {[1, 2, 3, 4].map(priority => (
+                            <option key={priority} value={priority}>
+                              {priority}
+                            </option>
+                          ))}
                         </select>
-                        
-                        {isActive && (
-                          <span
-                            className="text-xs px-2 py-1 rounded"
-                            style={{
-                              backgroundColor: colors.config,
-                              color: 'white',
-                            }}
-                          >
-                            {currentPriority === 1 ? 'Principal' :
-                             currentPriority === 2 ? 'Secondaire' :
-                             currentPriority === 3 ? 'Tertiaire' : ''}
-                          </span>
-                        )}
                       </div>
                     </div>
-                  );
-                })}
+                  ))}
+                </div>
               </div>
-              
-              
-            </div>
 
-            <div
-              className="rounded-lg p-3 border"
-              style={{
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-              }}
-            >
-              <h4
-                className="text-sm font-medium mb-2"
-                style={{ color: colors.text }}
-              >
-                État des providers
-              </h4>
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between">
-                  <span style={{ color: colors.textSecondary }}>Providers valides:</span>
-                  <span style={{ color: colors.success }}>
-                    {providers.filter(p => getProviderStatus(p.name)?.status === 'valid').length}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span style={{ color: colors.textSecondary }}>Providers actifs:</span>
-                  <span style={{ color: colors.text }}>
-                    {getActiveValidProvidersCount()}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span style={{ color: colors.textSecondary }}>Total configuré:</span>
-                  <span style={{ color: colors.text }}>
-                    {providers.length}
-                  </span>
+              {/* Informations sur la stratégie */}
+              <div className="p-3 rounded-lg border" style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
+                <h4 className="font-medium mb-2" style={{ color: colors.text }}>Informations</h4>
+                <div className="text-xs space-y-1" style={{ color: colors.textSecondary }}>
+                  <p>• <strong>Priorité</strong> : Le système utilise toujours le provider de plus haute priorité disponible</p>
+                  <p>• <strong>Round Robin</strong> : Alterne équitablement entre tous les providers fonctionnels</p>
+                  <p>• <strong>Aléatoire</strong> : Sélectionne un provider au hasard à chaque requête</p>
+                  <p>• Seuls les providers avec des clés API valides sont utilisés</p>
                 </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
+      )}
 
-        {activeTab === 'metrics' && (
-          <div className="space-y-4">
-            <div
-              className="rounded-lg p-3 border"
-              style={{
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-              }}
-            >
-              <h4
-                className="text-sm font-medium mb-2"
-                style={{ color: colors.text }}
-              >
-                Statistiques d'utilisation
-              </h4>
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between">
-                  <span style={{ color: colors.textSecondary }}>Requêtes totales:</span>
-                  <span style={{ color: colors.text }}>{(metrics as any).total_requests || 0}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span style={{ color: colors.textSecondary }}>Requêtes réussies:</span>
-                  <span style={{ color: colors.text }}>{(metrics as any).successful_requests || 0}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span style={{ color: colors.textSecondary }}>Taux de succès:</span>
-                  <span style={{ color: colors.text }}>
-                    {(metrics as any).total_requests ? (((metrics as any).successful_requests || 0) / (metrics as any).total_requests * 100).toFixed(1) : 0}%
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div
-              className="rounded-lg p-3 border"
-              style={{
-                backgroundColor: colors.surface,
-                borderColor: colors.border,
-              }}
-            >
-              <h4
-                className="text-sm font-medium mb-2"
-                style={{ color: colors.text }}
-              >
-                Coûts estimés
-              </h4>
-              <div className="space-y-2 text-xs">
-                <div className="flex justify-between">
-                  <span style={{ color: colors.textSecondary }}>Coût total:</span>
-                  <span style={{ color: colors.text }}>${(metrics as any).total_cost || 0}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span style={{ color: colors.textSecondary }}>Coût moyen par requête:</span>
-                  <span style={{ color: colors.text }}>
-                    ${(metrics as any).total_requests ? (((metrics as any).total_cost || 0) / (metrics as any).total_requests).toFixed(4) : 0}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
+      {activeTab === 'metrics' && (
+        <div className="space-y-4">
+          <h3 className="text-lg font-semibold" style={{ color: colors.text }}>
+            Métriques d'utilisation
+          </h3>
+          <p className="text-sm" style={{ color: colors.textSecondary }}>
+            Les métriques sont affichées dans le panneau principal.
+          </p>
+        </div>
+      )}
     </div>
   );
 };
 
-// Composant original avec header pour utilisation standalone
 const ConfigWindow: React.FC<ConfigWindowProps> = ({ onClose, onMinimize }) => {
   const { colors } = useColors();
 
   return (
-    <div
-      className="fixed right-0 top-0 h-full z-40 shadow-xl flex flex-col"
-      style={{
-        width: 360,
-        minWidth: 260,
-        maxWidth: 400,
-        backgroundColor: colors.surface,
-        borderLeft: `1px solid ${colors.border}`,
-      }}
-    >
+    <div className="h-full flex flex-col" style={{ backgroundColor: colors.background }}>
       {/* Header */}
       <div
-        className="flex items-center justify-between p-2 border-b"
+        className="flex items-center justify-between p-4 border-b"
         style={{
           backgroundColor: colors.surface,
-          borderColor: colors.border,
+          borderColor: colors.border
         }}
       >
-        <h3
-          className="text-xs font-semibold"
-          style={{ color: colors.config }}
-        >
-          Configuration IA
-        </h3>
-        <div className="flex items-center space-x-1">
+        <div className="flex items-center space-x-3">
+          <span className="text-2xl">⚙️</span>
+          <div>
+            <h2 className="text-lg font-semibold" style={{ color: colors.text }}>
+              Configuration IA
+            </h2>
+            <p className="text-sm" style={{ color: colors.textSecondary }}>
+              Gérez vos providers IA et leurs paramètres
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center space-x-2">
           {onMinimize && (
             <button
               onClick={onMinimize}
-              className="p-1 transition-colors"
-              style={{
-                color: colors.textSecondary,
-              }}
-              title="Minimiser"
+              className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
+              style={{ color: colors.textSecondary }}
+              title="Réduire"
             >
-              <MinusIcon className="h-4 w-4" />
+              <MinusIcon className="h-5 w-5" />
             </button>
           )}
           {onClose && (
             <button
               onClick={onClose}
-              className="p-1 transition-colors"
-              style={{
-                color: colors.textSecondary,
-              }}
+              className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
+              style={{ color: colors.textSecondary }}
               title="Fermer"
             >
-              <XMarkIcon className="h-4 w-4" />
+              <XMarkIcon className="h-5 w-5" />
             </button>
           )}
         </div>
       </div>
 
-      <ConfigContent onClose={onClose} onMinimize={onMinimize} />
+      {/* Contenu */}
+      <ConfigContent />
     </div>
   );
 };

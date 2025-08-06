@@ -144,8 +144,10 @@ export const analysisService = {
   // Récupérer les statistiques des analyses
   async getAnalysisStats(): Promise<any> {
     try {
-      const data = await apiRequest('/api/analysis/stats', {}, DEFAULT_TIMEOUT);
-      return data;
+      const response = await apiRequest('/api/analysis/stats', {}, DEFAULT_TIMEOUT);
+      // L'API retourne { success: true, data: {...}, message: "..." }
+      // On retourne directement les données
+      return response.data || {};
     } catch (error) {
       throw new Error(`Erreur lors de la récupération des statistiques: ${handleApiError(error)}`);
     }
