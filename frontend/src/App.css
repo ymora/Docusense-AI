@@ -1,0 +1,512 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Variables CSS pour la gestion de la hauteur d'écran */
+:root {
+  --vh: 1vh;
+  --app-height: 100vh;
+}
+
+/* Classes utilitaires pour la hauteur */
+.h-screen-dynamic {
+  height: var(--app-height, 100vh);
+  height: calc(var(--vh, 1vh) * 100);
+}
+
+.min-h-screen-dynamic {
+  min-height: var(--app-height, 100vh);
+  min-height: calc(var(--vh, 1vh) * 100);
+}
+
+/* Gestion des barres d'adresse mobiles */
+@media screen and (max-width: 768px) {
+  .h-screen-dynamic {
+    height: var(--app-height, 100vh);
+  }
+  
+  .min-h-screen-dynamic {
+    min-height: var(--app-height, 100vh);
+  }
+}
+
+:root {
+  --font-main: 'Inter', 'Segoe UI', Arial, sans-serif;
+  --background-color: #000000; /* Noir pur pour le mode nuit */
+  --surface-color: #18181b;     /* Panel nuit */
+  --text-color: #ffffff;         /* Blanc pur */
+  --text-muted-color: #94a3b8;   /* Texte atténué */
+  --border-color: #27272a;
+  --primary-color: #60a5fa;
+  --primary-hover: #2563eb;
+  --success-color: #22c55e;
+  --error-color: #ef4444;
+  --shadow: 0 2px 8px 0 rgba(30,41,59,0.10);
+  
+  /* Couleurs synchronisées pour les panneaux */
+  --config-color: #3b82f6; /* blue-500 - comme le titre */
+  --queue-color: #eab308; /* yellow-500 */
+  --analyses-color: #4ade80; /* green-400 */
+}
+
+body[data-theme="light"], [data-theme="light"] body, [data-theme="light"] {
+  --background-color: #ffffff; /* Blanc pur pour le mode jour */
+  --surface-color: #f4faff;    /* Panel jour */
+  --text-color: #18181b;       /* Noir pur */
+  --text-muted-color: #64748b; /* Texte atténué mode clair */
+  --border-color: #b6c6e3;
+  --primary-color: #2563eb;
+  --primary-hover: #1d4ed8;
+  --success-color: #22c55e;
+  --error-color: #ef4444;
+  --shadow: 0 2px 8px 0 rgba(30,41,59,0.06);
+  
+  /* Couleurs synchronisées pour les panneaux (mode clair) */
+  --config-color: #2563eb; /* blue-600 pour plus de contraste */
+  --queue-color: #ca8a04; /* yellow-600 pour plus de contraste */
+  --analyses-color: #16a34a; /* green-600 pour plus de contraste */
+}
+
+/* Animation personnalisée pour l'indicateur de statut */
+@keyframes pulse-slow {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+body, html, #root, .App {
+  background: var(--background-color) !important;
+  color: var(--text-color) !important;
+  font-family: var(--font-main) !important;
+  overflow: hidden !important;
+  transition: background 0.3s, color 0.3s;
+}
+
+.left-panel-container,
+.main-panel,
+.folders-section,
+.file-list,
+.file-viewer,
+.card,
+.panel,
+.menu,
+.menu-item,
+input, textarea, select, button, .btn, h1, h2, h3, h4, h5, h6, p, span, label, a {
+  font-family: var(--font-main) !important;
+}
+
+.left-panel-container,
+.main-panel,
+.folders-section,
+.file-list,
+.file-viewer {
+  background: var(--surface-color) !important;
+  overflow-y: auto;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: var(--text-color) !important;
+  font-weight: 700;
+}
+
+.bg-slate-800, .bg-slate-900, .bg-slate-700, .bg-slate-600, .bg-slate-100, .bg-slate-200, .bg-slate-300, .bg-slate-400, .bg-slate-500 {
+  background-color: var(--surface-color) !important;
+}
+
+.text-slate-100, .text-slate-200, .text-slate-300, .text-slate-400, .text-slate-500, .text-slate-600, .text-slate-700, .text-slate-800, .text-slate-900 {
+  color: var(--text-color) !important;
+}
+
+.text-blue-400, .text-blue-500, .text-blue-600, .text-blue-700 {
+  color: var(--primary-color) !important;
+}
+.bg-blue-400, .bg-blue-500, .bg-blue-600, .bg-blue-700 {
+  background-color: var(--primary-color) !important;
+}
+.text-green-400, .text-green-500, .bg-green-400, .bg-green-500 {
+  color: var(--success-color) !important;
+  background-color: var(--success-color) !important;
+}
+.text-red-400, .text-red-500, .bg-red-400, .bg-red-500 {
+  color: var(--error-color) !important;
+  background-color: var(--error-color) !important;
+}
+.text-yellow-400, .text-yellow-500 {
+  color: #eab308 !important;
+}
+
+/* Couleurs des panneaux - Forcer l'utilisation des variables CSS */
+.config-button {
+  color: var(--config-color) !important;
+}
+
+.queue-button {
+  color: var(--queue-color) !important;
+}
+
+.analyses-button {
+  color: var(--analyses-color) !important;
+}
+
+/* Animations pour les boutons actifs */
+.config-button.active,
+.queue-button.active,
+.analyses-button.active {
+  transform: scale(1.1);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5);
+}
+
+/* Effets hover pour les boutons de panneaux */
+.config-button:hover {
+  background-color: rgba(59, 130, 246, 0.1) !important;
+  transform: scale(1.05);
+}
+
+.queue-button:hover {
+  background-color: rgba(234, 179, 8, 0.1) !important;
+  transform: scale(1.05);
+}
+
+.analyses-button:hover {
+  background-color: rgba(74, 222, 128, 0.1) !important;
+  transform: scale(1.05);
+}
+
+/* Animations d'activation avec effet de pulsation */
+.config-button.ring-2 {
+  animation: configPulse 2s infinite;
+}
+
+.queue-button.ring-2 {
+  animation: queuePulse 2s infinite;
+}
+
+.analyses-button.ring-2 {
+  animation: analysesPulse 2s infinite;
+}
+
+@keyframes configPulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.5); }
+  50% { box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.3); }
+}
+
+@keyframes queuePulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.5); }
+  50% { box-shadow: 0 0 0 4px rgba(234, 179, 8, 0.3); }
+}
+
+@keyframes analysesPulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.5); }
+  50% { box-shadow: 0 0 0 4px rgba(74, 222, 128, 0.3); }
+}
+
+/* Mode clair */
+body[data-theme="light"] .config-button:hover {
+  background-color: rgba(37, 99, 235, 0.1) !important;
+}
+
+body[data-theme="light"] .queue-button:hover {
+  background-color: rgba(202, 138, 4, 0.1) !important;
+}
+
+body[data-theme="light"] .analyses-button:hover {
+  background-color: rgba(22, 163, 74, 0.1) !important;
+}
+
+/* Bordure fine sur le survol des éléments d’arborescence */
+.tree-item:hover, .folder-item:hover, .file-item:hover {
+  border: 1.5px solid var(--primary-color);
+  background: none !important;
+  transition: border 0.2s;
+}
+
+.status-group:hover {
+  border: 1.5px solid var(--primary-color);
+  background: none !important;
+  transition: border 0.2s;
+}
+
+.file-item, .folder-item, .status-group {
+  border: 1.5px solid transparent;
+  box-sizing: border-box;
+}
+
+::-webkit-scrollbar {
+  width: 8px;
+  background: var(--surface-color);
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 6px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #a3a3a3;
+}
+
+.btn {
+  background: var(--primary-color);
+  color: #fff;
+  border-radius: 8px;
+  padding: 0.5em 1.2em;
+  font-weight: 600;
+  box-shadow: var(--shadow);
+  border: none;
+  transition: background 0.2s, box-shadow 0.2s;
+  cursor: pointer;
+}
+.btn:hover, .btn:focus {
+  background: var(--primary-hover);
+  box-shadow: 0 4px 16px 0 rgba(30,41,59,0.10);
+}
+.btn-success {
+  background: var(--success-color);
+}
+.btn-error {
+  background: var(--error-color);
+}
+.input {
+  background: #fff;
+  border: 1.5px solid var(--border-color);
+  border-radius: 8px;
+  padding: 0.5em 1em;
+  color: var(--text-color);
+  font-size: 1em;
+  transition: border 0.2s, box-shadow 0.2s;
+  box-shadow: none;
+}
+.input:focus {
+  border-color: var(--primary-color);
+  outline: none;
+  box-shadow: 0 0 0 2px #e0e7ef;
+}
+.menu {
+  background: var(--background-color);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  padding: 0.5em 0;
+  min-width: 180px;
+  border: 1px solid var(--border-color);
+}
+.menu-item {
+  padding: 0.5em 1.2em;
+  color: var(--text-color);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+.menu-item:hover {
+  background: #e8f0fe;
+}
+.modal {
+  background: var(--background-color);
+  border-radius: 16px;
+  box-shadow: 0 8px 32px 0 rgba(30,41,59,0.18);
+  padding: 2em 2.5em;
+  color: var(--text-color);
+  border: 1px solid var(--border-color);
+}
+.shadow {
+  box-shadow: var(--shadow);
+}
+
+.file-icon {
+  color: var(--primary-color);
+  transition: color 0.2s, filter 0.2s;
+}
+.file-icon:hover {
+  color: var(--primary-hover);
+  filter: brightness(1.15);
+  opacity: 0.95;
+}
+
+html, body {
+  color-scheme: light;
+}
+
+html.dark, body.dark, .dark {
+  color-scheme: dark;
+  background: var(--background-color) !important;
+  color: var(--text-color) !important;
+} 
+
+/* Styles pour les contrôles multimédia personnalisés */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+input[type="range"]::-webkit-slider-track {
+  background: #374151;
+  height: 10px;
+  border-radius: 5px;
+  border: 1px solid #4b5563;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  background: #3b82f6;
+  height: 20px;
+  width: 20px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid #ffffff;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  background: #2563eb;
+  transform: scale(1.15);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+}
+
+input[type="range"]::-webkit-slider-thumb:active {
+  background: #1d4ed8;
+  transform: scale(1.2);
+}
+
+input[type="range"]::-moz-range-track {
+  background: #374151;
+  height: 10px;
+  border-radius: 5px;
+  border: 1px solid #4b5563;
+}
+
+input[type="range"]::-moz-range-thumb {
+  background: #3b82f6;
+  height: 20px;
+  width: 20px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 3px solid #ffffff;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+  transition: all 0.2s ease;
+}
+
+input[type="range"]::-moz-range-thumb:hover {
+  background: #2563eb;
+  transform: scale(1.15);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.4);
+}
+
+input[type="range"]::-moz-range-thumb:active {
+  background: #1d4ed8;
+  transform: scale(1.2);
+}
+
+/* Animation pour les boutons de contrôle */
+.media-control-button {
+  transition: all 0.2s ease-in-out;
+}
+
+.media-control-button:hover {
+  transform: scale(1.05);
+}
+
+.media-control-button:active {
+  transform: scale(0.95);
+}
+
+/* Styles pour le mode clair */
+[data-theme="light"] input[type="range"]::-webkit-slider-track {
+  background: #e5e7eb;
+}
+
+[data-theme="light"] input[type="range"]::-webkit-slider-thumb {
+  background: #2563eb;
+  border: 2px solid #ffffff;
+}
+
+[data-theme="light"] input[type="range"]::-moz-range-track {
+  background: #e5e7eb;
+}
+
+[data-theme="light"] input[type="range"]::-moz-range-thumb {
+  background: #2563eb;
+  border: 2px solid #ffffff;
+}
+
+/* Styles personnalisés pour les scrollbars */
+@layer utilities {
+  /* Scrollbar personnalisée pour les emails */
+  .scrollbar-thin::-webkit-scrollbar {
+    width: 8px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-track {
+    background: #1e293b; /* slate-800 */
+    border-radius: 4px;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    background: #475569; /* slate-600 */
+    border-radius: 4px;
+    transition: background-color 0.2s ease;
+  }
+  
+  .scrollbar-thin::-webkit-scrollbar-thumb:hover {
+    background: #64748b; /* slate-500 */
+  }
+  
+  /* Scrollbar pour Firefox */
+  .scrollbar-thin {
+    scrollbar-width: thin;
+    scrollbar-color: #475569 #1e293b;
+  }
+  
+  /* Animation de transition pour les scrollbars */
+  .scrollbar-thin::-webkit-scrollbar-thumb {
+    transition: background-color 0.2s ease-in-out;
+  }
+}
+
+/* Styles spécifiques pour le conteneur de scroll des emails */
+.email-scroll-container {
+  /* Assurer que le scroll fonctionne correctement */
+  scroll-behavior: smooth;
+  
+  /* Améliorer la visibilité de la scrollbar */
+  scrollbar-width: thin;
+  scrollbar-color: #475569 #1e293b;
+}
+
+.email-scroll-container::-webkit-scrollbar {
+  width: 10px; /* Légèrement plus large pour une meilleure visibilité */
+}
+
+.email-scroll-container::-webkit-scrollbar-track {
+  background: #1e293b; /* slate-800 */
+  border-radius: 6px;
+  margin: 2px;
+}
+
+.email-scroll-container::-webkit-scrollbar-thumb {
+  background: #475569; /* slate-600 */
+  border-radius: 6px;
+  border: 1px solid #334155; /* slate-700 pour un effet de bordure */
+  transition: all 0.3s ease;
+}
+
+.email-scroll-container::-webkit-scrollbar-thumb:hover {
+  background: #64748b; /* slate-500 */
+  border-color: #475569; /* slate-600 */
+  transform: scale(1.05);
+}
+
+.email-scroll-container::-webkit-scrollbar-corner {
+  background: #1e293b; /* slate-800 */
+}
+
+
+ 
