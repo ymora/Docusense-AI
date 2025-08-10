@@ -123,4 +123,10 @@ htmlcov/
 
 # OS
 .DS_Store
-Thumbs.db 
+Thumbs.db
+
+# Test files and directories
+tests/
+*.test.*
+*_test.*
+test_* 
