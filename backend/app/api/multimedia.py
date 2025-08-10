@@ -244,13 +244,13 @@ async def stream_optimized_multimedia(
         raise HTTPException(status_code=500, detail="Échec de l'optimisation")
     
     # Stream le fichier optimisé
-    def generate():
+    def generate_optimized_stream():
         with open(optimized_file, 'rb') as f:
             while chunk := f.read(8192):
                 yield chunk
     
     return StreamingResponse(
-        generate(),
+        generate_optimized_stream(),
         media_type=file.mime_type,
         headers={
             "Content-Disposition": f"inline; filename=optimized_{file.name}",

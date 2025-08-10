@@ -10,7 +10,8 @@ from sqlalchemy import or_, func
 from datetime import datetime
 import mimetypes
 
-from ..models.file import File, FileCreate, FileListResponse, FileResponse
+from ..models.file import File
+from ..schemas.file import FileCreate, FileListResponse, FileResponse
 from ..core.file_utils import FileInfoExtractor
 from ..core.file_validation import FileValidator
 from ..core.status_manager import FileStatus
@@ -654,7 +655,8 @@ class FileService(BaseService):
         Crée automatiquement un fichier en base de données
         """
         try:
-            from ..models.file import FileStatus, FileCreate
+            from ..models.file import FileStatus
+            from ..schemas.file import FileCreate
             from datetime import datetime
             
             # Extraire les métadonnées du fichier

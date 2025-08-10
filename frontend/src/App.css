@@ -81,11 +81,57 @@ body[data-theme="light"], [data-theme="light"] body, [data-theme="light"] {
   animation: pulse-slow 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
+/* Animations pour les boutons de statut */
+@keyframes status-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(59, 130, 246, 0);
+  }
+}
+
+@keyframes status-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.status-button-processing {
+  animation: status-glow 2s infinite, status-pulse 2s infinite;
+}
+
+.status-button-pending {
+  animation: status-pulse 3s infinite;
+}
+
+.status-button-failed {
+  animation: status-pulse 1.5s infinite;
+}
+
+/* Animation de rotation pour l'icône de traitement */
+@keyframes spin-smooth {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-smooth {
+  animation: spin-smooth 1s linear infinite;
+}
+
 body, html, #root, .App {
   background: var(--background-color) !important;
   color: var(--text-color) !important;
   font-family: var(--font-main) !important;
-  overflow: hidden !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
   transition: background 0.3s, color 0.3s;
 }
 

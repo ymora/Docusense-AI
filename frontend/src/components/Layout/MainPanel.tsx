@@ -4,72 +4,72 @@ import { useQueueStore } from '../../stores/queueStore';
 import { useColors } from '../../hooks/useColors';
 import { useBackendStatus } from '../../hooks/useBackendStatus';
 import { formatFileSize } from '../../utils/fileUtils';
+import { getFileType } from '../../utils/fileTypeUtils';
+import { isSupportedFormat } from '../../utils/mediaFormats';
 
 import {
-  XMarkIcon,
   QueueListIcon,
-  ClockIcon,
-  CheckCircleIcon,
-  ExclamationTriangleIcon,
-  PlayIcon,
   Cog6ToothIcon,
   DocumentTextIcon,
-  CurrencyDollarIcon,
-  CpuChipIcon,
-  DocumentMagnifyingGlassIcon,
-  ClockIcon as ClockIconSolid,
-  FireIcon,
-  BoltIcon,
-  AcademicCapIcon,
-  ShieldCheckIcon,
-  CalendarIcon,
-  UserGroupIcon,
-  FolderIcon,
-  DocumentIcon,
+  EyeIcon,
+  DocumentTextIcon as LogsIcon,
   PhotoIcon,
   FilmIcon,
-  MusicalNoteIcon,
-  EyeIcon,
-  DocumentMagnifyingGlassIcon as SearchIcon
+  MusicalNoteIcon
 } from '@heroicons/react/24/outline';
 import { ConfigContent } from '../Config/ConfigWindow';
 import QueueContent from '../Queue/QueuePanel';
+
+import LogsPanel from '../Logs/LogsPanel';
+import TabPanel from '../UI/TabPanel';
+import SecureFileViewer from '../FileManager/SecureFileViewer';
+import FileDetailsPanel from '../FileManager/FileDetailsPanel';
+import ThumbnailGrid from '../FileManager/ThumbnailGrid';
 import UnifiedFileViewer from '../FileManager/UnifiedFileViewer';
-import PromptSelector from '../FileManager/PromptSelector';
-import EmailAttachmentViewer from '../FileManager/EmailAttachmentViewer';
-import { AnalysisListContent } from '../Analysis/AnalysisListContent';
 
 import { useUIStore } from '../../stores/uiStore';
 
 interface MainPanelProps {
   activePanel: 'main' | 'config' | 'analyses' | 'queue';
-  showPromptSelector?: boolean;
-  promptSelectorMode?: 'single' | 'comparison' | 'batch';
-  promptSelectorFileIds?: number[];
-  onPromptSelect?: (promptId: string, prompt: any) => void;
-  onClosePromptSelector?: () => void;
   onSetActivePanel?: (panel: 'main' | 'config' | 'analyses' | 'queue') => void;
 }
 
 const MainPanel: React.FC<MainPanelProps> = ({ 
   activePanel, 
-  showPromptSelector = false,
-  promptSelectorMode = 'single',
-  promptSelectorFileIds = [],
-  onPromptSelect,
-  onClosePromptSelector,
   onSetActivePanel
 }) => {
-  const { selectedFile, selectedFiles } = useFileStore();
+  const { selectedFile, selectedFiles, files, selectFile } = useFileStore();
   const { colors } = useColors();
   const { isOnline } = useBackendStatus();
   const { queueItems, queueStatus, loadQueueStatus } = useQueueStore();
+  const [activeTab, setActiveTab] = useState('viewer');
+  const [showFileDetails, setShowFileDetails] = useState(false);
+  const [viewMode, setViewMode] = useState<'single' | 'thumbnails'>('single');
 
-  // États pour la prévisualisation des pièces jointes d'email
-  const [emailAttachmentPreview, setEmailAttachmentPreview] = useState<{
-    attachment: any;
-    index: number;
-  } | null>(null);
+  // Définir les onglets
+  const tabs = [
+    {
+      id: 'viewer',
+      label: 'Visualiseur',
+      icon: <EyeIcon className="h-4 w-4" />,
+    },
+    {
+      id: 'queue',
+      label: 'File d\'attente & Analyses',
+      icon: <QueueListIcon className="h-4 w-4" />,
+      count: queueItems?.length || 0,
+    },
+    {
+      id: 'logs',
+      label: 'Logs',
+      icon: <LogsIcon className="h-4 w-4" />,
+    },
+    {
+      id: 'config',
+      label: 'Configuration IA',
+      icon: <Cog6ToothIcon className="h-4 w-4" />,
+    },
+  ];
 
   // Chargement des données de queue
   useEffect(() => {
@@ -90,244 +90,251 @@ const MainPanel: React.FC<MainPanelProps> = ({
     };
   }, [loadQueueStatus]);
 
-  // NOTE: L'initialisation est maintenant gérée par useStartupInitialization dans LeftPanel
-  // Plus besoin d'initialisation dupliquée ici
+  // Écouter l'événement d'affichage des détails de fichier
+  useEffect(() => {
+    const handleShowFileDetails = (event: CustomEvent) => {
+      setShowFileDetails(true);
+    };
 
-  // Fonction pour gérer la prévisualisation des pièces jointes d'email
-  const handleEmailAttachmentPreview = (attachment: any, index: number) => {
-    setEmailAttachmentPreview({ attachment, index });
+    window.addEventListener('showFileDetails', handleShowFileDetails as EventListener);
+    return () => {
+      window.removeEventListener('showFileDetails', handleShowFileDetails as EventListener);
+    };
+  }, []);
+
+  // Écouter l'événement d'affichage des miniatures de dossier
+  useEffect(() => {
+    const handleViewDirectoryThumbnails = (event: CustomEvent) => {
+      const { directoryPath } = event.detail;
+      setViewMode('thumbnails');
+      setActiveTab('viewer');
+      // Charger les fichiers du dossier pour l'affichage en miniatures
+      fetchDirectoryFiles(directoryPath);
+    };
+
+    window.addEventListener('viewDirectoryThumbnails', handleViewDirectoryThumbnails as EventListener);
+    return () => {
+      window.removeEventListener('viewDirectoryThumbnails', handleViewDirectoryThumbnails as EventListener);
+    };
+  }, []);
+
+  // Fonction pour charger les fichiers d'un dossier
+  const fetchDirectoryFiles = async (directoryPath: string) => {
+    try {
+      const response = await fetch(`/api/files/directory-files/${encodeURIComponent(directoryPath)}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.files) {
+          // Mettre à jour les fichiers sélectionnés pour l'affichage en miniatures
+          useFileStore.getState().setSelectedFiles(data.files.map((f: any) => f.id));
+        }
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement des fichiers du dossier:', error);
+    }
   };
 
-  // Fonction pour revenir à l'email
-  const handleBackToEmail = () => {
-    setEmailAttachmentPreview(null);
+  // Détecter automatiquement le mode d'affichage selon la sélection
+  useEffect(() => {
+    if (selectedFiles.length > 1) {
+      // Plusieurs fichiers sélectionnés → mode miniatures
+      setViewMode('thumbnails');
+    } else if (selectedFile) {
+      // Un seul fichier sélectionné → mode unique
+      setViewMode('single');
+    }
+  }, [selectedFiles.length, selectedFile]);
+
+  // Fonction pour déterminer le type de visualisation approprié
+  const getViewerComponent = (file: any) => {
+    if (!file) return null;
+
+    const fileType = getFileType(file.name, file.mime_type);
+    const mimeType = file.mime_type?.toLowerCase() || '';
+
+    // Images : utiliser le visualiseur unifié avec streaming
+    if (fileType === 'image' || mimeType.startsWith('image/')) {
+      return (
+        <UnifiedFileViewer 
+          file={file}
+          onClose={() => {
+            // Logique de fermeture si nécessaire
+          }}
+        />
+      );
+    }
+
+    // Vidéos et audio : utiliser le visualiseur sécurisé avec streaming
+    if (fileType === 'video' || fileType === 'audio' || 
+        mimeType.startsWith('video/') || mimeType.startsWith('audio/')) {
+      return (
+        <SecureFileViewer 
+          file={file}
+          onError={(error) => {
+            console.error('Erreur de visualisation média:', error);
+          }}
+        />
+      );
+    }
+
+    // Documents et autres : utiliser le visualiseur unifié
+    return (
+      <UnifiedFileViewer 
+        file={file}
+        onClose={() => {
+          // Logique de fermeture si nécessaire
+        }}
+      />
+    );
   };
 
-  // Rendu du contenu selon le panel actif
-  const renderPanelContent = () => {
-    switch (activePanel) {
+  // Rendu du contenu selon l'onglet actif
+  const renderTabContent = () => {
+    switch (activeTab) {
       case 'queue':
-        return (
-          <div className="h-full flex flex-col">
-            <div className="p-4 border-b" style={{ borderColor: colors.border }}>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center space-x-3">
-                  <QueueListIcon className="h-6 w-6" style={{ color: colors.queue }} />
-                  <div>
-                    <h2 className="text-xl font-semibold" style={{ color: colors.text }}>
-                      File d'attente des analyses IA
-                    </h2>
-                    <p className="text-sm" style={{ color: colors.textSecondary }}>
-                      Suivi en temps réel des analyses en cours
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm" style={{ color: colors.textSecondary }}>
-                    {queueStatus.total_items} analyses
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <QueueContent />
-            </div>
-          </div>
-        );
+        return <QueueContent />;
 
       case 'config':
-        return (
-          <div className="h-full flex flex-col">
-            <div className="p-4 border-b" style={{ borderColor: colors.border }}>
-              <div className="flex items-center space-x-3">
-                <Cog6ToothIcon className="h-6 w-6" style={{ color: colors.config }} />
-                <div>
-                  <h2 className="text-xl font-semibold" style={{ color: colors.text }}>
-                    Configuration IA
-                  </h2>
-                  <p className="text-sm" style={{ color: colors.textSecondary }}>
-                    Gérez vos providers IA et leurs paramètres
-                  </p>
-                </div>
-              </div>
-            </div>
-            <div className="flex-1 overflow-hidden">
-              <ConfigContent />
-            </div>
-          </div>
-        );
+        return <ConfigContent />;
 
-      case 'analyses':
-        return <AnalysisListContent />;
+      case 'logs':
+        return <LogsPanel />;
 
-
-
-      case 'main':
+      case 'viewer':
       default:
-        // PromptSelector intégré dans le MainPanel
-        if (showPromptSelector) {
-          return (
-            <div className="h-full">
-              <PromptSelector
-                isOpen={true}
-                onClose={onClosePromptSelector || (() => {})}
-                onPromptSelect={onPromptSelect || (() => {})}
-                fileIds={promptSelectorFileIds}
-                mode={promptSelectorMode}
-                fileType={selectedFile?.mime_type}
-              />
-            </div>
-          );
-        }
-
-        // Prévisualisation de pièce jointe d'email
-        if (emailAttachmentPreview) {
-          return (
-            <EmailAttachmentViewer
-              file={selectedFile}
-              attachment={emailAttachmentPreview.attachment}
-              attachmentIndex={emailAttachmentPreview.index}
-              onBack={handleBackToEmail}
-            />
-          );
-        }
-
-        // Interface principale
+        // Interface principale - visualiseur de fichiers
         return (
           <div className="h-full flex flex-col">
-            {/* Header seulement si aucun fichier n'est sélectionné */}
-            {!selectedFile && (
-              <div className="p-4 border-b" style={{ borderColor: colors.border }}>
-                <div className="flex items-center space-x-3">
-                  <div className="text-2xl">📁</div>
-                  <div>
-                    <h2 className="text-xl font-semibold" style={{ color: colors.text }}>
-                      DocuSense AI
-                    </h2>
-                    <p className="text-sm" style={{ color: colors.textSecondary }}>
-                      Gérez vos analyses IA
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
-            
-            <div className="flex-1 overflow-y-auto p-4">
-              
-              {/* Section Fichier sélectionné avec visualisation automatique */}
-              {selectedFile && (
-                <div className="mb-6">
-                  
-                  
-                  {/* Visualisation directe du contenu */}
-                  <div className="rounded-lg overflow-hidden border" style={{ borderColor: colors.border }}>
-                    <UnifiedFileViewer 
-                      file={selectedFile} 
-                      onPreviewAttachment={handleEmailAttachmentPreview}
-                    />
-                  </div>
-
-                  {/* Affichage des pièces jointes si en mode prévisualisation */}
-                  {emailAttachmentPreview && emailAttachmentPreview.attachment && (
-                    <div className="mt-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <label className="text-xs font-medium" style={{ color: colors.textSecondary }}>
-                          Pièce jointe
-                        </label>
-                        <button
-                          onClick={handleBackToEmail}
-                          className="text-xs px-2 py-1 rounded hover:bg-slate-700 transition-colors"
-                          style={{ color: colors.textSecondary }}
-                        >
-                          ← Retour à l'email
-                        </button>
-                      </div>
-                      <div className="rounded-lg overflow-hidden border" style={{ borderColor: colors.border }}>
-                        <EmailAttachmentViewer
-                          file={selectedFile}
-                          attachment={emailAttachmentPreview.attachment}
-                          attachmentIndex={emailAttachmentPreview.index}
-                          onBack={handleBackToEmail}
-                        />
-                      </div>
+            {/* Barre d'outils pour le mode d'affichage */}
+            {selectedFiles.length > 0 && (
+              <div className="flex items-center justify-between px-4 py-2 border-b" style={{ borderColor: colors.border }}>
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm font-medium" style={{ color: colors.text }}>
+                    {selectedFiles.length} fichier{selectedFiles.length > 1 ? 's' : ''} sélectionné{selectedFiles.length > 1 ? 's' : ''}
+                  </span>
+                  {selectedFiles.length > 1 && (
+                    <div className="flex items-center space-x-1">
+                      <button
+                        onClick={() => setViewMode('single')}
+                        className={`px-2 py-1 text-xs rounded transition-colors ${
+                          viewMode === 'single' 
+                            ? 'bg-blue-600 text-white' 
+                            : 'hover:bg-slate-700'
+                        }`}
+                        style={{ color: viewMode === 'single' ? 'white' : colors.text }}
+                      >
+                        <EyeIcon className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={() => setViewMode('thumbnails')}
+                        className={`px-2 py-1 text-xs rounded transition-colors ${
+                          viewMode === 'thumbnails' 
+                            ? 'bg-blue-600 text-white' 
+                            : 'hover:bg-slate-700'
+                        }`}
+                        style={{ color: viewMode === 'thumbnails' ? 'white' : colors.text }}
+                      >
+                        <PhotoIcon className="h-3 w-3" />
+                      </button>
                     </div>
                   )}
                 </div>
-              )}
-
-              {/* Message si aucun fichier sélectionné */}
-              {!selectedFile && (
-                <div className="text-center py-12">
-                  <div className="text-4xl mb-3">📁</div>
-                  <h3 className="text-lg font-medium mb-2" style={{ color: colors.text }}>
-                    Aucun fichier sélectionné
-                  </h3>
-                  <p className="text-sm" style={{ color: colors.textSecondary }}>
-                    Sélectionnez un fichier dans l'arborescence pour le visualiser
-                  </p>
-                </div>
-              )}
-
-              {/* Indicateur de queue en mode principal */}
-              {queueItems.length > 0 && activePanel === 'main' && (
-                <div className="mt-8 p-4 rounded-lg border" style={{ 
-                  backgroundColor: colors.surface,
-                  borderColor: colors.border 
-                }}>
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center space-x-2">
-                      <QueueListIcon className="h-5 w-5" style={{ color: colors.queue }} />
-                      <span className="text-sm font-medium" style={{ color: colors.text }}>
-                        {queueStatus.total_items} analyse{queueStatus.total_items > 1 ? 's' : ''} en cours
-                      </span>
-                    </div>
-                    <button
-                      onClick={() => onSetActivePanel?.('queue')}
-                      className="text-xs px-3 py-1 rounded-lg transition-colors"
-                      style={{ 
-                        backgroundColor: colors.queue,
-                        color: colors.background
-                      }}
-                    >
-                      Voir la queue
-                    </button>
+                
+                {/* Indicateur de support IA */}
+                {selectedFiles.length === 1 && selectedFile && (
+                  <div className="flex items-center space-x-2">
+                    <span className="text-xs" style={{ color: colors.textSecondary }}>
+                      {isSupportedFormat(selectedFile.name) ? 'Supporté par l\'IA' : 'Non supporté par l\'IA'}
+                    </span>
                   </div>
-                  
-                  {/* Statistiques rapides */}
-                  <div className="grid grid-cols-4 gap-4">
-                    <div className="text-center">
-                      <div className="flex items-center justify-center mb-1">
-                        <ClockIcon className="h-4 w-4 text-blue-400 mr-1" />
-                        <span className="text-sm font-semibold text-blue-400">{queueStatus.pending_items}</span>
-                      </div>
-                      <span className="text-xs" style={{ color: colors.textSecondary }}>En attente</span>
-                    </div>
-                    <div className="text-center">
-                      <div className="flex items-center justify-center mb-1">
-                        <PlayIcon className="h-4 w-4 text-yellow-400 mr-1" />
-                        <span className="text-sm font-semibold text-yellow-400">{queueStatus.processing_items}</span>
-                      </div>
-                      <span className="text-xs" style={{ color: colors.textSecondary }}>En cours</span>
-                    </div>
-                    <div className="text-center">
-                      <div className="flex items-center justify-center mb-1">
-                        <CheckCircleIcon className="h-4 w-4 text-green-400 mr-1" />
-                        <span className="text-sm font-semibold text-green-400">{queueStatus.completed_items}</span>
-                      </div>
-                      <span className="text-xs" style={{ color: colors.textSecondary }}>Terminées</span>
-                    </div>
-                    <div className="text-center">
-                      <div className="flex items-center justify-center mb-1">
-                        <ExclamationTriangleIcon className="h-4 w-4 text-red-400 mr-1" />
-                        <span className="text-sm font-semibold text-red-400">{queueStatus.failed_items || 0}</span>
-                      </div>
-                      <span className="text-xs" style={{ color: colors.textSecondary }}>Erreurs</span>
-                    </div>
+                )}
+              </div>
+            )}
+
+            {/* Zone de visualisation avec barre de défilement */}
+            <div className="flex-1 overflow-y-auto">
+              {selectedFiles.length === 0 ? (
+                // Aucun fichier sélectionné
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <div className="text-4xl mb-4">📁</div>
+                    <h3 className="text-lg font-medium mb-2" style={{ color: colors.text }}>
+                      Aucun fichier sélectionné
+                    </h3>
+                    <p className="text-sm" style={{ color: colors.textSecondary }}>
+                      Sélectionnez un fichier dans l'arborescence pour le visualiser
+                    </p>
                   </div>
                 </div>
+              ) : selectedFiles.length === 1 && selectedFile ? (
+                // Un seul fichier sélectionné
+                getViewerComponent(selectedFile)
+              ) : selectedFiles.length > 1 ? (
+                // Plusieurs fichiers sélectionnés
+                viewMode === 'thumbnails' ? (
+                  <ThumbnailGrid 
+                    files={files.filter(f => selectedFiles.includes(f.id || f.path))}
+                    onFileSelect={(file) => {
+                      // Sélectionner le fichier pour l'affichage unique
+                      selectFile(file);
+                    }}
+                  />
+                ) : (
+                  // Mode liste pour plusieurs fichiers
+                  <div className="p-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {files
+                        .filter(f => selectedFiles.includes(f.id || f.path))
+                        .map((file) => (
+                          <div
+                            key={file.id || file.path}
+                            className="p-4 border rounded-lg cursor-pointer hover:bg-slate-700 transition-colors"
+                            style={{ borderColor: colors.border }}
+                            onClick={() => {
+                              // Sélectionner ce fichier pour l'affichage
+                              selectFile(file);
+                            }}
+                          >
+                            <div className="flex items-center space-x-3">
+                              {getFileType(file.name, file.mime_type) === 'image' ? (
+                                <PhotoIcon className="h-8 w-8" style={{ color: colors.primary }} />
+                              ) : getFileType(file.name, file.mime_type) === 'video' ? (
+                                <FilmIcon className="h-8 w-8" style={{ color: colors.primary }} />
+                              ) : getFileType(file.name, file.mime_type) === 'audio' ? (
+                                <MusicalNoteIcon className="h-8 w-8" style={{ color: colors.primary }} />
+                              ) : (
+                                <DocumentTextIcon className="h-8 w-8" style={{ color: colors.primary }} />
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <h4 className="text-sm font-medium truncate" style={{ color: colors.text }}>
+                                  {file.name}
+                                </h4>
+                                <p className="text-xs" style={{ color: colors.textSecondary }}>
+                                  {formatFileSize(file.size)}
+                                </p>
+                                <div className="flex items-center space-x-2 mt-1">
+                                  <span className="text-xs" style={{ color: colors.textSecondary }}>
+                                    {isSupportedFormat(file.name) ? 'Supporté' : 'Non supporté'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )
+              ) : (
+                // État de chargement ou erreur
+                <div className="flex items-center justify-center h-full">
+                  <div className="text-center">
+                    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-400 mx-auto mb-4"></div>
+                    <p className="text-sm" style={{ color: colors.textSecondary }}>
+                      Chargement...
+                    </p>
+                  </div>
+                </div>
               )}
-
-
             </div>
           </div>
         );
@@ -342,7 +349,24 @@ const MainPanel: React.FC<MainPanelProps> = ({
         color: 'var(--text-color)',
       }}
     >
-      {renderPanelContent()}
+      {/* Onglets */}
+      <TabPanel 
+        tabs={tabs} 
+        activeTab={activeTab} 
+        onTabChange={setActiveTab} 
+      />
+      
+      {/* Contenu des onglets */}
+      <div className="flex-1 overflow-hidden">
+        {renderTabContent()}
+      </div>
+
+      {/* Panneau de détails du fichier */}
+      <FileDetailsPanel
+        file={selectedFile}
+        onClose={() => setShowFileDetails(false)}
+        showDetails={showFileDetails}
+      />
     </div>
   );
 };

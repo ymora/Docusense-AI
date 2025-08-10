@@ -24,13 +24,18 @@ interface FileDetailsPanelProps {
     extracted_text?: string;
     analysis_result?: string;
     analysis_metadata?: Record<string, unknown>;
+    analysis_count?: number;
+    type?: string;
+    is_directory?: boolean;
   } | null;
   onClose: () => void;
+  showDetails?: boolean;
 }
 
 const FileDetailsPanel: React.FC<FileDetailsPanelProps> = ({
   file,
   onClose,
+  showDetails = false,
 }) => {
   const { colors, colorMode } = useColors();
 
@@ -46,7 +51,7 @@ const FileDetailsPanel: React.FC<FileDetailsPanelProps> = ({
 
   // Utilisation des fonctions centralisées getStatusColor et getStatusText
 
-  if (!file) {
+  if (!file || !showDetails) {
     return null;
   }
 

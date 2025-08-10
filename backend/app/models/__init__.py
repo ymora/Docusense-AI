@@ -1,13 +1,13 @@
 """
 Models module for DocuSense AI
-Contains all database models and Pydantic schemas
+Contains all database models (SQLAlchemy)
 """
 
 from app.core.database import Base, engine, get_db
-from .file import File, FileStatus, FileCreate, FileUpdate, FileResponse, FileListResponse, FileStatusUpdate, DirectoryStructure, DirectoryTreeResponse
-from .queue import QueueItem, QueueStatus, QueuePriority, QueueItemCreate, QueueItemUpdate, QueueItemResponse, QueueControlRequest
-from .config import Config, ConfigCreate, ConfigUpdate, ConfigResponse
-from .analysis import Analysis, AnalysisStatus, AnalysisType, AnalysisCreate, AnalysisUpdate, AnalysisResponse, BulkAnalysisRequest, AnalysisComparisonRequest
+from .file import File, FileStatus, DirectoryStructure
+from .queue import QueueItem, QueueStatus, QueuePriority
+from .config import Config
+from .analysis import Analysis, AnalysisStatus, AnalysisType
 
 __all__ = [
     "Base",
@@ -15,30 +15,12 @@ __all__ = [
     "get_db",
     "File",
     "FileStatus",
-    "FileCreate",
-    "FileUpdate",
-    "FileResponse",
-    "FileListResponse",
-    "FileStatusUpdate",
     "DirectoryStructure",
-    "DirectoryTreeResponse",
     "Analysis",
     "AnalysisStatus",
     "AnalysisType",
-    "AnalysisCreate",
-    "AnalysisUpdate",
-    "AnalysisResponse",
-    "BulkAnalysisRequest",
-    "AnalysisComparisonRequest",
     "QueueItem",
     "QueueStatus",
     "QueuePriority",
-    "QueueItemCreate",
-    "QueueItemUpdate",
-    "QueueItemResponse",
-    "QueueControlRequest",
-    "Config",
-    "ConfigCreate",
-    "ConfigUpdate",
-    "ConfigResponse"
+    "Config"
 ]

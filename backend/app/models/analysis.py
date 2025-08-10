@@ -56,6 +56,7 @@ class Analysis(Base):
     # Analysis data
     prompt = Column(Text, nullable=False)
     result = Column(Text, nullable=True)
+    pdf_path = Column(String(500), nullable=True)  # Path to generated PDF
     # Additional data like tokens used, etc.
     analysis_metadata = Column(JSON, nullable=True)
 
@@ -110,6 +111,7 @@ class AnalysisResponse(AnalysisBase):
     id: int
     status: AnalysisStatus
     result: Optional[str] = None
+    pdf_path: Optional[str] = None
     analysis_metadata: Optional[Dict[str, Any]] = None
     created_at: datetime
     started_at: Optional[datetime] = None

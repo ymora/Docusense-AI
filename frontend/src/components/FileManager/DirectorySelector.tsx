@@ -25,12 +25,23 @@ const DirectorySelector: React.FC<DirectorySelectorProps> = ({
         const data = await res.json();
         setAvailableDrives(data.drives || []);
 
-        // Ne pas forcer automatiquement la navigation vers un répertoire spécifique
-        // L'utilisateur choisira lui-même son répertoire de départ
+        // Forcer automatiquement la navigation vers le lecteur D
         if (data.drives && data.drives.length > 0 && !isInitialized) {
           setIsInitialized(true);
+          
+          // Chercher le lecteur D en priorité
+          const driveD = data.drives.find((drive: string) => drive.toUpperCase().includes('D:'));
+          if (driveD) {
+            console.log('🚀 Navigation automatique vers le lecteur D:', driveD);
+            onDirectorySelect(driveD);
+          } else {
+            // Si pas de lecteur D, prendre le premier disponible
+            console.log('⚠️ Lecteur D non trouvé, utilisation du premier lecteur:', data.drives[0]);
+            onDirectorySelect(data.drives[0]);
+          }
         }
       } catch (e) {
+        console.error('❌ Erreur lors du chargement des lecteurs:', e);
         setAvailableDrives([]);
       }
     };
@@ -65,11 +76,13 @@ const DirectorySelector: React.FC<DirectorySelectorProps> = ({
       <button
         onClick={() => setShowDrives(!showDrives)}
         className="w-full flex items-center justify-between p-2 hover:bg-slate-700 rounded border border-slate-600 text-blue-400 hover:text-blue-500 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
-        title="Sélectionner un disque système"
+        title="Sélectionner un disque système (D: par défaut)"
       >
         <div className="flex items-center">
           <DeviceTabletIcon className="w-5 h-5 mr-2" />
-          <span className="text-sm">Choisir un disque</span>
+          <span className="text-sm">
+            {currentDirectory ? `Disque actuel: ${currentDirectory}` : 'Choisir un disque (D: par défaut)'}
+          </span>
         </div>
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />

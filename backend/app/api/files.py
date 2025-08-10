@@ -10,6 +10,8 @@ from pydantic import BaseModel
 import logging
 import os
 import psutil
+import subprocess
+import platform
 from pathlib import Path
 from datetime import datetime
 
@@ -17,7 +19,8 @@ from ..core.database import get_db
 from ..services.file_service import FileService
 from ..services.download_service import download_service
 from ..core.file_validation import FileValidator
-from ..models.file import FileStatus, FileListResponse, FileStatusUpdate
+from ..models.file import FileStatus
+from ..schemas.file import FileListResponse, FileStatusUpdate
 
 
 
@@ -893,6 +896,261 @@ async def stream_file_by_path(
         raise HTTPException(status_code=500, detail=str(e))
 
 
+class DownloadMultipleRequest(BaseModel):
+    file_paths: List[str]
+    zip_name: Optional[str] = None
+
+
+class OpenInExplorerRequest(BaseModel):
+    path: str
+
+
+class AnalyzeDirectoryRequest(BaseModel):
+    directory_path: str
+
+@router.post("/download-multiple")
+async def download_multiple_files_by_path(
+    request: DownloadMultipleRequest,
+    db: Session = Depends(get_db)
+):
+    """
+    Télécharger plusieurs fichiers en ZIP
+    """
+    try:
+        from urllib.parse import unquote
+        import tempfile
+        import zipfile
+        from datetime import datetime
+        
+        # Décoder les chemins
+        decoded_paths = [unquote(path) for path in request.file_paths]
+        
+        # Vérifier que tous les fichiers existent
+        valid_paths = []
+        for path in decoded_paths:
+            file_path_obj = Path(path)
+            if file_path_obj.exists() and file_path_obj.is_file():
+                valid_paths.append(file_path_obj)
+            else:
+                logger.warning(f"Fichier non trouvé ou invalide: {path}")
+        
+        if not valid_paths:
+            raise HTTPException(status_code=404, detail="Aucun fichier valide trouvé")
+        
+        # Créer un fichier ZIP temporaire
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        zip_name = request.zip_name or f"documents_{timestamp}.zip"
+        
+        with tempfile.NamedTemporaryFile(suffix='.zip', delete=False) as temp_zip:
+            with zipfile.ZipFile(temp_zip.name, 'w', zipfile.ZIP_DEFLATED) as zipf:
+                for file_path in valid_paths:
+                    try:
+                        # Ajouter le fichier au ZIP avec un nom relatif
+                        zipf.write(file_path, file_path.name)
+                    except Exception as e:
+                        logger.error(f"Erreur lors de l'ajout du fichier {file_path} au ZIP: {e}")
+                        continue
+            
+            # Retourner le fichier ZIP
+            return FileResponse(
+                path=temp_zip.name,
+                filename=zip_name,
+                media_type='application/zip',
+                background=lambda: os.unlink(temp_zip.name)  # Supprimer le fichier temporaire après envoi
+            )
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erreur lors du téléchargement ZIP: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.post("/open-in-explorer")
+async def open_in_explorer(
+    request: OpenInExplorerRequest,
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    Ouvrir un fichier ou dossier dans l'explorateur de fichiers (lecture seule)
+    """
+    try:
+        path = Path(request.path)
+        
+        if not path.exists():
+            raise HTTPException(status_code=404, detail="Chemin introuvable")
+        
+        # Ouvrir dans l'explorateur selon le système d'exploitation
+        system = platform.system().lower()
+        
+        if system == "windows":
+            subprocess.run(["explorer", str(path)], check=True)
+        elif system == "darwin":  # macOS
+            subprocess.run(["open", str(path)], check=True)
+        else:  # Linux
+            subprocess.run(["xdg-open", str(path)], check=True)
+        
+        return {"success": True, "message": f"Ouvert dans l'explorateur: {path}"}
+        
+    except subprocess.CalledProcessError as e:
+        logger.error(f"Erreur lors de l'ouverture dans l'explorateur: {e}")
+        raise HTTPException(status_code=500, detail="Impossible d'ouvrir dans l'explorateur")
+    except Exception as e:
+        logger.error(f"Erreur lors de l'ouverture dans l'explorateur: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/analyze-directory")
+async def analyze_directory(
+    request: AnalyzeDirectoryRequest,
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    Analyser tous les fichiers d'un dossier
+    """
+    try:
+        directory_path = Path(request.directory_path)
+        
+        if not directory_path.exists() or not directory_path.is_dir():
+            raise HTTPException(status_code=404, detail="Dossier introuvable")
+        
+        # Récupérer tous les fichiers du dossier
+        file_service = FileService(db)
+        files = file_service.scan_directory(directory_path)
+        
+        # Ajouter les fichiers à la queue d'analyse
+        file_ids = []
+        for file_info in files:
+            if file_info.get('id'):
+                file_ids.append(file_info['id'])
+        
+        if file_ids:
+            # Ajouter à la queue d'analyse
+            from ..services.queue_service import QueueService
+            queue_service = QueueService(db)
+            
+            for file_id in file_ids:
+                queue_service.add_item(
+                    file_id=file_id,
+                    analysis_type="analysis",
+                    prompt_id="default"
+                )
+        
+        return {
+            "success": True, 
+            "message": f"Analyse du dossier lancée pour {len(file_ids)} fichiers",
+            "files_count": len(file_ids)
+        }
+        
+    except Exception as e:
+        logger.error(f"Erreur lors de l'analyse du dossier: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/directory-files/{directory:path}")
+async def get_directory_files(
+    directory: str,
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    Récupérer tous les fichiers d'un dossier pour l'affichage en miniatures
+    """
+    try:
+        directory_path = Path(directory)
+        
+        if not directory_path.exists() or not directory_path.is_dir():
+            raise HTTPException(status_code=404, detail="Dossier introuvable")
+        
+        # Récupérer tous les fichiers du dossier
+        file_service = FileService(db)
+        files = file_service.scan_directory(directory_path)
+        
+        # Formater les fichiers pour l'affichage
+        formatted_files = []
+        for file_info in files:
+            if file_info.get('id'):
+                formatted_files.append({
+                    'id': file_info['id'],
+                    'name': file_info['name'],
+                    'path': file_info['path'],
+                    'mime_type': file_info.get('mime_type', ''),
+                    'size': file_info.get('size', 0),
+                    'is_directory': file_info.get('is_directory', False),
+                    'status': file_info.get('status', 'none'),
+                    'analysis_count': file_info.get('analysis_count', 0)
+                })
+        
+        return {
+            "success": True,
+            "files": formatted_files,
+            "total_count": len(formatted_files),
+            "directory": str(directory_path)
+        }
+        
+    except Exception as e:
+        logger.error(f"Erreur lors de la récupération des fichiers du dossier: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/analyze-directory-supported")
+async def analyze_directory_supported(
+    request: AnalyzeDirectoryRequest,
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    Analyser uniquement les fichiers supportés par l'IA d'un dossier
+    """
+    try:
+        directory_path = Path(request.directory_path)
+        
+        if not directory_path.exists() or not directory_path.is_dir():
+            raise HTTPException(status_code=404, detail="Dossier introuvable")
+        
+        # Récupérer tous les fichiers du dossier
+        file_service = FileService(db)
+        files = file_service.scan_directory(directory_path)
+        
+        # Filtrer les fichiers supportés par l'IA
+        from ..core.media_formats import is_format_supported_in_dict
+        supported_file_ids = []
+        
+        for file_info in files:
+            if file_info.get('id') and file_info.get('mime_type'):
+                if is_format_supported_in_dict(file_info['mime_type']):
+                    supported_file_ids.append(file_info['id'])
+        
+        if not supported_file_ids:
+            return {
+                "success": False,
+                "message": f"Aucun fichier supporté par l'IA trouvé dans le dossier",
+                "files_analyzed": 0,
+                "supported_files": 0,
+                "total_files": len(files)
+            }
+        
+        # Ajouter les fichiers supportés à la queue d'analyse
+        from ..services.queue_service import QueueService
+        queue_service = QueueService(db)
+        
+        for file_id in supported_file_ids:
+            queue_service.add_item(
+                file_id=file_id,
+                analysis_type="analysis",
+                prompt_id="default"
+            )
+        
+        return {
+            "success": True,
+            "message": f"Analyse lancée pour {len(supported_file_ids)} fichiers supportés sur {len(files)} fichiers",
+            "files_analyzed": len(supported_file_ids),
+            "supported_files": len(supported_file_ids),
+            "total_files": len(files)
+        }
+        
+    except Exception as e:
+        logger.error(f"Erreur lors de l'analyse des fichiers supportés du dossier: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @router.get("/download-by-path/{file_path:path}")
 async def download_file_by_path(
     file_path: str,
@@ -930,3 +1188,57 @@ async def download_file_by_path(
     except Exception as e:
         logger.error(f"Erreur lors du téléchargement: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/drives")
+async def get_available_drives() -> List[Dict[str, Any]]:
+    """
+    Récupère la liste des disques disponibles sur le système
+    """
+    try:
+        drives = []
+        
+        if platform.system() == "Windows":
+            # Sur Windows, utiliser les lettres de disque
+            import string
+            for letter in string.ascii_uppercase:
+                drive_path = f"{letter}:\\"
+                if os.path.exists(drive_path):
+                    try:
+                        # Vérifier si le disque est accessible
+                        os.listdir(drive_path)
+                        drives.append({
+                            "letter": f"{letter}:",
+                            "label": f"Disque {letter}:",
+                            "available": True
+                        })
+                    except (PermissionError, OSError):
+                        # Disque existe mais pas accessible
+                        drives.append({
+                            "letter": f"{letter}:",
+                            "label": f"Disque {letter}: (Accès refusé)",
+                            "available": False
+                        })
+        else:
+            # Sur Linux/Mac, utiliser les points de montage principaux
+            mount_points = ["/", "/home", "/media", "/mnt"]
+            for mount_point in mount_points:
+                if os.path.exists(mount_point):
+                    try:
+                        os.listdir(mount_point)
+                        drives.append({
+                            "letter": mount_point,
+                            "label": f"Point de montage: {mount_point}",
+                            "available": True
+                        })
+                    except (PermissionError, OSError):
+                        drives.append({
+                            "letter": mount_point,
+                            "label": f"Point de montage: {mount_point} (Accès refusé)",
+                            "available": False
+                        })
+        
+        return drives
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération des disques: {str(e)}")

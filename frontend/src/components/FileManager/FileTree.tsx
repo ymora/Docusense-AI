@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { FolderIcon, DocumentIcon, ChevronRightIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
 import { useFileStore, File } from '../../stores/fileStore';
 import { useQueueStore } from '../../stores/queueStore';
 import { useColors } from '../../hooks/useColors';
 import { getFileType } from '../../utils/fileTypeUtils';
 import { getStatusColor, getStatusText } from '../../utils/statusUtils';
+import { isSupportedFormat } from '../../utils/mediaFormats';
 import ContextMenu from '../UI/ContextMenu';
 
 interface FileTreeProps {
@@ -16,17 +17,16 @@ interface FileTreeProps {
 }
 
 const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory, onFileSelect, selectedFiles, onFileAction }) => {
-  // Propriété statique pour éviter les logs répétés
   const { colors } = useColors();
   const { toggleFileSelection, directoryTree, loading } = useFileStore();
   const { queueItems, loadQueueItems, loadQueueStatus } = useQueueStore();
   
-  // Debug: Afficher l'état du directoryTree (optimisé - seulement si changement)
-  useEffect(() => {
-    // Éviter les logs si les données sont identiques
-  }, [directoryTree, currentDirectory, loading]);
+  const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
   
-  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+  // Debug: Log expandedNodes changes
+  useEffect(() => {
+    console.log('🔍 expandedNodes changed:', expandedNodes);
+  }, [expandedNodes]);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
   
   // État du menu contextuel
@@ -42,8 +42,6 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
     file: null
   });
 
-
-
   // Vérifier le thème
   const checkTheme = () => {
     const isDark = document.documentElement.classList.contains('dark') || 
@@ -58,7 +56,7 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
     return () => mediaQuery.removeEventListener('change', checkTheme);
   }, []);
 
-  // Navigation de répertoire - utilise le store (optimisée)
+  // Navigation de répertoire - utilise le store
   const handleDirectoryNavigation = useCallback(async (directory: string) => {
     try {
       onDirectorySelect(directory);
@@ -74,7 +72,7 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
     }
   }, [currentDirectory]);
 
-  // Gestion des clics sur fichiers (optimisée)
+  // Gestion des clics sur fichiers
   const handleFileClick = useCallback((file: any, e: React.MouseEvent) => {
     e.stopPropagation();
     
@@ -149,8 +147,6 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
     e.preventDefault();
     e.stopPropagation();
     
-    // Clic droit sur le fichier
-    
     // Afficher le menu contextuel
     setContextMenu({
       visible: true,
@@ -179,28 +175,82 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
     }
   };
 
-  // Composant DirectoryItem avec expansion
-  const DirectoryItem = ({ dir, level }: { dir: any; level: number }) => {
-    const isExpanded = expandedNodes.has(dir.path);
+  // Composant DirectoryItem avec expansion simplifiée
+  const DirectoryItem = React.memo(({ dir, level }: { dir: any; level: number }) => {
+    const isExpanded = expandedNodes[dir.path] || false;
     const isCurrentDir = dir.path === currentDirectory;
     const isSelected = selectedFiles.includes(dir.path);
+    const [children, setChildren] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [hasLoaded, setHasLoaded] = useState(false);
 
-
-
-    const toggleExpansion = (e: React.MouseEvent) => {
+    const toggleExpansion = useCallback(async (e: React.MouseEvent) => {
       e.stopPropagation();
-      setExpandedNodes(prev => {
-        const newExpanded = new Set(prev);
-        if (isExpanded) {
-          newExpanded.delete(dir.path);
-        } else {
-          newExpanded.add(dir.path);
+      console.log('🔄 toggleExpansion appelé pour:', dir.path, 'isExpanded:', isExpanded);
+      
+      if (isExpanded) {
+        // Réduire le dossier
+        console.log('📁 Réduction du dossier:', dir.path);
+        setExpandedNodes(prev => {
+          const newExpanded = { ...prev };
+          delete newExpanded[dir.path];
+          console.log('📁 Nouvel état expandedNodes:', newExpanded);
+          return newExpanded;
+        });
+      } else {
+        // Déployer le dossier et charger les enfants
+        console.log('📁 Expansion du dossier:', dir.path);
+        setExpandedNodes(prev => {
+          const newExpanded = { ...prev };
+          newExpanded[dir.path] = true;
+          console.log('📁 Nouvel état expandedNodes:', newExpanded);
+          return newExpanded;
+        });
+        
+        // Charger les enfants du dossier seulement si pas déjà chargés
+        if (!hasLoaded) {
+          setIsLoading(true);
+          try {
+            const encodedDirectory = encodeURIComponent(dir.path.replace(/\\/g, '/'));
+            console.log('📁 Chargement des enfants pour:', dir.path, 'URL:', `/api/files/list/${encodedDirectory}`);
+            console.log('📁 Path original:', dir.path, 'Encoded:', encodedDirectory);
+            const response = await fetch(`/api/files/list/${encodedDirectory}`);
+            
+            if (!response.ok) {
+              throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const data = await response.json();
+            console.log('📁 Réponse API pour:', dir.path, 'data:', data);
+            
+            const childItems = [
+              ...(data.subdirectories || []).map((subdir: any) => ({
+                ...subdir,
+                type: 'directory',
+                is_directory: true
+              })),
+              ...(data.files || []).map((file: any) => ({
+                ...file,
+                type: 'file',
+                is_directory: false
+              }))
+            ];
+            
+            setChildren(childItems);
+            setHasLoaded(true);
+            console.log('📁 Enfants chargés pour:', dir.path, 'nombre:', childItems.length);
+          } catch (error) {
+            console.error('Erreur lors du chargement des enfants:', error);
+            // En cas d'erreur, on peut quand même marquer comme chargé pour éviter les retry infinis
+            setHasLoaded(true);
+          } finally {
+            setIsLoading(false);
+          }
         }
-        return newExpanded;
-      });
-    };
+      }
+    }, [dir.path, isExpanded, hasLoaded]);
 
-    const handleDirectoryClick = (e: React.MouseEvent) => {
+    const handleDirectoryClick = useCallback((e: React.MouseEvent) => {
       e.stopPropagation();
       
       // Gestion de la sélection multiple pour les dossiers
@@ -211,12 +261,20 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
         // Sélection par plage avec Shift
         toggleFileSelection(dir.path);
       } else {
-        // Navigation normale vers le dossier
+        // Clic simple : naviguer vers le dossier
         handleDirectoryNavigation(dir.path);
       }
-    };
+    }, [dir.path, selectedFiles.length]);
 
-    const hasChildren = (dir.children && dir.children.length > 0) || (dir.files && dir.files.length > 0);
+    const handleChevronClick = useCallback((e: React.MouseEvent) => {
+      e.stopPropagation();
+      console.log('🔽 Chevron cliqué pour:', dir.path, 'isExpanded:', isExpanded);
+      console.log('🔽 Event details:', e);
+      toggleExpansion(e);
+    }, [dir.path, isExpanded, toggleExpansion]);
+
+    // Toujours afficher le chevron pour les dossiers (ils peuvent avoir des enfants)
+    const hasChildren = true; // On suppose que tous les dossiers peuvent avoir des enfants
 
     return (
       <div key={dir.path}>
@@ -230,26 +288,30 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
           }`}
           style={{ paddingLeft: `${level * 16 + 8}px` }}
         >
-          {/* Chevron pour expansion */}
-          {hasChildren ? (
-            <div
-              className="mr-1 cursor-pointer hover:bg-slate-600 rounded p-0.5 flex-shrink-0"
-              onClick={toggleExpansion}
-            >
-              {isExpanded ? (
-                <ChevronDownIcon className="h-3 w-3" />
-              ) : (
-                <ChevronRightIcon className="h-3 w-3" />
-              )}
-            </div>
-          ) : (
-            <div className="mr-1 w-3 h-3 flex-shrink-0"></div>
-          )}
+          {/* Chevron indicateur (cliquable) */}
+          <div 
+            className="mr-1 flex-shrink-0 cursor-pointer hover:bg-slate-600 rounded p-0.5"
+            onClick={handleChevronClick}
+            title={isExpanded ? "Réduire le dossier" : "Développer le dossier"}
+          >
+            {isLoading ? (
+              <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-400"></div>
+            ) : isExpanded ? (
+              <ChevronDownIcon className="h-3 w-3 text-blue-400" />
+            ) : (
+              <ChevronRightIcon className="h-3 w-3 text-blue-400" />
+            )}
+          </div>
 
           {/* Zone cliquable du dossier */}
           <div
             className="flex items-center flex-1"
             onClick={handleDirectoryClick}
+            onDoubleClick={(e) => {
+              e.stopPropagation();
+              handleDirectoryNavigation(dir.path);
+            }}
+            title="Clic simple: naviguer vers le dossier • Double-clic: naviguer vers le dossier"
           >
             <FolderIcon className="h-4 w-4 mr-2 flex-shrink-0 text-blue-400" />
             <span className="flex-1 truncate">{dir.name}</span>
@@ -260,58 +322,66 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
         {isExpanded && (
           <div>
             {/* Sous-dossiers */}
-            {dir.children && dir.children.length > 0 && (
-              <div>
-                {dir.children.map((subdir: any) =>
-                  <DirectoryItem key={subdir.path} dir={subdir} level={level + 1} />
-                )}
-              </div>
+            {children.filter(item => item.is_directory).map((subdir: any) =>
+              <DirectoryItem key={subdir.path} dir={subdir} level={level + 1} />
             )}
 
             {/* Fichiers */}
-            {dir.files && dir.files.length > 0 && (
-              <div>
-                {dir.files.map((file: any) => <FileItem key={file.path} file={file} level={level + 1} />)}
+            {children.filter(item => !item.is_directory).map((file: any) => 
+              <FileItem key={file.path} file={file} level={level + 1} />
+            )}
+
+            {/* Indicateur de chargement */}
+            {isLoading && (
+              <div className="flex items-center px-2 py-1" style={{ paddingLeft: `${(level + 1) * 16 + 8}px` }}>
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-400 mr-2"></div>
+                <span className="text-xs text-slate-400">Chargement...</span>
               </div>
             )}
           </div>
         )}
       </div>
     );
-  };
+  });
 
-  // Composant FileItem avec statuts
+  // Composant FileItem avec statuts et couleurs améliorés
   const FileItem = ({ file, level }: { file: any; level: number }) => {
     const isSelected = selectedFiles.includes(file.id || file.path);
     const statusColor = getStatusColor(file.status);
     const statusText = getStatusText(file.status);
 
+    // Fonction pour déterminer si le fichier est analysable par l'IA
+    const isAnalyzableByAI = (fileName: string, mimeType?: string) => {
+      // Utiliser la fonction centralisée des formats supportés
+      return isSupportedFormat(fileName);
+    };
+
+    const isAnalyzable = isAnalyzableByAI(file.name, file.mime_type);
+    const fileColor = isAnalyzable ? colors.success : colors.textSecondary;
 
     return (
       <div
         className={`flex items-center px-2 py-1 rounded transition-colors text-sm cursor-pointer ${
           isSelected 
             ? 'bg-blue-600 text-white' 
-            : 'text-slate-300 hover:bg-slate-700'
+            : 'hover:bg-slate-700'
         }`}
         style={{ paddingLeft: `${level * 16 + 8}px` }}
         onClick={(e) => handleFileClick(file, e)}
         onDoubleClick={(e) => handleFileDoubleClick(file, e)}
         onContextMenu={(e) => handleFileRightClick(file, e)}
-        title={`${file.name} - ${statusText}${isSelected ? ' (Sélectionné)' : ''}`}
+        title={`${file.name} - ${isAnalyzable ? 'Analysable par IA' : 'Non pris en charge par l\'IA'}${isSelected ? ' (Sélectionné)' : ''}`}
       >
-        <DocumentIcon className="h-4 w-4 mr-2 flex-shrink-0 text-blue-400" />
-        <span className="flex-1 truncate">{file.name}</span>
-        
-        {/* Statut du fichier (seul indicateur) */}
-        <div className="ml-2">
-          <div
-            className={`w-2 h-2 rounded-full ${statusColor} ${
-              file.status === 'processing' ? 'animate-pulse' : ''
-            }`}
-            title={statusText}
-          />
-        </div>
+        <DocumentIcon 
+          className="h-4 w-4 mr-2 flex-shrink-0" 
+          style={{ color: isSelected ? 'white' : fileColor }}
+        />
+        <span 
+          className="flex-1 truncate"
+          style={{ color: isSelected ? 'white' : fileColor }}
+        >
+          {file.name}
+        </span>
       </div>
     );
   };
@@ -353,9 +423,7 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
         </div>
       )}
       
-
-      
-      {/* Contenu principal */}
+      {/* Contenu principal avec barre de défilement */}
       <div className="flex-1 overflow-y-auto overflow-x-hidden p-2 scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800 hover:scrollbar-thumb-slate-500">
         <div>
           {/* Répertoire racine */}
@@ -375,9 +443,10 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
           {/* Sous-répertoires */}
           {directoryTree.children && directoryTree.children.length > 0 && (
             <div>
-              {directoryTree.children.map((subdir: any) =>
-                <DirectoryItem key={subdir.path} dir={subdir} level={1} />
-              )}
+              {directoryTree.children.map((subdir: any) => {
+                console.log('📁 Rendu DirectoryItem:', subdir.path, 'level: 1');
+                return <DirectoryItem key={subdir.path} dir={subdir} level={1} />;
+              })}
             </div>
           )}
 

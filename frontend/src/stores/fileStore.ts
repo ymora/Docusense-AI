@@ -314,12 +314,27 @@ export const useFileStore = create<FileState>()(
               ? state.selectedFiles.filter(id => id !== fileId)
               : [...state.selectedFiles, fileId];
 
-            return { selectedFiles: newSelectedFiles };
+            // Mettre à jour selectedFile si c'est le seul fichier sélectionné
+            let newSelectedFile = state.selectedFile;
+            if (newSelectedFiles.length === 1) {
+              const file = state.files.find(f => (f.id === fileId || f.path === fileId));
+              newSelectedFile = file || null;
+            } else if (newSelectedFiles.length === 0) {
+              newSelectedFile = null;
+            }
+
+            return { 
+              selectedFiles: newSelectedFiles,
+              selectedFile: newSelectedFile
+            };
           });
         },
 
         selectFile: (file: File) => {
-          set({ selectedFile: file });
+          set({ 
+            selectedFile: file,
+            selectedFiles: [file.id || file.path] // Ajouter le fichier à la liste des fichiers sélectionnés
+          });
         },
 
         analyzeFile: async (fileId: number) => {
@@ -369,18 +384,13 @@ export const useFileStore = create<FileState>()(
           const callGuard = createCallGuard();
           return callGuard(async () => {
             try {
-
-              
               // TOUJOURS démarrer à la racine du disque D (pas de restauration)
-
               try {
                 await get().loadDirectoryTree("D:");
-
               } catch (error) {
                 console.warn("⚠️ Impossible de charger le disque D, tentative avec C:", error);
                 // Fallback vers le disque C si D n'est pas accessible
                 await get().loadDirectoryTree("C:");
-
               }
             } catch (error) {
               console.error("❌ Erreur lors de l'initialisation du répertoire par défaut:", error);

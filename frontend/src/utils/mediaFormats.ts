@@ -90,6 +90,35 @@ export const IMAGE_EXTENSIONS: Set<string> = new Set([
   'pbm', 'pgm', 'ppm', 'pnm', 'xbm', 'xpm', 'ras', 'rgb'
 ]);
 
+// Formats de documents supportés (tous formats analysables par l'IA)
+export const DOCUMENT_EXTENSIONS: Set<string> = new Set([
+  // Documents PDF
+  'pdf',
+  
+  // Documents Microsoft Office
+  'doc', 'docx', 'docm', 'dot', 'dotx', 'dotm',
+  'xls', 'xlsx', 'xlsm', 'xlt', 'xltx', 'xltm',
+  'ppt', 'pptx', 'pptm', 'pot', 'potx', 'potm',
+  
+  // Documents OpenDocument
+  'odt', 'ods', 'odp', 'odg', 'odf',
+  
+  // Documents texte
+  'txt', 'rtf', 'md', 'markdown', 'tex', 'latex',
+  
+  // Documents web
+  'html', 'htm', 'xml', 'json', 'csv',
+  
+  // Documents autres
+  'log', 'ini', 'cfg', 'conf', 'config', 'yaml', 'yml', 'toml',
+  
+  // Emails
+  'eml', 'msg',
+  
+  // Archives (pour extraction)
+  'zip', 'rar', '7z', 'tar', 'gz', 'bz2'
+]);
+
 // ==========================
 // TYPES MIME PAR CATÉGORIE
 // ==========================
@@ -130,6 +159,38 @@ export const IMAGE_MIME_TYPES: string[] = [
   'image/x-minolta-mrw', 'image/x-sigma-x3f', 'image/x-hasselblad-3fr',
   'image/x-hasselblad-fff', 'image/x-phaseone-iiq', 'image/x-leaf-mos',
   'image/x-raw', 'image/x-dcraw'
+];
+
+// Types MIME documents
+export const DOCUMENT_MIME_TYPES: string[] = [
+  // PDF
+  'application/pdf',
+  
+  // Microsoft Office
+  'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'application/vnd.ms-excel', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/vnd.ms-powerpoint', 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  
+  // OpenDocument
+  'application/vnd.oasis.opendocument.text', 'application/vnd.oasis.opendocument.spreadsheet',
+  'application/vnd.oasis.opendocument.presentation', 'application/vnd.oasis.opendocument.graphics',
+  'application/vnd.oasis.opendocument.formula',
+  
+  // Texte
+  'text/plain', 'text/rtf', 'text/markdown', 'text/x-tex', 'text/x-latex',
+  
+  // Web
+  'text/html', 'text/xml', 'application/json', 'text/csv',
+  
+  // Configuration
+  'text/x-log', 'text/x-ini', 'text/x-config', 'text/x-yaml', 'text/x-toml',
+  
+  // Emails
+  'message/rfc822', 'application/vnd.ms-outlook',
+  
+  // Archives
+  'application/zip', 'application/x-rar-compressed', 'application/x-7z-compressed',
+  'application/x-tar', 'application/gzip', 'application/x-bzip2'
 ];
 
 // ==========================
@@ -244,7 +305,60 @@ export const EXTENSION_TO_MIME: Record<string, string> = {
   'xbm': 'image/x-xbitmap',
   'xpm': 'image/x-xpixmap',
   'ras': 'image/x-cmu-raster',
-  'rgb': 'image/x-rgb'
+  'rgb': 'image/x-rgb',
+  
+  // Documents
+  'pdf': 'application/pdf',
+  'doc': 'application/msword',
+  'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'docm': 'application/vnd.ms-word.document.macroEnabled.12',
+  'dot': 'application/msword',
+  'dotx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.template',
+  'dotm': 'application/vnd.ms-word.template.macroEnabled.12',
+  'xls': 'application/vnd.ms-excel',
+  'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'xlsm': 'application/vnd.ms-excel.sheet.macroEnabled.12',
+  'xlt': 'application/vnd.ms-excel',
+  'xltx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.template',
+  'xltm': 'application/vnd.ms-excel.template.macroEnabled.12',
+  'ppt': 'application/vnd.ms-powerpoint',
+  'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+  'pptm': 'application/vnd.ms-powerpoint.presentation.macroEnabled.12',
+  'pot': 'application/vnd.ms-powerpoint',
+  'potx': 'application/vnd.openxmlformats-officedocument.presentationml.template',
+  'potm': 'application/vnd.ms-powerpoint.template.macroEnabled.12',
+  'odt': 'application/vnd.oasis.opendocument.text',
+  'ods': 'application/vnd.oasis.opendocument.spreadsheet',
+  'odp': 'application/vnd.oasis.opendocument.presentation',
+  'odg': 'application/vnd.oasis.opendocument.graphics',
+  'odf': 'application/vnd.oasis.opendocument.formula',
+  'txt': 'text/plain',
+  'rtf': 'text/rtf',
+  'md': 'text/markdown',
+  'markdown': 'text/markdown',
+  'tex': 'text/x-tex',
+  'latex': 'text/x-latex',
+  'html': 'text/html',
+  'htm': 'text/html',
+  'xml': 'text/xml',
+  'json': 'application/json',
+  'csv': 'text/csv',
+  'log': 'text/x-log',
+  'ini': 'text/x-ini',
+  'cfg': 'text/x-config',
+  'conf': 'text/x-config',
+  'config': 'text/x-config',
+  'yaml': 'text/x-yaml',
+  'yml': 'text/x-yaml',
+  'toml': 'text/x-toml',
+  'eml': 'message/rfc822',
+  'msg': 'application/vnd.ms-outlook',
+  'zip': 'application/zip',
+  'rar': 'application/x-rar-compressed',
+  '7z': 'application/x-7z-compressed',
+  'tar': 'application/x-tar',
+  'gz': 'application/gzip',
+  'bz2': 'application/x-bzip2'
 };
 
 // ==========================
@@ -272,6 +386,8 @@ export function getFileTypeByExtension(filename: string): string {
     return 'audio';
   } else if (VIDEO_EXTENSIONS.has(extension)) {
     return 'video';
+  } else if (DOCUMENT_EXTENSIONS.has(extension)) {
+    return 'document';
   } else {
     return 'unknown';
   }
@@ -313,6 +429,8 @@ export function getExtensionsByType(fileType: string): Set<string> {
       return AUDIO_EXTENSIONS;
     case 'video':
       return VIDEO_EXTENSIONS;
+    case 'document':
+      return DOCUMENT_EXTENSIONS;
     default:
       return new Set();
   }
@@ -329,6 +447,8 @@ export function getMimeTypesByType(fileType: string): string[] {
       return AUDIO_MIME_TYPES;
     case 'video':
       return VIDEO_MIME_TYPES;
+    case 'document':
+      return DOCUMENT_MIME_TYPES;
     default:
       return [];
   }
@@ -342,6 +462,7 @@ export function getSupportedFormats(): Record<string, string[]> {
     'image': IMAGE_MIME_TYPES,
     'video': VIDEO_MIME_TYPES,
     'audio': AUDIO_MIME_TYPES,
+    'document': DOCUMENT_MIME_TYPES,
   };
 }
 
@@ -353,11 +474,13 @@ export function getFormatStatistics(): Record<string, number> {
     'audio_formats': AUDIO_EXTENSIONS.size,
     'video_formats': VIDEO_EXTENSIONS.size,
     'image_formats': IMAGE_EXTENSIONS.size,
-    'total_formats': AUDIO_EXTENSIONS.size + VIDEO_EXTENSIONS.size + IMAGE_EXTENSIONS.size,
+    'document_formats': DOCUMENT_EXTENSIONS.size,
+    'total_formats': AUDIO_EXTENSIONS.size + VIDEO_EXTENSIONS.size + IMAGE_EXTENSIONS.size + DOCUMENT_EXTENSIONS.size,
     'audio_mime_types': AUDIO_MIME_TYPES.length,
     'video_mime_types': VIDEO_MIME_TYPES.length,
     'image_mime_types': IMAGE_MIME_TYPES.length,
-    'total_mime_types': AUDIO_MIME_TYPES.length + VIDEO_MIME_TYPES.length + IMAGE_MIME_TYPES.length
+    'document_mime_types': DOCUMENT_MIME_TYPES.length,
+    'total_mime_types': AUDIO_MIME_TYPES.length + VIDEO_MIME_TYPES.length + IMAGE_MIME_TYPES.length + DOCUMENT_MIME_TYPES.length
   };
 }
 
@@ -389,4 +512,11 @@ export function getVideoExtensionRegex(): RegExp {
  */
 export function getImageExtensionRegex(): RegExp {
   return getExtensionRegex('image');
+}
+
+/**
+ * Génère une regex pour détecter les extensions de documents
+ */
+export function getDocumentExtensionRegex(): RegExp {
+  return getExtensionRegex('document');
 } 

@@ -17,7 +17,7 @@ Bibliothèques utilisées :
 """
 
 import mimetypes
-from typing import Dict, List, Set, Tuple
+from typing import Dict, List, Set, Tuple, Any
 
 # ==========================
 # EXTENSIONS PAR CATÉGORIE
@@ -324,43 +324,44 @@ def get_supported_formats() -> Dict[str, List[str]]:
         'document': DOCUMENT_MIME_TYPES,
     }
 
-def get_file_type_by_extension(filename: str) -> str:
-    """Détermine le type de fichier basé sur l'extension"""
-    if not filename:
-        return 'unknown'
-    
-    # Extraire l'extension
-    if '.' not in filename:
-        return 'unknown'
-    
-    extension = '.' + filename.split('.')[-1].lower()
-    
-    if extension in IMAGE_EXTENSIONS:
-        return 'image'
-    elif extension in AUDIO_EXTENSIONS:
-        return 'audio'
-    elif extension in VIDEO_EXTENSIONS:
-        return 'video'
-    elif extension in DOCUMENT_EXTENSIONS:
-        return 'document'
-    else:
-        return 'unknown'
 
-def get_mime_type_by_extension(filename: str) -> str:
-    """Retourne le type MIME basé sur l'extension du fichier"""
-    if not filename:
-        return 'application/octet-stream'
+def get_supported_formats_keys(formats_dict: Dict[str, Any]) -> List[str]:
+    """
+    Retourne la liste des clés d'un dictionnaire de formats supportés
+    Utilisé par les services pour obtenir la liste des extensions supportées
     
-    # Extraire l'extension
-    if '.' not in filename:
-        return 'application/octet-stream'
+    Args:
+        formats_dict: Dictionnaire des formats supportés (extension -> fonction)
+        
+    Returns:
+        List[str]: Liste des extensions supportées
+    """
+    return list(formats_dict.keys())
+
+
+def is_format_supported_in_dict(extension: str, formats_dict: Dict[str, Any]) -> bool:
+    """
+    Vérifie si une extension est supportée dans un dictionnaire de formats
     
-    extension = '.' + filename.split('.')[-1].lower()
-    return EXTENSION_TO_MIME.get(extension, 'application/octet-stream')
+    Args:
+        extension: Extension du fichier (avec ou sans point)
+        formats_dict: Dictionnaire des formats supportés
+        
+    Returns:
+        bool: True si l'extension est supportée
+    """
+    # Normaliser l'extension (enlever le point si présent)
+    clean_extension = extension.lower().lstrip('.')
+    return clean_extension in formats_dict
+
+# SUPPRIMÉ: get_file_type_by_extension() - Fonction morte, remplacée par FileValidator.get_file_type()
+# SUPPRIMÉ: get_mime_type_by_extension() - Fonction morte, remplacée par FileValidator.get_mime_type()
 
 def is_supported_format(filename: str) -> bool:
     """Vérifie si le format du fichier est supporté"""
-    file_type = get_file_type_by_extension(filename)
+    # Utiliser FileValidator pour la cohérence
+    from .file_validation import FileValidator
+    file_type = FileValidator.get_file_type_by_extension(filename)
     return file_type in ['image', 'audio', 'video', 'document']
 
 def get_extensions_by_type(file_type: str) -> Set[str]:

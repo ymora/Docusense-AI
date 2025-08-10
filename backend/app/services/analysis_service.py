@@ -15,6 +15,7 @@ from ..models.queue import QueueItem, QueueStatus, QueuePriority
 from .ai_service import get_ai_service
 from .queue_service import QueueService
 from .prompt_service import PromptService
+from .pdf_generator_service import PDFGeneratorService
 from .base_service import BaseService, log_service_operation
 from ..core.types import ServiceResponse, AnalysisData
 
@@ -27,6 +28,7 @@ class AnalysisService(BaseService):
         self.ai_service = get_ai_service(db)
         self.queue_service = QueueService(db)
         self.prompt_service = PromptService()
+        self.pdf_generator = PDFGeneratorService(db)
 
     @log_service_operation("create_analysis")
     def create_analysis(
@@ -430,6 +432,14 @@ class AnalysisService(BaseService):
             if file:
                 file.status = FileStatus.COMPLETED
                 self.db.commit()
+            
+            # Generate PDF for completed analysis
+            try:
+                pdf_path = self.pdf_generator.generate_analysis_pdf(analysis_id)
+                if pdf_path:
+                    self.logger.info(f"Generated PDF for completed analysis {analysis_id}: {pdf_path}")
+            except Exception as e:
+                self.logger.error(f"Failed to generate PDF for analysis {analysis_id}: {str(e)}")
 
         self.logger.info(f"Updated analysis {analysis_id} with result")
         return analysis

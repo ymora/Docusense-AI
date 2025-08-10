@@ -4,11 +4,11 @@
 
 // Couleurs des statuts
 export const STATUS_COLORS = {
-  completed: 'bg-green-500',
-  failed: 'bg-red-500',
-  processing: 'bg-blue-500',
-  pending: 'bg-yellow-500',
-  paused: 'bg-yellow-500',
-  unsupported: 'bg-gray-500',
-  none: 'bg-yellow-500',
+  completed: '#10b981', // Vert
+  failed: '#ef4444', // Rouge
+  processing: '#3b82f6', // Bleu
+  pending: '#f59e0b', // Jaune
+  paused: '#f59e0b', // Jaune
+  unsupported: '#6b7280', // Gris
+  none: '#f59e0b', // Jaune
 } as const;

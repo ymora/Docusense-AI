@@ -1,11 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import {
-  ChevronLeftIcon,
-  ChevronRightIcon,
-  DocumentTextIcon,
-  Cog6ToothIcon,
-  ChartBarIcon
-} from '@heroicons/react/24/outline';
 import LeftPanel from './LeftPanel';
 import MainPanel from './MainPanel';
 
@@ -39,53 +32,167 @@ const Layout: React.FC = () => {
 
   // Gestion des actions de fichiers (menu contextuel)
   useEffect(() => {
-    const handleFileAction = (event: CustomEvent) => {
+    const handleFileAction = async (event: CustomEvent) => {
       const { action, file } = event.detail;
       
       if (action === 'view' && file) {
         // Sélectionner le fichier pour l'afficher dans le MainPanel
         selectFile(file);
         setActivePanel('main');
-      } else if (action === 'download' && file) {
-        // Télécharger le fichier directement
+      } else if (action === 'download_file' && file) {
+        // Télécharger un fichier individuel
         try {
-          // Téléchargement du fichier
+          let downloadUrl = `/api/files/download-by-path/${encodeURIComponent(file.path)}`;
           
-          let downloadUrl;
-          
-          // Toujours utiliser l'endpoint par path car les fichiers n'ont pas d'ID valide
-          downloadUrl = `/api/files/download-by-path/${encodeURIComponent(file.path)}`;
-          
-          // Créer un lien temporaire pour forcer le téléchargement
           const link = document.createElement('a');
           link.href = downloadUrl;
           link.download = file.name || 'download';
-          link.target = '_self'; // Utiliser la même fenêtre
+          link.target = '_self';
           link.rel = 'noopener noreferrer';
-          
-          // Ajouter un timestamp pour éviter le cache
           link.href += `?t=${Date.now()}`;
           
-          // Ajouter le lien au DOM, cliquer dessus, puis le supprimer
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
         } catch (error) {
           console.error('Erreur lors du téléchargement du fichier:', error);
         }
-      } else if (action === 'analyze_ia' && file) {
-        // Ajouter directement à la queue d'analyse
-        const fileIds = selectedFiles && selectedFiles.length > 1
-          ? selectedFiles
-          : [file.id || file.path];
-        handleAddToQueue(fileIds);
-        // Basculer vers le panneau Analyse IA pour voir la liste
+             } else if (action === 'download_directory' && file) {
+        // Télécharger le dossier en ZIP
+        try {
+          const downloadUrl = `/api/download/directory/${encodeURIComponent(file.path)}`;
+          const link = document.createElement('a');
+          link.href = downloadUrl;
+          link.download = `${file.name || 'folder'}.zip`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        } catch (error) {
+          console.error('Erreur lors du téléchargement du dossier:', error);
+        }
+             } else if (action === 'explore_directory' && file) {
+         // Explorer le contenu du dossier
+         selectFile(file);
+         setActivePanel('main');
+       } else if (action === 'view_directory_thumbnails' && file) {
+         // Visualiser tous les fichiers du dossier en miniatures
+         selectFile(file);
+         setActivePanel('main');
+         // Déclencher l'affichage en mode miniatures
+         window.dispatchEvent(new CustomEvent('viewDirectoryThumbnails', {
+           detail: { directoryPath: file.path }
+         }));
+              } else if (action === 'analyze_directory' && file) {
+         // Analyser tous les fichiers du dossier
+         try {
+           const response = await fetch(`/api/files/analyze-directory`, {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify({ directory_path: file.path })
+           });
+           if (response.ok) {
+             setActivePanel('analyses');
+           } else {
+             console.error('Erreur lors de l\'analyse du dossier');
+           }
+         } catch (error) {
+           console.error('Erreur lors de l\'analyse du dossier:', error);
+         }
+       } else if (action === 'analyze_directory_supported' && file) {
+         // Analyser uniquement les fichiers supportés du dossier
+         try {
+           const response = await fetch(`/api/files/analyze-directory-supported`, {
+             method: 'POST',
+             headers: { 'Content-Type': 'application/json' },
+             body: JSON.stringify({ directory_path: file.path })
+           });
+           if (response.ok) {
+             setActivePanel('analyses');
+           } else {
+             console.error('Erreur lors de l\'analyse des fichiers supportés du dossier');
+           }
+         } catch (error) {
+           console.error('Erreur lors de l\'analyse des fichiers supportés du dossier:', error);
+         }
+       } else if (action === 'view_directory_analyses' && file) {
+        // Voir les analyses du dossier
         setActivePanel('analyses');
-      } else if (action === 'add_to_queue' && file) {
+        window.dispatchEvent(new CustomEvent('filterAnalysesByDirectory', {
+          detail: { directoryPath: file.path }
+        }));
+      } else if (action === 'retry_analysis' && file) {
+        // Relancer l'analyse avec un nouveau prompt
         const fileIds = [file.id || file.path];
-        
-        // Créer des analyses en attente pour le fichier avec prompt par défaut
         handleAddToQueue(fileIds);
+        setActivePanel('analyses');
+      } else if (action === 'compare_analyses' && file) {
+        // Comparer les analyses du fichier
+        setActivePanel('analyses');
+        window.dispatchEvent(new CustomEvent('compareAnalyses', {
+          detail: { fileId: file.id, filePath: file.path }
+        }));
+      } else if (action === 'analyze_multiple' && file) {
+        // Analyser tous les fichiers sélectionnés
+        handleAddToQueue(selectedFiles);
+        setActivePanel('analyses');
+      } else if (action === 'compare_multiple' && file) {
+        // Comparer les analyses des fichiers sélectionnés
+        setActivePanel('analyses');
+        window.dispatchEvent(new CustomEvent('compareMultipleAnalyses', {
+          detail: { fileIds: selectedFiles }
+        }));
+             } else if (action === 'add_to_queue' && file) {
+        const fileIds = [file.id || file.path];
+        handleAddToQueue(fileIds);
+      } else if (action === 'view_analyses' && file) {
+        // Basculer vers l'onglet Analyses IA et filtrer par fichier
+        setActivePanel('analyses');
+        window.dispatchEvent(new CustomEvent('filterAnalysesByFile', {
+          detail: { filePath: file.path }
+        }));
+      } else if (action === 'download_multiple' && file) {
+        // Téléchargement ZIP pour plusieurs fichiers sélectionnés
+        try {
+          const downloadUrl = `/api/files/download-multiple`;
+          
+          const filePaths = [];
+          selectedFiles.forEach((fileId) => {
+            const file = files.find(f => f.id === fileId || f.path === fileId);
+            if (file) {
+              filePaths.push(file.path);
+            }
+          });
+          
+          if (filePaths.length === 0) {
+            console.error('Aucun fichier valide trouvé pour le téléchargement ZIP');
+            return;
+          }
+          
+          const response = await fetch(downloadUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              file_paths: filePaths,
+              zip_name: `documents_${new Date().toISOString().slice(0, 10)}.zip`
+            })
+          });
+          
+          if (response.ok) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `documents_${new Date().toISOString().slice(0, 10)}.zip`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+          } else {
+            console.error('Erreur lors du téléchargement ZIP:', response.statusText);
+          }
+        } catch (error) {
+          console.error('Erreur lors du téléchargement ZIP:', error);
+        }
       }
     };
 
@@ -229,7 +336,12 @@ const Layout: React.FC = () => {
   const handleResize = (e: MouseEvent) => {
     if (isResizing) {
       const newWidth = e.clientX;
-      setSidebarWidth(Math.max(200, Math.min(600, newWidth)));
+      // Le panneau gauche doit faire maximum 1/3 de la largeur totale
+      const maxSidebarWidth = window.innerWidth * 0.33;
+      const minSidebarWidth = 200; // Largeur minimale
+      const clampedWidth = Math.max(minSidebarWidth, Math.min(maxSidebarWidth, newWidth));
+      console.log('🔄 Redimensionnement:', { newWidth, maxSidebarWidth, clampedWidth });
+      setSidebarWidth(clampedWidth);
     }
   };
 
@@ -245,11 +357,13 @@ const Layout: React.FC = () => {
     const avgFileNameLength = files.reduce((acc, file) => acc + file.name.length, 0) / fileCount;
     
     // Largeur de base + ajustement selon la longueur moyenne des noms
-    let optimalWidth = 250;
+    let optimalWidth = 300; // Largeur de base augmentée
     if (avgFileNameLength > 30) optimalWidth += 50;
     if (avgFileNameLength > 50) optimalWidth += 50;
     
-    return Math.max(200, Math.min(500, optimalWidth));
+    // Limiter à 1/2 de la largeur totale (plus flexible)
+    const maxWidth = window.innerWidth * 0.5;
+    return Math.max(200, Math.min(maxWidth, optimalWidth));
   };
 
   // Redimensionnement automatique
@@ -258,11 +372,18 @@ const Layout: React.FC = () => {
     setSidebarWidth(optimalWidth);
   };
 
+  // Redimensionner le panneau gauche à 1/3 de la largeur
+  const handleResizeToThird = () => {
+    const newSidebarWidth = window.innerWidth * 0.4; // 40% de la largeur (plus flexible)
+    setSidebarWidth(newSidebarWidth);
+  };
+
   // Gestion du redimensionnement de la fenêtre
   useEffect(() => {
     const handleWindowResize = () => {
-      if (sidebarWidth > window.innerWidth * 0.8) {
-        setSidebarWidth(window.innerWidth * 0.4);
+      // Si la sidebar dépasse 1/2 de la largeur, la redimensionner
+      if (sidebarWidth > window.innerWidth * 0.5) {
+        setSidebarWidth(window.innerWidth * 0.5);
       }
     };
 
@@ -270,32 +391,7 @@ const Layout: React.FC = () => {
     return () => window.removeEventListener('resize', handleWindowResize);
   }, [sidebarWidth, setSidebarWidth]);
 
-  // Gestionnaires de boutons
-  const handleAnalysesButtonClick = () => {
-    // Toggle : si on est déjà sur analyses, revenir à main, sinon aller à analyses
-    if (activePanel === 'analyses') {
-      setActivePanel('main');
-    } else {
-      setActivePanel('analyses');
-    }
-  };
 
-  const handleConfigButtonClick = () => {
-    // Toggle : si on est déjà sur config, revenir à main, sinon aller à config
-    if (activePanel === 'config') {
-      setActivePanel('main');
-    } else {
-      setActivePanel('config');
-    }
-  };
-
-
-
-  // Styles des boutons
-  const getButtonStyles = (isActive: boolean) => ({
-    backgroundColor: isActive ? colors.primary : 'transparent',
-    color: isActive ? colors.background : colors.textSecondary,
-  });
 
 
 
@@ -335,133 +431,46 @@ const Layout: React.FC = () => {
       >
       {/* Panneau de gauche */}
       <div
-        className="flex-shrink-0 overflow-hidden"
+        className="overflow-hidden"
         style={{
           width: sidebarWidth,
+          minWidth: '200px',
+          maxWidth: '33%',
           backgroundColor: colors.surface,
           borderRight: `1px solid ${colors.border}`,
         }}
         onDoubleClick={handleAutoResize}
-        title="Double-clic pour redimensionner automatiquement"
+        onContextMenu={(e) => {
+          e.preventDefault();
+          handleResizeToThird();
+        }}
+        title="Double-clic pour redimensionner automatiquement, Clic droit pour redimensionner à 40%"
       >
         <LeftPanel />
       </div>
 
       {/* Séparateur redimensionnable */}
       <div
-        className="w-1 cursor-col-resize transition-colors"
+        className="w-2 cursor-col-resize transition-colors hover:w-3"
         style={{
-          backgroundColor: colors.border,
+          backgroundColor: isResizing ? colors.primary : colors.border,
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.backgroundColor = colors.primary;
+          if (!isResizing) {
+            e.currentTarget.style.backgroundColor = colors.primary;
+          }
         }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.backgroundColor = colors.border;
+          if (!isResizing) {
+            e.currentTarget.style.backgroundColor = colors.border;
+          }
         }}
         onMouseDown={handleResizeStart}
+        title="Glisser pour redimensionner le panneau gauche (max 1/3 de l'écran)"
       />
 
       {/* Panneau principal */}
       <div className="flex-1 flex flex-col overflow-hidden">
-        {/* Barre d'outils */}
-        <div
-          className="flex items-center justify-between p-4"
-          style={{
-            backgroundColor: colors.surface,
-            borderBottom: `1px solid ${colors.border}`,
-          }}
-        >
-          <div className="flex items-center space-x-4">
-
-
-            
-            
-            {/* Bouton Analyse IA */}
-            <div className="flex items-center space-x-2">
-              <div className="w-px h-6 bg-slate-600"></div>
-              <button
-                onClick={handleAnalysesButtonClick}
-                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors flex items-center space-x-2 ${
-                  activePanel === 'analyses' ? 'bg-blue-600 text-white' : 'bg-slate-800 hover:bg-slate-700 text-slate-200'
-                }`}
-                style={getButtonStyles(activePanel === 'analyses')}
-                title={!queueItems || queueItems.length === 0 ? "Aucune analyse terminée - Lancez des analyses pour voir les analyses IA" : "Voir les analyses IA"}
-              >
-                <DocumentTextIcon className="h-4 w-4" />
-                <span>Analyse IA {queueItems && queueItems.length > 0 && `(${queueItems.length})`}</span>
-              </button>
-              
-
-            </div>
-
-
-
-            {/* Navigation entre fichiers */}
-            {((selectedFile && selectedFile.id) || selectedFiles.length > 0) && files.length > 1 && (
-              <div className="flex items-center space-x-2">
-                <div className="w-px h-6 bg-slate-600"></div>
-                <button
-                  onClick={() => navigateToFile('prev')}
-                  className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition-colors"
-                  title="Fichier précédent (←)"
-                >
-                  <ChevronLeftIcon className="h-5 w-5" />
-                </button>
-                <button
-                  onClick={() => navigateToFile('next')}
-                  className="p-1 rounded hover:bg-slate-700 text-slate-400 hover:text-slate-200 transition-colors"
-                  title="Fichier suivant (→)"
-                >
-                  <ChevronRightIcon className="h-5 w-5" />
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div className="flex items-center space-x-4">
-            {/* Bouton configuration */}
-            <button
-              onClick={handleConfigButtonClick}
-              className="p-2 transition-colors"
-              style={{
-                color: activePanel === 'config' ? colors.primary : colors.textSecondary,
-              }}
-              onMouseEnter={(e) => {
-                if (activePanel !== 'config') {
-                  e.currentTarget.style.color = colors.text;
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (activePanel !== 'config') {
-                  e.currentTarget.style.color = colors.textSecondary;
-                }
-              }}
-              title="Configuration des providers IA"
-            >
-              <Cog6ToothIcon className="h-5 w-5" />
-            </button>
-
-            {/* Bouton thème jour/nuit */}
-            <button
-              onClick={toggleTheme}
-              className="p-2 transition-colors"
-              style={{
-                color: colors.textSecondary,
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.color = colors.text;
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.color = colors.textSecondary;
-              }}
-              title={isDarkMode ? 'Passer au mode clair' : 'Passer au mode sombre'}
-            >
-              {isDarkMode ? '☀️' : '🌙'}
-            </button>
-          </div>
-        </div>
-
         {/* Contenu principal */}
         <div className="flex-1 overflow-hidden">
           <MainPanel 
@@ -469,9 +478,6 @@ const Layout: React.FC = () => {
             onSetActivePanel={setActivePanel}
           />
         </div>
-        
-
-
       </div>
     </div>
     </>

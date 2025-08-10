@@ -81,7 +81,7 @@ async def stream_converted_media(file_path: str):
                 converted_path = decoded_path
         
         # Stream le fichier converti
-        def generate():
+        def generate_converted_stream():
             with open(converted_path, 'rb') as f:
                 while chunk := f.read(8192):
                     yield chunk
@@ -107,7 +107,7 @@ async def stream_converted_media(file_path: str):
             }.get(file_ext, 'audio/mp4')
         
         return StreamingResponse(
-            generate(),
+            generate_converted_stream(),
             media_type=mime_type,
             headers={
                 "Accept-Ranges": "bytes",

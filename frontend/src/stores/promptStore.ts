@@ -41,7 +41,6 @@ export const usePromptStore = create<PromptState>()(
             
             // Ne charger qu'une seule fois au démarrage
             if (isInitialized) {
-
               return;
             }
 
@@ -53,7 +52,6 @@ export const usePromptStore = create<PromptState>()(
             }
             
             try {
-
               const prompts = await promptService.getPrompts();
               const categories = promptService.getPromptCategories();
               

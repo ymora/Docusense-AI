@@ -56,14 +56,12 @@ export const useConfigStore = create<ConfigState>()(
           
           // Ne charger qu'une seule fois au démarrage
           if (isInitialized) {
-
             return;
           }
 
           set({ loading: true, error: null });
           
           try {
-
             const response = await ConfigService.getAIProviders();
             
             set({ 
@@ -75,7 +73,6 @@ export const useConfigStore = create<ConfigState>()(
               lastUpdated: new Date().toISOString()
             });
             
-
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Erreur lors du chargement des configurations';
             set({ 

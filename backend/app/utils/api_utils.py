@@ -39,11 +39,20 @@ class APIUtils:
     
     @staticmethod
     def validate_file_path(path: str, must_exist: bool = True) -> Path:
-        """Validation uniforme des chemins de fichiers"""
+        """Validation robuste des chemins de fichiers - utilise FileValidator"""
         try:
             decoded_path = urllib.parse.unquote(path)
             file_path = Path(decoded_path)
             
+            # Utiliser FileValidator pour une validation complète
+            validation_result = FileValidator.validate_file_path(file_path)
+            
+            if not validation_result.is_valid:
+                # Convertir les erreurs de validation en HTTPException
+                error_messages = [error.message for error in validation_result.errors]
+                raise HTTPException(status_code=400, detail="; ".join(error_messages))
+            
+            # Vérifier l'existence si demandé
             if must_exist and not file_path.exists():
                 raise HTTPException(status_code=404, detail="Fichier non trouvé")
             

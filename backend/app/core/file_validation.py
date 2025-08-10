@@ -14,8 +14,6 @@ from dataclasses import dataclass
 from .media_formats import (
     initialize_mime_types,
     get_supported_formats,
-    get_file_type_by_extension,
-    get_mime_type_by_extension,
     is_supported_format,
     get_format_statistics
 )
@@ -26,29 +24,8 @@ logger = logging.getLogger(__name__)
 initialize_mime_types()
 
 
-@dataclass
-class ValidationError:
-    """
-    Erreur de validation
-    """
-    field: str
-    message: str
-    code: str
-    value: Any = None
-
-
-@dataclass
-class ValidationResult:
-    """
-    Résultat de validation
-    """
-    is_valid: bool
-    errors: List[ValidationError]
-    warnings: List[str] = None
-
-    def __post_init__(self):
-        if self.warnings is None:
-            self.warnings = []
+# Import des classes de validation centralisées
+from .validation import ValidationError, ValidationResult
 
 
 class FileValidator:
@@ -312,7 +289,8 @@ class FileValidator:
         Fallback pour déterminer le type MIME à partir de l'extension
         Utilise la configuration centralisée
         """
-        return get_mime_type_by_extension(f"test{extension}")
+        from .media_formats import EXTENSION_TO_MIME
+        return EXTENSION_TO_MIME.get(extension.lower(), None)
     
     @classmethod
     def get_supported_formats_for_type(cls, file_type: str) -> List[str]:

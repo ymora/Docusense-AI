@@ -13,6 +13,7 @@ import logging
 
 from .base_service import BaseService, log_service_operation
 from ..core.types import ServiceResponse
+from ..core.media_formats import get_supported_formats_keys, is_format_supported_in_dict
 
 
 class OfficeViewerService(BaseService):
@@ -356,8 +357,8 @@ class OfficeViewerService(BaseService):
 
     def get_supported_formats(self) -> list[str]:
         """Retourne la liste des formats supportés"""
-        return list(self.supported_formats.keys())
+        return get_supported_formats_keys(self.supported_formats)
 
     def is_format_supported(self, extension: str) -> bool:
         """Vérifie si un format est supporté"""
-        return extension.lower() in self.supported_formats
+        return is_format_supported_in_dict(extension, self.supported_formats)
