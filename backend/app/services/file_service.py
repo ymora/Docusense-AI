@@ -17,7 +17,7 @@ from ..core.file_validation import FileValidator
 from ..core.status_manager import FileStatus
 from ..core.database_utils import DatabaseMetrics
 from ..core.cache import cached
-from ..core.performance_monitor import monitor_performance
+from ..core.performance_monitor import performance_monitor
 from ..core.database_migration import run_automatic_migrations, check_database_consistency
 from .base_service import BaseService, log_service_operation
 from ..core.types import ServiceResponse, FileData
@@ -427,6 +427,73 @@ class FileService(BaseService):
 
 
 
+    def _check_disk_accessibility(self, directory_path: str) -> Dict[str, Any]:
+        """
+        Vérifie l'accessibilité d'un disque et gère les cas de verrouillage
+        
+        Args:
+            directory_path: Chemin du répertoire à vérifier
+            
+        Returns:
+            Dict avec les informations d'accessibilité
+        """
+        try:
+            directory = Path(directory_path)
+            
+            # Vérifier si le disque est accessible
+            if not directory.exists():
+                return {
+                    "accessible": False,
+                    "error": "DISK_NOT_FOUND",
+                    "message": f"Le disque {directory_path} n'existe pas",
+                    "retry_after": None
+                }
+            
+            # Essayer de lister le contenu pour vérifier l'accessibilité
+            try:
+                test_items = list(directory.iterdir())
+                return {
+                    "accessible": True,
+                    "error": None,
+                    "message": "Disque accessible",
+                    "retry_after": None
+                }
+            except PermissionError:
+                return {
+                    "accessible": False,
+                    "error": "DISK_LOCKED",
+                    "message": f"Le disque {directory_path} est verrouillé ou inaccessible",
+                    "retry_after": 30,  # Retry après 30 secondes
+                    "user_message": f"Le disque {directory_path} est verrouillé. Veuillez le déverrouiller et réessayer."
+                }
+            except OSError as e:
+                if "device not ready" in str(e).lower() or "not ready" in str(e).lower():
+                    return {
+                        "accessible": False,
+                        "error": "DISK_NOT_READY",
+                        "message": f"Le disque {directory_path} n'est pas prêt",
+                        "retry_after": 10,  # Retry après 10 secondes
+                        "user_message": f"Le disque {directory_path} n'est pas prêt. Veuillez attendre qu'il soit disponible."
+                    }
+                else:
+                    return {
+                        "accessible": False,
+                        "error": "DISK_ERROR",
+                        "message": f"Erreur d'accès au disque {directory_path}: {str(e)}",
+                        "retry_after": 60,  # Retry après 1 minute
+                        "user_message": f"Erreur d'accès au disque {directory_path}. Veuillez vérifier la connexion."
+                    }
+                    
+        except Exception as e:
+            self.logger.error(f"Erreur lors de la vérification d'accessibilité du disque {directory_path}: {e}")
+            return {
+                "accessible": False,
+                "error": "UNKNOWN_ERROR",
+                "message": f"Erreur inconnue: {str(e)}",
+                "retry_after": 120,  # Retry après 2 minutes
+                "user_message": f"Erreur inconnue lors de l'accès au disque {directory_path}"
+            }
+
     # MÉTHODE SUPPRIMÉE: list_directory_content() remplacée par list_directory_content_paginated()
 
     @cached(ttl=300)  # OPTIMIZATION: Cache de 5 minutes pour la navigation paginée
@@ -442,15 +509,48 @@ class FileService(BaseService):
         """
         self.logger.info(f"Starting list_directory_content_paginated for: {directory_path}")
         try:
+            # Vérifier l'accessibilité du disque avant de continuer
+            disk_status = self._check_disk_accessibility(directory_path)
+            if not disk_status["accessible"]:
+                self.logger.warning(f"Disque non accessible: {disk_status['message']}")
+                return {
+                    "success": False,
+                    "error": disk_status["error"],
+                    "message": disk_status["user_message"],
+                    "retry_after": disk_status["retry_after"],
+                    "files": [],
+                    "subdirectories": [],
+                    "total_files": 0,
+                    "total_subdirectories": 0,
+                    "page": page,
+                    "page_size": page_size,
+                    "total_pages": 0
+                }
+            
+            # Valider le répertoire avec la fonction réintégrée
+            from ..core.file_validation import FileValidator
+            validation_result = FileValidator.validate_directory_path(directory_path)
+            if not validation_result.is_valid:
+                error_messages = [error.message for error in validation_result.errors]
+                raise ValueError("; ".join(error_messages))
+            
             directory = Path(directory_path)
-            if not directory.exists() or not directory.is_dir():
-                raise ValueError(f"Directory does not exist: {directory_path}")
-
             files = []
             subdirectories = []
             total_files = 0
             total_subdirectories = 0
 
+            # Utiliser les fonctions réintégrées pour la gestion des formats
+            from ..core.file_validation import FileValidator
+            
+            # Récupérer les formats supportés
+            document_formats = FileValidator.get_supported_formats_for_type('document')
+            image_formats = FileValidator.get_supported_formats_for_type('image')
+            video_formats = FileValidator.get_supported_formats_for_type('video')
+            audio_formats = FileValidator.get_supported_formats_for_type('audio')
+            
+            all_supported_formats = document_formats + image_formats + video_formats + audio_formats
+            
             try:
                 # OPTIMISATION: 1 seule requête DB pour tout le répertoire
                 db_files_in_directory = self.db.query(File).filter(
@@ -469,6 +569,11 @@ class FileService(BaseService):
                 
                 for item_path in all_items:
                     try:
+                        # Vérifier l'accessibilité de chaque élément individuellement
+                        if not item_path.exists():
+                            self.logger.warning(f"Élément non accessible: {item_path}")
+                            continue
+                            
                         if item_path.is_file():
                             total_files += 1
                             item_path_str = str(item_path)

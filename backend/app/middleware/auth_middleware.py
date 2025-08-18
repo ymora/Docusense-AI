@@ -20,37 +20,35 @@ class AuthMiddleware:
     
     @staticmethod
     def get_current_session(credentials: HTTPAuthorizationCredentials = Depends(bearer)) -> str:
-        """Vérifie et retourne le token de session (obligatoire)"""
-        session_token = credentials.credentials
-        
-        if not security_manager.verify_session(session_token):
-            raise HTTPException(
-                status_code=401,
-                detail="Session invalide ou expirée",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        
-        return session_token
+        """Récupère la session actuelle"""
+        try:
+            token = credentials.credentials
+            if security_manager.verify_session(token):
+                return token
+            else:
+                raise HTTPException(status_code=401, detail="Session invalide")
+        except Exception as e:
+            logger.error(f"Erreur lors de la vérification de session: {e}")
+            raise HTTPException(status_code=401, detail="Session invalide")
     
     @staticmethod
-    def get_current_session_optional(credentials: Optional[HTTPAuthorizationCredentials] = Depends(HTTPBearer(auto_error=False))) -> Optional[str]:
-        """Vérifie et retourne le token de session (optionnel)"""
-        if not credentials:
+    def get_current_session_optional(credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer)) -> Optional[str]:
+        """Récupère la session actuelle (optionnelle)"""
+        try:
+            if credentials:
+                token = credentials.credentials
+                if security_manager.verify_session(token):
+                    return token
             return None
-        
-        session_token = credentials.credentials
-        
-        if not security_manager.verify_session(session_token):
-            return None  # Retourne None si la session est invalide ou expirée
-        
-        return session_token
+        except Exception:
+            return None
     
     @staticmethod
-    def require_admin(session_token: str = Depends(get_current_session)) -> str:
-        """Vérifie que l'utilisateur a les droits administrateur"""
-        # Pour l'instant, tous les utilisateurs authentifiés sont admin
-        # À étendre selon les besoins
-        return session_token
+    def require_admin(credentials: HTTPAuthorizationCredentials = Depends(bearer)) -> str:
+        """Vérifie que l'utilisateur est administrateur"""
+        token = AuthMiddleware.get_current_session(credentials)
+        # Pour l'instant, tous les utilisateurs authentifiés sont considérés comme admin
+        return token
 
 
 # Exports pour facilité d'utilisation

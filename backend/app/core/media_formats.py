@@ -357,12 +357,31 @@ def is_format_supported_in_dict(extension: str, formats_dict: Dict[str, Any]) ->
 # SUPPRIMÉ: get_file_type_by_extension() - Fonction morte, remplacée par FileValidator.get_file_type()
 # SUPPRIMÉ: get_mime_type_by_extension() - Fonction morte, remplacée par FileValidator.get_mime_type()
 
+
+
+
+# ==========================
+# STATISTIQUES
+# ==========================
+
+def get_format_statistics() -> Dict[str, int]:
+    """Retourne les statistiques des formats supportés"""
+    return {
+        'image': len(IMAGE_EXTENSIONS),
+        'audio': len(AUDIO_EXTENSIONS),
+        'video': len(VIDEO_EXTENSIONS),
+        'document': len(DOCUMENT_EXTENSIONS),
+        'total': len(IMAGE_EXTENSIONS) + len(AUDIO_EXTENSIONS) + len(VIDEO_EXTENSIONS) + len(DOCUMENT_EXTENSIONS)
+    }
+
+
 def is_supported_format(filename: str) -> bool:
     """Vérifie si le format du fichier est supporté"""
     # Utiliser FileValidator pour la cohérence
     from .file_validation import FileValidator
     file_type = FileValidator.get_file_type_by_extension(filename)
     return file_type in ['image', 'audio', 'video', 'document']
+
 
 def get_extensions_by_type(file_type: str) -> Set[str]:
     """Retourne les extensions pour un type de fichier donné"""
@@ -377,6 +396,7 @@ def get_extensions_by_type(file_type: str) -> Set[str]:
     else:
         return set()
 
+
 def get_mime_types_by_type(file_type: str) -> List[str]:
     """Retourne les types MIME pour un type de fichier donné"""
     if file_type == 'image':
@@ -389,25 +409,6 @@ def get_mime_types_by_type(file_type: str) -> List[str]:
         return DOCUMENT_MIME_TYPES
     else:
         return []
-
-# ==========================
-# STATISTIQUES
-# ==========================
-
-def get_format_statistics() -> Dict[str, int]:
-    """Retourne les statistiques des formats supportés"""
-    return {
-        'audio_formats': len(AUDIO_EXTENSIONS),
-        'video_formats': len(VIDEO_EXTENSIONS),
-        'image_formats': len(IMAGE_EXTENSIONS),
-        'document_formats': len(DOCUMENT_EXTENSIONS),
-        'total_formats': len(AUDIO_EXTENSIONS) + len(VIDEO_EXTENSIONS) + len(IMAGE_EXTENSIONS) + len(DOCUMENT_EXTENSIONS),
-        'audio_mime_types': len(AUDIO_MIME_TYPES),
-        'video_mime_types': len(VIDEO_MIME_TYPES),
-        'image_mime_types': len(IMAGE_MIME_TYPES),
-        'document_mime_types': len(DOCUMENT_MIME_TYPES),
-        'total_mime_types': len(AUDIO_MIME_TYPES) + len(VIDEO_MIME_TYPES) + len(IMAGE_MIME_TYPES) + len(DOCUMENT_MIME_TYPES)
-    }
 
 # ==========================
 # INITIALISATION AUTOMATIQUE

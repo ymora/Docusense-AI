@@ -137,9 +137,10 @@ async def test_ai_provider(
                         "provider": provider,
                         "is_valid": True,
                         "tested_at": validation_result["tested_at"],
-                        "status_saved": True
+                        "status_saved": True,
+                        "key_saved": True
                     },
-                    message=f"API key validated successfully for {provider} and status saved"
+                    message=f"API key validated successfully for {provider} and saved"
                 )
             else:
                 # If test failed, update status to false

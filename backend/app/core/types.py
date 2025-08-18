@@ -94,21 +94,11 @@ class APIResponse:
         self.message = message
         self.error = error
     
-    def to_dict(self) -> Dict[str, Any]:
-        return {
-            "success": self.success,
-            "data": self.data,
-            "message": self.message,
-            "error": self.error
-        }
 
 
 # Database model types
 class DatabaseModel:
     """Base class for database models"""
-    def to_dict(self) -> Dict[str, Any]:
-        """Convert model to dictionary"""
-        return {}
 
 
 # Validation types

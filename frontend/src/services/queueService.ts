@@ -25,17 +25,7 @@ export interface QueueItem {
   };
 }
 
-export interface QueueStatus {
-  total_items: number;
-  processing_items: number;
-  pending_items: number;
-  completed_items: number;
-  failed_items: number;
-  average_wait_time?: number;
-  estimated_completion_time?: string;
-  is_processing: boolean;
-  is_paused: boolean;
-}
+
 
 export const queueService = {
   // Récupérer les éléments de la queue
@@ -177,6 +167,25 @@ export const queueService = {
     } catch (error) {
       console.error('❌ QueueService: Erreur lors de la reprise de l\'élément:', error);
       throw new Error(`Erreur lors de la reprise: ${handleApiError(error)}`);
+    }
+  },
+
+  // Mettre à jour le fournisseur IA et le prompt d'une analyse
+  async updateAnalysisProviderAndPrompt(itemId: string, provider: string, prompt: string): Promise<void> {
+    try {
+      await apiRequest(`/api/queue/items/${itemId}/update`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          provider,
+          prompt
+        })
+      }, DEFAULT_TIMEOUT);
+    } catch (error) {
+      console.error('❌ QueueService: Erreur lors de la mise à jour du fournisseur et du prompt:', error);
+      throw new Error(`Erreur lors de la mise à jour: ${handleApiError(error)}`);
     }
   }
 };

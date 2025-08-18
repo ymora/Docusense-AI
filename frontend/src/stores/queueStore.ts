@@ -30,28 +30,18 @@ export interface QueueItem {
   };
 }
 
-export interface QueueStatus {
-  total_items: number;
-  processing_items: number;
-  pending_items: number;
-  completed_items: number;
-  failed_items: number;
-  average_wait_time?: number;
-  estimated_completion_time?: string;
-  is_processing: boolean;
-  is_paused: boolean;
-}
+
 
 interface QueueState {
   queueItems: QueueItem[];
-  queueStatus: QueueStatus;
+
   loading: boolean;
   error: string | null;
   isInactive: boolean; // Nouveau: indique si le frontend est inactif
 
   // Actions
   loadQueueItems: () => Promise<void>;
-  loadQueueStatus: () => Promise<void>;
+
   pauseQueue: () => Promise<void>;
   resumeQueue: () => Promise<void>;
   clearQueue: () => Promise<void>;
@@ -71,15 +61,7 @@ interface QueueState {
 
 export const useQueueStore = create<QueueState>((set, get) => ({
   queueItems: [],
-  queueStatus: {
-    total_items: 0,
-    processing_items: 0,
-    pending_items: 0,
-    completed_items: 0,
-    failed_items: 0,
-    is_processing: false,
-    is_paused: false,
-  },
+
   loading: false,
   error: null,
   isInactive: false, // Nouveau: commence actif
@@ -105,25 +87,12 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     });
   })(),
 
-  loadQueueStatus: (() => {
-    const callGuard = createCallGuard();
-    return callGuard(async () => {
-      const updater = createOptimizedUpdater(set, get);
-      
-      try {
-        const status = await queueService.getQueueStatus();
-        updater.updateMultiple({ queueStatus: status, error: null });
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Erreur lors du chargement du statut de la queue';
-        set({ error: errorMessage });
-      }
-    });
-  })(),
+
 
   // Mise à jour en temps réel de la queue
   startRealTimeUpdates: () => {
     const interval = setInterval(async () => {
-      const { loadQueueItems, loadQueueStatus, isInactive } = get();
+      const { loadQueueItems, isInactive } = get();
       
       // Ne pas faire de requêtes si le frontend est inactif
       if (isInactive) {
@@ -132,7 +101,7 @@ export const useQueueStore = create<QueueState>((set, get) => ({
       }
       
       await loadQueueItems();
-      await loadQueueStatus();
+      
     }, 3000); // Mise à jour toutes les 3 secondes
 
     return () => clearInterval(interval);
@@ -142,7 +111,6 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       await queueService.pauseQueue();
-      await get().loadQueueStatus();
       set({ loading: false });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la pause de la queue';
@@ -154,7 +122,6 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       await queueService.resumeQueue();
-      await get().loadQueueStatus();
       set({ loading: false });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la reprise de la queue';
@@ -167,7 +134,6 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     try {
       await queueService.clearQueue();
       await get().loadQueueItems();
-      await get().loadQueueStatus();
       set({ loading: false });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors du nettoyage de la queue';
@@ -180,7 +146,6 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     try {
       await queueService.retryFailedItems();
       await get().loadQueueItems();
-      await get().loadQueueStatus();
       set({ loading: false });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la nouvelle tentative';
@@ -193,7 +158,6 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     try {
       await queueService.addToQueue(analysisId, priority);
       await get().loadQueueItems();
-      await get().loadQueueStatus();
       set({ loading: false });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors de l\'ajout à la queue';
@@ -211,7 +175,6 @@ export const useQueueStore = create<QueueState>((set, get) => ({
         await queueService.pauseItem(item.id);
       }
       await get().loadQueueItems();
-      await get().loadQueueStatus();
       set({ loading: false });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la pause du type';
@@ -228,7 +191,6 @@ export const useQueueStore = create<QueueState>((set, get) => ({
         await queueService.resumeItem(item.id);
       }
       await get().loadQueueItems();
-      await get().loadQueueStatus();
       set({ loading: false });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la reprise du type';
@@ -245,7 +207,6 @@ export const useQueueStore = create<QueueState>((set, get) => ({
         await queueService.deleteItem(item.id);
       }
       await get().loadQueueItems();
-      await get().loadQueueStatus();
       set({ loading: false });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la suppression du type';
@@ -262,7 +223,6 @@ export const useQueueStore = create<QueueState>((set, get) => ({
         await queueService.retryItem(item.id);
       }
       await get().loadQueueItems();
-      await get().loadQueueStatus();
       set({ loading: false });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la nouvelle tentative du type';
@@ -279,9 +239,8 @@ export const useQueueStore = create<QueueState>((set, get) => ({
   // Nouveau: forcer un rafraîchissement (pour la reconnexion manuelle)
   forceRefresh: async () => {
 
-    const { loadQueueItems, loadQueueStatus } = get();
+    const { loadQueueItems } = get();
     set({ isInactive: false }); // Réactiver
     await loadQueueItems();
-    await loadQueueStatus();
   },
 }));

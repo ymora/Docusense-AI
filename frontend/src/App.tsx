@@ -1,5 +1,7 @@
 import { createBrowserRouter, RouterProvider } from 'react-router-dom';
 import Layout from './components/Layout/Layout';
+import { GlobalConfirmation } from './components/UI/GlobalConfirmation';
+import { ConfirmationProvider } from './contexts/ConfirmationContext';
 import { useViewportHeight } from './hooks/useViewportHeight';
 import './App.css';
 
@@ -15,9 +17,12 @@ function App() {
   useViewportHeight();
   
   return (
-    <div className="App min-h-screen-dynamic">
-      <RouterProvider router={router} />
-    </div>
+    <ConfirmationProvider>
+      <div className="App h-screen">
+        <RouterProvider router={router} />
+        <GlobalConfirmation />
+      </div>
+    </ConfirmationProvider>
   );
 }
 

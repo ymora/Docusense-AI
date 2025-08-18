@@ -103,4 +103,4 @@ def log_service_operation(operation_name: str):
                 logger.error(f"Error in {operation_name}: {str(e)}")
                 raise
         return wrapper
-    return decorator 
+    return decorator

@@ -12,11 +12,12 @@ import { analysisService } from '../../services/analysisService';
 import { queueService } from '../../services/queueService';
 import { promptService } from '../../services/promptService';
 import { fileService } from '../../services/fileService';
+import { logService } from '../../services/logService';
 
 
 const Layout: React.FC = () => {
   const { selectedFile, selectedFiles, selectFile, markFileAsViewed, files } = useFileStore();
-  const { queueItems, loadQueueStatus, loadQueueItems } = useQueueStore();
+  const { queueItems, loadQueueItems } = useQueueStore();
   const { isInitialized, isLoading, initializationStep } = useStartupInitialization();
   const { sidebarWidth, setSidebarWidth, activePanel, setActivePanel } = useUIStore();
   const { colors } = useColors();
@@ -55,7 +56,7 @@ const Layout: React.FC = () => {
           link.click();
           document.body.removeChild(link);
         } catch (error) {
-          console.error('Erreur lors du téléchargement du fichier:', error);
+          logService.error('Erreur lors du téléchargement du fichier', 'Layout', { error: error.message, file: file.name });
         }
              } else if (action === 'download_directory' && file) {
         // Télécharger le dossier en ZIP
@@ -68,7 +69,7 @@ const Layout: React.FC = () => {
           link.click();
           document.body.removeChild(link);
         } catch (error) {
-          console.error('Erreur lors du téléchargement du dossier:', error);
+          logService.error('Erreur lors du téléchargement du dossier', 'Layout', { error: error.message, file: file.name });
         }
              } else if (action === 'explore_directory' && file) {
          // Explorer le contenu du dossier
@@ -93,10 +94,10 @@ const Layout: React.FC = () => {
            if (response.ok) {
              setActivePanel('analyses');
            } else {
-             console.error('Erreur lors de l\'analyse du dossier');
+             logService.error('Erreur lors de l\'analyse du dossier', 'Layout', { directory: file.path });
            }
          } catch (error) {
-           console.error('Erreur lors de l\'analyse du dossier:', error);
+           logService.error('Erreur lors de l\'analyse du dossier', 'Layout', { error: error.message, directory: file.path });
          }
        } else if (action === 'analyze_directory_supported' && file) {
          // Analyser uniquement les fichiers supportés du dossier
@@ -109,10 +110,10 @@ const Layout: React.FC = () => {
            if (response.ok) {
              setActivePanel('analyses');
            } else {
-             console.error('Erreur lors de l\'analyse des fichiers supportés du dossier');
+             logService.error('Erreur lors de l\'analyse des fichiers supportés du dossier', 'Layout', { directory: file.path });
            }
          } catch (error) {
-           console.error('Erreur lors de l\'analyse des fichiers supportés du dossier:', error);
+           logService.error('Erreur lors de l\'analyse des fichiers supportés du dossier', 'Layout', { error: error.message, directory: file.path });
          }
        } else if (action === 'view_directory_analyses' && file) {
         // Voir les analyses du dossier
@@ -164,7 +165,7 @@ const Layout: React.FC = () => {
           });
           
           if (filePaths.length === 0) {
-            console.error('Aucun fichier valide trouvé pour le téléchargement ZIP');
+            logService.error('Aucun fichier valide trouvé pour le téléchargement ZIP', 'Layout', { selectedFiles: selectedFiles.length });
             return;
           }
           
@@ -188,10 +189,10 @@ const Layout: React.FC = () => {
             document.body.removeChild(link);
             window.URL.revokeObjectURL(url);
           } else {
-            console.error('Erreur lors du téléchargement ZIP:', response.statusText);
+            logService.error('Erreur lors du téléchargement ZIP', 'Layout', { status: response.statusText });
           }
         } catch (error) {
-          console.error('Erreur lors du téléchargement ZIP:', error);
+          logService.error('Erreur lors du téléchargement ZIP', 'Layout', { error: error.message });
         }
       }
     };
@@ -219,15 +220,15 @@ const Layout: React.FC = () => {
           if (!file && typeof fileId === 'number') {
             try {
               file = await fileService.getFileById(fileId);
-              console.log(`Fichier trouvé par service: ${file.name} (ID: ${file.id})`);
+              logService.info(`Fichier trouvé par service: ${file.name}`, 'Layout', { fileId: file.id });
             } catch (error) {
-              console.warn(`Fichier ${fileId} non trouvé:`, error);
+              logService.warning(`Fichier ${fileId} non trouvé`, 'Layout', { error: error.message });
               return null;
             }
           }
           
           if (!file) {
-            console.error('Fichier non trouvé pour l\'ID:', fileId);
+            logService.error('Fichier non trouvé pour l\'ID', 'Layout', { fileId });
             return null;
           }
           
@@ -246,7 +247,7 @@ const Layout: React.FC = () => {
           
           return analysisResponse;
         } catch (error) {
-          console.error('Erreur pour le fichier', fileId, ':', error);
+          logService.error('Erreur pour le fichier', 'Layout', { fileId, error: error.message });
           return null;
         }
       });
@@ -256,13 +257,13 @@ const Layout: React.FC = () => {
       
       if (successCount > 0) {
         await loadQueueItems();
-        await loadQueueStatus();
+
         setActivePanel('analyses');
       }
       
-    } catch (error) {
-      console.error('Erreur lors de l\'ajout à la queue:', error);
-    }
+            } catch (error) {
+          logService.error('Erreur lors de l\'ajout à la queue', 'Layout', { error: error.message });
+        }
   };
 
 
@@ -282,7 +283,7 @@ const Layout: React.FC = () => {
 
   // Charger le statut de la queue au montage et démarrer les mises à jour en temps réel
   useEffect(() => {
-    loadQueueStatus();
+    
     loadQueueItems();
     
     // Démarrer les mises à jour en temps réel
@@ -291,7 +292,7 @@ const Layout: React.FC = () => {
     return () => {
       // Nettoyage des mises à jour en temps réel
     };
-  }, [loadQueueStatus, loadQueueItems]);
+      }, [loadQueueItems]);
 
 
 
@@ -340,7 +341,7 @@ const Layout: React.FC = () => {
       const maxSidebarWidth = window.innerWidth * 0.33;
       const minSidebarWidth = 200; // Largeur minimale
       const clampedWidth = Math.max(minSidebarWidth, Math.min(maxSidebarWidth, newWidth));
-      console.log('🔄 Redimensionnement:', { newWidth, maxSidebarWidth, clampedWidth });
+              logService.info('Redimensionnement du panneau', 'Layout', { newWidth, maxSidebarWidth, clampedWidth });
       setSidebarWidth(clampedWidth);
     }
   };
@@ -425,8 +426,10 @@ const Layout: React.FC = () => {
         isInitialized={isInitialized}
       />
       
+
+      
       <div
-        className="flex min-h-screen-dynamic"
+        className="flex h-screen"
         style={{ backgroundColor: colors.background }}
       >
       {/* Panneau de gauche */}
@@ -470,9 +473,10 @@ const Layout: React.FC = () => {
       />
 
       {/* Panneau principal */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 flex flex-col">
+        
         {/* Contenu principal */}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1">
           <MainPanel 
             activePanel={activePanel} 
             onSetActivePanel={setActivePanel}

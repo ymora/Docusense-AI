@@ -22,7 +22,7 @@ check:
 # ==========================
 
 startup:
-  script: "start_optimized.ps1"
+  script: "start.ps1"
   backend: |
     cd backend
     venv\\Scripts\\python.exe main.py
@@ -35,45 +35,21 @@ startup:
 # NAVIGATION FICHIERS
 # ==========================
 
-navigation:
-  # Bouton "↑ Niveau supérieur" dans le panneau gauche
-  # Comportement: remonte d'un niveau à chaque clic jusqu'à la racine
-  # Fonction: navigateToParent() dans LeftPanel.tsx
-  # IMPORTANT: Navigation dans le système de fichiers (pas la base de données)
-  # Correction: setCurrentDirectory() appelé avant loadDirectoryTree() pour mise à jour d'état
-  # Endpoint utilisé: /api/files/list/{directory} pour obtenir le contenu du répertoire
+# Navigation système de fichiers via /api/files/list/{directory}
 
 # ==========================
 # GESTION TERMINAL
 # ==========================
 
-terminal:
-  # ÉVITER LES COMMANDES BLOQUÉES
-  # Toujours utiliser is_background: true pour les commandes longues
-  # Ajouter des timeouts et vérifications d'état
-  # Ne jamais laisser une commande sans fin
-  
-  long_running:
-    - "npm install" -> is_background: true
-    - "pip install" -> is_background: true  
-    - "python main.py" -> is_background: true
-    - "npm run dev" -> is_background: true
-  
-  # Commandes avec timeout automatique
-  timeout_commands:
-    - "pip install -r requirements.txt" -> max 5 minutes
-    - "npm install" -> max 10 minutes
-    - "python main.py" -> vérifier port après 10 secondes
-  
-  # Indicateurs de fin
-  completion_signals:
-    - "Successfully installed" -> pip terminé
-    - "added X packages" -> npm terminé
-    - "Uvicorn running on" -> backend démarré
-    - "Local:" -> frontend démarré
-  
-  # Actions automatiques après fin
-  post_completion:
-    - Vérifier les ports (8000, 3000)
-    - Afficher les URLs d'accès
-    - Confirmer le succès à l'utilisateur
+# Commandes longues: is_background: true
+# Timeouts: pip (5min), npm (10min), python (10s)
+# Vérifier ports 8000/3000 après démarrage
+
+# ==========================
+# RÈGLES DE DÉVELOPPEMENT
+# ==========================
+
+# PRIORITÉ: Vérifier l'existant avant de créer
+# 1. Chercher dans *.backup, codemort/, grep_search
+# 2. Restaurer/Adapter plutôt que créer
+# 3. Éviter la duplication de code

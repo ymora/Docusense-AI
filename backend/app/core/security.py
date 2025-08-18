@@ -36,8 +36,10 @@ class SecurityManager:
                     self.max_login_attempts = config.get('max_login_attempts', 5)
                     self.lockout_duration = config.get('lockout_duration', 300)  # 5 minutes
             else:
-                # Configuration par défaut
-                self.admin_password = 'admin123'
+                # Configuration par défaut - utiliser une variable d'environnement
+                import os
+                default_password = os.getenv('ADMIN_PASSWORD', 'admin123')
+                self.admin_password = self.hash_password(default_password)
                 self.session_timeout = 3600
                 self.max_login_attempts = 5
                 self.lockout_duration = 300
@@ -45,8 +47,10 @@ class SecurityManager:
                 
         except Exception as e:
             logger.error(f"Erreur lors du chargement de la configuration: {e}")
-            # Configuration de secours
-            self.admin_password = 'admin123'
+            # Configuration de secours - utiliser une variable d'environnement
+            import os
+            default_password = os.getenv('ADMIN_PASSWORD', 'admin123')
+            self.admin_password = self.hash_password(default_password)
             self.session_timeout = 3600
             self.max_login_attempts = 5
             self.lockout_duration = 300

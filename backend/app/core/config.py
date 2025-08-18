@@ -107,12 +107,14 @@ class Settings(BaseSettings):
 
     @validator('cors_origins', pre=True)
     def parse_cors_origins(cls, v):
+        """Parse CORS origins from string or list"""
         if isinstance(v, str):
-            return [origin.strip() for origin in v.split(',')]
+            return [origin.strip() for origin in v.split(',') if origin.strip()]
         return v
 
     @validator('secret_key')
     def validate_secret_key(cls, v):
+        """Validate secret key length"""
         if len(v) < 32:
             raise ValueError('Secret key must be at least 32 characters long')
         return v

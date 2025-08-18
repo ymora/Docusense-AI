@@ -226,18 +226,14 @@ const BreadcrumbNavigation: React.FC<BreadcrumbNavigationProps> = ({
       {/* Sélecteur de disque intégré */}
       <div className="relative flex-shrink-0">
         <button
-          ref={buttonRef}
-          onClick={() => {
-            setIsDirectorySelectorOpen(!isDirectorySelectorOpen);
-            setSelectedIndex(0); // Réinitialiser la sélection
-          }}
+          onClick={() => setIsDirectorySelectorOpen(!isDirectorySelectorOpen)}
           className="flex items-center space-x-2 px-3 py-2 rounded-lg border transition-colors hover:bg-slate-700/50"
           style={{
             borderColor: colors.border,
             color: colors.primary,
             backgroundColor: colors.surface,
           }}
-          title="Choisir un autre disque ou répertoire (Utilisez les flèches du clavier)"
+          title="Choisir un autre disque ou répertoire"
           disabled={isLoadingDrives}
         >
           <FolderIcon className="h-4 w-4" />
@@ -256,8 +252,7 @@ const BreadcrumbNavigation: React.FC<BreadcrumbNavigationProps> = ({
 
         {isDirectorySelectorOpen && (
           <div
-            ref={dropdownRef}
-            className="absolute top-full left-0 mt-1 rounded-lg border shadow-lg z-[9999] min-w-48 max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800 hover:scrollbar-thumb-slate-500"
+            className="absolute top-full left-0 mt-1 rounded-lg border shadow-lg z-[100] min-w-48 max-h-64 overflow-y-auto scrollbar-thin scrollbar-thumb-slate-600 scrollbar-track-slate-800 hover:scrollbar-thumb-slate-500"
             style={{
               backgroundColor: colors.surface,
               borderColor: colors.border,
@@ -273,17 +268,16 @@ const BreadcrumbNavigation: React.FC<BreadcrumbNavigationProps> = ({
                 <>
                   {/* Disques disponibles */}
                   <div className="space-y-1">
-                    {Array.isArray(availableDrives) && availableDrives.map((drive, index) => (
+                    {Array.isArray(availableDrives) && availableDrives.map((drive) => (
                       <button
                         key={drive.letter}
                         onClick={() => handleDriveSelect(drive.letter)}
-                        className={`w-full flex items-center space-x-2 px-3 py-2 rounded text-sm transition-colors text-left ${
-                          !drive.available ? 'opacity-50 cursor-not-allowed' : 
-                          index === selectedIndex ? 'bg-slate-600' : 'hover:bg-slate-700/50'
+                        className={`w-full flex items-center space-x-2 px-3 py-2 rounded text-sm transition-colors hover:bg-slate-700/50 text-left ${
+                          !drive.available ? 'opacity-50 cursor-not-allowed' : ''
                         }`}
                         style={{ color: colors.text }}
                         disabled={!drive.available}
-                        title={drive.available ? `Naviguer vers ${drive.label} (Entrée pour sélectionner)` : `${drive.label} - Non disponible`}
+                        title={drive.available ? `Naviguer vers ${drive.label}` : `${drive.label} - Non disponible`}
                       >
                         <FolderIcon className="h-4 w-4 flex-shrink-0" style={{ color: colors.primary }} />
                         <span className="truncate">{drive.label}</span>
@@ -300,11 +294,9 @@ const BreadcrumbNavigation: React.FC<BreadcrumbNavigationProps> = ({
                   {/* Option personnalisée */}
                   <button
                     onClick={handleCustomPath}
-                    className={`w-full flex items-center space-x-2 px-3 py-2 rounded text-sm transition-colors text-left ${
-                      selectedIndex === availableDrives.length ? 'bg-slate-600' : 'hover:bg-slate-700/50'
-                    }`}
+                    className="w-full flex items-center space-x-2 px-3 py-2 rounded text-sm transition-colors hover:bg-slate-700/50 text-left"
                     style={{ color: colors.text }}
-                    title="Sélectionner un autre répertoire (Entrée pour sélectionner)"
+                    title="Sélectionner un autre répertoire"
                   >
                     <FolderIcon className="h-4 w-4 flex-shrink-0" style={{ color: colors.primary }} />
                     <span className="truncate">Autre répertoire...</span>
@@ -315,7 +307,13 @@ const BreadcrumbNavigation: React.FC<BreadcrumbNavigationProps> = ({
           </div>
         )}
 
-
+        {/* Overlay pour fermer le menu */}
+        {isDirectorySelectorOpen && (
+          <div
+            className="fixed inset-0 z-[90]"
+            onClick={() => setIsDirectorySelectorOpen(false)}
+          />
+        )}
       </div>
 
       {/* Chemin actuel - affiché sous le sélecteur */}

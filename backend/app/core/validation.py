@@ -45,124 +45,99 @@ class DataValidator:
     """
 
     @staticmethod
-    def validate_required_fields(
-            data: Dict[str, Any], required_fields: List[str]) -> ValidationResult:
-        """
-        Valide que tous les champs requis sont présents
-
-        Args:
-            data: Données à valider
-            required_fields: Liste des champs requis
-
-        Returns:
-            ValidationResult: Résultat de la validation
-        """
+    def validate_string(value: Any, min_length: int = 0, max_length: int = None) -> ValidationResult:
+        """Valide une chaîne de caractères"""
         errors = []
-
-        for field in required_fields:
-            if field not in data or data[field] is None:
-                errors.append(ValidationError(
-                    field=field,
-                    message=f"Le champ '{field}' est requis",
-                    code="MISSING_REQUIRED_FIELD",
-                    value=None
-                ))
-
-        return ValidationResult(is_valid=len(errors) == 0, errors=errors)
-
-    @staticmethod
-    def validate_string_length(
-            value: str,
-            field_name: str,
-            min_length: int = 0,
-            max_length: Optional[int] = None) -> ValidationResult:
-        """
-        Valide la longueur d'une chaîne
-
-        Args:
-            value: Valeur à valider
-            field_name: Nom du champ
-            min_length: Longueur minimale
-            max_length: Longueur maximale
-
-        Returns:
-            ValidationResult: Résultat de la validation
-        """
-        errors = []
-
+        warnings = []
+        
         if not isinstance(value, str):
-            errors.append(
-                ValidationError(
-                    field=field_name,
-                    message=f"Le champ '{field_name}' doit être une chaîne de caractères",
-                    code="INVALID_TYPE",
-                    value=value))
-            return ValidationResult(is_valid=False, errors=errors)
-
-        if len(value) < min_length:
-            errors.append(
-                ValidationError(
-                    field=field_name,
-                    message=f"Le champ '{field_name}' doit contenir au moins {min_length} caractères",
-                    code="TOO_SHORT",
-                    value=value))
-
-        if max_length and len(value) > max_length:
-            errors.append(
-                ValidationError(
-                    field=field_name,
-                    message=f"Le champ '{field_name}' ne peut pas dépasser {max_length} caractères",
-                    code="TOO_LONG",
-                    value=value))
-
-        return ValidationResult(is_valid=len(errors) == 0, errors=errors)
-
-    @staticmethod
-    def validate_integer_range(
-            value: int,
-            field_name: str,
-            min_value: Optional[int] = None,
-            max_value: Optional[int] = None) -> ValidationResult:
-        """
-        Valide qu'un entier est dans une plage donnée
-
-        Args:
-            value: Valeur à valider
-            field_name: Nom du champ
-            min_value: Valeur minimale
-            max_value: Valeur maximale
-
-        Returns:
-            ValidationResult: Résultat de la validation
-        """
-        errors = []
-
-        if not isinstance(value, int):
             errors.append(ValidationError(
-                field=field_name,
-                message=f"Le champ '{field_name}' doit être un entier",
+                field="value",
+                message="La valeur doit être une chaîne de caractères",
                 code="INVALID_TYPE",
                 value=value
             ))
-            return ValidationResult(is_valid=False, errors=errors)
+            return ValidationResult(is_valid=False, errors=errors, warnings=warnings)
+        
+        if len(value) < min_length:
+            errors.append(ValidationError(
+                field="value",
+                message=f"La chaîne doit contenir au moins {min_length} caractères",
+                code="TOO_SHORT",
+                value=value
+            ))
+        
+        if max_length and len(value) > max_length:
+            errors.append(ValidationError(
+                field="value",
+                message=f"La chaîne ne doit pas dépasser {max_length} caractères",
+                code="TOO_LONG",
+                value=value
+            ))
+        
+        return ValidationResult(is_valid=len(errors) == 0, errors=errors, warnings=warnings)
 
-        if min_value is not None and value < min_value:
-            errors.append(
-                ValidationError(
-                    field=field_name,
-                    message=f"Le champ '{field_name}' doit être supérieur ou égal à {min_value}",
-                    code="TOO_SMALL",
-                    value=value))
+    @staticmethod
+    def validate_integer(value: Any, min_value: int = None, max_value: int = None) -> ValidationResult:
+        """Valide un entier"""
+        errors = []
+        warnings = []
+        
+        try:
+            int_value = int(value)
+        except (ValueError, TypeError):
+            errors.append(ValidationError(
+                field="value",
+                message="La valeur doit être un entier",
+                code="INVALID_TYPE",
+                value=value
+            ))
+            return ValidationResult(is_valid=False, errors=errors, warnings=warnings)
+        
+        if min_value is not None and int_value < min_value:
+            errors.append(ValidationError(
+                field="value",
+                message=f"La valeur doit être supérieure ou égale à {min_value}",
+                code="TOO_SMALL",
+                value=int_value
+            ))
+        
+        if max_value is not None and int_value > max_value:
+            errors.append(ValidationError(
+                field="value",
+                message=f"La valeur doit être inférieure ou égale à {max_value}",
+                code="TOO_LARGE",
+                value=int_value
+            ))
+        
+        return ValidationResult(is_valid=len(errors) == 0, errors=errors, warnings=warnings)
 
-        if max_value is not None and value > max_value:
-            errors.append(
-                ValidationError(
-                    field=field_name,
-                    message=f"Le champ '{field_name}' doit être inférieur ou égal à {max_value}",
-                    code="TOO_LARGE",
-                    value=value))
-
-        return ValidationResult(is_valid=len(errors) == 0, errors=errors)
+    @staticmethod
+    def validate_path(value: Any, must_exist: bool = False) -> ValidationResult:
+        """Valide un chemin de fichier"""
+        errors = []
+        warnings = []
+        
+        try:
+            path = Path(value)
+        except Exception:
+            errors.append(ValidationError(
+                field="value",
+                message="Le chemin n'est pas valide",
+                code="INVALID_PATH",
+                value=value
+            ))
+            return ValidationResult(is_valid=False, errors=errors, warnings=warnings)
+        
+        if must_exist and not path.exists():
+            errors.append(ValidationError(
+                field="value",
+                message="Le chemin n'existe pas",
+                code="PATH_NOT_FOUND",
+                value=str(path)
+            ))
+        
+        return ValidationResult(is_valid=len(errors) == 0, errors=errors, warnings=warnings)
 
 
 class ErrorHandler:
@@ -195,45 +170,13 @@ class ErrorHandler:
         return "; ".join(error_messages)
 
     @staticmethod
-    def log_validation_result(result: ValidationResult, context: str = ""):
-        """
-        Enregistre le résultat de validation dans les logs
-
-        Args:
-            result: Résultat de validation
-            context: Contexte de la validation
-        """
-        if not result.is_valid:
-            error_message = ErrorHandler.format_validation_errors(
-                result.errors)
-            logger.error(f"Validation échouée {context}: {error_message}")
-
-        if result.warnings:
-            for warning in result.warnings:
-                logger.warning(f"Avertissement {context}: {warning}")
-
-        if result.is_valid and not result.warnings:
-            logger.info(f"Validation réussie {context}")
+    def log_validation_errors(errors: List[ValidationError], context: str = ""):
+        """Log les erreurs de validation"""
+        if errors:
+            error_messages = [f"{error.field}: {error.message}" for error in errors]
+            logger.error(f"Validation errors {context}: {'; '.join(error_messages)}")
 
     @staticmethod
-    def handle_exception(e: Exception, context: str = "") -> Dict[str, Any]:
-        """
-        Gère une exception et retourne un dictionnaire d'erreur standardisé
-
-        Args:
-            e: Exception à gérer
-            context: Contexte de l'erreur
-
-        Returns:
-            Dict: Dictionnaire d'erreur standardisé
-        """
-        error_info = {
-            "error": True,
-            "message": str(e),
-            "type": type(e).__name__,
-            "context": context
-        }
-
-        logger.error(f"Exception dans {context}: {str(e)}", exc_info=True)
-
-        return error_info
+    def create_validation_error(field: str, message: str, code: str, value: Any = None) -> ValidationError:
+        """Crée une erreur de validation"""
+        return ValidationError(field=field, message=message, code=code, value=value)

@@ -21,46 +21,63 @@ router = APIRouter(tags=["monitoring"])
 
 
 @router.get("/performance")
-@APIUtils.handle_errors
+@APIUtils.monitor_api_performance
 async def get_performance_metrics(
     db: Session = Depends(get_db)
 ) -> Dict[str, Any]:
     """
-    Get performance metrics
+    Get performance metrics with enhanced monitoring
     """
-    # Métriques système utilisant l'utilitaire centralisé
-    system_metrics = APIUtils.get_system_metrics()
-    
-    # Métriques du cache
-    cache_stats = cache.get_stats()
-    
-    # Métriques des fichiers temporaires
-    download_stats = download_service.get_download_stats()
-    
-    # Métriques de base de données (simplifiées)
-    db_metrics = {
-        "connection_status": "healthy",
-        "last_check": datetime.now().isoformat()
-    }
-    
-    # Déterminer le statut global
-    cpu_percent = system_metrics.get("cpu_percent", 0)
-    memory_percent = system_metrics.get("memory_percent", 0)
-    status = "healthy" if cpu_percent < 90 and memory_percent < 90 else "warning"
-    
-    performance_data = {
-        "timestamp": datetime.now().isoformat(),
-        "system": system_metrics,
-        "cache": cache_stats,
-        "downloads": download_stats,
-        "database": db_metrics,
-        "status": status
-    }
-    
-    return ResponseFormatter.success_response(
-        data=performance_data,
-        message="Métriques de performance récupérées"
-    )
+    try:
+        # Métriques système utilisant l'utilitaire centralisé
+        system_metrics = APIUtils.get_system_metrics()
+        
+        # Métriques du cache avec les fonctions réintégrées
+        cache_stats = cache.get_stats()
+        
+        # Métriques des fichiers temporaires
+        download_stats = download_service.get_download_stats()
+        
+        # Métriques de base de données (simplifiées)
+        db_metrics = {
+            "connection_status": "healthy",
+            "last_check": datetime.now().isoformat()
+        }
+        
+        # Utiliser les fonctions réintégrées pour les métriques AI
+        from ..services.ai_service import get_ai_service
+        ai_service = get_ai_service(db)
+        ai_metrics = {
+            "cache_size": ai_service.get_cache_size(),
+            "providers_count": len(ai_service.providers) if hasattr(ai_service, 'providers') else 0
+        }
+        
+        # Déterminer le statut global
+        cpu_percent = system_metrics.get("cpu_percent", 0)
+        memory_percent = system_metrics.get("memory_percent", 0)
+        status = "healthy" if cpu_percent < 90 and memory_percent < 90 else "warning"
+        
+        performance_data = {
+            "timestamp": datetime.now().isoformat(),
+            "system": system_metrics,
+            "cache": cache_stats,
+            "downloads": download_stats,
+            "database": db_metrics,
+            "ai_service": ai_metrics,
+            "status": status
+        }
+        
+        # Enregistrer la métrique de consultation
+        APIUtils.record_api_metric("performance_checks", 1.0, {"status": status})
+        
+        return ResponseFormatter.success_response(
+            data=performance_data,
+            message="Métriques de performance récupérées"
+        )
+        
+    except Exception as e:
+        logger.error(f"Erreur lors de la récupération des métriques: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.get("/health/detailed")

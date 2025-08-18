@@ -9,6 +9,7 @@ from typing import Optional, Dict, Any, Callable
 from functools import wraps
 from fastapi import HTTPException
 from datetime import datetime
+import time
 
 # Import des utilitaires de core
 from ..core.file_validation import FileValidator
@@ -80,6 +81,45 @@ class APIUtils:
                 "error": str(e),
                 "timestamp": datetime.now().isoformat()
             }
+    
+    @staticmethod
+    def record_api_metric(metric_name: str, value: float, tags: Optional[Dict[str, str]] = None):
+        """Enregistre une métrique d'API pour le monitoring"""
+        try:
+            performance_monitor.record_metric(metric_name, value, tags)
+        except Exception as e:
+            logger.error(f"Error recording API metric: {str(e)}")
+    
+    @staticmethod
+    def monitor_api_performance(func: Callable) -> Callable:
+        """Décorateur pour monitorer les performances des APIs"""
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            start_time = time.time()
+            try:
+                result = func(*args, **kwargs)
+                if hasattr(result, '__await__'):
+                    result = await result
+                
+                # Enregistrer le temps de réponse
+                response_time = time.time() - start_time
+                APIUtils.record_api_metric(
+                    "api_response_time",
+                    response_time,
+                    {"endpoint": func.__name__}
+                )
+                
+                return result
+            except Exception as e:
+                # Enregistrer les erreurs
+                APIUtils.record_api_metric(
+                    "api_errors",
+                    1.0,
+                    {"endpoint": func.__name__, "error_type": type(e).__name__}
+                )
+                raise
+        
+        return wrapper
     
     @staticmethod
     def validate_pagination_params(limit: int, offset: int, max_limit: int = 1000) -> tuple:

@@ -46,7 +46,12 @@ const LeftPanel: React.FC = () => {
 
   const handleDirectorySelect = async (directory: string) => {
     addInterfaceLog('Navigation', 'INFO', `📁 Sélection du répertoire: ${directory}`);
-    await loadDirectoryTree(directory);
+    try {
+      await loadDirectoryTree(directory);
+    } catch (error) {
+      // L'erreur est déjà gérée dans le store, mais on peut ajouter un log supplémentaire
+      addInterfaceLog('Navigation', 'ERROR', `❌ Erreur d'accès au répertoire: ${directory}`);
+    }
   };
 
   const navigateToParent = async () => {

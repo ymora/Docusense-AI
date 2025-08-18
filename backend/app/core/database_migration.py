@@ -72,7 +72,7 @@ class DatabaseMigrationManager:
             ).all()
             
             if invalid_statuses:
-                logger.warning(f"📝 Correction de {len(invalid_statuses)} statuts invalides")
+                logger.warning(f"[MIGRATION] Correction de {len(invalid_statuses)} statuts invalides")
                 
                 for file in invalid_statuses:
                     old_status = file.status

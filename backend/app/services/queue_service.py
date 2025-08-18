@@ -104,6 +104,9 @@ class QueueService(BaseService):
         # Apply filters
         query = self._apply_queue_filters(query, status, priority)
         
+        # Join with analysis and file to load all related data
+        query = query.join(QueueItem.analysis).join(Analysis.file)
+        
         # Apply pagination
         query = query.order_by(QueueItem.created_at.desc())
         query = query.offset(offset).limit(limit)
@@ -119,39 +122,7 @@ class QueueService(BaseService):
             query = query.filter(QueueItem.priority == priority)
         return query
 
-    @log_service_operation("get_queue_status")
-    def get_queue_status(self) -> Dict[str, Any]:
-        """Get queue status and statistics"""
-        return self.safe_execute("get_queue_status", self._get_queue_status_logic)
 
-    def _get_queue_status_logic(self) -> Dict[str, Any]:
-        """Logic for getting queue status"""
-        total_items = self.db.query(QueueItem).count()
-        pending_items = self.db.query(QueueItem).filter(
-            QueueItem.status == QueueStatus.PENDING
-        ).count()
-        processing_items = self.db.query(QueueItem).filter(
-            QueueItem.status == QueueStatus.PROCESSING
-        ).count()
-        completed_items = self.db.query(QueueItem).filter(
-            QueueItem.status == QueueStatus.COMPLETED
-        ).count()
-        failed_items = self.db.query(QueueItem).filter(
-            QueueItem.status == QueueStatus.FAILED
-        ).count()
-        paused_items = self.db.query(QueueItem).filter(
-            QueueItem.status == QueueStatus.PAUSED
-        ).count()
-
-        return {
-            "total_items": total_items,
-            "pending_items": pending_items,
-            "processing_items": processing_items,
-            "completed_items": completed_items,
-            "failed_items": failed_items,
-            "paused_items": paused_items,
-            "is_processing": self.is_processing
-        }
 
     @log_service_operation("pause_queue")
     def pause_queue(self) -> bool:
@@ -455,6 +426,44 @@ class QueueService(BaseService):
         self.logger.info(f"Retried {len(failed_items)} failed queue items")
         return len(failed_items)
 
+    @log_service_operation("get_queue_status")
+    def get_queue_status(self) -> Dict[str, Any]:
+        """Get queue status and statistics"""
+        return self.safe_execute("get_queue_status", self._get_queue_status_logic)
+
+    def _get_queue_status_logic(self) -> Dict[str, Any]:
+        """Logic for getting queue status"""
+        # Get counts by status
+        total_items = self.db.query(QueueItem).count()
+        processing_items = self.db.query(QueueItem).filter(QueueItem.status == QueueStatus.PROCESSING).count()
+        pending_items = self.db.query(QueueItem).filter(QueueItem.status == QueueStatus.PENDING).count()
+        completed_items = self.db.query(QueueItem).filter(QueueItem.status == QueueStatus.COMPLETED).count()
+        failed_items = self.db.query(QueueItem).filter(QueueItem.status == QueueStatus.FAILED).count()
+        
+        # Calculate average wait time for completed items
+        completed_items_with_times = self.db.query(QueueItem).filter(
+            QueueItem.status == QueueStatus.COMPLETED,
+            QueueItem.started_at.isnot(None),
+            QueueItem.created_at.isnot(None)
+        ).all()
+        
+        total_wait_time = 0
+        for item in completed_items_with_times:
+            if item.started_at and item.created_at:
+                wait_time = (item.started_at - item.created_at).total_seconds()
+                total_wait_time += wait_time
+        
+        average_wait_time = total_wait_time / len(completed_items_with_times) if completed_items_with_times else None
+        
+        return {
+            "total_items": total_items,
+            "processing_items": processing_items,
+            "pending_items": pending_items,
+            "completed_items": completed_items,
+            "failed_items": failed_items,
+            "average_wait_time": average_wait_time
+        }
+
     @log_service_operation("delete_queue_item")
     def delete_queue_item(self, item_id: int) -> bool:
         """Delete a specific queue item"""
@@ -513,3 +522,45 @@ class QueueService(BaseService):
                 "size": file.size if file else None
             } if file else None
         }
+
+    @log_service_operation("update_analysis_provider_and_prompt")
+    def update_analysis_provider_and_prompt(self, item_id: int, provider: str, prompt: str) -> bool:
+        """Update provider and prompt for an analysis in queue"""
+        return self.safe_execute("update_analysis_provider_and_prompt", self._update_analysis_provider_and_prompt_logic, item_id, provider, prompt)
+
+    def _update_analysis_provider_and_prompt_logic(self, item_id: int, provider: str, prompt: str) -> bool:
+        """Logic for updating analysis provider and prompt"""
+        # Trouver l'élément de queue
+        queue_item = self.db.query(QueueItem).filter(QueueItem.id == item_id).first()
+        if not queue_item:
+            self.logger.warning(f"Queue item {item_id} not found")
+            return False
+        
+        # Vérifier que l'élément est en attente (modifiable)
+        if queue_item.status != QueueStatus.PENDING:
+            self.logger.warning(f"Queue item {item_id} is not pending (status: {queue_item.status})")
+            return False
+        
+        # Trouver l'analyse associée
+        analysis = self.db.query(Analysis).filter(Analysis.id == queue_item.analysis_id).first()
+        if not analysis:
+            self.logger.warning(f"Analysis {queue_item.analysis_id} not found for queue item {item_id}")
+            return False
+        
+        # Mettre à jour le fournisseur et le prompt
+        analysis.provider = provider
+        analysis.prompt = prompt
+        
+        # Mettre à jour les métadonnées si nécessaire
+        if not analysis.analysis_metadata:
+            analysis.analysis_metadata = {}
+        analysis.analysis_metadata.update({
+            "updated_provider": provider,
+            "updated_prompt": prompt,
+            "updated_at": datetime.now().isoformat()
+        })
+        
+        self.db.commit()
+        
+        self.logger.info(f"Updated analysis {analysis.id} provider to {provider} and prompt for queue item {item_id}")
+        return True

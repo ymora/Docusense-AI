@@ -7,6 +7,7 @@ import { getFileType } from '../../utils/fileTypeUtils';
 import { getStatusColor, getStatusText } from '../../utils/statusUtils';
 import { isSupportedFormat } from '../../utils/mediaFormats';
 import ContextMenu from '../UI/ContextMenu';
+import { logService } from '../../services/logService';
 
 interface FileTreeProps {
   onDirectorySelect: (directory: string) => void;
@@ -19,13 +20,15 @@ interface FileTreeProps {
 const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory, onFileSelect, selectedFiles, onFileAction }) => {
   const { colors } = useColors();
   const { toggleFileSelection, directoryTree, loading } = useFileStore();
-  const { queueItems, loadQueueItems, loadQueueStatus } = useQueueStore();
+  const { queueItems, loadQueueItems } = useQueueStore();
   
   const [expandedNodes, setExpandedNodes] = useState<Record<string, boolean>>({});
   
-  // Debug: Log expandedNodes changes
+  // Debug: Log expandedNodes changes (réduit pour éviter le spam)
   useEffect(() => {
-    console.log('🔍 expandedNodes changed:', expandedNodes);
+    if (Object.keys(expandedNodes).length > 0) {
+      logService.debug('Expanded nodes updated', 'FileTree', { count: Object.keys(expandedNodes).length });
+    }
   }, [expandedNodes]);
   const [isDarkMode, setIsDarkMode] = useState<boolean>(true);
   
@@ -61,7 +64,7 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
     try {
       onDirectorySelect(directory);
     } catch (error) {
-      console.error('❌ Erreur navigation:', error);
+      logService.error('Erreur navigation', 'FileTree', { error: error.message, directory });
     }
   }, [onDirectorySelect]);
 
@@ -186,24 +189,19 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
 
     const toggleExpansion = useCallback(async (e: React.MouseEvent) => {
       e.stopPropagation();
-      console.log('🔄 toggleExpansion appelé pour:', dir.path, 'isExpanded:', isExpanded);
       
       if (isExpanded) {
         // Réduire le dossier
-        console.log('📁 Réduction du dossier:', dir.path);
         setExpandedNodes(prev => {
           const newExpanded = { ...prev };
           delete newExpanded[dir.path];
-          console.log('📁 Nouvel état expandedNodes:', newExpanded);
           return newExpanded;
         });
       } else {
         // Déployer le dossier et charger les enfants
-        console.log('📁 Expansion du dossier:', dir.path);
         setExpandedNodes(prev => {
           const newExpanded = { ...prev };
           newExpanded[dir.path] = true;
-          console.log('📁 Nouvel état expandedNodes:', newExpanded);
           return newExpanded;
         });
         
@@ -212,8 +210,6 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
           setIsLoading(true);
           try {
             const encodedDirectory = encodeURIComponent(dir.path.replace(/\\/g, '/'));
-            console.log('📁 Chargement des enfants pour:', dir.path, 'URL:', `/api/files/list/${encodedDirectory}`);
-            console.log('📁 Path original:', dir.path, 'Encoded:', encodedDirectory);
             const response = await fetch(`/api/files/list/${encodedDirectory}`);
             
             if (!response.ok) {
@@ -221,7 +217,6 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
             }
             
             const data = await response.json();
-            console.log('📁 Réponse API pour:', dir.path, 'data:', data);
             
             const childItems = [
               ...(data.subdirectories || []).map((subdir: any) => ({
@@ -238,9 +233,9 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
             
             setChildren(childItems);
             setHasLoaded(true);
-            console.log('📁 Enfants chargés pour:', dir.path, 'nombre:', childItems.length);
+            logService.debug('Enfants chargés', 'FileTree', { directory: dir.path, count: childItems.length });
           } catch (error) {
-            console.error('Erreur lors du chargement des enfants:', error);
+            logService.error('Erreur lors du chargement des enfants', 'FileTree', { error: error.message, directory: dir.path });
             // En cas d'erreur, on peut quand même marquer comme chargé pour éviter les retry infinis
             setHasLoaded(true);
           } finally {
@@ -268,8 +263,6 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
 
     const handleChevronClick = useCallback((e: React.MouseEvent) => {
       e.stopPropagation();
-      console.log('🔽 Chevron cliqué pour:', dir.path, 'isExpanded:', isExpanded);
-      console.log('🔽 Event details:', e);
       toggleExpansion(e);
     }, [dir.path, isExpanded, toggleExpansion]);
 
@@ -444,7 +437,7 @@ const FileTree: React.FC<FileTreeProps> = ({ onDirectorySelect, currentDirectory
           {directoryTree.children && directoryTree.children.length > 0 && (
             <div>
               {directoryTree.children.map((subdir: any) => {
-                console.log('📁 Rendu DirectoryItem:', subdir.path, 'level: 1');
+        
                 return <DirectoryItem key={subdir.path} dir={subdir} level={1} />;
               })}
             </div>

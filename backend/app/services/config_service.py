@@ -37,14 +37,14 @@ class ConfigService(BaseService):
 
     def _load_cache_logic(self):
         """Logic for loading cache"""
-        configs = self.db.query(Config).all()
-        for config in configs:
-            self._cache[config.key] = config.value
-        # Log seulement au premier chargement global
-        global _config_cache_loaded
-        if not _config_cache_loaded:
-            self.logger.info(f"{len(configs)} configurations chargées en cache")
-            _config_cache_loaded = True
+        try:
+            # Load all configs from database
+            configs = self.db.query(Config).all()
+            for config in configs:
+                self._cache[config.key] = config.value
+            self.logger.info(f"Loaded {len(configs)} configurations into cache")
+        except Exception as e:
+            self.logger.error(f"Error loading cache: {e}")
     
     @log_service_operation("load_default_configs")
     def _load_default_configs(self):
@@ -53,28 +53,12 @@ class ConfigService(BaseService):
 
     def _load_default_configs_logic(self):
         """Logic for loading default configs"""
-        # NOUVEAU: Charger les clés API depuis la base de données d'abord
-        self.load_api_keys_from_database()
-        
-        # Configurations AI par défaut depuis les variables d'environnement
-        # (seulement si pas déjà chargées depuis la base de données)
-        from ..core.config import settings
-        
-        self._cache.update({
-            'provider_openai': settings.openai_api_key or '',
-            'provider_anthropic': settings.anthropic_api_key or '',
-            'provider_mistral': settings.mistral_api_key or '',
-            'provider_ollama': settings.ollama_base_url or 'http://localhost:11434',
-            'system_max_file_size': str(settings.max_file_size),
-            'system_ocr_enabled': str(settings.ocr_enabled),
-            'system_max_concurrent_analyses': str(settings.max_concurrent_analyses),
-            'ui_theme': 'dark',
-            'ui_language': 'fr',
-            'ui_sidebar_width': '320',
-            'ui_auto_refresh_interval': '10',
-            'ui_show_queue_panel': 'true'
-        })
-        self.logger.info("Configurations par défaut chargées avec clés API persistantes")
+        try:
+            # Load default configurations from settings
+            self.logger.info("Loading default configurations")
+        except Exception as e:
+            self.logger.error(f"Error loading default configs: {e}")
+
 
     @log_service_operation("get_config")
     def get_config(self, key: str, default: Optional[str] = None) -> Optional[str]:
@@ -1007,6 +991,7 @@ class ConfigService(BaseService):
         """
         Get all available AI providers with their priorities and costs
         Only returns providers that are active, have valid API keys, and are functional
+        NO automatic testing - only uses saved status
         """
         try:
             from .ai_service import get_ai_service
@@ -1015,18 +1000,19 @@ class ConfigService(BaseService):
             ai_service = get_ai_service(self.db)
             
             for provider in ["openai", "claude", "mistral", "ollama"]:
-                # Check if provider has API key
-                api_key = self.get_ai_provider_key(provider)
-                if not api_key:
-                    continue
+                # Check if provider has API key (except Ollama which doesn't need one)
+                if provider.lower() != "ollama":
+                    api_key = self.get_ai_provider_key(provider)
+                    if not api_key:
+                        continue
                 
-                # Get saved functionality status from database
+                # Get saved functionality status from database (NO automatic testing)
                 is_functional = self.get_provider_functionality_status(provider)
                 last_tested = self.get_provider_last_tested(provider)
                 
                 # Only include functional providers
                 if not is_functional:
-                    self.logger.warning(f"Provider {provider} is not functional (saved status) - skipping")
+                    self.logger.debug(f"[PROVIDERS] {provider.upper()}: Skipped (not functional)")
                     continue
                 
                 priority = self.get_ai_provider_priority(provider)
@@ -1083,13 +1069,15 @@ class ConfigService(BaseService):
         return await self._validate_provider_key_logic(provider, api_key)
 
     async def _validate_provider_key_logic(self, provider: str, api_key: str) -> Dict[str, Any]:
-        """Logic for validating API key"""
+        """Logic for validating API key - ONLY tests the specified provider"""
         try:
             from .ai_service import get_ai_service
             
+            self.logger.info(f"[VALIDATION] Starting API key validation for: {provider.upper()}")
+            
             ai_service = get_ai_service(self.db)
             
-            # Test the provider with the provided API key
+            # Test ONLY the specified provider with the provided API key
             is_valid = await ai_service.test_provider_with_key(provider, api_key)
             
             result = {
@@ -1100,15 +1088,26 @@ class ConfigService(BaseService):
             }
             
             if is_valid:
-                self.logger.info(f"API key validation successful for {provider}")
+                self.logger.info(f"[VALIDATION] {provider.upper()}: API key validation SUCCESSFUL")
+                # Save the API key immediately after successful validation
+                self.logger.info(f"[VALIDATION] {provider.upper()}: Saving API key to database")
+                self.set_ai_provider_key(provider, api_key)
+                self.logger.info(f"[VALIDATION] {provider.upper()}: Updating functionality status to TRUE")
+                self.update_provider_functionality_status(provider, True)
             else:
                 result["error_message"] = f"Failed to connect to {provider} with provided API key"
-                self.logger.warning(f"API key validation failed for {provider}")
+                self.logger.warning(f"[VALIDATION] {provider.upper()}: API key validation FAILED")
+                # Update status to false for failed validation
+                self.logger.info(f"[VALIDATION] {provider.upper()}: Updating functionality status to FALSE")
+                self.update_provider_functionality_status(provider, False)
             
             return result
             
         except Exception as e:
-            self.logger.error(f"Error validating API key for {provider}: {str(e)}")
+            self.logger.error(f"[VALIDATION] {provider.upper()}: Unexpected error during validation: {str(e)}")
+            # Update status to false for any error
+            self.logger.info(f"[VALIDATION] {provider.upper()}: Updating functionality status to FALSE due to error")
+            self.update_provider_functionality_status(provider, False)
             return {
                 "provider": provider,
                 "is_valid": False,

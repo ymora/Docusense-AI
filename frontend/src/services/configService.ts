@@ -1,5 +1,6 @@
 
 import { apiRequest, handleApiError } from '../utils/apiUtils';
+import { logService } from './logService';
 
 export interface AIProvider {
   name: string;
@@ -43,10 +44,18 @@ export class ConfigService {
       const response = await apiRequest('/api/config/ai/providers', {
         method: 'GET'
       });
+      
+      logService.info('Configuration des providers IA chargée avec succès', 'ConfigService', { 
+        providersCount: response.providers?.length || 0,
+        strategy: response.strategy || 'priority'
+      });
+      
       return response;
     } catch (error) {
+      const errorMessage = `Impossible de charger les providers IA: ${handleApiError(error)}`;
+      logService.error(errorMessage, 'ConfigService', { error: error.message });
       console.error('Erreur lors du chargement des providers IA:', error);
-      throw new Error(`Impossible de charger les providers IA: ${handleApiError(error)}`);
+      throw new Error(errorMessage);
     }
   }
 
@@ -59,11 +68,22 @@ export class ConfigService {
         body: JSON.stringify({ api_key: apiKey })
       });
 
+      if (response.success) {
+        logService.info(`Clé API sauvegardée pour ${provider}`, 'ConfigService', { provider });
+      } else {
+        logService.warning(`Échec de la sauvegarde de la clé API pour ${provider}`, 'ConfigService', { 
+          provider, 
+          message: response.message 
+        });
+      }
+
       return {
         success: response.success,
         message: response.message || 'Clé API sauvegardée'
       };
     } catch (error) {
+      const errorMessage = `Erreur lors de la sauvegarde de la clé API pour ${provider}: ${handleApiError(error)}`;
+      logService.error(errorMessage, 'ConfigService', { provider, error: error.message });
       console.error(`Erreur lors de la sauvegarde de la clé API pour ${provider}:`, error);
       return {
         success: false,
@@ -82,12 +102,27 @@ export class ConfigService {
         body: JSON.stringify(requestBody)
       }, 30000); // 30 secondes de timeout pour les tests
 
+      if (response.success) {
+        logService.info(`Test réussi pour ${provider}`, 'ConfigService', { 
+          provider, 
+          cached: response.cached || false,
+          message: response.message 
+        });
+      } else {
+        logService.warning(`Test échoué pour ${provider}`, 'ConfigService', { 
+          provider, 
+          message: response.message 
+        });
+      }
+
       return {
         success: response.success || false,
         message: response.message || 'Test terminé',
         cached: response.cached || false
       };
     } catch (error) {
+      const errorMessage = `Erreur lors du test du provider ${provider}: ${handleApiError(error)}`;
+      logService.error(errorMessage, 'ConfigService', { provider, error: error.message });
       console.error(`Erreur lors du test du provider ${provider}:`, error);
       return {
         success: false,
@@ -104,11 +139,23 @@ export class ConfigService {
         method: 'POST'
       });
 
+      if (response.success) {
+        logService.info(`Priorité mise à jour pour ${provider}`, 'ConfigService', { provider, priority });
+      } else {
+        logService.warning(`Échec de la mise à jour de la priorité pour ${provider}`, 'ConfigService', { 
+          provider, 
+          priority, 
+          message: response.message 
+        });
+      }
+
       return {
         success: response.success,
         message: response.message || 'Priorité mise à jour'
       };
     } catch (error) {
+      const errorMessage = `Erreur lors de la définition de la priorité pour ${provider}: ${handleApiError(error)}`;
+      logService.error(errorMessage, 'ConfigService', { provider, priority, error: error.message });
       console.error(`Erreur lors de la définition de la priorité pour ${provider}:`, error);
       return {
         success: false,
@@ -137,11 +184,22 @@ export class ConfigService {
         method: 'POST'
       });
 
+      if (response.success) {
+        logService.info(`Stratégie mise à jour`, 'ConfigService', { strategy });
+      } else {
+        logService.warning(`Échec de la mise à jour de la stratégie`, 'ConfigService', { 
+          strategy, 
+          message: response.message 
+        });
+      }
+
       return {
         success: response.success,
         message: response.message || 'Stratégie mise à jour'
       };
     } catch (error) {
+      const errorMessage = `Erreur lors de la définition de la stratégie: ${handleApiError(error)}`;
+      logService.error(errorMessage, 'ConfigService', { strategy, error: error.message });
       console.error('Erreur lors de la définition de la stratégie:', error);
       return {
         success: false,
@@ -271,4 +329,6 @@ export class ConfigService {
   }
 }
 
+// Export de l'instance pour compatibilité
+export const configService = ConfigService;
 export default ConfigService;

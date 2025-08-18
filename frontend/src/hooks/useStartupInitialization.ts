@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useStartupStore } from '../stores/startupStore';
 
 /**
@@ -7,16 +7,14 @@ import { useStartupStore } from '../stores/startupStore';
  */
 export const useStartupInitialization = () => {
   const { initialize, isInitialized, initializationStep } = useStartupStore();
+  const hasInitialized = useRef(false);
 
   useEffect(() => {
-    // Initialiser seulement si pas encore fait
-    if (!isInitialized) {
-
+    if (!isInitialized && !hasInitialized.current) {
+      hasInitialized.current = true;
       initialize();
-    } else {
-
     }
-  }, [initialize, isInitialized]);
+  }, [isInitialized]); // Retirer initialize des dépendances pour éviter les appels multiples
 
   return { 
     isInitialized, 

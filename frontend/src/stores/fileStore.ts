@@ -149,10 +149,7 @@ export const useFileStore = create<FileState>()(
             const loadingActions = createLoadingActions(set, get);
             const updater = createOptimizedUpdater(set, get);
             
-
-            
             if (!loadingActions.startLoading()) {
-
               return;
             }
             
@@ -160,10 +157,27 @@ export const useFileStore = create<FileState>()(
               // Utiliser l'endpoint /list pour obtenir le contenu réel du répertoire
               const encodedDirectory = encodeURIComponent(directory.replace(/\\/g, '/'));
               const url = `/api/files/list/${encodedDirectory}`;
-
               
               const response = await apiRequest(url);
-
+              
+              // Vérifier si la réponse indique un disque non accessible
+              if (response.error && ['DISK_LOCKED', 'DISK_NOT_READY', 'DISK_ERROR'].includes(response.error)) {
+                const errorMessage = response.message || `Le disque ${directory} n'est pas accessible`;
+                const retryAfter = response.retry_after || 30;
+                
+                // Afficher un message d'erreur informatif à l'utilisateur
+                const userMessage = `${errorMessage}\n\nVeuillez déverrouiller le disque et réessayer dans ${retryAfter} secondes.`;
+                
+                loadingActions.finishLoadingWithError(userMessage);
+                
+                // Éviter les requêtes en boucle en attendant le délai de retry
+                setTimeout(() => {
+                  // Ne pas relancer automatiquement, laisser l'utilisateur décider
+                  console.log(`Disque ${directory} non accessible. Attente de ${retryAfter} secondes avant nouvelle tentative.`);
+                }, retryAfter * 1000);
+                
+                return;
+              }
               
               // Construire la structure DirectoryTree à partir de la réponse /list
               const treeData = {
@@ -175,20 +189,25 @@ export const useFileStore = create<FileState>()(
                 files: response.files || []
               };
               
-
-              
               updater.updateMultiple({
                 directoryTree: treeData as DirectoryTree,
                 currentDirectory: directory,
               });
-
               
               // OPTIMISATION: Plus besoin de double chargement, les données sont déjà complètes
               
               loadingActions.finishLoading();
             } catch (error) {
               console.error("❌ Erreur dans loadDirectoryTree:", error);
-              loadingActions.finishLoadingWithError(handleApiError(error));
+              
+              // Vérifier si c'est une erreur de disque verrouillé
+              const errorMessage = handleApiError(error);
+              if (errorMessage.includes('verrouillé') || errorMessage.includes('locked') || errorMessage.includes('not ready')) {
+                const userMessage = `Le disque ${directory} est verrouillé ou non accessible.\n\nVeuillez le déverrouiller et réessayer.`;
+                loadingActions.finishLoadingWithError(userMessage);
+              } else {
+                loadingActions.finishLoadingWithError(errorMessage);
+              }
             }
           });
         })(),

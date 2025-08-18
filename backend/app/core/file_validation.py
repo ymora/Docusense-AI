@@ -216,74 +216,6 @@ class FileValidator:
                 is_valid=False, errors=errors, warnings=warnings)
     
     @classmethod
-    def validate_directory_path(cls, dir_path: Union[str, Path]) -> ValidationResult:
-        """
-        Valide un chemin de répertoire
-        
-        Args:
-            dir_path: Chemin du répertoire
-            
-        Returns:
-            ValidationResult: Résultat de la validation
-        """
-        errors = []
-        warnings = []
-
-        try:
-            path = Path(dir_path)
-
-            # Vérifier que le chemin existe
-            if not path.exists():
-                errors.append(ValidationError(
-                    field="path",
-                    message="Le répertoire n'existe pas",
-                    code="DIRECTORY_NOT_FOUND",
-                    value=str(dir_path)
-                ))
-                return ValidationResult(
-                    is_valid=False, errors=errors, warnings=warnings)
-
-            # Vérifier que c'est bien un répertoire
-            if not path.is_dir():
-                errors.append(ValidationError(
-                    field="path",
-                    message="Le chemin ne correspond pas à un répertoire",
-                    code="NOT_A_DIRECTORY",
-                    value=str(dir_path)
-                ))
-                return ValidationResult(
-                    is_valid=False, errors=errors, warnings=warnings)
-
-            # Vérifier les permissions de lecture (compatible Windows/Linux)
-            try:
-                os.listdir(path)  # Essayer de lister le contenu
-            except (PermissionError, OSError):
-                errors.append(ValidationError(
-                    field="path",
-                    message="Le répertoire n'est pas accessible en lecture",
-                    code="NOT_READABLE",
-                    value=str(dir_path)
-                ))
-                return ValidationResult(
-                    is_valid=False, errors=errors, warnings=warnings)
-
-            return ValidationResult(
-                is_valid=len(errors) == 0,
-                errors=errors,
-                warnings=warnings)
-
-        except Exception as e:
-            logger.error(f"Erreur lors de la validation du répertoire {dir_path}: {e}")
-            errors.append(ValidationError(
-                field="path",
-                message=f"Erreur de validation: {str(e)}",
-                code="VALIDATION_ERROR",
-                value=str(dir_path)
-            ))
-            return ValidationResult(
-                is_valid=False, errors=errors, warnings=warnings)
-    
-    @classmethod
     def _get_mime_type_from_extension(cls, extension: str) -> Optional[str]:
         """
         Fallback pour déterminer le type MIME à partir de l'extension
@@ -291,13 +223,6 @@ class FileValidator:
         """
         from .media_formats import EXTENSION_TO_MIME
         return EXTENSION_TO_MIME.get(extension.lower(), None)
-    
-    @classmethod
-    def get_supported_formats_for_type(cls, file_type: str) -> List[str]:
-        """
-        Retourne les formats supportés pour un type de fichier
-        """
-        return cls.SUPPORTED_FORMATS.get(file_type, [])
     
     @classmethod
     def get_all_supported_formats(cls) -> Dict[str, List[str]]:
@@ -361,4 +286,80 @@ class FileValidator:
         from .file_utils import FileInfoExtractor
         extension = file_path.suffix.lower().lstrip('.')
         mime_type = FileInfoExtractor._get_mime_type(file_path, extension)
-        return mime_type, None 
+        return mime_type, None
+    
+    @classmethod
+    def validate_directory_path(cls, dir_path: Union[str, Path]) -> ValidationResult:
+        """
+        Valide un chemin de répertoire
+        
+        Args:
+            dir_path: Chemin du répertoire
+            
+        Returns:
+            ValidationResult: Résultat de la validation
+        """
+        errors = []
+        warnings = []
+
+        try:
+            path = Path(dir_path)
+
+            # Vérifier que le chemin existe
+            if not path.exists():
+                errors.append(ValidationError(
+                    field="path",
+                    message="Le répertoire n'existe pas",
+                    code="DIRECTORY_NOT_FOUND",
+                    value=str(dir_path)
+                ))
+                return ValidationResult(
+                    is_valid=False, errors=errors, warnings=warnings)
+
+            # Vérifier que c'est bien un répertoire
+            if not path.is_dir():
+                errors.append(ValidationError(
+                    field="path",
+                    message="Le chemin ne correspond pas à un répertoire",
+                    code="NOT_A_DIRECTORY",
+                    value=str(dir_path)
+                ))
+                return ValidationResult(
+                    is_valid=False, errors=errors, warnings=warnings)
+
+            # Vérifier les permissions de lecture (compatible Windows/Linux)
+            try:
+                import os
+                os.listdir(path)  # Essayer de lister le contenu
+            except (PermissionError, OSError):
+                errors.append(ValidationError(
+                    field="path",
+                    message="Le répertoire n'est pas accessible en lecture",
+                    code="NOT_READABLE",
+                    value=str(dir_path)
+                ))
+                return ValidationResult(
+                    is_valid=False, errors=errors, warnings=warnings)
+
+            return ValidationResult(
+                is_valid=len(errors) == 0,
+                errors=errors,
+                warnings=warnings)
+
+        except Exception as e:
+            logger.error(f"Erreur lors de la validation du répertoire {dir_path}: {e}")
+            errors.append(ValidationError(
+                field="path",
+                message=f"Erreur de validation: {str(e)}",
+                code="VALIDATION_ERROR",
+                value=str(dir_path)
+            ))
+            return ValidationResult(
+                is_valid=False, errors=errors, warnings=warnings)
+    
+    @classmethod
+    def get_supported_formats_for_type(cls, file_type: str) -> List[str]:
+        """
+        Retourne les formats supportés pour un type de fichier
+        """
+        return cls.SUPPORTED_FORMATS.get(file_type, []) 

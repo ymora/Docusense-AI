@@ -71,11 +71,9 @@ async def get_queue_items(
         for item in items
     ]
     
-    return ResponseFormatter.paginated_response(
-        items=queue_items_data,
-        total=len(queue_items_data),
-        limit=limit,
-        offset=offset,
+    # Retourner directement les données pour le frontend
+    return ResponseFormatter.success_response(
+        data=queue_items_data,
         message="Éléments de la queue récupérés"
     )
 
@@ -157,3 +155,37 @@ async def stop_queue_processing(
         data={"status": "stopped"},
         message="Traitement de la queue arrêté"
     )
+
+
+@router.put("/items/{item_id}/update")
+@APIUtils.handle_errors
+async def update_queue_item(
+    item_id: int,
+    request: Dict[str, Any],
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    Update provider and prompt for a queue item
+    """
+    provider = request.get("provider")
+    prompt = request.get("prompt")
+    
+    if not provider or not prompt:
+        raise HTTPException(
+            status_code=400,
+            detail="Provider et prompt requis"
+        )
+    
+    queue_service = QueueService(db)
+    updated = queue_service.update_analysis_provider_and_prompt(item_id, provider, prompt)
+    
+    if updated:
+        return ResponseFormatter.success_response(
+            data={"item_id": item_id, "provider": provider, "prompt": prompt},
+            message="Fournisseur et prompt mis à jour"
+        )
+    else:
+        raise HTTPException(
+            status_code=404,
+            detail="Élément de queue non trouvé ou non modifiable"
+        )

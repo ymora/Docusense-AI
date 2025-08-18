@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
 import { ConfigService, AIProvider, AIProvidersResponse } from '../services/configService';
 import { createLoadingActions, createCallGuard, createOptimizedUpdater } from '../utils/storeUtils';
+import { logService } from '../services/logService';
 
 interface ConfigState {
   // État des providers IA
@@ -50,39 +51,39 @@ export const useConfigStore = create<ConfigState>()(
         lastUpdated: null,
         version: '1.0.0',
 
-        // Chargement initial des providers IA
-        loadAIProviders: async () => {
-          const { isInitialized } = get();
-          
-          // Ne charger qu'une seule fois au démarrage
-          if (isInitialized) {
-            return;
-          }
-
-          set({ loading: true, error: null });
-          
-          try {
-            const response = await ConfigService.getAIProviders();
+        // Chargement initial des providers IA (protégé contre les appels multiples)
+        loadAIProviders: (() => {
+          const callGuard = createCallGuard();
+          return callGuard(async () => {
+            const loadingActions = createLoadingActions(set, get);
             
-            set({ 
-              aiProviders: response.providers || [],
-              aiProvidersResponse: response,
-              loading: false, 
-              isInitialized: true,
-              error: null,
-              lastUpdated: new Date().toISOString()
-            });
+            if (!loadingActions.startLoading()) {
+              return;
+            }
             
-          } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Erreur lors du chargement des configurations';
-            set({ 
-              error: errorMessage, 
-              loading: false,
-              isInitialized: true // Marquer comme initialisé même en cas d'erreur
-            });
-            console.error('❌ Erreur lors du chargement des configurations:', error);
-          }
-        },
+            try {
+              const response = await ConfigService.getAIProviders();
+              
+              set({ 
+                aiProviders: response.providers || [],
+                aiProvidersResponse: response,
+                loading: false, 
+                isInitialized: true,
+                error: null,
+                lastUpdated: new Date().toISOString()
+              });
+              
+            } catch (error) {
+              const errorMessage = error instanceof Error ? error.message : 'Erreur lors du chargement des configurations';
+              set({ 
+                error: errorMessage, 
+                loading: false,
+                isInitialized: true
+              });
+              console.error('❌ Erreur lors du chargement des configurations:', error);
+            }
+          });
+        })(),
 
         // Actualisation des providers IA (optimisée)
         refreshAIProviders: (() => {
@@ -149,6 +150,7 @@ export const useConfigStore = create<ConfigState>()(
               return result;
             } catch (error) {
               const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la sauvegarde';
+              logService.error(`Erreur lors de la sauvegarde de la clé API: ${errorMessage}`, 'ConfigStore', { error: error.message });
               console.error('❌ Erreur lors de la sauvegarde de la clé API:', error);
               return {
                 success: false,

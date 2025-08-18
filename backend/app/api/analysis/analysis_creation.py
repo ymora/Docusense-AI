@@ -36,7 +36,7 @@ async def compare_documents(
     ai_service = get_ai_service(db)
     
     # Get the best available provider
-    provider, model = ai_service.select_best_provider()
+    provider, model = await ai_service.select_best_provider()
     
     # Create comparison analysis
     analysis = analysis_service.create_analysis(
@@ -86,7 +86,7 @@ async def analyze_batch(
     ai_service = get_ai_service(db)
     
     # Get the best available provider
-    provider, model = ai_service.select_best_provider()
+    provider, model = await ai_service.select_best_provider()
     
     created_analyses = []
     
@@ -226,7 +226,7 @@ async def create_pending_analysis(
     
     # Try to get the best available provider, but don't fail if none are available
     try:
-        provider, model = ai_service.select_best_provider()
+        provider, model = await ai_service.select_best_provider()
     except Exception as e:
         logger.warning(f"No functional AI providers available: {str(e)}")
         # Use fallback values for pending analysis
@@ -327,7 +327,7 @@ async def create_pending_analyses_batch(
     
     # Try to get the best available provider
     try:
-        provider, model = ai_service.select_best_provider()
+        provider, model = await ai_service.select_best_provider()
     except Exception as e:
         logger.warning(f"No functional AI providers available: {str(e)}")
         provider = "unknown"
@@ -450,9 +450,9 @@ async def analyze_file(
     
     # Get the best available provider based on priority
     if provider_priority:
-        provider, model = ai_service.select_best_provider_from_priority(provider_priority)
+        provider, model = await ai_service.select_best_provider_from_priority(provider_priority)
     else:
-        provider, model = ai_service.select_best_provider()
+        provider, model = await ai_service.select_best_provider()
     
     # Get the prompt text
     from ...services.prompt_service import PromptService

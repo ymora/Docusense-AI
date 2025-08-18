@@ -1,0 +1,665 @@
+{
+  "summary": {
+    "total_vulnerabilities": 21,
+    "critical": 18,
+    "high": 3,
+    "medium": 0,
+    "low": 0
+  },
+  "by_severity": {
+    "CRITICAL": [
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\error_monitor.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 72,
+        "line_content": "self.backend_process = subprocess.Popen(",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.Popen avec entrée dynamique"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\error_monitor.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 149,
+        "line_content": "subprocess.run([",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.run avec entrée dynamique"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\error_monitor.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 155,
+        "line_content": "subprocess.run([",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.run avec entrée dynamique"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\error_monitor.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 168,
+        "line_content": "subprocess.run([",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.run avec entrée dynamique"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\api\\files.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 321,
+        "line_content": "result = subprocess.run([\"wmic\",",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.run avec entrée dynamique"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\api\\files.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 1024,
+        "line_content": "subprocess.run([\"explorer\", str(path)], check=True)",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.run avec entrée dynamique"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\api\\files.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 1026,
+        "line_content": "subprocess.run([\"open\", str(path)], check=True)",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.run avec entrée dynamique"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\api\\files.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 1028,
+        "line_content": "subprocess.run([\"xdg-open\", str(path)], check=True)",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.run avec entrée dynamique"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\document_extractor_service.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 125,
+        "line_content": "result = subprocess.run(['antiword', str(file_path)],",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.run avec entrée dynamique"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\document_extractor_service.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 332,
+        "line_content": "result = subprocess.run(['untext', str(file_path)],",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.run avec entrée dynamique"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\multimedia_service.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 478,
+        "line_content": "result = subprocess.run(",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.run avec entrée dynamique"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\multimedia_service.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 570,
+        "line_content": "result = subprocess.run(",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.run avec entrée dynamique"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\streaming_service.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 51,
+        "line_content": "result = subprocess.run([path, '-version'],",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.run avec entrée dynamique"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\video_converter_service.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 138,
+        "line_content": "process = subprocess.Popen(",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.Popen avec entrée dynamique"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\video_converter_service.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 200,
+        "line_content": "subprocess.run(['taskkill', '/F', '/PID', str(process.pid)],",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.run avec entrée dynamique"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\video_converter_service.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 272,
+        "line_content": "result = subprocess.run(cmd, capture_output=True, text=True)",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.run avec entrée dynamique"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\video_converter_service.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 389,
+        "line_content": "process = subprocess.run(",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.run avec entrée dynamique"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\video_converter_service.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 412,
+        "line_content": "subprocess.run(cmd, capture_output=True, text=True, timeout=5)",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.run avec entrée dynamique"
+      }
+    ],
+    "HIGH": [
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\api\\auth.py",
+        "type": "sensitive_data_exposure",
+        "pattern": "(?:api_key|secret_key|password|token|private_key)\\s*=\\s*[^=]+[\"\\'][^\"\\']{1,}[\"\\']",
+        "line": 47,
+        "line_content": "token = generate_token()",
+        "match": "token = generate_token()\n        \n        # Enregistrer la métrique de connexion\n        APIUtils.record_api_metric(\"login_attempts\", 1.0, {\"username\": username})\n        \n        return ResponseFormatter.success_response(\n            data={\n                \"",
+        "severity": "HIGH",
+        "description": "Exposition de données sensibles - clés, mots de passe en dur"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\config_service.py",
+        "type": "sensitive_data_exposure",
+        "pattern": "(?:api_key|secret_key|password|token|private_key)\\s*=\\s*[^=]+[\"\\'][^\"\\']{1,}[\"\\']",
+        "line": 718,
+        "line_content": "api_key = self.get_ai_provider_key(provider)",
+        "match": "api_key = self.get_ai_provider_key(provider)\n                if api_key and api_key.strip():\n                    configured_providers.append(provider)\n\n            return configured_providers\n        except Exception as e:\n            self.logger.error(f\"Error getting configured providers: {str(e)}\")\n            return []\n\n    def _get_active_providers(self) -> List[str]:\n        \"\"\"\n        Get list of active providers (only those explicitly configured AND validated by user)\n        \"\"\"\n        try:\n            active_providers = []\n            all_providers = [\"",
+        "severity": "HIGH",
+        "description": "Exposition de données sensibles - clés, mots de passe en dur"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\config_service.py",
+        "type": "sensitive_data_exposure",
+        "pattern": "(?:api_key|secret_key|password|token|private_key)\\s*=\\s*[^=]+[\"\\'][^\"\\']{1,}[\"\\']",
+        "line": 1587,
+        "line_content": "api_key = self.get_ai_provider_key(provider)",
+        "match": "api_key = self.get_ai_provider_key(provider)\n                if not api_key:\n                    return {\n                        \"success\": False,\n                        \"message\": f\"Aucune clé API configurée pour {provider}\",\n                        \"cached\": False\n                    }\n            \n            # Tester le provider\n            from .ai_service import get_ai_service\n            ai_service = get_ai_service(self.db)\n            \n            is_functional = await ai_service.test_provider_with_key(provider, api_key)\n            \n            # Le statut est déjà sauvegardé par test_provider_with_key\n            message = f\"",
+        "severity": "HIGH",
+        "description": "Exposition de données sensibles - clés, mots de passe en dur"
+      }
+    ]
+  },
+  "by_type": {
+    "command_injection": [
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\error_monitor.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 72,
+        "line_content": "self.backend_process = subprocess.Popen(",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.Popen avec entrée dynamique"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\error_monitor.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 149,
+        "line_content": "subprocess.run([",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.run avec entrée dynamique"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\error_monitor.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 155,
+        "line_content": "subprocess.run([",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.run avec entrée dynamique"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\error_monitor.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 168,
+        "line_content": "subprocess.run([",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.run avec entrée dynamique"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\api\\files.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 321,
+        "line_content": "result = subprocess.run([\"wmic\",",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.run avec entrée dynamique"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\api\\files.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 1024,
+        "line_content": "subprocess.run([\"explorer\", str(path)], check=True)",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.run avec entrée dynamique"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\api\\files.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 1026,
+        "line_content": "subprocess.run([\"open\", str(path)], check=True)",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.run avec entrée dynamique"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\api\\files.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 1028,
+        "line_content": "subprocess.run([\"xdg-open\", str(path)], check=True)",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.run avec entrée dynamique"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\document_extractor_service.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 125,
+        "line_content": "result = subprocess.run(['antiword', str(file_path)],",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.run avec entrée dynamique"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\document_extractor_service.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 332,
+        "line_content": "result = subprocess.run(['untext', str(file_path)],",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.run avec entrée dynamique"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\multimedia_service.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 478,
+        "line_content": "result = subprocess.run(",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.run avec entrée dynamique"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\multimedia_service.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 570,
+        "line_content": "result = subprocess.run(",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.run avec entrée dynamique"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\streaming_service.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 51,
+        "line_content": "result = subprocess.run([path, '-version'],",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.run avec entrée dynamique"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\video_converter_service.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 138,
+        "line_content": "process = subprocess.Popen(",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.Popen avec entrée dynamique"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\video_converter_service.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 200,
+        "line_content": "subprocess.run(['taskkill', '/F', '/PID', str(process.pid)],",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.run avec entrée dynamique"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\video_converter_service.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 272,
+        "line_content": "result = subprocess.run(cmd, capture_output=True, text=True)",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.run avec entrée dynamique"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\video_converter_service.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 389,
+        "line_content": "process = subprocess.run(",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.run avec entrée dynamique"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\video_converter_service.py",
+        "type": "command_injection",
+        "pattern": "ast",
+        "line": 412,
+        "line_content": "subprocess.run(cmd, capture_output=True, text=True, timeout=5)",
+        "match": "",
+        "severity": "CRITICAL",
+        "description": "subprocess.run avec entrée dynamique"
+      }
+    ],
+    "sensitive_data_exposure": [
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\api\\auth.py",
+        "type": "sensitive_data_exposure",
+        "pattern": "(?:api_key|secret_key|password|token|private_key)\\s*=\\s*[^=]+[\"\\'][^\"\\']{1,}[\"\\']",
+        "line": 47,
+        "line_content": "token = generate_token()",
+        "match": "token = generate_token()\n        \n        # Enregistrer la métrique de connexion\n        APIUtils.record_api_metric(\"login_attempts\", 1.0, {\"username\": username})\n        \n        return ResponseFormatter.success_response(\n            data={\n                \"",
+        "severity": "HIGH",
+        "description": "Exposition de données sensibles - clés, mots de passe en dur"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\config_service.py",
+        "type": "sensitive_data_exposure",
+        "pattern": "(?:api_key|secret_key|password|token|private_key)\\s*=\\s*[^=]+[\"\\'][^\"\\']{1,}[\"\\']",
+        "line": 718,
+        "line_content": "api_key = self.get_ai_provider_key(provider)",
+        "match": "api_key = self.get_ai_provider_key(provider)\n                if api_key and api_key.strip():\n                    configured_providers.append(provider)\n\n            return configured_providers\n        except Exception as e:\n            self.logger.error(f\"Error getting configured providers: {str(e)}\")\n            return []\n\n    def _get_active_providers(self) -> List[str]:\n        \"\"\"\n        Get list of active providers (only those explicitly configured AND validated by user)\n        \"\"\"\n        try:\n            active_providers = []\n            all_providers = [\"",
+        "severity": "HIGH",
+        "description": "Exposition de données sensibles - clés, mots de passe en dur"
+      },
+      {
+        "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\config_service.py",
+        "type": "sensitive_data_exposure",
+        "pattern": "(?:api_key|secret_key|password|token|private_key)\\s*=\\s*[^=]+[\"\\'][^\"\\']{1,}[\"\\']",
+        "line": 1587,
+        "line_content": "api_key = self.get_ai_provider_key(provider)",
+        "match": "api_key = self.get_ai_provider_key(provider)\n                if not api_key:\n                    return {\n                        \"success\": False,\n                        \"message\": f\"Aucune clé API configurée pour {provider}\",\n                        \"cached\": False\n                    }\n            \n            # Tester le provider\n            from .ai_service import get_ai_service\n            ai_service = get_ai_service(self.db)\n            \n            is_functional = await ai_service.test_provider_with_key(provider, api_key)\n            \n            # Le statut est déjà sauvegardé par test_provider_with_key\n            message = f\"",
+        "severity": "HIGH",
+        "description": "Exposition de données sensibles - clés, mots de passe en dur"
+      }
+    ]
+  },
+  "vulnerabilities": [
+    {
+      "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\error_monitor.py",
+      "type": "command_injection",
+      "pattern": "ast",
+      "line": 72,
+      "line_content": "self.backend_process = subprocess.Popen(",
+      "match": "",
+      "severity": "CRITICAL",
+      "description": "subprocess.Popen avec entrée dynamique"
+    },
+    {
+      "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\error_monitor.py",
+      "type": "command_injection",
+      "pattern": "ast",
+      "line": 149,
+      "line_content": "subprocess.run([",
+      "match": "",
+      "severity": "CRITICAL",
+      "description": "subprocess.run avec entrée dynamique"
+    },
+    {
+      "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\error_monitor.py",
+      "type": "command_injection",
+      "pattern": "ast",
+      "line": 155,
+      "line_content": "subprocess.run([",
+      "match": "",
+      "severity": "CRITICAL",
+      "description": "subprocess.run avec entrée dynamique"
+    },
+    {
+      "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\error_monitor.py",
+      "type": "command_injection",
+      "pattern": "ast",
+      "line": 168,
+      "line_content": "subprocess.run([",
+      "match": "",
+      "severity": "CRITICAL",
+      "description": "subprocess.run avec entrée dynamique"
+    },
+    {
+      "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\api\\auth.py",
+      "type": "sensitive_data_exposure",
+      "pattern": "(?:api_key|secret_key|password|token|private_key)\\s*=\\s*[^=]+[\"\\'][^\"\\']{1,}[\"\\']",
+      "line": 47,
+      "line_content": "token = generate_token()",
+      "match": "token = generate_token()\n        \n        # Enregistrer la métrique de connexion\n        APIUtils.record_api_metric(\"login_attempts\", 1.0, {\"username\": username})\n        \n        return ResponseFormatter.success_response(\n            data={\n                \"",
+      "severity": "HIGH",
+      "description": "Exposition de données sensibles - clés, mots de passe en dur"
+    },
+    {
+      "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\api\\files.py",
+      "type": "command_injection",
+      "pattern": "ast",
+      "line": 321,
+      "line_content": "result = subprocess.run([\"wmic\",",
+      "match": "",
+      "severity": "CRITICAL",
+      "description": "subprocess.run avec entrée dynamique"
+    },
+    {
+      "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\api\\files.py",
+      "type": "command_injection",
+      "pattern": "ast",
+      "line": 1024,
+      "line_content": "subprocess.run([\"explorer\", str(path)], check=True)",
+      "match": "",
+      "severity": "CRITICAL",
+      "description": "subprocess.run avec entrée dynamique"
+    },
+    {
+      "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\api\\files.py",
+      "type": "command_injection",
+      "pattern": "ast",
+      "line": 1026,
+      "line_content": "subprocess.run([\"open\", str(path)], check=True)",
+      "match": "",
+      "severity": "CRITICAL",
+      "description": "subprocess.run avec entrée dynamique"
+    },
+    {
+      "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\api\\files.py",
+      "type": "command_injection",
+      "pattern": "ast",
+      "line": 1028,
+      "line_content": "subprocess.run([\"xdg-open\", str(path)], check=True)",
+      "match": "",
+      "severity": "CRITICAL",
+      "description": "subprocess.run avec entrée dynamique"
+    },
+    {
+      "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\document_extractor_service.py",
+      "type": "command_injection",
+      "pattern": "ast",
+      "line": 125,
+      "line_content": "result = subprocess.run(['antiword', str(file_path)],",
+      "match": "",
+      "severity": "CRITICAL",
+      "description": "subprocess.run avec entrée dynamique"
+    },
+    {
+      "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\document_extractor_service.py",
+      "type": "command_injection",
+      "pattern": "ast",
+      "line": 332,
+      "line_content": "result = subprocess.run(['untext', str(file_path)],",
+      "match": "",
+      "severity": "CRITICAL",
+      "description": "subprocess.run avec entrée dynamique"
+    },
+    {
+      "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\config_service.py",
+      "type": "sensitive_data_exposure",
+      "pattern": "(?:api_key|secret_key|password|token|private_key)\\s*=\\s*[^=]+[\"\\'][^\"\\']{1,}[\"\\']",
+      "line": 718,
+      "line_content": "api_key = self.get_ai_provider_key(provider)",
+      "match": "api_key = self.get_ai_provider_key(provider)\n                if api_key and api_key.strip():\n                    configured_providers.append(provider)\n\n            return configured_providers\n        except Exception as e:\n            self.logger.error(f\"Error getting configured providers: {str(e)}\")\n            return []\n\n    def _get_active_providers(self) -> List[str]:\n        \"\"\"\n        Get list of active providers (only those explicitly configured AND validated by user)\n        \"\"\"\n        try:\n            active_providers = []\n            all_providers = [\"",
+      "severity": "HIGH",
+      "description": "Exposition de données sensibles - clés, mots de passe en dur"
+    },
+    {
+      "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\config_service.py",
+      "type": "sensitive_data_exposure",
+      "pattern": "(?:api_key|secret_key|password|token|private_key)\\s*=\\s*[^=]+[\"\\'][^\"\\']{1,}[\"\\']",
+      "line": 1587,
+      "line_content": "api_key = self.get_ai_provider_key(provider)",
+      "match": "api_key = self.get_ai_provider_key(provider)\n                if not api_key:\n                    return {\n                        \"success\": False,\n                        \"message\": f\"Aucune clé API configurée pour {provider}\",\n                        \"cached\": False\n                    }\n            \n            # Tester le provider\n            from .ai_service import get_ai_service\n            ai_service = get_ai_service(self.db)\n            \n            is_functional = await ai_service.test_provider_with_key(provider, api_key)\n            \n            # Le statut est déjà sauvegardé par test_provider_with_key\n            message = f\"",
+      "severity": "HIGH",
+      "description": "Exposition de données sensibles - clés, mots de passe en dur"
+    },
+    {
+      "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\multimedia_service.py",
+      "type": "command_injection",
+      "pattern": "ast",
+      "line": 478,
+      "line_content": "result = subprocess.run(",
+      "match": "",
+      "severity": "CRITICAL",
+      "description": "subprocess.run avec entrée dynamique"
+    },
+    {
+      "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\multimedia_service.py",
+      "type": "command_injection",
+      "pattern": "ast",
+      "line": 570,
+      "line_content": "result = subprocess.run(",
+      "match": "",
+      "severity": "CRITICAL",
+      "description": "subprocess.run avec entrée dynamique"
+    },
+    {
+      "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\streaming_service.py",
+      "type": "command_injection",
+      "pattern": "ast",
+      "line": 51,
+      "line_content": "result = subprocess.run([path, '-version'],",
+      "match": "",
+      "severity": "CRITICAL",
+      "description": "subprocess.run avec entrée dynamique"
+    },
+    {
+      "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\video_converter_service.py",
+      "type": "command_injection",
+      "pattern": "ast",
+      "line": 138,
+      "line_content": "process = subprocess.Popen(",
+      "match": "",
+      "severity": "CRITICAL",
+      "description": "subprocess.Popen avec entrée dynamique"
+    },
+    {
+      "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\video_converter_service.py",
+      "type": "command_injection",
+      "pattern": "ast",
+      "line": 200,
+      "line_content": "subprocess.run(['taskkill', '/F', '/PID', str(process.pid)],",
+      "match": "",
+      "severity": "CRITICAL",
+      "description": "subprocess.run avec entrée dynamique"
+    },
+    {
+      "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\video_converter_service.py",
+      "type": "command_injection",
+      "pattern": "ast",
+      "line": 272,
+      "line_content": "result = subprocess.run(cmd, capture_output=True, text=True)",
+      "match": "",
+      "severity": "CRITICAL",
+      "description": "subprocess.run avec entrée dynamique"
+    },
+    {
+      "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\video_converter_service.py",
+      "type": "command_injection",
+      "pattern": "ast",
+      "line": 389,
+      "line_content": "process = subprocess.run(",
+      "match": "",
+      "severity": "CRITICAL",
+      "description": "subprocess.run avec entrée dynamique"
+    },
+    {
+      "file": "C:\\Users\\ymora\\Desktop\\Docusense AI\\backend\\app\\services\\video_converter_service.py",
+      "type": "command_injection",
+      "pattern": "ast",
+      "line": 412,
+      "line_content": "subprocess.run(cmd, capture_output=True, text=True, timeout=5)",
+      "match": "",
+      "severity": "CRITICAL",
+      "description": "subprocess.run avec entrée dynamique"
+    }
+  ],
+  "recommendations": [
+    "Utiliser des variables d'environnement pour les secrets",
+    "Implémenter une validation stricte des entrées utilisateur",
+    "Utiliser des requêtes préparées pour les bases de données",
+    "Mettre en place une gestion des erreurs sécurisée",
+    "Implémenter des logs de sécurité",
+    "Effectuer des tests de sécurité réguliers",
+    "Utiliser HTTPS en production",
+    "Implémenter une authentification forte",
+    "Mettre en place des limites de taux (rate limiting)",
+    "Utiliser des algorithmes de chiffrement modernes"
+  ]
+}

@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 import time
 from threading import Lock
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List, Dict, Any
 
 from ..models.analysis import AnalysisType
 from ..models.config import Config
@@ -68,6 +68,7 @@ class AIService(BaseService):
         
         self._load_provider_configs(config_service, providers)
         self._log_provider_loading()
+
     
     def _load_provider_configs(self, config_service, providers: list[str]) -> None:
         """Load provider configurations from config service"""
@@ -81,7 +82,7 @@ class AIService(BaseService):
         if not self._ai_providers_loaded:
             self.logger.info(f"{len(self.providers)} fournisseurs AI chargés")
             self._ai_providers_loaded = True
-    
+
     def _load_default_providers(self) -> None:
         """Load default AI providers from settings"""
         try:
@@ -92,9 +93,10 @@ class AIService(BaseService):
         except Exception as e:
             self.logger.error(f"Error loading default providers: {str(e)}")
     
+    
     def _get_default_provider_configs(self, settings) -> dict[str, dict[str, any]]:
         """Get default provider configurations"""
-        # NOUVEAU: Charger les clés API depuis la base de données si disponible
+        # Charger les clés API depuis la base de données si disponible
         try:
             from .config_service import ConfigService
             config_service = ConfigService(self.db)
@@ -108,83 +110,49 @@ class AIService(BaseService):
                 "api_key": settings.openai_api_key or "",
                 "base_url": "https://api.openai.com/v1",
                 "default_model": "gpt-4",
-                "models": ["gpt-4", "gpt-3.5-turbo"],
+                "models": ["gpt-4", "gpt-4-turbo", "gpt-3.5-turbo"],
                 "is_active": bool(settings.openai_api_key),
-                "priority": 1
+                "priority": 1,
+                "supports_streaming": True,
+                "max_tokens": 8192
             },
             "claude": {
                 "name": "claude", 
                 "api_key": settings.anthropic_api_key or "",
                 "base_url": "https://api.anthropic.com",
                 "default_model": "claude-3-sonnet-20240229",
-                "models": ["claude-3-sonnet-20240229", "claude-3-haiku-20240307"],
+                "models": ["claude-3-sonnet-20240229", "claude-3-haiku-20240307", "claude-3-opus-20240229"],
                 "is_active": bool(settings.anthropic_api_key),
-                "priority": 2
+                "priority": 2,
+                "supports_streaming": True,
+                "max_tokens": 4096
             },
             "mistral": {
                 "name": "mistral",
                 "api_key": "",
-                "base_url": "http://localhost:11434",
-                "default_model": "mistral:latest",
-                "models": ["mistral:latest", "llama2", "codellama"],
-                "is_active": True,
-                "priority": 3
+                "base_url": "https://api.mistral.ai",
+                "default_model": "mistral-large-latest",
+                "models": ["mistral-large-latest", "mistral-medium-latest", "mistral-small-latest"],
+                "is_active": False,
+                "priority": 3,
+                "supports_streaming": True,
+                "max_tokens": 4096
             },
             "ollama": {
                 "name": "ollama",
                 "api_key": "",
-                "base_url": settings.ollama_base_url,
-                "default_model": "mistral:latest",
-                "models": ["mistral:latest", "llama2", "codellama"],
+                "base_url": getattr(settings, 'ollama_base_url', 'http://localhost:11434'),
+                "default_model": "llama2",
+                "models": ["llama2", "codellama", "mistral", "llama2:13b", "llama2:7b"],
                 "is_active": True,
-                "priority": 4
+                "priority": 4,
+                "supports_streaming": True,
+                "max_tokens": 4096,
+                "is_local": True
             }
         }
 
-    def get_available_providers(self) -> list[dict[str, any]]:
-        """Get available providers with functionality status"""
-        try:
-            from .config_service import ConfigService
-            config_service = ConfigService(self.db)
-            
-            available = []
-            for name, config in self.providers.items():
-                if config.get("is_active", True):
-                    # Check if provider has API key (except local providers which don't need one)
-                    api_key = None
-                    if name.lower() not in ["ollama", "mistral"]:
-                        api_key = config_service.get_ai_provider_key(name)
-                        if not api_key:
-                            continue
-                    
-                    # Check functionality status from config
-                    is_functional = config_service.get_config(f"{name}_is_functional", "false").lower() == "true"
-                    
-                    # Get priority from config
-                    priority = config_service.get_ai_provider_priority(name)
-                    
-                    # Vérifier que la priorité est valide (1-4)
-                    if priority < 1 or priority > 4:
-                        self.logger.debug(f"Provider {name} has invalid priority {priority}, skipping")
-                        continue
-                    
-                    available.append({
-                        "name": name,
-                        "priority": priority,
-                        "models": config.get("models", []),
-                        "default_model": config.get("default_model"),
-                        "base_url": config.get("base_url"),
-                        "is_active": config.get("is_active", True),
-                        "has_api_key": bool(api_key),
-                        "is_functional": is_functional,
-                        "last_tested": config_service.get_config(f"{name}_last_tested", "")
-                    })
-
-            return self._sort_providers_by_priority(available)
-            
-        except Exception as e:
-            self.logger.error(f"Error getting available providers: {str(e)}")
-            return []
+    # Méthode get_available_providers supprimée - utiliser get_available_providers_async à la place
 
     def _sort_providers_by_priority(self, providers: list[dict[str, any]]) -> list[dict[str, any]]:
         """Sort providers by priority (ascending - lowest number = highest priority)"""
@@ -204,43 +172,29 @@ class AIService(BaseService):
             return False
 
     async def test_provider_with_key(self, provider: str, api_key: str) -> bool:
-        """Test AI provider connection with a specific API key and update status in database"""
+        """Test AI provider connection with a specific API key (NO automatic status update)"""
         try:
-            self.logger.info(f"Testing provider {provider} with provided API key")
+            self.logger.info(f"[TEST] Starting connection test for provider: {provider.upper()}")
             
             # Cas spéciaux pour les providers locaux qui n'ont pas besoin de clé API
-            if provider.lower() in ["ollama", "mistral"]:
+            if provider.lower() in ["ollama"]:
+                self.logger.info(f"[TEST] {provider.upper()}: Local provider - no API key required")
                 temp_config = self._create_temp_provider_config(provider, "")
             else:
+                self.logger.info(f"[TEST] {provider.upper()}: Cloud provider - testing with provided API key")
                 temp_config = self._create_temp_provider_config(provider, api_key)
             
             is_functional = await self._test_provider(provider, temp_config)
             
-            # Mettre à jour le statut en base de données
-            from .config_service import ConfigService
-            config_service = ConfigService(self.db)
-            
-            # Sauvegarder le statut fonctionnel
-            config_service.update_provider_functionality_status(provider, is_functional)
-            
             if is_functional:
-                self.logger.info(f"Provider {provider} test successful - status saved to database")
+                self.logger.info(f"[TEST] {provider.upper()}: Connection test SUCCESSFUL")
             else:
-                self.logger.warning(f"Provider {provider} test failed - status saved to database")
+                self.logger.warning(f"[TEST] {provider.upper()}: Connection test FAILED")
             
             return is_functional
             
         except Exception as e:
-            self.logger.error(f"Error testing provider {provider} with key: {str(e)}")
-            
-            # En cas d'erreur, marquer comme non fonctionnel
-            try:
-                from .config_service import ConfigService
-                config_service = ConfigService(self.db)
-                config_service.update_provider_functionality_status(provider, False)
-            except Exception as save_error:
-                self.logger.error(f"Error saving test status for {provider}: {str(save_error)}")
-            
+            self.logger.error(f"[TEST] {provider.upper()}: Unexpected error during test: {str(e)}")
             return False
     
     def _create_temp_provider_config(self, provider: str, api_key: str) -> dict[str, any]:
@@ -260,7 +214,7 @@ class AIService(BaseService):
         urls = {
             "openai": "https://api.openai.com/v1",
             "claude": "https://api.anthropic.com",
-            "mistral": "http://localhost:11434",
+            "mistral": "https://api.mistral.ai",
             "ollama": "http://localhost:11434"
         }
         return urls.get(provider, "")
@@ -270,18 +224,18 @@ class AIService(BaseService):
         models = {
             "openai": "gpt-4",
             "claude": "claude-3-sonnet-20240229",
-            "mistral": "mistral:latest",  # Modèle local Mistral
-            "ollama": "mistral:latest"  # Utiliser mistral:latest pour Ollama
+            "mistral": "mistral-large-latest",
+            "ollama": "llama2"
         }
         return models.get(provider, "gpt-4")
 
     def _get_default_models(self, provider: str) -> list[str]:
         """Get default models list for provider"""
         models = {
-            "openai": ["gpt-4", "gpt-3.5-turbo"],
-            "claude": ["claude-3-sonnet-20240229", "claude-3-haiku-20240307"],
-            "mistral": ["mistral:latest", "llama2", "codellama"],
-            "ollama": ["mistral:latest", "llama2", "codellama"]
+            "openai": ["gpt-4", "gpt-4-turbo", "gpt-3.5-turbo"],
+            "claude": ["claude-3-sonnet-20240229", "claude-3-haiku-20240307", "claude-3-opus-20240229"],
+            "mistral": ["mistral-large-latest", "mistral-medium-latest", "mistral-small-latest"],
+            "ollama": ["llama2", "codellama", "mistral", "llama2:13b", "llama2:7b"]
         }
         return models.get(provider, ["gpt-4"])
 
@@ -295,7 +249,7 @@ class AIService(BaseService):
             for name, config in self.providers.items():
                 if config.get("is_active", True):
                     # Check if provider has API key (except local providers which don't need one)
-                    if name.lower() not in ["ollama", "mistral"]:
+                    if name.lower() not in ["ollama"]:
                         api_key = config_service.get_ai_provider_key(name)
                         if not api_key:
                             continue
@@ -324,7 +278,7 @@ class AIService(BaseService):
             self.logger.error(f"Error getting available providers async: {str(e)}")
             return []
 
-    def select_best_provider(self,
+    async def select_best_provider(self,
                              requested_provider: Optional[str] = None,
                              requested_model: Optional[str] = None) -> tuple[str, str]:
         """Select the best available provider based on strategy and priority"""
@@ -334,13 +288,13 @@ class AIService(BaseService):
             strategy = config_service.get_ai_provider_strategy()
             
             # Get only functional providers with valid API keys
-            available_providers = self.get_available_providers()
+            available_providers = await self.get_available_providers_async()
             functional_providers = []
             
             # Filter only functional providers that have been tested and validated
             for provider in available_providers:
                 # Vérifier que le provider a une clé API (sauf les providers locaux)
-                if provider["name"].lower() not in ["ollama", "mistral"]:
+                if provider["name"].lower() not in ["ollama"]:
                     if not provider.get("has_api_key", False):
                         self.logger.debug(f"Provider {provider['name']} skipped: no API key")
                         continue
@@ -380,16 +334,6 @@ class AIService(BaseService):
             self.logger.error(f"Error selecting best provider: {str(e)}")
             raise
     
-    def _handle_specific_provider_request(self, requested_provider: str, 
-                                        requested_model: Optional[str], 
-                                        available_providers: list[dict[str, any]]) -> tuple[str, str]:
-        """Handle request for specific provider and model"""
-        for provider in available_providers:
-            if provider["name"] == requested_provider:
-                model = self._select_model_for_provider(provider, requested_model)
-                return requested_provider, model
-        
-        raise ValueError(f"Requested provider {requested_provider} not available")
     
     def _select_model_for_provider(self, provider: dict[str, any], 
                                  requested_model: Optional[str]) -> str:
@@ -433,234 +377,185 @@ class AIService(BaseService):
 
 
     async def _test_provider(self, name: str, config: dict[str, any]) -> bool:
-        """Test provider connection with simple prompt"""
+        """Test provider connection using unified approach"""
         try:
-            test_prompt = "Hello, this is a test message. Please respond with 'OK' if you receive this."
+            # Vérifier que la configuration est valide
+            if not config:
+                self.logger.error(f"[TEST] {name.upper()}: No configuration provided")
+                return False
             
-            if name == "openai":
-                return await self._test_openai(config)
-            elif name == "claude":
-                return await self._test_claude(config)
-            elif name == "mistral":
-                return await self._test_mistral(config)
-            elif name == "ollama":
-                return await self._test_ollama(config)
+            # Vérifier la clé API pour les providers cloud
+            if name.lower() not in ["ollama"]:
+                if not config.get("api_key"):
+                    self.logger.error(f"[TEST] {name.upper()}: No API key provided")
+                    return False
+            
+            # Utiliser la méthode unifiée de test
+            self.logger.info(f"[TEST] {name.upper()}: Executing unified test method")
+            return await self._test_provider_unified(name, config)
+                
+        except Exception as e:
+            self.logger.error(f"[TEST] {name.upper()}: Error in test provider: {str(e)}")
+            return False
+
+    async def _test_provider_unified(self, name: str, config: dict[str, any]) -> bool:
+        """Unified provider testing method"""
+        try:
+            provider_name = name.lower()
+            
+            if provider_name == "openai":
+                return await self._test_openai_sdk(config)
+            elif provider_name == "claude":
+                return await self._test_claude_sdk(config)
+            elif provider_name == "mistral":
+                return await self._test_mistral_api(config)
+            elif provider_name == "ollama":
+                return await self._test_ollama_api(config)
             else:
                 self.logger.warning(f"Unknown provider {name}")
                 return False
                 
         except Exception as e:
-            self.logger.error(f"Error testing provider {name}: {str(e)}")
+            self.logger.error(f"Error in unified test for {name}: {str(e)}")
             return False
 
-    async def _test_openai(self, config: dict[str, any]) -> bool:
-        """Test OpenAI provider connection"""
+    async def _test_openai_sdk(self, config: dict[str, any]) -> bool:
+        """Test OpenAI using official SDK"""
         try:
-            # Vérifier que la clé API est présente
-            if not config.get("api_key"):
-                self.logger.error("OpenAI test failed: No API key provided")
-                return False
-                
             import openai
+            
+            self.logger.info(f"[OPENAI] Testing with SDK at: {config.get('base_url', 'https://api.openai.com/v1')}")
             
             client = openai.AsyncOpenAI(
                 api_key=config["api_key"],
-                base_url=config["base_url"]
+                base_url=config.get("base_url", "https://api.openai.com/v1")
             )
             
             response = await client.chat.completions.create(
-                model=config["default_model"],
-                messages=[{"role": "user", "content": "Test message"}],
-                max_tokens=10
+                model=config.get("default_model", "gpt-4"),
+                messages=[{"role": "user", "content": "Test"}],
+                max_tokens=5
             )
             
+            self.logger.info(f"[OPENAI] SDK test successful - model: {config.get('default_model', 'gpt-4')}")
             return bool(response.choices)
             
         except ImportError as e:
-            self.logger.error(f"OpenAI test failed: Missing dependency - {str(e)}")
+            self.logger.error(f"[OPENAI] Missing dependency: {str(e)}")
             return False
         except Exception as e:
-            self.logger.error(f"OpenAI test failed: {str(e)}")
+            self.logger.error(f"[OPENAI] SDK test failed: {str(e)}")
             return False
 
-    async def _test_claude(self, config: dict[str, any]) -> bool:
-        """Test Claude provider connection"""
+    async def _test_claude_sdk(self, config: dict[str, any]) -> bool:
+        """Test Claude using official SDK"""
         try:
-            # Vérifier que la clé API est présente
-            if not config.get("api_key"):
-                self.logger.error("Claude test failed: No API key provided")
-                return False
-                
             import anthropic
+            
+            self.logger.info(f"[CLAUDE] Testing with SDK at: {config.get('base_url', 'https://api.anthropic.com')}")
             
             client = anthropic.AsyncAnthropic(api_key=config["api_key"])
             
             response = await client.messages.create(
-                model=config["default_model"],
-                max_tokens=10,
-                messages=[{"role": "user", "content": "Test message"}]
+                model=config.get("default_model", "claude-3-sonnet-20240229"),
+                max_tokens=5,
+                messages=[{"role": "user", "content": "Test"}]
             )
             
+            self.logger.info(f"[CLAUDE] SDK test successful - model: {config.get('default_model', 'claude-3-sonnet-20240229')}")
             return bool(response.content)
             
         except ImportError as e:
-            self.logger.error(f"Claude test failed: Missing dependency - {str(e)}")
+            self.logger.error(f"[CLAUDE] Missing dependency: {str(e)}")
             return False
         except Exception as e:
-            self.logger.error(f"Claude test failed: {str(e)}")
+            self.logger.error(f"[CLAUDE] SDK test failed: {str(e)}")
             return False
 
-    async def _test_mistral(self, config: dict[str, any]) -> bool:
-        """Test Mistral provider connection (local service)"""
+    async def _test_mistral_api(self, config: dict[str, any]) -> bool:
+        """Test Mistral using REST API"""
+        try:
+            import requests
+            import asyncio
+
+            # Normalize base URL to avoid double /v1
+            raw_base_url = config.get('base_url', 'https://api.mistral.ai') or 'https://api.mistral.ai'
+            base = raw_base_url.rstrip('/')
+            if base.endswith('/v1'):
+                models_url = f"{base}/models"
+            else:
+                models_url = f"{base}/v1/models"
+
+            api_key = config.get('api_key', '')
+
+            self.logger.info(f"[MISTRAL] Testing REST API at: {models_url}")
+
+            def sync_request():
+                headers = {
+                    'Authorization': f'Bearer {api_key}',
+                    'Content-Type': 'application/json'
+                }
+                try:
+                    self.logger.debug(f"[MISTRAL] Sending GET request to: {models_url}")
+                    response = requests.get(models_url, headers=headers, timeout=10)
+                    return response
+                except Exception as e:
+                    self.logger.error(f"[MISTRAL] Request failed: {str(e)}")
+                    return None
+
+            loop = asyncio.get_event_loop()
+            response = await loop.run_in_executor(None, sync_request)
+
+            if response is None:
+                self.logger.error(f"[MISTRAL] No response received from API")
+                return False
+
+            if response.status_code == 200:
+                self.logger.info(f"[MISTRAL] REST API test successful - status: {response.status_code}")
+                return True
+            else:
+                self.logger.error(f"[MISTRAL] REST API test failed - status: {response.status_code} - response: {response.text}")
+                return False
+
+        except Exception as e:
+            self.logger.error(f"[MISTRAL] Unexpected error during test: {str(e)}")
+            return False
+
+    async def _test_ollama_api(self, config: dict[str, any]) -> bool:
+        """Test Ollama using REST API"""
         try:
             import requests
             import asyncio
             
-            # Vérifier que l'URL de base est définie
             base_url = config.get('base_url', 'http://localhost:11434')
-            if not base_url:
-                self.logger.error("Mistral test failed: No base URL configured")
-                return False
             
-            self.logger.info(f"Testing Mistral local service at: {base_url}")
+            self.logger.info(f"[OLLAMA] Testing local REST API at: {base_url}")
             
             def sync_request():
                 try:
-                    # D'abord, vérifier si le service Mistral est accessible
-                    health_response = requests.get(f"{base_url}/api/tags", timeout=5)
-                    if health_response.status_code != 200:
-                        return None
-                    
-                    # Ensuite, tester la génération avec le modèle disponible
-                    available_models = health_response.json().get("models", [])
-                    model_to_use = "mistral:latest"  # Modèle par défaut
-                    
-                    if available_models:
-                        # Utiliser le premier modèle disponible
-                        model_to_use = available_models[0].get("name", "mistral:latest")
-                    
-                    self.logger.info(f"Testing Mistral with model: {model_to_use}")
-                    
-                    return requests.post(
-                        f"{base_url}/api/generate",
-                        json={
-                            "model": model_to_use,
-                            "prompt": "Test message",
-                            "stream": False
-                        },
-                        timeout=10
-                    )
-                except requests.exceptions.ConnectionError:
-                    return None
-                except requests.exceptions.Timeout:
-                    return None
+                    self.logger.debug(f"[OLLAMA] Sending GET request to: {base_url}/api/tags")
+                    response = requests.get(f"{base_url}/api/tags", timeout=10)
+                    return response
                 except Exception as e:
-                    self.logger.error(f"Mistral request failed: {str(e)}")
+                    self.logger.error(f"[OLLAMA] Request failed: {str(e)}")
                     return None
             
-            # Exécuter de manière asynchrone
             loop = asyncio.get_event_loop()
             response = await loop.run_in_executor(None, sync_request)
             
             if response is None:
-                self.logger.error("Mistral test failed: Could not connect to Mistral service")
+                self.logger.error(f"[OLLAMA] No response received from local API")
                 return False
             
             if response.status_code == 200:
-                self.logger.info("Mistral test successful")
+                self.logger.info(f"[OLLAMA] Local REST API test successful - status: {response.status_code}")
                 return True
             else:
-                self.logger.error(f"Mistral test failed with status code: {response.status_code}")
+                self.logger.error(f"[OLLAMA] Local REST API test failed - status: {response.status_code} - response: {response.text}")
                 return False
             
-        except ImportError as e:
-            self.logger.error(f"Mistral test failed: Missing dependency - {str(e)}")
-            return False
         except Exception as e:
-            self.logger.error(f"Mistral test failed: {str(e)}")
-            return False
-
-    async def _test_ollama(self, config: dict[str, any]) -> bool:
-        """Test Ollama provider connection"""
-        try:
-            import requests
-            import asyncio
-            
-            # Vérifier que l'URL de base est définie
-            base_url = config.get('base_url', 'http://localhost:11434')
-            if not base_url:
-                self.logger.error("Ollama test failed: No base URL configured")
-                return False
-            
-            self.logger.info(f"Testing Ollama connection to {base_url}")
-            
-            def sync_request():
-                try:
-                    # D'abord, vérifier si Ollama est accessible
-                    self.logger.info("Checking Ollama availability...")
-                    health_response = requests.get(f"{base_url}/api/tags", timeout=10)
-                    self.logger.info(f"Health check status: {health_response.status_code}")
-                    
-                    if health_response.status_code != 200:
-                        self.logger.error(f"Health check failed: {health_response.text}")
-                        return None
-                    
-                    # Ensuite, tester la génération avec le modèle disponible
-                    available_models = health_response.json().get("models", [])
-                    model_to_use = "mistral:latest"  # Modèle par défaut disponible
-                    
-                    if available_models:
-                        # Utiliser le premier modèle disponible
-                        model_to_use = available_models[0].get("name", "mistral:latest")
-                        self.logger.info(f"Using model: {model_to_use}")
-                    else:
-                        self.logger.warning("No models available, using default")
-                    
-                    # Test de génération simple
-                    self.logger.info("Testing generation...")
-                    generate_response = requests.post(
-                        f"{base_url}/api/generate",
-                        json={
-                            "model": model_to_use,
-                            "prompt": "Test message - réponds juste 'OK'",
-                            "stream": False
-                        },
-                        timeout=15
-                    )
-                    
-                    self.logger.info(f"Generation test status: {generate_response.status_code}")
-                    return generate_response
-                    
-                except requests.exceptions.ConnectionError as e:
-                    self.logger.error(f"Connection error: {str(e)}")
-                    return None
-                except requests.exceptions.Timeout as e:
-                    self.logger.error(f"Timeout error: {str(e)}")
-                    return None
-                except Exception as e:
-                    self.logger.error(f"Ollama request failed: {str(e)}")
-                    return None
-            
-            # Exécuter de manière asynchrone
-            loop = asyncio.get_event_loop()
-            response = await loop.run_in_executor(None, sync_request)
-            
-            if response is None:
-                self.logger.error("Ollama test failed: Could not connect to Ollama server")
-                return False
-            
-            if response.status_code == 200:
-                self.logger.info("Ollama test successful")
-                return True
-            else:
-                self.logger.error(f"Ollama test failed with status {response.status_code}: {response.text}")
-                return False
-            
-        except ImportError as e:
-            self.logger.error(f"Ollama test failed: Missing dependency - {str(e)}")
-            return False
-        except Exception as e:
-            self.logger.error(f"Ollama test failed: {str(e)}")
+            self.logger.error(f"[OLLAMA] Unexpected error during test: {str(e)}")
             return False
 
     async def analyze_text(
@@ -676,7 +571,7 @@ class AIService(BaseService):
         
         try:
             # Select provider and model
-            selected_provider, selected_model = self.select_best_provider(provider, model)
+            selected_provider, selected_model = await self.select_best_provider(provider, model)
             config = self.providers.get(selected_provider)
             
             if not config:
@@ -776,43 +671,70 @@ class AIService(BaseService):
         return response.content[0].text
 
     async def _call_mistral(self, prompt: str, model: str, config: dict[str, any]) -> str:
-        """Call Mistral local service"""
+        """Call Mistral API"""
         import requests
         import asyncio
         
+        base_url = config.get('base_url', 'https://api.mistral.ai')
+        api_key = config.get('api_key', '')
+        
         def sync_request():
-            return requests.post(
-                f"{config['base_url']}/api/generate",
-                json={
-                    "model": model,
-                    "prompt": prompt,
-                    "stream": False
-                },
-                timeout=60
-            )
+            headers = {
+                'Authorization': f'Bearer {api_key}',
+                'Content-Type': 'application/json'
+            }
+            payload = {
+                'model': model,
+                'messages': [{'role': 'user', 'content': prompt}],
+                'max_tokens': 2000
+            }
+            try:
+                response = requests.post(f"{base_url}/v1/chat/completions", 
+                                       headers=headers, json=payload, timeout=60)
+                return response
+            except Exception as e:
+                self.logger.error(f"Mistral API request failed: {str(e)}")
+                return None
         
         # Exécuter de manière asynchrone
         loop = asyncio.get_event_loop()
         response = await loop.run_in_executor(None, sync_request)
         
+        if response is None:
+            raise Exception("Failed to connect to Mistral API")
+        
         if response.status_code != 200:
             raise Exception(f"Mistral API error: {response.text}")
         
-        return response.json()["response"]
+        return response.json()["choices"][0]["message"]["content"]
 
     async def _call_ollama(self, prompt: str, model: str, config: dict[str, any]) -> str:
         """Call Ollama API"""
         import requests
+        import asyncio
         
-        response = requests.post(
-            f"{config['base_url']}/api/generate",
-            json={
+        base_url = config.get('base_url', 'http://localhost:11434')
+        
+        def sync_request():
+            payload = {
                 "model": model,
                 "prompt": prompt,
                 "stream": False
-            },
-            timeout=60
-        )
+            }
+            try:
+                response = requests.post(f"{base_url}/api/generate", 
+                                       json=payload, timeout=60)
+                return response
+            except Exception as e:
+                self.logger.error(f"Ollama API request failed: {str(e)}")
+                return None
+        
+        # Exécuter de manière asynchrone
+        loop = asyncio.get_event_loop()
+        response = await loop.run_in_executor(None, sync_request)
+        
+        if response is None:
+            raise Exception("Failed to connect to Ollama API")
         
         if response.status_code != 200:
             raise Exception(f"Ollama API error: {response.text}")
@@ -852,6 +774,44 @@ class AIService(BaseService):
         
         return True
 
+
+
+
+    async def select_best_provider_from_priority(self, provider_priority: list[str]) -> tuple[str, str]:
+        """
+        Select the best available provider from a priority list
+        """
+        try:
+            # Get available providers
+            available_providers = await self.get_available_providers_async()
+            
+            # Filter providers that are in the priority list and available
+            priority_providers = []
+            for provider_name in provider_priority:
+                for provider in available_providers:
+                    if provider["name"] == provider_name and provider["is_active"]: # Changed is_available to is_active
+                        priority_providers.append(provider)
+                        break
+            
+            if priority_providers:
+                # Use the first available provider from priority list
+                selected_provider = priority_providers[0]
+                return selected_provider["name"], selected_provider["default_model"]
+            
+            # Fallback to default selection if no priority providers available
+            self.logger.warning("No priority providers available, falling back to default selection")
+            return await self.select_best_provider()
+            
+        except Exception as e:
+            self.logger.error(f"Error selecting provider from priority: {str(e)}")
+            return await self.select_best_provider()
+
+    def get_available_ai_providers_with_priority(self) -> List[Dict[str, Any]]:
+        """
+        Get available AI providers with priority and functionality status
+        """
+        return self.safe_execute("get_available_ai_providers_with_priority", self._get_available_ai_providers_with_priority_logic)
+    
     def save_provider_config(self, provider: str, config: dict[str, any]) -> bool:
         """Save provider configuration"""
         try:
@@ -873,11 +833,11 @@ class AIService(BaseService):
         except Exception as e:
             self.logger.error(f"Error saving provider config: {str(e)}")
             return False
-
+    
     def get_provider_config(self, provider: str) -> Optional[dict[str, any]]:
         """Get provider configuration"""
         return self.providers.get(provider)
-
+    
     def delete_provider_config(self, provider: str) -> bool:
         """Delete provider configuration"""
         try:
@@ -895,44 +855,15 @@ class AIService(BaseService):
         except Exception as e:
             self.logger.error(f"Error deleting provider config: {str(e)}")
             return False
-
-    def select_best_provider_from_priority(self, provider_priority: list[str]) -> tuple[str, str]:
-        """
-        Select the best available provider from a priority list
-        """
-        try:
-            # Get available providers
-            available_providers = self.get_available_providers()
-            
-            # Filter providers that are in the priority list and available
-            priority_providers = []
-            for provider_name in provider_priority:
-                for provider in available_providers:
-                    if provider["name"] == provider_name and provider["is_active"]: # Changed is_available to is_active
-                        priority_providers.append(provider)
-                        break
-            
-            if priority_providers:
-                # Use the first available provider from priority list
-                selected_provider = priority_providers[0]
-                return selected_provider["name"], selected_provider["default_model"]
-            
-            # Fallback to default selection if no priority providers available
-            self.logger.warning("No priority providers available, falling back to default selection")
-            return self.select_best_provider()
-            
-        except Exception as e:
-            self.logger.error(f"Error selecting provider from priority: {str(e)}")
-            return self.select_best_provider()
-
+    
     @classmethod
     def clear_cache(cls):
         """Clear the singleton cache"""
         global _global_ai_service, _global_lock
         with _global_lock:
             _global_ai_service = None
-            _global_ai_service.logger.info("AIService cache cleared")
-
+            logger.info("AIService cache cleared")
+    
     @classmethod
     def get_cache_size(cls) -> int:
         """Get the number of cached instances"""

@@ -10,6 +10,7 @@ from datetime import datetime, timedelta
 import logging
 from pathlib import Path
 import threading
+from functools import wraps
 
 logger = logging.getLogger(__name__)
 
@@ -34,16 +35,6 @@ class CacheItem:
         self.last_accessed = datetime.now()
         self.access_count += 1
     
-    def to_dict(self) -> Dict[str, Any]:
-        """Convertit en dictionnaire pour la sérialisation"""
-        return {
-            'key': self.key,
-            'value': self.value,
-            'created_at': self.created_at.isoformat(),
-            'last_accessed': self.last_accessed.isoformat(),
-            'ttl': self.ttl,
-            'access_count': self.access_count
-        }
 
 
 class IntelligentCache:
@@ -62,20 +53,13 @@ class IntelligentCache:
         }
         
         # Nettoyage périodique
-        self._start_cleanup_thread()
+        # self._start_cleanup_thread() # Supprimé pour éviter les problèmes d'import circulaire
     
-    def _start_cleanup_thread(self):
-        """Démarre le thread de nettoyage automatique"""
-        def cleanup_worker():
-            while True:
-                try:
-                    time.sleep(60)  # Nettoyage toutes les minutes
-                    self._cleanup_expired()
-                except Exception as e:
-                    logger.error(f"Erreur dans le thread de nettoyage: {e}")
-        
-        cleanup_thread = threading.Thread(target=cleanup_worker, daemon=True)
-        cleanup_thread.start()
+    # def _start_cleanup_thread(self): # Supprimé pour éviter les problèmes d'import circulaire
+    #     """Démarre le thread de nettoyage automatique""" # Supprimé pour éviter les problèmes d'import circulaire
+    #      # Supprimé pour éviter les problèmes d'import circulaire
+    #     cleanup_thread = threading.Thread(target=cleanup_worker, daemon=True) # Supprimé pour éviter les problèmes d'import circulaire
+    #     cleanup_thread.start() # Supprimé pour éviter les problèmes d'import circulaire
     
     def _cleanup_expired(self):
         """Nettoie les éléments expirés"""
@@ -188,7 +172,8 @@ class IntelligentCache:
             'kwargs': sorted(safe_kwargs.items())
         }
         key_string = json.dumps(key_data, sort_keys=True)
-        return hashlib.md5(key_string.encode()).hexdigest()
+        # Utiliser SHA-256 au lieu de MD5 pour la sécurité
+        return hashlib.sha256(key_string.encode()).hexdigest()
 
 
 # Instance globale du cache
@@ -198,19 +183,23 @@ cache = IntelligentCache()
 def cached(ttl: int = 300):
     """Décorateur pour mettre en cache les résultats de fonctions"""
     def decorator(func):
+        @wraps(func)
         def wrapper(*args, **kwargs):
-            # Générer une clé unique
+            # Utiliser generate_key pour créer une clé unique basée sur les arguments
             cache_key = cache.generate_key(func.__name__, *args, **kwargs)
             
-            # Essayer de récupérer du cache
+            # Vérifier si le résultat est en cache
             cached_result = cache.get(cache_key)
             if cached_result is not None:
+                logger.debug(f"Cache hit for {func.__name__}")
                 return cached_result
             
             # Exécuter la fonction et mettre en cache
             result = func(*args, **kwargs)
             cache.set(cache_key, result, ttl)
+            logger.debug(f"Cache miss for {func.__name__}, stored with key: {cache_key}")
+            
             return result
         
         return wrapper
-    return decorator 
+    return decorator

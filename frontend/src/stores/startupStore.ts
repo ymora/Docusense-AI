@@ -26,56 +26,54 @@ export const useStartupStore = create<StartupState>()(
         startupTime: null,
         version: '1.0.0',
 
-        // Initialisation complète
-        initialize: async () => {
-          const { isInitialized } = get();
-          
-          if (isInitialized) {
+        // Initialisation complète (protégée contre les appels multiples)
+        initialize: (() => {
+          let isInitializing = false;
+          return async () => {
+            if (isInitializing || get().isInitialized) {
+              return;
+            }
+            
+            isInitializing = true;
+            set({ initializationStep: 'prompts' });
 
-            return;
-          }
+            try {
+              // Initialiser les prompts
+              const { usePromptStore } = await import('../stores/promptStore');
+              const promptStore = usePromptStore.getState();
+              await promptStore.loadPrompts();
+              set({ initializationStep: 'config' });
 
+              // Initialiser les configurations
+              const { useConfigStore } = await import('../stores/configStore');
+              const configStore = useConfigStore.getState();
+              await configStore.loadAIProviders();
+              set({ initializationStep: 'files' });
 
-          set({ initializationStep: 'prompts' });
+              // Initialiser le fileStore (reset + directory)
+              const { useFileStore } = await import('../stores/fileStore');
+              const fileStore = useFileStore.getState();
+              fileStore.resetState();
+              await fileStore.initializeDefaultDirectory();
+              set({ initializationStep: 'complete' });
 
-          try {
-            // Initialiser les prompts
+              // Marquer comme initialisé
+              set({ 
+                isInitialized: true,
+                startupTime: new Date().toISOString()
+              });
 
-            const { usePromptStore } = await import('../stores/promptStore');
-            const promptStore = usePromptStore.getState();
-            await promptStore.loadPrompts();
-            set({ initializationStep: 'config' });
-
-            // Initialiser les configurations
-
-            const { useConfigStore } = await import('../stores/configStore');
-            const configStore = useConfigStore.getState();
-            await configStore.loadAIProviders();
-            set({ initializationStep: 'files' });
-
-            // Initialiser le fileStore (reset + directory)
-
-            const { useFileStore } = await import('../stores/fileStore');
-            const fileStore = useFileStore.getState();
-            fileStore.resetState();
-            await fileStore.initializeDefaultDirectory();
-            set({ initializationStep: 'complete' });
-
-            // Marquer comme initialisé
-            set({ 
-              isInitialized: true,
-              startupTime: new Date().toISOString()
-            });
-
-
-          } catch (error) {
-            console.error('❌ Erreur lors de l\'initialisation:', error);
-            set({ 
-              initializationStep: 'error',
-              isInitialized: true // Marquer comme initialisé même en cas d'erreur
-            });
-          }
-        },
+            } catch (error) {
+              console.error('❌ Erreur lors de l\'initialisation:', error);
+              set({ 
+                initializationStep: 'error',
+                isInitialized: true
+              });
+            } finally {
+              isInitializing = false;
+            }
+          };
+        })(),
 
         // Définir l'étape d'initialisation
         setInitializationStep: (step: StartupState['initializationStep']) => {

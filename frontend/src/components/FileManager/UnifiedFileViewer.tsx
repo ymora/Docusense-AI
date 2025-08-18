@@ -225,10 +225,10 @@ const UnifiedFileViewer: React.FC<UnifiedFileViewerProps> = ({ file, onClose, on
       
       case 'pdf':
         return (
-          <div className="w-full h-full bg-slate-900 min-h-screen-dynamic">
-            <iframe
-              src={`/api/files/stream-by-path/${encodeURIComponent(file.path)}?native=true`}
-              className="w-full h-full border-0 min-h-screen-dynamic"
+                  <div className="w-full h-full bg-slate-900">
+          <iframe
+            src={`/api/files/stream-by-path/${encodeURIComponent(file.path)}?native=true`}
+            className="w-full h-full border-0"
               style={{ 
                 width: '100%', 
                 height: '100%', 
@@ -394,7 +394,7 @@ const UnifiedFileViewer: React.FC<UnifiedFileViewerProps> = ({ file, onClose, on
 
   // Mode normal
   return (
-         <div className="h-full bg-slate-900 overflow-hidden flex flex-col min-h-screen-dynamic">
+         <div className="h-full bg-slate-900 overflow-hidden flex flex-col">
       {/* Affichage des erreurs */}
       {error && (
         <div className="absolute inset-0 flex items-center justify-center z-50 bg-slate-900/95">

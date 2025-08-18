@@ -136,7 +136,15 @@ class MultimediaService(BaseService):
                     width = int(video_info.get('width', 0))
                     height = int(video_info.get('height', 0))
                     fps_str = video_info.get('r_frame_rate', '0/1')
-                    fps = eval(fps_str) if '/' in fps_str else float(fps_str)
+                    # Calcul sécurisé du FPS (éviter eval())
+                    if '/' in fps_str:
+                        try:
+                            num, den = fps_str.split('/')
+                            fps = float(num) / float(den)
+                        except (ValueError, ZeroDivisionError):
+                            fps = 0.0
+                    else:
+                        fps = float(fps_str)
                     codec = video_info.get('codec_name', 'unknown')
                     bitrate = int(video_info.get('bit_rate', 0)) / 1000  # kbps
                     duration = float(probe.get('format', {}).get('duration', 0))

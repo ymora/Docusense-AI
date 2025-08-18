@@ -2,7 +2,7 @@
 File management endpoints for DocuSense AI
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, Header
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, Header, UploadFile, Form
 from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
@@ -14,6 +14,7 @@ import subprocess
 import platform
 from pathlib import Path
 from datetime import datetime
+import urllib.parse
 
 from ..core.database import get_db
 from ..services.file_service import FileService
@@ -21,8 +22,8 @@ from ..services.download_service import download_service
 from ..core.file_validation import FileValidator
 from ..models.file import FileStatus
 from ..schemas.file import FileListResponse, FileStatusUpdate
-
-
+from ..utils.response_formatter import ResponseFormatter
+from ..utils.api_utils import APIUtils
 
 
 logger = logging.getLogger(__name__)
@@ -239,68 +240,55 @@ async def get_selected_files(
 
 
 @router.get("/list/{directory:path}")
+@APIUtils.monitor_api_performance
 async def list_directory_content(
     directory: str,
-    page: int = Query(1, ge=1, description="Page number"),
-    page_size: int = Query(50, ge=1, le=200, description="Items per page"),
-    cleanup_orphaned: bool = Query(False, description="Clean up orphaned files"),
+    page: int = Query(1, ge=1, description="Numéro de page"),
+    page_size: int = Query(50, ge=1, le=1000, description="Taille de page"),
+    offset: int = Query(0, ge=0, description="Offset"),
     db: Session = Depends(get_db)
-) -> Dict[str, Any]:
+):
     """
-    List immediate content of a directory (files and subdirectories) with optional cleanup
+    Liste le contenu d'un répertoire avec pagination
     """
     try:
+        # Décoder le chemin et valider le répertoire
+        decoded_directory = urllib.parse.unquote(directory)
+        
+        # Continuer avec la logique existante
         file_service = FileService(db)
-
-        # Gérer le cas où le répertoire est vide ou racine
-        if not directory or directory == "/" or directory == "\\":
-            return {
-                "directory": "",
-                "files": [],
-                "subdirectories": [],
-                "total_files": 0,
-                "total_subdirectories": 0
-            }
-
-        # Log pour les grands répertoires ou nettoyage
-        if page_size > 50 or cleanup_orphaned:
-            logger.info(f"[API] Listing directory content: {directory} (page={page}, page_size={page_size})")
-        
-        # Nettoyer les fichiers orphelins si demandé
-        orphaned_count = 0
-        if cleanup_orphaned:
-            logger.info(f"[API] Cleaning up orphaned files for: {directory}")
-            orphaned_count = file_service.cleanup_orphaned_files(directory)
-
-        # OPTIMIZATION: Pagination support
-        offset = (page - 1) * page_size
-        
-        logger.info(f"[API] Calling list_directory_content_paginated for: {directory}")
-        
-        content = file_service.list_directory_content_paginated(
-            directory, 
-            page=page, 
-            page_size=page_size, 
-            offset=offset
+        result = file_service.list_directory_content_paginated(
+            decoded_directory, page, page_size, offset
         )
         
-        # Log pour les grands répertoires ou nettoyage
-        if page_size > 50 or cleanup_orphaned:
-            logger.info(f"[API] Successfully retrieved content: {len(content.get('files', []))} files, {len(content.get('subdirectories', []))} subdirectories")
-
-        # Ajouter les informations de nettoyage
-        if cleanup_orphaned:
-            content["cleanup_info"] = {
-                "orphaned_files_removed": orphaned_count,
-                "cleanup_performed": True
-            }
-
-        return content
-
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
+        # Vérifier si le résultat indique un disque non accessible
+        if not result.get("success", True) and result.get("error") in ["DISK_LOCKED", "DISK_NOT_READY", "DISK_ERROR"]:
+            # Retourner une réponse d'erreur appropriée avec les informations de retry
+            return ResponseFormatter.error_response(
+                error_code=result["error"],
+                message=result["message"],
+                data={
+                    "retry_after": result.get("retry_after"),
+                    "directory": decoded_directory,
+                    "files": [],
+                    "subdirectories": [],
+                    "total_files": 0,
+                    "total_subdirectories": 0,
+                    "page": page,
+                    "page_size": page_size,
+                    "total_pages": 0
+                }
+            )
+        
+        return ResponseFormatter.success_response(
+            data=result,
+            message=f"Contenu du répertoire {decoded_directory} récupéré"
+        )
+        
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.error(f"Error listing directory content: {str(e)}")
+        logger.error(f"Erreur lors de la liste du répertoire {directory}: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -908,6 +896,56 @@ class OpenInExplorerRequest(BaseModel):
 class AnalyzeDirectoryRequest(BaseModel):
     directory_path: str
 
+@router.post("/upload")
+@APIUtils.monitor_api_performance
+async def upload_file(
+    file: UploadFile,
+    directory: str = Form(""),
+    db: Session = Depends(get_db)
+):
+    """
+    Upload d'un fichier avec validation de sécurité renforcée
+    """
+    try:
+        # Sanitizer les entrées utilisateur
+        from ..core.security import sanitize_input
+        sanitized_filename = sanitize_input(file.filename)
+        sanitized_directory = sanitize_input(directory)
+        
+        # Valider le répertoire de destination
+        if sanitized_directory:
+            from ..core.file_validation import FileValidator
+            validation_result = FileValidator.validate_directory_path(sanitized_directory)
+            if not validation_result.is_valid:
+                error_messages = [error.message for error in validation_result.errors]
+                raise HTTPException(status_code=400, detail="; ".join(error_messages))
+        
+        # Vérifier le format du fichier
+        from ..core.media_formats import is_supported_format
+        if not is_supported_format(sanitized_filename):
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Format de fichier non supporté: {sanitized_filename}"
+            )
+        
+        # Continuer avec la logique existante...
+        file_service = FileService(db)
+        result = file_service.upload_file(file, sanitized_directory)
+        
+        # Enregistrer la métrique d'upload
+        APIUtils.record_api_metric("file_uploads", 1.0, {"format": file.content_type})
+        
+        return ResponseFormatter.success_response(
+            data=result,
+            message=f"Fichier {sanitized_filename} uploadé avec succès"
+        )
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Erreur lors de l'upload: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 @router.post("/download-multiple")
 async def download_multiple_files_by_path(
     request: DownloadMultipleRequest,
@@ -1190,55 +1228,4 @@ async def download_file_by_path(
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@router.get("/drives")
-async def get_available_drives() -> List[Dict[str, Any]]:
-    """
-    Récupère la liste des disques disponibles sur le système
-    """
-    try:
-        drives = []
-        
-        if platform.system() == "Windows":
-            # Sur Windows, utiliser les lettres de disque
-            import string
-            for letter in string.ascii_uppercase:
-                drive_path = f"{letter}:\\"
-                if os.path.exists(drive_path):
-                    try:
-                        # Vérifier si le disque est accessible
-                        os.listdir(drive_path)
-                        drives.append({
-                            "letter": f"{letter}:",
-                            "label": f"Disque {letter}:",
-                            "available": True
-                        })
-                    except (PermissionError, OSError):
-                        # Disque existe mais pas accessible
-                        drives.append({
-                            "letter": f"{letter}:",
-                            "label": f"Disque {letter}: (Accès refusé)",
-                            "available": False
-                        })
-        else:
-            # Sur Linux/Mac, utiliser les points de montage principaux
-            mount_points = ["/", "/home", "/media", "/mnt"]
-            for mount_point in mount_points:
-                if os.path.exists(mount_point):
-                    try:
-                        os.listdir(mount_point)
-                        drives.append({
-                            "letter": mount_point,
-                            "label": f"Point de montage: {mount_point}",
-                            "available": True
-                        })
-                    except (PermissionError, OSError):
-                        drives.append({
-                            "letter": mount_point,
-                            "label": f"Point de montage: {mount_point} (Accès refusé)",
-                            "available": False
-                        })
-        
-        return drives
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération des disques: {str(e)}")
+

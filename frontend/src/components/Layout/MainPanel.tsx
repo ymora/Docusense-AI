@@ -18,8 +18,8 @@ import {
   MusicalNoteIcon
 } from '@heroicons/react/24/outline';
 import { ConfigContent } from '../Config/ConfigWindow';
-import QueueContent from '../Queue/QueuePanel';
 
+import QueueIAAdvanced from '../Queue/QueueIAAdvanced';
 import LogsPanel from '../Logs/LogsPanel';
 import TabPanel from '../UI/TabPanel';
 import SecureFileViewer from '../FileManager/SecureFileViewer';
@@ -41,7 +41,7 @@ const MainPanel: React.FC<MainPanelProps> = ({
   const { selectedFile, selectedFiles, files, selectFile } = useFileStore();
   const { colors } = useColors();
   const { isOnline } = useBackendStatus();
-  const { queueItems, queueStatus, loadQueueStatus } = useQueueStore();
+  const { queueItems, loadQueueItems } = useQueueStore();
   const [activeTab, setActiveTab] = useState('viewer');
   const [showFileDetails, setShowFileDetails] = useState(false);
   const [viewMode, setViewMode] = useState<'single' | 'thumbnails'>('single');
@@ -49,9 +49,9 @@ const MainPanel: React.FC<MainPanelProps> = ({
   // Définir les onglets
   const tabs = [
     {
-      id: 'viewer',
-      label: 'Visualiseur',
-      icon: <EyeIcon className="h-4 w-4" />,
+      id: 'config',
+      label: 'Configuration IA',
+      icon: <Cog6ToothIcon className="h-4 w-4" />,
     },
     {
       id: 'queue',
@@ -65,30 +65,35 @@ const MainPanel: React.FC<MainPanelProps> = ({
       icon: <LogsIcon className="h-4 w-4" />,
     },
     {
-      id: 'config',
-      label: 'Configuration IA',
-      icon: <Cog6ToothIcon className="h-4 w-4" />,
+      id: 'viewer',
+      label: 'Visualiseur',
+      icon: <EyeIcon className="h-4 w-4" />,
     },
   ];
 
   // Chargement des données de queue
   useEffect(() => {
-    loadQueueStatus();
-    const interval = setInterval(loadQueueStatus, 15000);
+    // Charger les données initiales
+    loadQueueItems();
+    
+    // Mettre en place un intervalle pour rafraîchir les données
+    const interval = setInterval(() => {
+      loadQueueItems();
+    }, 10000); // Rafraîchir toutes les 10 secondes
+    
     return () => clearInterval(interval);
-  }, [loadQueueStatus]);
+  }, [loadQueueItems]);
 
   // Écouter les événements de rechargement de la queue
   useEffect(() => {
     const handleReloadQueue = () => {
-      loadQueueStatus();
     };
 
     window.addEventListener('reloadQueue', handleReloadQueue);
     return () => {
       window.removeEventListener('reloadQueue', handleReloadQueue);
     };
-  }, [loadQueueStatus]);
+  }, []);
 
   // Écouter l'événement d'affichage des détails de fichier
   useEffect(() => {
@@ -192,7 +197,7 @@ const MainPanel: React.FC<MainPanelProps> = ({
   const renderTabContent = () => {
     switch (activeTab) {
       case 'queue':
-        return <QueueContent />;
+        return <QueueIAAdvanced />;
 
       case 'config':
         return <ConfigContent />;
@@ -343,7 +348,7 @@ const MainPanel: React.FC<MainPanelProps> = ({
 
   return (
     <div
-      className="flex-1 flex flex-col overflow-hidden relative min-h-screen-dynamic"
+      className="flex-1 flex flex-col overflow-hidden relative"
       style={{
         backgroundColor: 'var(--background-color)',
         color: 'var(--text-color)',
@@ -357,7 +362,7 @@ const MainPanel: React.FC<MainPanelProps> = ({
       />
       
       {/* Contenu des onglets */}
-      <div className="flex-1 overflow-hidden">
+      <div className="flex-1 min-h-0">
         {renderTabContent()}
       </div>
 
