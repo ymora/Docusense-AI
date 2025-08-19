@@ -1187,58 +1187,25 @@ export const QueueIAAdvanced: React.FC = () => {
           logService.info('PDF généré', 'QueueIAAdvanced', { itemId, itemName });
           break;
                          case 'duplicate_item':
-            logService.debug('Duplication de l\'analyse', 'QueueIAAdvanced', { itemId, itemName });
-            
-            // Récupérer les sélections locales ou les valeurs par défaut pour la duplication
-            const duplicateLocalSelection = localSelections[itemId] || {};
-            const duplicateProvider = duplicateLocalSelection.provider || item.analysis_provider;
-            
-            // Pour les prompts, on doit récupérer le contenu du prompt sélectionné
-            let duplicatePrompt = '';
-            if (duplicateLocalSelection.prompt) {
-              const selectedPromptObj = currentPrompts.find(p => p.id === duplicateLocalSelection.prompt);
-              duplicatePrompt = selectedPromptObj?.prompt || '';
-            } else if ((item as any).analysis_prompt) {
-              duplicatePrompt = (item as any).analysis_prompt;
-            }
-           
-           try {
-             const result = await queueService.duplicateAnalysis(
-               parseInt(itemId), 
-               duplicateProvider, 
-               duplicatePrompt
-             );
-             
-             logService.info('Analyse dupliquée avec succès', 'QueueIAAdvanced', { 
-               itemId, 
-               itemName, 
-               newItemId: result.new_item_id,
-               newAnalysisId: result.new_analysis_id,
-               provider: duplicateProvider,
-               prompt: duplicatePrompt
-             });
-             
-             // Rafraîchir la queue pour afficher la nouvelle ligne
-             await loadQueueItems();
-             
-           } catch (error) {
-             logService.error('Erreur lors de la duplication de l\'analyse', 'QueueIAAdvanced', { 
-               itemId, 
-               itemName, 
-               error: error.message 
-             });
-           }
-           break;
+          logService.info('Duplication de l\'élément', 'QueueIAAdvanced', { itemId, itemName });
+          try {
+            await queueService.duplicateAnalysis(parseInt(itemId));
+            logService.info('Élément dupliqué avec succès', 'QueueIAAdvanced', { itemId, itemName });
+            await loadQueueItems();
+          } catch (error) {
+            logService.error('Erreur lors de la duplication', 'QueueIAAdvanced', { itemId, itemName, error: error.message });
+          }
+          break;
          case 'delete_item':
-           // Suppression directe sans confirmation
-           try {
-             await queueService.deleteQueueItem(parseInt(itemId));
-             logService.info('Analyse supprimée', 'QueueIAAdvanced', { itemId, itemName });
-             await loadQueueItems();
-           } catch (error) {
-             logService.error('Erreur lors de la suppression', 'QueueIAAdvanced', { itemId, itemName, error: error.message });
-           }
-           break;
+          logService.info('Suppression de l\'élément', 'QueueIAAdvanced', { itemId, itemName });
+          try {
+            await queueService.deleteQueueItem(parseInt(itemId));
+            logService.info('Élément supprimé avec succès', 'QueueIAAdvanced', { itemId, itemName });
+            await loadQueueItems();
+          } catch (error) {
+            logService.error('Erreur lors de la suppression', 'QueueIAAdvanced', { itemId, itemName, error: error.message });
+          }
+          break;
                          case 'start_analysis':
           // Récupérer les sélections locales ou les valeurs par défaut
           const startLocalSelection = localSelections[itemId] || {};
@@ -1336,43 +1303,14 @@ export const QueueIAAdvanced: React.FC = () => {
           }
           break;
                  case 'view_file':
-           logService.debug('Ouverture du fichier analysé', 'QueueIAAdvanced', { itemId, itemName });
-           try {
-             // Vérifier si le PDF existe pour cette analyse
-             const hasPDF = await pdfService.hasPDF(parseInt(itemId));
-             
-             if (hasPDF) {
-               // Ouvrir dans l'onglet Visualiseur
-               setActivePanel('main');
-               // Émettre un événement pour ouvrir le PDF dans le visualiseur
-               window.dispatchEvent(new CustomEvent('openPDFInViewer', {
-                 detail: { pdfUrl: pdfService.getPDFDownloadURL(parseInt(itemId)), fileName: itemName }
-               }));
-               
-               logService.info('PDF ouvert dans l\'onglet Visualiseur', 'QueueIAAdvanced', { itemId, itemName });
-             } else {
-               // Générer le PDF d'abord
-               logService.info('Génération du PDF en cours...', 'QueueIAAdvanced', { itemId, itemName });
-               
-               try {
-                 await pdfService.generateAnalysisPDF(parseInt(itemId));
-                 
-                 // Ouvrir le PDF généré dans l'onglet Visualiseur
-                 setActivePanel('main');
-                 window.dispatchEvent(new CustomEvent('openPDFInViewer', {
-                   detail: { pdfUrl: pdfService.getPDFDownloadURL(parseInt(itemId)), fileName: itemName }
-                 }));
-                 
-                 logService.info('PDF généré et ouvert dans l\'onglet Visualiseur', 'QueueIAAdvanced', { itemId, itemName });
-               } catch (pdfError) {
-                 logService.error('Erreur lors de la génération du PDF', 'QueueIAAdvanced', { itemId, itemName, error: pdfError.message });
-               }
-             }
-             
-           } catch (error) {
-             logService.error('Erreur lors de l\'ouverture du fichier', 'QueueIAAdvanced', { itemId, itemName, error: error.message });
-           }
-           break;
+          logService.info('Ouverture du fichier analysé', 'QueueIAAdvanced', { itemId, itemName });
+          try {
+            // TODO: Implémenter l'ouverture du fichier
+            logService.info('Ouverture du fichier', 'QueueIAAdvanced', { itemId, itemName });
+          } catch (error) {
+            logService.error('Erreur lors de l\'ouverture du fichier', 'QueueIAAdvanced', { itemId, itemName, error: error.message });
+          }
+          break;
                  case 'retry_analysis':
            logService.debug('Relance de l\'analyse', 'QueueIAAdvanced', { itemId, itemName });
            try {

@@ -8,7 +8,6 @@ import {
 } from '@heroicons/react/24/outline';
 import { Button, IconButton } from '../UI/Button';
 import MediaPlayer from './MediaPlayer';
-import EmailViewer from './EmailViewer';
 import { getFileType } from '../../utils/fileTypeUtils';
 import { getFileIcon } from '../../utils/fileUtils';
 
@@ -229,8 +228,346 @@ const UnifiedFileViewer: React.FC<UnifiedFileViewerProps> = ({ file, onClose, on
     );
   };
 
-  // Composant pour les fichiers génériques
+  // Composant pour l'affichage des emails intégré
+  const EmailViewerIntegrated: React.FC<{ file: any }> = ({ file }) => {
+    const [emailData, setEmailData] = useState<any>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [showHeaders, setShowHeaders] = useState(false);
 
+    useEffect(() => {
+      loadEmailContent();
+    }, [file]);
+
+    const loadEmailContent = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const response = await fetch(`/api/emails/parse/${encodeURIComponent(file.path)}`);
+        
+        if (!response.ok) {
+          throw new Error(`Erreur HTTP: ${response.status}`);
+        }
+
+        const data = await response.json();
+        
+        if (data.success) {
+          setEmailData(data.data);
+        } else {
+          throw new Error(data.message || 'Erreur lors du parsing de l\'email');
+        }
+      } catch (err) {
+        setError(err.message || 'Erreur lors du chargement de l\'email');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    const formatDate = (dateString: string) => {
+      try {
+        return new Date(dateString).toLocaleString('fr-FR', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      } catch {
+        return dateString;
+      }
+    };
+
+    if (isLoading) {
+      return (
+        <div className="h-full flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <p className="text-slate-400">Chargement de l'email...</p>
+          </div>
+        </div>
+      );
+    }
+
+    if (error) {
+      return (
+        <div className="h-full flex items-center justify-center">
+          <div className="text-center">
+            <div className="text-red-500 text-6xl mb-4">❌</div>
+            <p className="text-red-400 mb-2">Erreur de chargement</p>
+            <p className="text-slate-400 text-sm mb-4">{error}</p>
+            <button
+              onClick={loadEmailContent}
+              className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Réessayer
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    if (!emailData) {
+      return (
+        <div className="h-full flex items-center justify-center">
+          <div className="text-center">
+            <div className="text-6xl mb-4">📧</div>
+            <p className="text-slate-400">Aucune donnée email disponible</p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="h-full bg-slate-900 flex flex-col overflow-hidden">
+        {/* Barre d'outils */}
+        <div className="bg-slate-800 border-b border-slate-700 p-4 flex-shrink-0">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-4">
+              <div className="text-2xl">📧</div>
+              <div>
+                <h2 className="text-lg font-semibold text-slate-200">{emailData.subject}</h2>
+                <p className="text-sm text-slate-400">Email parsé - {file.name}</p>
+              </div>
+            </div>
+            <div className="flex items-center space-x-2">
+              {/* Afficher/masquer les headers */}
+              <button
+                onClick={() => setShowHeaders(!showHeaders)}
+                className="p-2 hover:bg-slate-700 rounded-lg transition-colors text-slate-400 hover:text-slate-200"
+                title={showHeaders ? 'Masquer les headers' : 'Afficher les headers'}
+              >
+                {showHeaders ? '👁️‍🗨️' : '👁️'}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {/* Contenu principal avec scroll */}
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="max-w-4xl mx-auto">
+            {/* Informations de base */}
+            <div className="bg-slate-800 rounded-lg p-6 mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm font-medium text-slate-400">De :</label>
+                  <p className="text-slate-200">{emailData.from_address}</p>
+                </div>
+                <div>
+                  <label className="text-sm font-medium text-slate-400">À :</label>
+                  <p className="text-slate-200">{emailData.to_address}</p>
+                </div>
+                {emailData.cc && (
+                  <div>
+                    <label className="text-sm font-medium text-slate-400">CC :</label>
+                    <p className="text-slate-200">{emailData.cc}</p>
+                  </div>
+                )}
+                {emailData.bcc && (
+                  <div>
+                    <label className="text-sm font-medium text-slate-400">BCC :</label>
+                    <p className="text-slate-200">{emailData.bcc}</p>
+                  </div>
+                )}
+                <div className="md:col-span-2">
+                  <label className="text-sm font-medium text-slate-400">Date :</label>
+                  <p className="text-slate-200">{formatDate(emailData.date)}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Headers techniques (optionnel) */}
+            {showHeaders && (
+              <div className="bg-slate-800 rounded-lg p-6 mb-6">
+                <h3 className="text-lg font-semibold text-slate-200 mb-4">Headers techniques</h3>
+                <div className="bg-slate-900 rounded p-4 overflow-y-auto max-h-64">
+                  <pre className="text-xs text-slate-300">
+                    {JSON.stringify(emailData, null, 2)}
+                  </pre>
+                </div>
+              </div>
+            )}
+
+            {/* Contenu HTML de l'email */}
+            {emailData.html_content && (
+              <div className="bg-slate-800 rounded-lg p-6 mb-6">
+                <h3 className="text-lg font-semibold text-slate-200 mb-4">Contenu HTML</h3>
+                <div 
+                  className="bg-white rounded p-4 overflow-y-auto max-h-96"
+                  dangerouslySetInnerHTML={{ __html: emailData.html_content }}
+                  style={{ 
+                    color: '#000',
+                    fontSize: '14px',
+                    lineHeight: '1.5'
+                  }}
+                />
+              </div>
+            )}
+
+            {/* Contenu texte de l'email */}
+            {emailData.text_content && (
+              <div className="bg-slate-800 rounded-lg p-6 mb-6">
+                <h3 className="text-lg font-semibold text-slate-200 mb-4">Contenu texte</h3>
+                <div className="bg-slate-900 rounded p-4 overflow-y-auto max-h-64">
+                  <pre className="text-sm text-slate-300 whitespace-pre-wrap">
+                    {emailData.text_content}
+                  </pre>
+                </div>
+              </div>
+            )}
+
+            {/* Pièces jointes avec prévisualisation intégrée */}
+            {emailData.has_attachments && emailData.attachments && (
+              <div className="bg-slate-800 rounded-lg p-6 mb-6">
+                <h3 className="text-lg font-semibold text-slate-200 mb-4 flex items-center">
+                  📎 Pièces jointes ({emailData.attachments.length})
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {emailData.attachments.map((attachment: any, index: number) => (
+                    <AttachmentPreview 
+                      key={index}
+                      attachment={attachment}
+                      attachmentIndex={index}
+                      file={file}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+  // Composant pour la prévisualisation des pièces jointes
+  const AttachmentPreview: React.FC<{
+    attachment: any;
+    attachmentIndex: number;
+    file: any;
+  }> = ({ attachment, attachmentIndex, file }) => {
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+      loadAttachmentPreview();
+    }, [attachment, attachmentIndex]);
+
+    const loadAttachmentPreview = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+
+        const contentType = attachment.content_type;
+        
+        // Pour les images, PDFs et autres types supportés
+        if (contentType.startsWith('image/') || contentType === 'application/pdf') {
+          const response = await fetch(`/api/emails/attachment-preview/${encodeURIComponent(file.path)}/${attachmentIndex}`);
+          
+          if (response.ok) {
+            const blob = await response.blob();
+            const url = URL.createObjectURL(blob);
+            setPreviewUrl(url);
+          } else {
+            throw new Error('Impossible de charger la pièce jointe');
+          }
+        } else {
+          // Pour les autres types, pas de prévisualisation
+          setPreviewUrl(null);
+        }
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    const getAttachmentIcon = () => {
+      const contentType = attachment.content_type;
+      if (contentType.startsWith('image/')) return '🖼️';
+      if (contentType === 'application/pdf') return '📄';
+      if (contentType.startsWith('video/')) return '🎬';
+      if (contentType.startsWith('audio/')) return '🎵';
+      if (contentType.includes('word') || contentType.includes('document')) return '📝';
+      if (contentType.includes('excel') || contentType.includes('spreadsheet')) return '📊';
+      if (contentType.includes('powerpoint') || contentType.includes('presentation')) return '📈';
+      return '📎';
+    };
+
+    return (
+      <div className="bg-slate-700 rounded-lg p-4 border border-slate-600">
+        <div className="flex items-center space-x-3 mb-3">
+          <span className="text-2xl">{getAttachmentIcon()}</span>
+          <div className="flex-1 min-w-0">
+            <h4 className="text-sm font-medium text-slate-200 truncate">
+              {attachment.filename}
+            </h4>
+            <p className="text-xs text-slate-400">
+              {attachment.content_type} • {formatFileSize(attachment.size)}
+            </p>
+          </div>
+        </div>
+
+        {/* Prévisualisation */}
+        {isLoading && (
+          <div className="flex items-center justify-center h-32 bg-slate-600 rounded">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-400"></div>
+          </div>
+        )}
+
+        {error && (
+          <div className="flex items-center justify-center h-32 bg-slate-600 rounded">
+            <p className="text-xs text-red-400">Erreur de chargement</p>
+          </div>
+        )}
+
+        {previewUrl && !isLoading && !error && (
+          <div className="h-32 bg-slate-600 rounded overflow-hidden">
+            {attachment.content_type.startsWith('image/') ? (
+              <img
+                src={previewUrl}
+                alt={attachment.filename}
+                className="w-full h-full object-cover"
+              />
+            ) : attachment.content_type === 'application/pdf' ? (
+              <iframe
+                src={previewUrl}
+                className="w-full h-full"
+                title={attachment.filename}
+              />
+            ) : (
+              <div className="flex items-center justify-center h-full">
+                <span className="text-4xl">{getAttachmentIcon()}</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Bouton de téléchargement */}
+        <button
+          onClick={() => {
+            const link = document.createElement('a');
+            link.href = `/api/emails/attachment-download/${encodeURIComponent(file.path)}/${attachmentIndex}`;
+            link.download = attachment.filename;
+            link.click();
+          }}
+          className="w-full mt-3 px-3 py-2 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
+        >
+          📥 Télécharger
+        </button>
+      </div>
+    );
+  };
+
+  // Fonction utilitaire pour formater la taille des fichiers
+  const formatFileSize = (bytes: number) => {
+    if (bytes === 0) return '0 B';
+    const k = 1024;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
+  };
 
   // Rendu du contenu selon le type
   const renderContent = () => {
@@ -240,16 +577,17 @@ const UnifiedFileViewer: React.FC<UnifiedFileViewerProps> = ({ file, onClose, on
       
       case 'pdf':
         return (
-          <div className="w-full h-full bg-slate-900 overflow-hidden">
+          <div className="w-full h-full bg-slate-900 overflow-hidden flex flex-col">
             <iframe
               src={`/api/files/stream-by-path/${encodeURIComponent(file.path)}?native=true`}
-              className="w-full h-full border-0"
+              className="w-full h-full border-0 flex-1"
               style={{ 
                 width: '100%', 
                 height: '100%', 
                 display: 'block',
                 maxWidth: '100%',
-                maxHeight: '100%'
+                maxHeight: '100%',
+                minHeight: '100%'
               }}
               title={file.name}
               onError={(e) => {
@@ -285,19 +623,20 @@ const UnifiedFileViewer: React.FC<UnifiedFileViewerProps> = ({ file, onClose, on
         );
       
       case 'email':
-        return <EmailViewer file={file} onClose={onClose} onPreviewAttachment={onPreviewAttachment} />;
+        return <EmailViewerIntegrated file={file} />;
       
       case 'office':
         return (
-          <div className="h-full bg-slate-900 overflow-hidden">
+          <div className="h-full bg-slate-900 overflow-hidden flex flex-col">
             <iframe
               src={`/api/files/stream-by-path/${encodeURIComponent(file.path)}?html=true`}
-              className="w-full h-full border-0"
+              className="w-full h-full border-0 flex-1"
               style={{
                 width: '100%',
                 height: '100%',
                 maxWidth: '100%',
-                maxHeight: '100%'
+                maxHeight: '100%',
+                minHeight: '100%'
               }}
               title={file.name}
               onError={(e) => {
@@ -463,7 +802,7 @@ const UnifiedFileViewer: React.FC<UnifiedFileViewerProps> = ({ file, onClose, on
       
       {/* Contenu principal */}
       {!error && !isLoading && (
-        <div className="flex-1 overflow-hidden relative" style={{ height: '100%' }}>
+        <div className="flex-1 overflow-hidden relative" style={{ height: '100%', maxHeight: '100%' }}>
           {renderContent()}
         </div>
       )}

@@ -2,6 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Empêcher les barres de scroll globales non désirées */
+html, body {
+  overflow: hidden;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+#root {
+  height: 100%;
+  overflow: hidden;
+}
+
 /* Variables CSS pour la gestion de la hauteur d'écran */
 :root {
   --vh: 1vh;

@@ -506,7 +506,7 @@ const Layout: React.FC = () => {
 
       
       <div
-        className="flex h-screen"
+        className="flex h-screen overflow-hidden"
         style={{ backgroundColor: colors.background }}
       >
         {/* Afficher le contenu seulement si authentifié ou utilisateur local */}
@@ -568,10 +568,10 @@ const Layout: React.FC = () => {
             </div>
 
             {/* Panneau principal */}
-            <div className="flex-1 flex flex-col min-w-0">
+            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
               
               {/* Contenu principal */}
-              <div className="flex-1 min-w-0">
+              <div className="flex-1 min-w-0 overflow-hidden">
                 <MainPanel 
                   activePanel={activePanel} 
                   onSetActivePanel={setActivePanel}
@@ -581,7 +581,7 @@ const Layout: React.FC = () => {
           </>
         ) : (
           // Écran de chargement pendant l'authentification
-          <div className="flex items-center justify-center h-screen" style={{ backgroundColor: colors.background }}>
+          <div className="flex items-center justify-center h-screen overflow-hidden" style={{ backgroundColor: colors.background }}>
             <div className="text-center">
               <div className="text-4xl mb-4">🔐</div>
               <h2 className="text-xl font-semibold mb-2" style={{ color: colors.text }}>

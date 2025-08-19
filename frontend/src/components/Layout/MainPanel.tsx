@@ -454,7 +454,7 @@ const MainPanel: React.FC<MainPanelProps> = ({
       />
       
       {/* Contenu des onglets */}
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 overflow-hidden">
         {renderTabContent()}
       </div>
 

@@ -6,6 +6,10 @@ import { useUIStore } from '../../stores/uiStore';
 import { addInterfaceLog } from '../../utils/interfaceLogger';
 import DiskSelector from '../FileManager/DiskSelector';
 import FileTreeSimple from '../FileManager/FileTreeSimple';
+import { getFileIcon } from '../../utils/fileUtils';
+import { 
+  DocumentIcon
+} from '@heroicons/react/24/outline';
 
 const LeftPanel: React.FC = () => {
   const { selectedFiles, selectFile, toggleFileSelection } = useFileStore();
@@ -138,17 +142,11 @@ const LeftPanel: React.FC = () => {
         </div>
         <div className="space-y-1 text-xs">
           <div className="flex items-center space-x-2">
-            <div
-              className="w-2 h-2 rounded-full"
-              style={{ backgroundColor: colors.success }}
-            />
+            <DocumentIcon className="h-3 w-3" style={{ color: colors.success }} />
             <span style={{ color: colors.textSecondary }}>Analysable par IA</span>
           </div>
           <div className="flex items-center space-x-2">
-            <div
-              className="w-2 h-2 rounded-full"
-              style={{ backgroundColor: colors.textSecondary }}
-            />
+            <DocumentIcon className="h-3 w-3" style={{ color: colors.textSecondary }} />
             <span style={{ color: colors.textSecondary }}>Non pris en charge par l'IA</span>
           </div>
         </div>

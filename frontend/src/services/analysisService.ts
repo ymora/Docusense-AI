@@ -1,5 +1,8 @@
 
-import { apiRequest, handleApiError, DEFAULT_TIMEOUT } from '../utils/apiUtils';
+import { apiRequest, handleApiError } from './apiUtils';
+import { logService } from './logService';
+
+const DEFAULT_TIMEOUT = 30000; // 30 secondes
 
 export interface Analysis {
   id: number;
@@ -98,6 +101,11 @@ export const analysisService = {
   // Créer une analyse en attente
   async createPendingAnalysis(request: CreateAnalysisRequest): Promise<CreateAnalysisResponse> {
     try {
+      logService.info('Création d\'une analyse en attente', 'AnalysisService', { 
+        filePath: request.file_path,
+        analysisType: request.analysis_type,
+        provider: request.provider
+      });
   
       const data = await apiRequest('/api/analysis/create-pending', {
         method: 'POST',
@@ -107,10 +115,17 @@ export const analysisService = {
         })
       }, DEFAULT_TIMEOUT);
       
+      logService.info('Analyse en attente créée avec succès', 'AnalysisService', { 
+        analysisId: data.analysis_id,
+        filePath: request.file_path
+      });
       
       return data as CreateAnalysisResponse;
     } catch (error) {
-      console.error('❌ AnalysisService: Erreur lors de la création de l\'analyse en attente:', error);
+      logService.error('Erreur lors de la création de l\'analyse en attente', 'AnalysisService', { 
+        filePath: request.file_path,
+        error: error.message 
+      });
       throw new Error(`Erreur lors de la création de l'analyse: ${handleApiError(error)}`);
     }
   },
@@ -134,10 +149,15 @@ export const analysisService = {
   // Lancer une analyse en attente
   async startAnalysis(analysisId: number): Promise<void> {
     try {
+      logService.info('Démarrage de l\'analyse', 'AnalysisService', { analysisId });
+      
       await apiRequest(`/api/analysis/${analysisId}/start`, {
         method: 'POST'
       }, DEFAULT_TIMEOUT);
+      
+      logService.info('Analyse démarrée avec succès', 'AnalysisService', { analysisId });
     } catch (error) {
+      logService.error('Erreur lors du lancement de l\'analyse', 'AnalysisService', { analysisId, error: error.message });
       throw new Error(`Erreur lors du lancement de l'analyse: ${handleApiError(error)}`);
     }
   },

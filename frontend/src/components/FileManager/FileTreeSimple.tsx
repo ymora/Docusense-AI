@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FolderIcon, DocumentIcon, ChevronRightIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
+import { FolderIcon, DocumentIcon, ChevronRightIcon, ChevronDownIcon, ArrowRightIcon } from '@heroicons/react/24/outline';
 import { useColors } from '../../hooks/useColors';
 import { isSupportedFormat } from '../../utils/mediaFormats';
 import { useUIStore } from '../../stores/uiStore';
@@ -289,20 +289,11 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
 
         {/* Indicateur de statut IA - cliquable pour analyse */}
         {!isSelected && isAnalyzable && (
-          <div 
-            className="w-1.5 h-1.5 rounded-full ml-1.5 flex-shrink-0 cursor-pointer hover:scale-125 transition-transform"
-            style={{ backgroundColor: colors.success }}
+          <ArrowRightIcon 
+            className="h-3 w-3 ml-1.5 flex-shrink-0 cursor-pointer hover:scale-125 transition-transform"
+            style={{ color: colors.success }}
             onClick={(e) => handleAnalyzeFile(file, e)}
             title="Analyser avec l'IA"
-          />
-        )}
-
-        {/* Indicateur non-analysable */}
-        {!isSelected && !isAnalyzable && (
-          <div 
-            className="w-1.5 h-1.5 rounded-full ml-1.5 flex-shrink-0"
-            style={{ backgroundColor: colors.textSecondary }}
-            title="Non pris en charge par l'IA"
           />
         )}
       </div>
