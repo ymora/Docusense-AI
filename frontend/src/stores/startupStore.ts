@@ -50,11 +50,10 @@ export const useStartupStore = create<StartupState>()(
               await configStore.loadAIProviders();
               set({ initializationStep: 'files' });
 
-              // Initialiser le fileStore (reset + directory)
+              // Initialiser le fileStore (reset seulement)
               const { useFileStore } = await import('../stores/fileStore');
               const fileStore = useFileStore.getState();
               fileStore.resetState();
-              await fileStore.initializeDefaultDirectory();
               set({ initializationStep: 'complete' });
 
               // Marquer comme initialisé

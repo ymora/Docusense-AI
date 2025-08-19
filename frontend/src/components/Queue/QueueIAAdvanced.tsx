@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { 
   ArrowPathIcon, TrashIcon, PauseIcon, PlayIcon, XMarkIcon,
@@ -1241,31 +1240,70 @@ export const QueueIAAdvanced: React.FC = () => {
            }
            break;
                          case 'start_analysis':
-            // Récupérer les sélections locales ou les valeurs par défaut
-            const startLocalSelection = localSelections[itemId] || {};
-            const selectedProvider = startLocalSelection.provider || item.analysis_provider;
-            
-            // Pour les prompts, on doit récupérer le contenu du prompt sélectionné
-            let selectedPrompt = '';
-            if (startLocalSelection.prompt) {
-              const selectedPromptObj = currentPrompts.find(p => p.id === startLocalSelection.prompt);
-              selectedPrompt = selectedPromptObj?.prompt || '';
-            } else if ((item as any).analysis_prompt) {
-              selectedPrompt = (item as any).analysis_prompt;
-            }
-           
-           if (!selectedProvider || !selectedPrompt) {
-             logService.warning('Impossible de démarrer l\'analyse - IA ou prompt manquant', 'QueueIAAdvanced', { 
+          // Récupérer les sélections locales ou les valeurs par défaut
+          const startLocalSelection = localSelections[itemId] || {};
+          const selectedProvider = startLocalSelection.provider || item.analysis_provider;
+          
+          // Pour les prompts, on doit récupérer le contenu du prompt sélectionné
+          let selectedPrompt = '';
+          if (startLocalSelection.prompt) {
+            const selectedPromptObj = currentPrompts.find(p => p.id === startLocalSelection.prompt);
+            selectedPrompt = selectedPromptObj?.prompt || '';
+          } else if ((item as any).analysis_prompt) {
+            selectedPrompt = (item as any).analysis_prompt;
+          }
+         
+         if (!selectedProvider || !selectedPrompt) {
+           logService.warning('Impossible de démarrer l\'analyse - IA ou prompt manquant', 'QueueIAAdvanced', { 
+             itemId, 
+             itemName, 
+             selectedProvider, 
+             selectedPrompt 
+           });
+           return;
+         }
+         
+         logService.debug('Démarrage de l\'analyse', 'QueueIAAdvanced', { itemId, itemName, provider: selectedProvider, prompt: selectedPrompt });
+         
+         // Vérifier si c'est un élément local
+         if ((item as any).is_local) {
+           try {
+             // Créer l'analyse en backend d'abord
+             const analysisRequest = {
+               file_path: (item as any).file_info.path,
+               analysis_type: item.analysis_type,
+               provider: selectedProvider,
+               custom_prompt: selectedPrompt,
+               prompt_id: 'default'
+             };
+             
+             // Importer le service d'analyse
+             const { analysisService } = await import('../../services/analysisService');
+             const analysisResponse = await analysisService.createPendingAnalysis(analysisRequest);
+             
+             // Ajouter à la queue backend
+             await queueService.addToQueue(analysisResponse.analysis_id, 'normal');
+             
+             // Supprimer l'élément local de la queue en utilisant le store
+             const updatedItems = queueItems.filter(qItem => qItem.id !== parseInt(itemId));
+             // Note: On ne peut pas modifier directement le store ici, on laisse le rechargement s'en charger
+             
+             // Recharger la queue pour afficher l'élément backend
+             await loadQueueItems();
+             
+             logService.info('Élément local converti en analyse backend', 'QueueIAAdvanced', { 
                itemId, 
                itemName, 
-               selectedProvider, 
-               selectedPrompt 
+               newAnalysisId: analysisResponse.analysis_id 
              });
-             return;
+           } catch (error) {
+             logService.error('Erreur lors de la conversion de l\'élément local', 'QueueIAAdvanced', { 
+               itemId, 
+               itemName, 
+               error: error.message 
+             });
            }
-           
-           logService.debug('Démarrage de l\'analyse', 'QueueIAAdvanced', { itemId, itemName, provider: selectedProvider, prompt: selectedPrompt });
-           
+         } else {
            // Envoyer la requête au backend pour mettre à jour et démarrer l'analyse
            try {
              await queueService.updateAnalysisProviderAndPrompt(
@@ -1278,7 +1316,8 @@ export const QueueIAAdvanced: React.FC = () => {
            } catch (error) {
              logService.error('Erreur lors du démarrage de l\'analyse', 'QueueIAAdvanced', { itemId, itemName, error: error.message });
            }
-           break;
+         }
+         break;
         case 'pause_item':
           logService.debug('Mise en pause de l\'analyse', 'QueueIAAdvanced', { itemId, itemName });
           try {
@@ -1432,85 +1471,124 @@ export const QueueIAAdvanced: React.FC = () => {
               count: availablePDFs.length 
             });
             break;
-         case 'duplicate_selected':
-           // Dupliquer toutes les analyses sélectionnées
-           setIsDuplicating(true);
-           logService.info('Début de la duplication multiple', 'QueueIAAdvanced', { 
-             selectedItems, 
-             count: selectedItems.length 
-           });
-           
-           for (const itemId of selectedItems) {
-             const item = queueItems.find(q => q.id.toString() === itemId);
-             if (!item) {
-               logService.warning('Item non trouvé pour duplication', 'QueueIAAdvanced', { itemId });
-               continue;
-             }
-             
-             const itemName = item.file_info?.name || `ID: ${itemId}`;
-             
-             // Récupérer les sélections locales ou les valeurs par défaut
-             const duplicateLocalSelection = localSelections[itemId] || {};
-             const duplicateProvider = duplicateLocalSelection.provider || item.analysis_provider;
-             
-             // Pour les prompts, récupérer le contenu du prompt sélectionné
-             let duplicatePrompt = '';
-             if (duplicateLocalSelection.prompt) {
-               const selectedPromptObj = currentPrompts.find(p => p.id === duplicateLocalSelection.prompt);
-               duplicatePrompt = selectedPromptObj?.prompt || '';
-             } else if ((item as any).analysis_prompt) {
-               duplicatePrompt = (item as any).analysis_prompt;
-             }
-             
-             // Validation
-             if (!duplicateProvider || !duplicatePrompt) {
-               logService.warning('Impossible de dupliquer - IA ou prompt manquant', 'QueueIAAdvanced', { 
-                 itemId, 
-                 itemName, 
-                 duplicateProvider, 
-                 duplicatePrompt 
-               });
-               continue;
-             }
-             
-             try {
-               logService.debug('Duplication en cours', 'QueueIAAdvanced', { 
-                 itemId, 
-                 itemName, 
-                 provider: duplicateProvider, 
-                 prompt: duplicatePrompt.substring(0, 50) + '...' 
-               });
-               
-               const result = await queueService.duplicateAnalysis(
-                 parseInt(itemId), 
-                 duplicateProvider, 
-                 duplicatePrompt
-               );
-               
-               logService.info('Analyse dupliquée avec succès', 'QueueIAAdvanced', { 
-                 itemId, 
-                 itemName, 
-                 newItemId: result.new_item_id,
-                 newAnalysisId: result.new_analysis_id,
-                 provider: duplicateProvider
-               });
-               
-             } catch (error) {
-               logService.error('Erreur lors de la duplication', 'QueueIAAdvanced', { 
-                 itemId, 
-                 itemName, 
-                 error: error.message 
-               });
-             }
-           }
-           
-                       // Rafraîchir la queue après toutes les duplications
-            await loadQueueItems();
-            setIsDuplicating(false);
-            logService.info('Duplication multiple terminée', 'QueueIAAdvanced', { 
+                   case 'duplicate_selected':
+            // Dupliquer toutes les analyses sélectionnées
+            setIsDuplicating(true);
+            logService.info('Début de la duplication multiple', 'QueueIAAdvanced', { 
               selectedItems, 
-              count: selectedItems.length 
+              count: selectedItems.length,
+              queueItemsCount: queueItems.length
             });
+            
+            let successCount = 0;
+            let errorCount = 0;
+            
+                         // Traiter chaque duplication comme un ajout simple
+             for (const itemId of selectedItems) {
+               let item: any = null;
+               try {
+                 console.log(`🔄 Début de duplication pour l'élément ${itemId}`);
+                 
+                 item = queueItems.find(q => q.id.toString() === itemId);
+                 if (!item) {
+                   logService.warning('Item non trouvé pour duplication', 'QueueIAAdvanced', { itemId });
+                   errorCount++;
+                   continue;
+                 }
+                
+                const itemName = item.file_info?.name || `ID: ${itemId}`;
+                console.log(`📄 Duplication de: ${itemName}`);
+                
+                // Récupérer les sélections locales ou les valeurs par défaut
+                const duplicateLocalSelection = localSelections[itemId] || {};
+                const duplicateProvider = duplicateLocalSelection.provider || item.analysis_provider;
+                
+                console.log(`🔧 Provider sélectionné: ${duplicateProvider}`);
+                console.log(`🔧 Sélection locale:`, duplicateLocalSelection);
+                
+                // Pour les prompts, récupérer le contenu du prompt sélectionné
+                let duplicatePrompt = '';
+                if (duplicateLocalSelection.prompt) {
+                  const selectedPromptObj = currentPrompts.find(p => p.id === duplicateLocalSelection.prompt);
+                  duplicatePrompt = selectedPromptObj?.prompt || '';
+                  console.log(`📝 Prompt sélectionné depuis local: ${selectedPromptObj?.name || 'N/A'}`);
+                } else if ((item as any).analysis_prompt) {
+                  duplicatePrompt = (item as any).analysis_prompt;
+                  console.log(`📝 Prompt utilisé depuis item: ${duplicatePrompt.substring(0, 50)}...`);
+                }
+                
+                // Validation
+                if (!duplicateProvider || !duplicatePrompt) {
+                  logService.warning('Impossible de dupliquer - IA ou prompt manquant', 'QueueIAAdvanced', { 
+                    itemId, 
+                    itemName, 
+                    duplicateProvider, 
+                    duplicatePrompt,
+                    hasProvider: !!duplicateProvider,
+                    hasPrompt: !!duplicatePrompt,
+                    promptLength: duplicatePrompt ? duplicatePrompt.length : 0
+                  });
+                  errorCount++;
+                  continue;
+                }
+                
+                console.log(`✅ Validation OK - Début de l'appel API`);
+                
+                const result = await queueService.duplicateAnalysis(
+                  parseInt(itemId), 
+                  duplicateProvider, 
+                  duplicatePrompt
+                );
+                
+                console.log(`✅ Résultat de duplication:`, result);
+                
+                logService.info('Analyse dupliquée avec succès', 'QueueIAAdvanced', { 
+                  itemId, 
+                  itemName, 
+                  newItemId: result.new_item_id,
+                  newAnalysisId: result.new_analysis_id,
+                  provider: duplicateProvider
+                });
+                
+                successCount++;
+                
+                // Rafraîchir la queue après chaque duplication (comme pour les ajouts simples)
+                console.log(`🔄 Rafraîchissement de la queue...`);
+                await loadQueueItems();
+                console.log(`✅ Queue rafraîchie`);
+                
+                             } catch (error) {
+                 console.error(`❌ Erreur lors de la duplication de ${itemId}:`, error);
+                 const itemName = item?.file_info?.name || `ID: ${itemId}`;
+                 logService.error('Erreur lors de la duplication', 'QueueIAAdvanced', { 
+                   itemId, 
+                   itemName,
+                   error: error.message,
+                   errorStack: error.stack
+                 });
+                 errorCount++;
+               }
+            }
+            
+            setIsDuplicating(false);
+            
+            const summary = {
+              total: selectedItems.length,
+              success: successCount,
+              error: errorCount
+            };
+            
+            console.log(`📊 Résumé de la duplication multiple:`, summary);
+            logService.info('Duplication multiple terminée', 'QueueIAAdvanced', summary);
+            
+            // Afficher un message à l'utilisateur
+            if (successCount > 0) {
+              console.log(`✅ ${successCount} analyse(s) dupliquée(s) avec succès`);
+            }
+            if (errorCount > 0) {
+              console.log(`❌ ${errorCount} erreur(s) lors de la duplication`);
+            }
+            
             break;
                    case 'delete_selected':
             // Supprimer toutes les analyses sélectionnées

@@ -1,114 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import BreadcrumbNavigation from './BreadcrumbNavigation';
 import { useFileStore } from '../../stores/fileStore';
 import { useColors } from '../../hooks/useColors';
-import FileTree from '../FileManager/FileTree';
 import { useBackendStatus } from '../../hooks/useBackendStatus';
-import { useQueueStore } from '../../stores/queueStore';
 import { useUIStore } from '../../stores/uiStore';
 import { addInterfaceLog } from '../../utils/interfaceLogger';
-import {
-  EyeIcon,
-  QueueListIcon,
-  Cog6ToothIcon,
-  DocumentTextIcon
-} from '@heroicons/react/24/outline';
+import DiskSelector from '../FileManager/DiskSelector';
+import FileTreeSimple from '../FileManager/FileTreeSimple';
 
 const LeftPanel: React.FC = () => {
-  const { currentDirectory, loadDirectoryTree, setCurrentDirectory, selectedFiles, selectFile } = useFileStore();
-  const { isOnline, isInactive, consecutiveFailures } = useBackendStatus();
-  const { setInactive, forceRefresh } = useQueueStore();
+  const { selectedFiles, selectFile, toggleFileSelection } = useFileStore();
+  const { isOnline, consecutiveFailures } = useBackendStatus();
   const { activePanel, setActivePanel } = useUIStore();
   const { colors } = useColors();
-
-  // Synchroniser l'état d'inactivité entre les stores
-  useEffect(() => {
-    setInactive(isInactive);
-  }, [isInactive, setInactive]);
-
-  // Fermer le menu contextuel avec la touche Échap
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        // Fermer les menus si nécessaire
-      }
-    };
-
-    document.addEventListener('keydown', handleKeyDown);
-
-    return () => {
-      document.removeEventListener('keydown', handleKeyDown);
-    };
-  }, []);
-
-  // Suppression de l'initialisation automatique du disque D:
-  // L'utilisateur choisira manuellement son disque
-
-  const handleDirectorySelect = async (directory: string) => {
-    addInterfaceLog('Navigation', 'INFO', `📁 Sélection du répertoire: ${directory}`);
-    try {
-      await loadDirectoryTree(directory);
-    } catch (error) {
-      // L'erreur est déjà gérée dans le store, mais on peut ajouter un log supplémentaire
-      addInterfaceLog('Navigation', 'ERROR', `❌ Erreur d'accès au répertoire: ${directory}`);
-    }
-  };
-
-  const navigateToParent = async () => {
-    if (!currentDirectory) {
-      return;
-    }
-
-    addInterfaceLog('Navigation', 'INFO', `⬆️ Navigation vers le répertoire parent`);
-    
-    // Extraire le disque et le chemin relatif
-    const driveMatch = currentDirectory.match(/^([A-Z]:)(.*)$/i);
-    if (!driveMatch) {
-      return;
-    }
-    
-    const [, drive, relativePath] = driveMatch;
-    
-    // Nettoyer le chemin relatif et le diviser
-    const cleanPath = relativePath.replace(/^[\\\/]+|[\\\/]+$/g, ''); // Enlever les séparateurs en début/fin
-    const pathParts = cleanPath ? cleanPath.split(/[\\\/]+/) : [];
-    
-    if (pathParts.length === 0) {
-      // On est déjà à la racine du disque
-      setCurrentDirectory(null);
-    } else if (pathParts.length === 1) {
-      // Un seul dossier, remonter à la racine du disque
-      const parentPath = drive;
-      setCurrentDirectory(parentPath);
-      await loadDirectoryTree(parentPath);
-    } else {
-      // Plusieurs dossiers, remonter d'un niveau
-      const parentPath = drive + '\\' + pathParts.slice(0, -1).join('\\');
-      setCurrentDirectory(parentPath);
-      await loadDirectoryTree(parentPath);
-    }
-  };
-
-  const handleFileClick = (file: any) => {
-    addInterfaceLog('Fichiers', 'INFO', `📄 Sélection du fichier: ${file.name}`);
-    selectFile(file as any);
-  };
-
-  // Gestion des actions de fichiers
-  const handleFileAction = (action: string, file: any) => {
-    addInterfaceLog('Fichiers', 'INFO', `⚡ Action sur fichier: ${action} - ${file.name}`);
-    // Déclencher un événement personnalisé pour que le Layout puisse gérer l'action
-    window.dispatchEvent(new CustomEvent('fileAction', {
-      detail: { action, file }
-    }));
-  };
-
-  const toggleTheme = () => {
-    const currentTheme = document.body.getAttribute('data-theme');
-    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
-    document.body.setAttribute('data-theme', newTheme);
-    addInterfaceLog('Interface', 'INFO', `🎨 Changement de thème: ${newTheme}`);
-  };
+  
+  const [currentDisk, setCurrentDisk] = useState<string>('');
 
   // Déterminer la couleur du titre selon l'état du backend
   const getTitleColor = () => {
@@ -124,6 +29,27 @@ const LeftPanel: React.FC = () => {
       return `🚨 Backend déconnecté (${consecutiveFailures} échecs consécutifs)`;
     }
     return '✅ Backend connecté';
+  };
+
+  const toggleTheme = () => {
+    const currentTheme = document.body.getAttribute('data-theme');
+    const newTheme = currentTheme === 'light' ? 'dark' : 'light';
+    document.body.setAttribute('data-theme', newTheme);
+    addInterfaceLog('Interface', 'INFO', `🎨 Changement de thème: ${newTheme}`);
+  };
+
+  const handleDiskSelect = (disk: string) => {
+    setCurrentDisk(disk);
+    addInterfaceLog('Navigation', 'INFO', `📁 Sélection du disque: ${disk}`);
+  };
+
+  const handleFileSelect = (file: any) => {
+    addInterfaceLog('Fichiers', 'INFO', `📄 Sélection du fichier: ${file.name}`);
+    selectFile(file);
+  };
+
+  const handleFileSelectionChange = (fileId: string | number) => {
+    toggleFileSelection(fileId);
   };
 
   return (
@@ -172,32 +98,32 @@ const LeftPanel: React.FC = () => {
         </button>
       </div>
 
-      {/* Navigation breadcrumb - toujours visible */}
-      <div
-        className="px-4 py-2 border-b flex-shrink-0"
-        style={{
-          backgroundColor: colors.hover.surface,
-          borderBottomColor: colors.border,
-        }}
-      >
-        <BreadcrumbNavigation
-          currentDirectory={currentDirectory}
-          onDirectorySelect={handleDirectorySelect}
+      {/* Sélecteur de disque */}
+      <div className="p-4 border-b" style={{ borderBottomColor: colors.border }}>
+        <DiskSelector
+          onDiskSelect={handleDiskSelect}
+          currentDisk={currentDisk}
         />
       </div>
 
-      {/* Arborescence des fichiers - seulement si un répertoire est sélectionné */}
-      {currentDirectory && (
-        <div className="flex-1 overflow-y-auto overflow-x-hidden min-h-0 scrollbar-auto">
-          <FileTree
-            onDirectorySelect={handleDirectorySelect}
-            currentDirectory={currentDirectory}
-            onFileSelect={handleFileClick}
+      {/* Arborescence des fichiers */}
+      <div className="flex-1 overflow-hidden">
+        {currentDisk ? (
+          <FileTreeSimple
+            currentDirectory={currentDisk}
+            onFileSelect={handleFileSelect}
             selectedFiles={selectedFiles}
-            onFileAction={handleFileAction}
+            onFileSelectionChange={handleFileSelectionChange}
           />
-        </div>
-      )}
+        ) : (
+          <div className="p-4 text-center">
+            <div className="text-2xl mb-2">💾</div>
+            <div className="text-sm" style={{ color: colors.textSecondary }}>
+              Sélectionnez un disque pour voir les fichiers
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* Légende des statuts - TOUJOURS en bas */}
       <div

@@ -516,7 +516,7 @@ class FileService(BaseService):
                 return {
                     "success": False,
                     "error": disk_status["error"],
-                    "message": disk_status["user_message"],
+                    "message": disk_status.get("user_message", disk_status["message"]),
                     "retry_after": disk_status["retry_after"],
                     "files": [],
                     "subdirectories": [],

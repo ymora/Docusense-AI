@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useFileStore } from '../../stores/fileStore';
 import { useQueueStore } from '../../stores/queueStore';
+import { useConfigStore } from '../../stores/configStore';
 import { useColors } from '../../hooks/useColors';
 import { useBackendStatus } from '../../hooks/useBackendStatus';
 import { formatFileSize } from '../../utils/fileUtils';
@@ -15,7 +16,8 @@ import {
   DocumentTextIcon as LogsIcon,
   PhotoIcon,
   FilmIcon,
-  MusicalNoteIcon
+  MusicalNoteIcon,
+  FolderIcon
 } from '@heroicons/react/24/outline';
 import { ConfigContent } from '../Config/ConfigWindow';
 
@@ -42,9 +44,21 @@ const MainPanel: React.FC<MainPanelProps> = ({
   const { colors } = useColors();
   const { isOnline } = useBackendStatus();
   const { queueItems, loadQueueItems } = useQueueStore();
+  const { getActiveProviders, isInitialized } = useConfigStore();
   const [activeTab, setActiveTab] = useState('viewer');
   const [showFileDetails, setShowFileDetails] = useState(false);
   const [viewMode, setViewMode] = useState<'single' | 'thumbnails'>('single');
+
+  // Obtenir les providers actifs pour l'indicateur
+  const allProviders = getActiveProviders();
+  const activeProviders = allProviders.filter(provider => provider.is_active === true);
+  
+  // Debug pour voir les providers
+  console.log('🔍 MainPanel - Providers actifs:', {
+    allProviders: allProviders.map(p => ({ name: p.name, is_active: p.is_active, is_functional: p.is_functional })),
+    activeProviders: activeProviders.map(p => ({ name: p.name, is_active: p.is_active, is_functional: p.is_functional })),
+    count: activeProviders.length
+  });
 
   // Définir les onglets
   const tabs = [
@@ -52,6 +66,7 @@ const MainPanel: React.FC<MainPanelProps> = ({
       id: 'config',
       label: 'Configuration IA',
       icon: <Cog6ToothIcon className="h-4 w-4" />,
+      count: activeProviders.length,
     },
     {
       id: 'queue',
@@ -150,39 +165,113 @@ const MainPanel: React.FC<MainPanelProps> = ({
     }
   }, [selectedFiles.length, selectedFile]);
 
-  // Fonction pour déterminer le type de visualisation approprié
+  // Fonction pour obtenir le composant de visualisation approprié
   const getViewerComponent = (file: any) => {
-    if (!file) return null;
-
-    const fileType = getFileType(file.name, file.mime_type);
-    const mimeType = file.mime_type?.toLowerCase() || '';
-
-    // Images : utiliser le visualiseur unifié avec streaming
-    if (fileType === 'image' || mimeType.startsWith('image/')) {
+    // Si c'est un dossier, afficher en mode miniature
+    if (file.type === 'folder') {
       return (
-        <UnifiedFileViewer 
-          file={file}
-          onClose={() => {
-            // Logique de fermeture si nécessaire
-          }}
-        />
+        <div className="p-4">
+          <div className="mb-4">
+            <h3 className="text-lg font-medium mb-2" style={{ color: colors.text }}>
+              📁 {file.name}
+            </h3>
+            <p className="text-sm" style={{ color: colors.textSecondary }}>
+              {file.files?.length || 0} fichier(s), {file.subdirectories?.length || 0} sous-dossier(s)
+            </p>
+          </div>
+          
+          {/* Affichage des fichiers du dossier */}
+          {file.files && file.files.length > 0 && (
+            <div className="mb-6">
+              <h4 className="text-md font-medium mb-3" style={{ color: colors.text }}>
+                Fichiers
+              </h4>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+                {file.files.map((f: any) => (
+                  <div
+                    key={f.path}
+                    className="p-3 border rounded-lg cursor-pointer hover:bg-slate-700 transition-colors"
+                    style={{ borderColor: colors.border }}
+                    onClick={() => {
+                      // Sélectionner ce fichier pour l'affichage
+                      selectFile(f);
+                    }}
+                  >
+                    <div className="text-center">
+                      {getFileType(f.name, f.mime_type) === 'image' ? (
+                        <PhotoIcon className="h-8 w-8 mx-auto mb-2" style={{ color: colors.primary }} />
+                      ) : getFileType(f.name, f.mime_type) === 'video' ? (
+                        <FilmIcon className="h-8 w-8 mx-auto mb-2" style={{ color: colors.primary }} />
+                      ) : getFileType(f.name, f.mime_type) === 'audio' ? (
+                        <MusicalNoteIcon className="h-8 w-8 mx-auto mb-2" style={{ color: colors.primary }} />
+                      ) : (
+                        <DocumentTextIcon className="h-8 w-8 mx-auto mb-2" style={{ color: colors.primary }} />
+                      )}
+                      <div className="text-xs truncate" style={{ color: colors.text }}>
+                        {f.name}
+                      </div>
+                      <div className="text-xs mt-1" style={{ color: colors.textSecondary }}>
+                        {formatFileSize(f.size)}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Affichage des sous-dossiers */}
+          {file.subdirectories && file.subdirectories.length > 0 && (
+            <div>
+              <h4 className="text-md font-medium mb-3" style={{ color: colors.text }}>
+                Sous-dossiers
+              </h4>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+                {file.subdirectories.map((subfolder: any) => (
+                  <div
+                    key={subfolder.path}
+                    className="p-3 border rounded-lg cursor-pointer hover:bg-slate-700 transition-colors"
+                    style={{ borderColor: colors.border }}
+                    onClick={() => {
+                      // Créer un objet dossier pour la visualisation
+                      const folderForView = {
+                        ...subfolder,
+                        type: 'folder',
+                        files: [], // Sera chargé si nécessaire
+                        subdirectories: []
+                      };
+                      selectFile(folderForView);
+                    }}
+                  >
+                    <div className="text-center">
+                      <FolderIcon className="h-8 w-8 mx-auto mb-2" style={{ color: colors.primary }} />
+                      <div className="text-xs truncate" style={{ color: colors.text }}>
+                        {subfolder.name}
+                      </div>
+                      <div className="text-xs mt-1" style={{ color: colors.textSecondary }}>
+                        Dossier
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* Message si dossier vide */}
+          {(!file.files || file.files.length === 0) && (!file.subdirectories || file.subdirectories.length === 0) && (
+            <div className="text-center py-8">
+              <div className="text-2xl mb-2">📁</div>
+              <p className="text-sm" style={{ color: colors.textSecondary }}>
+                Ce dossier est vide
+              </p>
+            </div>
+          )}
+        </div>
       );
     }
 
-    // Vidéos et audio : utiliser le visualiseur sécurisé avec streaming
-    if (fileType === 'video' || fileType === 'audio' || 
-        mimeType.startsWith('video/') || mimeType.startsWith('audio/')) {
-      return (
-        <SecureFileViewer 
-          file={file}
-          onError={(error) => {
-            console.error('Erreur de visualisation média:', error);
-          }}
-        />
-      );
-    }
-
-    // Documents et autres : utiliser le visualiseur unifié
+    // Pour les fichiers normaux, utiliser le visualiseur existant
     return (
       <UnifiedFileViewer 
         file={file}

@@ -165,6 +165,15 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     }
   },
 
+  // Nouveau: Ajouter un élément local à la queue (sans backend)
+  addLocalToQueue: (queueItem: any) => {
+    set((state) => ({
+      queueItems: [...state.queueItems, queueItem],
+      loading: false,
+      error: null
+    }));
+  },
+
   // Actions par type d'analyse
   pauseType: async (type: string) => {
     set({ loading: true, error: null });

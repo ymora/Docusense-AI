@@ -30,31 +30,15 @@ export interface File {
   viewed_at?: string;
 }
 
-export interface DirectoryTree {
-  name: string;
-  path: string;
-  is_directory: boolean;
-  file_count: number;
-  children: DirectoryTree[];
-  files: File[];
-}
-
 interface FileState {
   files: File[];
-  directoryTree: DirectoryTree | null;
-
-  currentDirectory: string | null;
   selectedFiles: (number | string)[]; // Accepter les IDs (number) et les chemins (string)
   selectedFile: File | null;
   loading: boolean;
   error: string | null;
 
-  // Navigation sans cache - données toujours fraîches
-
   // Actions
   loadFiles: () => Promise<void>;
-  loadDirectoryTree: (directory: string) => Promise<void>;
-
   scanDirectory: (directory: string) => Promise<void>;
   analyzeFiles: (fileIds: number[]) => Promise<void>;
   analyzeFile: (fileId: number) => Promise<void>;
@@ -65,10 +49,6 @@ interface FileState {
   clearSelection: () => void;
   selectAllFiles: () => void;
   deselectAllFiles: () => void;
-  setCurrentDirectory: (directory: string | null) => void;
-  
-  // Initialisation automatique
-  initializeDefaultDirectory: () => Promise<void>;
   
   // Actions pour la performance sans cache
   updateFileStatus: (fileId: number, status: File['status'], result?: string) => void;
@@ -80,25 +60,15 @@ interface FileState {
   resetState: () => void;
 }
 
-// OPTIMISATION: Fonction utilitaire pour la gestion du cache
-// Fonctions utilitaires pour les requêtes API
-
-// Utilisation des utilitaires centralisés
-
 export const useFileStore = create<FileState>()(
   devtools(
     persist(
       (set, get) => ({
         files: [],
-        directoryTree: null,
-
-        currentDirectory: null,
         selectedFiles: [],
         selectedFile: null,
         loading: false,
         error: null,
-
-        // Navigation sans cache - données toujours fraîches
 
         loadFiles: (() => {
           const callGuard = createCallGuard();
@@ -112,11 +82,7 @@ export const useFileStore = create<FileState>()(
             
             try {
               // Utiliser l'endpoint /files/?directory= pour récupérer les données de la base de données
-              const currentDir = get().currentDirectory || "D:";
-              const encodedDirectory = encodeURIComponent(currentDir.replace(/\\/g, '/'));
-              const data = await apiRequest(`/api/files/?directory=${encodedDirectory}&limit=100`) as any;
-
-
+              const data = await apiRequest(`/api/files/?limit=100`) as any;
 
               // Les données sont déjà au bon format avec les vrais IDs
               const filesFromDB = (data.files || []).map((file: any) => ({
@@ -143,75 +109,6 @@ export const useFileStore = create<FileState>()(
           });
         })(),
 
-        loadDirectoryTree: (() => {
-          const callGuard = createCallGuard();
-          return callGuard(async (directory: string) => {
-            const loadingActions = createLoadingActions(set, get);
-            const updater = createOptimizedUpdater(set, get);
-            
-            if (!loadingActions.startLoading()) {
-              return;
-            }
-            
-            try {
-              // Utiliser l'endpoint /list pour obtenir le contenu réel du répertoire
-              const encodedDirectory = encodeURIComponent(directory.replace(/\\/g, '/'));
-              const url = `/api/files/list/${encodedDirectory}`;
-              
-              const response = await apiRequest(url);
-              
-              // Vérifier si la réponse indique un disque non accessible
-              if (response.error && ['DISK_LOCKED', 'DISK_NOT_READY', 'DISK_ERROR'].includes(response.error)) {
-                const errorMessage = response.message || `Le disque ${directory} n'est pas accessible`;
-                const retryAfter = response.retry_after || 30;
-                
-                // Afficher un message d'erreur informatif à l'utilisateur
-                const userMessage = `${errorMessage}\n\nVeuillez déverrouiller le disque et réessayer dans ${retryAfter} secondes.`;
-                
-                loadingActions.finishLoadingWithError(userMessage);
-                
-                // Éviter les requêtes en boucle en attendant le délai de retry
-                setTimeout(() => {
-                  // Ne pas relancer automatiquement, laisser l'utilisateur décider
-                  console.log(`Disque ${directory} non accessible. Attente de ${retryAfter} secondes avant nouvelle tentative.`);
-                }, retryAfter * 1000);
-                
-                return;
-              }
-              
-              // Construire la structure DirectoryTree à partir de la réponse /list
-              const treeData = {
-                name: directory.split(/[\\/]/).pop() || directory,
-                path: directory,
-                is_directory: true,
-                file_count: response.total_files || 0,
-                children: response.subdirectories || [],
-                files: response.files || []
-              };
-              
-              updater.updateMultiple({
-                directoryTree: treeData as DirectoryTree,
-                currentDirectory: directory,
-              });
-              
-              // OPTIMISATION: Plus besoin de double chargement, les données sont déjà complètes
-              
-              loadingActions.finishLoading();
-            } catch (error) {
-              console.error("❌ Erreur dans loadDirectoryTree:", error);
-              
-              // Vérifier si c'est une erreur de disque verrouillé
-              const errorMessage = handleApiError(error);
-              if (errorMessage.includes('verrouillé') || errorMessage.includes('locked') || errorMessage.includes('not ready')) {
-                const userMessage = `Le disque ${directory} est verrouillé ou non accessible.\n\nVeuillez le déverrouiller et réessayer.`;
-                loadingActions.finishLoadingWithError(userMessage);
-              } else {
-                loadingActions.finishLoadingWithError(errorMessage);
-              }
-            }
-          });
-        })(),
-
         scanDirectory: (() => {
           const callGuard = createCallGuard();
           return callGuard(async (directory: string) => {
@@ -227,8 +124,8 @@ export const useFileStore = create<FileState>()(
                 body: JSON.stringify({ directory_path: directory }),
               });
 
-              // Recharger l'arborescence avec données fraîches
-              await get().loadDirectoryTree(directory);
+              // Recharger les fichiers avec données fraîches
+              await get().loadFiles();
               loadingActions.finishLoading();
             } catch (error) {
               loadingActions.finishLoadingWithError(handleApiError(error));
@@ -394,29 +291,6 @@ export const useFileStore = create<FileState>()(
           set({ selectedFiles: [] });
         },
 
-        setCurrentDirectory: (directory: string | null) => {
-          set({ currentDirectory: directory });
-        },
-
-        // Initialisation automatique du répertoire par défaut
-        initializeDefaultDirectory: (() => {
-          const callGuard = createCallGuard();
-          return callGuard(async () => {
-            try {
-              // TOUJOURS démarrer à la racine du disque D (pas de restauration)
-              try {
-                await get().loadDirectoryTree("D:");
-              } catch (error) {
-                console.warn("⚠️ Impossible de charger le disque D, tentative avec C:", error);
-                // Fallback vers le disque C si D n'est pas accessible
-                await get().loadDirectoryTree("C:");
-              }
-            } catch (error) {
-              console.error("❌ Erreur lors de l'initialisation du répertoire par défaut:", error);
-            }
-          });
-        })(),
-
         // Actions pour la performance sans cache
         updateFileStatus: (fileId: number, status: File['status'], result?: string) => {
           set((state) => ({
@@ -447,8 +321,6 @@ export const useFileStore = create<FileState>()(
         resetState: () => {
           set({
             files: [],
-            directoryTree: null,
-            currentDirectory: null,
             selectedFiles: [],
             selectedFile: null,
             loading: false,
@@ -460,8 +332,6 @@ export const useFileStore = create<FileState>()(
         name: 'docusense-file-store',
         partialize: (state) => ({
           selectedFiles: state.selectedFiles,
-          // selectedFile: state.selectedFile, // Ne pas persister le fichier sélectionné
-          // currentDirectory: state.currentDirectory, // Ne pas persister le répertoire actuel
           // NOUVEAU: Persister les données de consultation
           files: state.files.map(file => ({
             id: file.id,

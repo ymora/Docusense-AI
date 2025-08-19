@@ -25,6 +25,7 @@ const Layout: React.FC = () => {
   const { colors } = useColors();
   const [isResizing, setIsResizing] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
+  const [resizeStartWidth, setResizeStartWidth] = useState<number | null>(null);
   
   // États pour l'authentification
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -361,7 +362,17 @@ const Layout: React.FC = () => {
 
   // Gestion du redimensionnement
   const handleResizeStart = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    console.log('🎯 Début du redimensionnement, largeur actuelle:', sidebarWidth);
     setIsResizing(true);
+    setResizeStartWidth(sidebarWidth);
+    
+    // Empêcher la sélection de texte
+    document.body.style.userSelect = 'none';
+    document.body.style.cursor = 'col-resize';
+    
     document.addEventListener('mousemove', handleResize);
     document.addEventListener('mouseup', handleResizeEnd);
   };
@@ -373,13 +384,33 @@ const Layout: React.FC = () => {
       const maxSidebarWidth = window.innerWidth * 0.33;
       const minSidebarWidth = 200; // Largeur minimale
       const clampedWidth = Math.max(minSidebarWidth, Math.min(maxSidebarWidth, newWidth));
-              logService.info('Redimensionnement du panneau', 'Layout', { newWidth, maxSidebarWidth, clampedWidth });
-      setSidebarWidth(clampedWidth);
+      
+      // Empêcher la sélection de texte pendant le redimensionnement
+      e.preventDefault();
+      
+      // Mettre à jour la largeur immédiatement pour une réponse fluide
+      if (clampedWidth !== sidebarWidth) {
+        console.log('🔄 Redimensionnement:', { 
+          newWidth, 
+          maxSidebarWidth, 
+          clampedWidth, 
+          currentSidebarWidth: sidebarWidth,
+          windowWidth: window.innerWidth
+        });
+        setSidebarWidth(clampedWidth);
+      }
     }
   };
 
   const handleResizeEnd = () => {
+    console.log('✅ Fin du redimensionnement, largeur finale:', sidebarWidth);
     setIsResizing(false);
+    setResizeStartWidth(null);
+    
+    // Restaurer les styles du body
+    document.body.style.userSelect = '';
+    document.body.style.cursor = '';
+    
     document.removeEventListener('mousemove', handleResize);
     document.removeEventListener('mouseup', handleResizeEnd);
   };
@@ -414,9 +445,9 @@ const Layout: React.FC = () => {
   // Gestion du redimensionnement de la fenêtre
   useEffect(() => {
     const handleWindowResize = () => {
-      // Si la sidebar dépasse 1/2 de la largeur, la redimensionner
-      if (sidebarWidth > window.innerWidth * 0.5) {
-        setSidebarWidth(window.innerWidth * 0.5);
+      // Si la sidebar dépasse 1/3 de la largeur, la redimensionner
+      if (sidebarWidth > window.innerWidth * 0.33) {
+        setSidebarWidth(window.innerWidth * 0.33);
       }
     };
 
@@ -483,11 +514,11 @@ const Layout: React.FC = () => {
           <>
             {/* Panneau de gauche */}
             <div
-              className="overflow-hidden"
+              className="overflow-hidden flex-shrink-0"
               style={{
-                width: sidebarWidth,
+                width: `${sidebarWidth}px`,
                 minWidth: '200px',
-                maxWidth: '33%',
+                maxWidth: `${window.innerWidth * 0.33}px`,
                 backgroundColor: colors.surface,
                 borderRight: `1px solid ${colors.border}`,
               }}
@@ -503,9 +534,11 @@ const Layout: React.FC = () => {
 
             {/* Séparateur redimensionnable */}
             <div
-              className="w-2 cursor-col-resize transition-colors hover:w-3"
+              className="w-2 cursor-col-resize transition-all duration-200 hover:w-3 relative group"
               style={{
                 backgroundColor: isResizing ? colors.primary : colors.border,
+                minWidth: '8px',
+                maxWidth: '12px'
               }}
               onMouseEnter={(e) => {
                 if (!isResizing) {
@@ -519,13 +552,26 @@ const Layout: React.FC = () => {
               }}
               onMouseDown={handleResizeStart}
               title="Glisser pour redimensionner le panneau gauche (max 1/3 de l'écran)"
-            />
+            >
+              {/* Indicateur visuel */}
+              <div 
+                className="absolute inset-y-0 left-1/2 transform -translate-x-1/2 w-0.5 bg-white/50 opacity-0 group-hover:opacity-100 transition-opacity"
+                style={{ backgroundColor: 'rgba(255, 255, 255, 0.5)' }}
+              />
+              
+              {/* Zone invisible pour faciliter la saisie */}
+              <div 
+                className="absolute inset-0 w-6 -left-2 cursor-col-resize"
+                style={{ backgroundColor: 'transparent' }}
+                onMouseDown={handleResizeStart}
+              />
+            </div>
 
             {/* Panneau principal */}
-            <div className="flex-1 flex flex-col">
+            <div className="flex-1 flex flex-col min-w-0">
               
               {/* Contenu principal */}
-              <div className="flex-1">
+              <div className="flex-1 min-w-0">
                 <MainPanel 
                   activePanel={activePanel} 
                   onSetActivePanel={setActivePanel}

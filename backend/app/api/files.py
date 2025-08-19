@@ -265,8 +265,8 @@ async def list_directory_content(
         if not result.get("success", True) and result.get("error") in ["DISK_LOCKED", "DISK_NOT_READY", "DISK_ERROR"]:
             # Retourner une réponse d'erreur appropriée avec les informations de retry
             return ResponseFormatter.error_response(
+                message=result.get("message", result.get("user_message", "Erreur d'accès au disque")),
                 error_code=result["error"],
-                message=result["message"],
                 data={
                     "retry_after": result.get("retry_after"),
                     "directory": decoded_directory,
