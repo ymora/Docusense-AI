@@ -645,13 +645,13 @@ export const QueueIAAdvanced: React.FC = () => {
           await pdfService.generateAnalysisPDF(parseInt(itemId));
           logService.info('PDF généré', 'QueueIAAdvanced', { itemId, itemName });
           break;
-                 case 'duplicate_item':
-           logService.debug('Duplication de l\'analyse', 'QueueIAAdvanced', { itemId, itemName });
-           
-           // Récupérer les sélections locales ou les valeurs par défaut pour la duplication
-           const localSelection = localSelections[itemId] || {};
-           const duplicateProvider = localSelection.provider || item.analysis_provider;
-           const duplicatePrompt = localSelection.prompt || item.analysis_prompt;
+                         case 'duplicate_item':
+            logService.debug('Duplication de l\'analyse', 'QueueIAAdvanced', { itemId, itemName });
+            
+            // Récupérer les sélections locales ou les valeurs par défaut pour la duplication
+            const duplicateLocalSelection = localSelections[itemId] || {};
+            const duplicateProvider = duplicateLocalSelection.provider || item.analysis_provider;
+            const duplicatePrompt = duplicateLocalSelection.prompt || item.analysis_prompt;
            
            try {
              const result = await queueService.duplicateAnalysis(
