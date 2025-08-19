@@ -43,7 +43,8 @@ def get_queue_items(
     
     # Sérialiser les données de la queue
     queue_items_data = []
-    for item in items:
+    for i, item in enumerate(items):
+        logger.info(f"Processing item {i+1}/{len(items)}: ID={item.id}, analysis_id={item.analysis_id}")
         try:
             item_data = {
                 "id": item.id,
@@ -67,13 +68,14 @@ def get_queue_items(
                 "analysis_model": item.analysis.model if item.analysis else None,
                 "analysis_prompt": item.analysis.prompt if item.analysis else None,
                 "file_info": {
-                    "id": None,
-                    "name": "N/A",
-                    "size": None,
-                    "mime_type": None,
+                    "id": item.analysis.file.id if item.analysis and item.analysis.file else None,
+                    "name": item.analysis.file.name if item.analysis and item.analysis.file else "N/A",
+                    "size": item.analysis.file.size if item.analysis and item.analysis.file else None,
+                    "mime_type": item.analysis.file.mime_type if item.analysis and item.analysis.file else None,
                 }
             }
             queue_items_data.append(item_data)
+            logger.info(f"Successfully serialized item {item.id}")
         except Exception as e:
             logger.error(f"Error serializing item {item.id}: {e}")
             continue

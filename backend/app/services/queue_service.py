@@ -105,7 +105,7 @@ class QueueService(BaseService):
         query = self._apply_queue_filters(query, status, priority)
         
         # Join with analysis (left join to include analyses without files)
-        query = query.join(QueueItem.analysis)
+        query = query.outerjoin(QueueItem.analysis)
         
         # Apply pagination
         query = query.order_by(QueueItem.created_at.desc())

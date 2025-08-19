@@ -185,10 +185,10 @@ const ConfigurationCompact: React.FC<{
    let selectedPromptId = '';
    if (localSelection.prompt !== undefined) {
      selectedPromptId = localSelection.prompt;
-   } else if (item.analysis_prompt) {
-     // Chercher le prompt par son contenu
-     const matchingPrompt = prompts.find(p => p.prompt === item.analysis_prompt);
-     selectedPromptId = matchingPrompt?.id || '';
+       } else if ((item as any).analysis_prompt) {
+      // Chercher le prompt par son contenu
+      const matchingPrompt = prompts.find(p => p.prompt === (item as any).analysis_prompt);
+      selectedPromptId = matchingPrompt?.id || '';
    } else {
      // Sélection automatique basée sur le type de fichier
      const fileName = item.file_info?.name || '';
@@ -297,11 +297,11 @@ const ConfigurationCompact: React.FC<{
              ));
            })()}
          </select>
-        {selectedPromptId && (
-          <span className="text-xs text-gray-500">
-            {selectedPromptId === item.analysis_prompt ? '(défaut)' : '(modifié)'}
-          </span>
-        )}
+                 {selectedPromptId && (
+           <span className="text-xs text-gray-500">
+             {selectedPromptId === (item as any).analysis_prompt ? '(défaut)' : '(modifié)'}
+           </span>
+         )}
       </div>
     </div>
   );
@@ -384,53 +384,49 @@ const UtilityActions: React.FC<{
 
   const localSelection = localSelections[item.id] || {};
   const hasProvider = localSelection.provider !== undefined ? localSelection.provider : item.analysis_provider;
-  const hasPrompt = localSelection.prompt !== undefined ? localSelection.prompt : item.analysis_prompt;
+  const hasPrompt = localSelection.prompt !== undefined ? localSelection.prompt : (item as any).analysis_prompt;
   const canStart = hasProvider && hasPrompt;
 
-     // Configuration des actions
-   const actionConfig = {
-     main: {
-       action: '', icon: null, variant: 'primary', disabled: true, tooltip: ''
-     },
-     view: {
-       action: 'view_file', icon: <EyeIcon className="w-5 h-5" />, variant: 'info', disabled: true, tooltip: 'Visualiser le fichier'
-     },
-     duplicate: {
-       action: 'duplicate_item', icon: <DocumentDuplicateIcon className="w-5 h-5" />, variant: 'warning', disabled: false, tooltip: 'Dupliquer l\'analyse' // Always active
-     },
-     delete: {
-       action: 'delete_item', icon: <TrashIcon className="w-5 h-5" />, variant: 'danger', disabled: true, tooltip: 'Supprimer l\'analyse'
-     }
-   };
+       // Configuration des actions avec une seule icône principale qui change selon le contexte
+  const actionConfig = {
+    main: {
+      action: '', icon: null, variant: 'primary', disabled: true, tooltip: ''
+    },
+    view: {
+      action: 'view_file', icon: <EyeIcon className="w-4 h-4" />, variant: 'info', disabled: true, tooltip: 'Visualiser le fichier'
+    },
+    duplicate: {
+      action: 'duplicate_item', icon: <DocumentDuplicateIcon className="w-4 h-4" />, variant: 'warning', disabled: false, tooltip: 'Dupliquer l\'analyse' // Always active
+    },
+    delete: {
+      action: 'delete_item', icon: <TrashIcon className="w-4 h-4" />, variant: 'danger', disabled: false, tooltip: 'Supprimer l\'analyse' // Always active
+    }
+  };
 
-  // Logique pour l'action principale
+  // Logique pour l'action principale qui change selon le contexte
   if (isAnalysisPending) {
-    actionConfig.main = canStart
-      ? { action: 'start_analysis', icon: <PlayIcon />, variant: 'success', disabled: false, tooltip: 'Démarrer l\'analyse' }
-      : { action: 'configure', icon: <CogIcon />, variant: 'primary', disabled: false, tooltip: 'Configurer l\'IA et le prompt' };
-    actionConfig.delete.disabled = false; // Peut supprimer en attente
+    if (canStart) {
+      actionConfig.main = { action: 'start_analysis', icon: <PlayIcon className="w-4 h-4" />, variant: 'success', disabled: false, tooltip: 'Démarrer l\'analyse' };
+    } else {
+      actionConfig.main = { action: '', icon: <PlayIcon className="w-4 h-4" />, variant: 'primary', disabled: true, tooltip: 'Configurer l\'IA et le prompt pour démarrer' };
+    }
   } else if (isAnalysisProcessing) {
-    actionConfig.main = { action: 'pause_item', icon: <PauseIcon />, variant: 'warning', disabled: false, tooltip: 'Mettre en pause l\'analyse' };
-    actionConfig.delete.disabled = true; // Impossible de supprimer pendant le traitement
+    actionConfig.main = { action: 'pause_item', icon: <PauseIcon className="w-4 h-4" />, variant: 'warning', disabled: false, tooltip: 'Mettre en pause l\'analyse' };
   } else if (isAnalysisPaused) {
-    actionConfig.main = { action: 'start_analysis', icon: <PlayIcon />, variant: 'success', disabled: false, tooltip: 'Reprendre l\'analyse' };
-    actionConfig.delete.disabled = false; // Peut supprimer en pause
+    actionConfig.main = { action: 'start_analysis', icon: <PlayIcon className="w-4 h-4" />, variant: 'success', disabled: false, tooltip: 'Reprendre l\'analyse' };
   } else if (isAnalysisCompleted) {
-    actionConfig.main = { action: 'retry_analysis', icon: <ArrowPathIcon />, variant: 'primary', disabled: false, tooltip: 'Relancer l\'analyse' };
+    actionConfig.main = { action: 'retry_analysis', icon: <ArrowPathIcon className="w-4 h-4" />, variant: 'primary', disabled: false, tooltip: 'Relancer l\'analyse' };
     actionConfig.view.disabled = false; // Peut visualiser si terminée
-    actionConfig.delete.disabled = false; // Peut supprimer si terminée
   } else if (isAnalysisFailed) {
-    actionConfig.main = { action: 'retry_analysis', icon: <ArrowPathIcon />, variant: 'primary', disabled: false, tooltip: 'Relancer l\'analyse' };
-    actionConfig.delete.disabled = false; // Peut supprimer si échouée
+    actionConfig.main = { action: 'retry_analysis', icon: <ArrowPathIcon className="w-4 h-4" />, variant: 'primary', disabled: false, tooltip: 'Relancer l\'analyse' };
   } else { // Unknown status
-    actionConfig.main = { action: '', icon: null, variant: 'primary', disabled: true, tooltip: 'Statut inconnu' };
+    actionConfig.main = { action: '', icon: <PlayIcon className="w-4 h-4" />, variant: 'primary', disabled: true, tooltip: 'Statut inconnu' };
     actionConfig.view.disabled = true;
-    actionConfig.delete.disabled = true;
   }
 
   return (
     <div className="flex items-center gap-1">
-      {/* Bouton d'action principal (Démarrer/Pause/Reprendre/Relancer/Configurer) */}
+      {/* Bouton d'action principal (Démarrer/Pause/Relancer) - change selon le contexte */}
       <button
         onClick={() => onAction(actionConfig.main.action, item.id)}
         disabled={actionConfig.main.disabled}
@@ -439,18 +435,16 @@ const UtilityActions: React.FC<{
         }`}
         style={{
           backgroundColor: 'transparent',
-          border: `1px solid ${actionConfig.main.variant === 'success' ? '#10b981' : actionConfig.main.variant === 'warning' ? '#f59e0b' : actionConfig.main.variant === 'primary' ? '#3b82f6' : '#6b7280'}`,
-          color: actionConfig.main.variant === 'success' ? '#10b981' : actionConfig.main.variant === 'warning' ? '#f59e0b' : actionConfig.main.variant === 'primary' ? '#3b82f6' : '#6b7280',
+          border: `1px solid ${actionConfig.main.disabled ? '#6b7280' : actionConfig.main.variant === 'success' ? '#10b981' : actionConfig.main.variant === 'warning' ? '#f59e0b' : actionConfig.main.variant === 'primary' ? '#3b82f6' : '#6b7280'}`,
+          color: actionConfig.main.disabled ? '#6b7280' : actionConfig.main.variant === 'success' ? '#10b981' : actionConfig.main.variant === 'warning' ? '#f59e0b' : actionConfig.main.variant === 'primary' ? '#3b82f6' : '#6b7280',
           minHeight: '28px'
         }}
-        title={actionConfig.main.tooltip}
+        title={actionConfig.main.tooltip || 'Action principale'}
       >
-        <div className="w-5 h-5">
-          {actionConfig.main.icon}
-        </div>
+        {actionConfig.main.icon || <div className="w-4 h-4" />}
       </button>
 
-      {/* Bouton de visualisation */}
+      {/* Bouton de visualisation - toujours visible */}
       <button
         onClick={() => onAction(actionConfig.view.action, item.id)}
         disabled={actionConfig.view.disabled}
@@ -465,12 +459,10 @@ const UtilityActions: React.FC<{
         }}
         title={actionConfig.view.tooltip}
       >
-        <div className="w-5 h-5">
-          {actionConfig.view.icon}
-        </div>
+        {actionConfig.view.icon}
       </button>
 
-      {/* Bouton de duplication */}
+      {/* Bouton de duplication - toujours visible et actif */}
       <button
         onClick={() => onAction(actionConfig.duplicate.action, item.id)}
         disabled={actionConfig.duplicate.disabled}
@@ -485,12 +477,10 @@ const UtilityActions: React.FC<{
         }}
         title={actionConfig.duplicate.tooltip}
       >
-        <div className="w-5 h-5">
-          {actionConfig.duplicate.icon}
-        </div>
+        {actionConfig.duplicate.icon}
       </button>
 
-      {/* Bouton de suppression */}
+      {/* Bouton de suppression - toujours visible et actif */}
       <button
         onClick={() => onAction(actionConfig.delete.action, item.id)}
         disabled={actionConfig.delete.disabled}
@@ -505,9 +495,7 @@ const UtilityActions: React.FC<{
         }}
         title={actionConfig.delete.tooltip}
       >
-        <div className="w-5 h-5">
-          {actionConfig.delete.icon}
-        </div>
+        {actionConfig.delete.icon}
       </button>
     </div>
   );
@@ -822,28 +810,33 @@ export const QueueIAAdvanced: React.FC = () => {
   // Initialiser les sélections locales avec les valeurs de la base de données
   React.useEffect(() => {
     if (queueItems.length > 0 && currentPrompts.length > 0 && configInitialized) {
-      const initialSelections: { [itemId: string]: { provider?: string; prompt?: string } } = {};
-      
-      queueItems.forEach(item => {
-        if (item.analysis_provider || item.analysis_prompt) {
-          // Pour les prompts, on doit trouver l'ID correspondant au contenu
-          let promptId = undefined;
-          if (item.analysis_prompt) {
-            const matchingPrompt = currentPrompts.find(p => p.prompt === item.analysis_prompt);
-            promptId = matchingPrompt?.id;
+      setLocalSelections(prev => {
+        const updatedSelections = { ...prev };
+        let hasChanges = false;
+        
+        queueItems.forEach(item => {
+          // Ne pas écraser les sélections locales existantes
+          if (!prev[item.id]) {
+            // Seulement initialiser si aucune sélection locale n'existe
+            if (item.analysis_provider || item.analysis_prompt) {
+              // Pour les prompts, on doit trouver l'ID correspondant au contenu
+              let promptId = undefined;
+              if (item.analysis_prompt) {
+                const matchingPrompt = currentPrompts.find(p => p.prompt === item.analysis_prompt);
+                promptId = matchingPrompt?.id;
+              }
+              
+              updatedSelections[item.id] = {
+                provider: item.analysis_provider || undefined,
+                prompt: promptId
+              };
+              hasChanges = true;
+            }
           }
-          
-          initialSelections[item.id] = {
-            provider: item.analysis_provider || undefined,
-            prompt: promptId
-          };
-        }
+        });
+        
+        return hasChanges ? updatedSelections : prev;
       });
-      
-      setLocalSelections(prev => ({
-        ...prev,
-        ...initialSelections
-      }));
     }
   }, [queueItems, currentPrompts, configInitialized]);
   
@@ -947,14 +940,15 @@ export const QueueIAAdvanced: React.FC = () => {
            }
            break;
          case 'delete_item':
-           simpleDelete(
-             `l'analyse "${itemName}"`,
-             async () => {
-               await queueService.deleteQueueItem(parseInt(itemId));
-               logService.info('Analyse supprimée', 'QueueIAAdvanced', { itemId, itemName });
-             }
-           );
-           return;
+           // Suppression directe sans confirmation
+           try {
+             await queueService.deleteQueueItem(parseInt(itemId));
+             logService.info('Analyse supprimée', 'QueueIAAdvanced', { itemId, itemName });
+             await loadQueueItems();
+           } catch (error) {
+             logService.error('Erreur lors de la suppression', 'QueueIAAdvanced', { itemId, itemName, error: error.message });
+           }
+           break;
                          case 'start_analysis':
             // Récupérer les sélections locales ou les valeurs par défaut
             const startLocalSelection = localSelections[itemId] || {};
@@ -997,6 +991,16 @@ export const QueueIAAdvanced: React.FC = () => {
         case 'pause_item':
           logService.debug('Mise en pause de l\'analyse', 'QueueIAAdvanced', { itemId, itemName });
           // TODO: Implémenter la pause
+          break;
+        case 'retry_analysis':
+          logService.debug('Relance de l\'analyse', 'QueueIAAdvanced', { itemId, itemName });
+          try {
+            await queueService.retryQueueItem(parseInt(itemId));
+            logService.info('Analyse relancée', 'QueueIAAdvanced', { itemId, itemName });
+            await loadQueueItems();
+          } catch (error) {
+            logService.error('Erreur lors de la relance', 'QueueIAAdvanced', { itemId, itemName, error: error.message });
+          }
           break;
         default:
           logService.warning('Action non implémentée', 'QueueIAAdvanced', { action, itemId, itemName });

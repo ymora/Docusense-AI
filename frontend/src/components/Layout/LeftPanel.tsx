@@ -156,7 +156,7 @@ const LeftPanel: React.FC = () => {
         {/* Bouton thème jour/nuit */}
         <button
           onClick={toggleTheme}
-          className="p-2 transition-colors rounded-lg hover:bg-slate-700"
+          className="p-2 transition-colors"
           style={{
             color: colors.textSecondary,
           }}
