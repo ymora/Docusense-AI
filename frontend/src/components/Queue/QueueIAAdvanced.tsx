@@ -8,6 +8,7 @@ import {
   DocumentDuplicateIcon, Squares2X2Icon
 } from '@heroicons/react/24/outline';
 import { useColors } from '../../hooks/useColors';
+import { useTypography } from '../../hooks/useTypography';
 import { useQueueStore } from '../../stores/queueStore';
 import { usePromptStore } from '../../stores/promptStore';
 import { useConfigStore } from '../../stores/configStore';
@@ -18,6 +19,15 @@ import { logService } from '../../services/logService';
 import { formatFileSize } from '../../utils/fileUtils';
 import { UnifiedTable, TableColumn } from '../UI/UnifiedTable';
 import { Prompt } from '../../services/promptService';
+import { useUIStore } from '../../stores/uiStore';
+import { 
+  getStatusColor, 
+  getFileTypeColor, 
+  getFileTypeBackgroundColor,
+  getActionColor,
+  getStatusBackgroundColor,
+  AVAILABILITY_COLORS
+} from '../../utils/colorConstants';
 
 
 
@@ -25,34 +35,36 @@ import { Prompt } from '../../services/promptService';
 const FileInfo: React.FC<{ 
   item: any; 
   colors: any; 
+  textColors: any;
 }> = ({ 
   item, 
-  colors
+  colors,
+  textColors
 }) => {
   return (
     <div className="space-y-1">
       {/* Nom du fichier */}
       <div className="flex items-center gap-2">
-        <DocumentIcon className="w-4 h-4" style={{ color: colors.textSecondary }} />
-        <span className="text-sm font-medium truncate" style={{ color: colors.text }}>
+        <DocumentIcon className="w-4 h-4" style={{ color: textColors.secondary }} />
+        <span className="text-sm font-medium truncate" style={{ color: textColors.primary }}>
           {item.file_info?.name || 'N/A'}
         </span>
       </div>
       
       {/* Taille et type */}
       <div className="flex items-center justify-between text-xs">
-        <span style={{ color: colors.textSecondary }}>
+        <span style={{ color: textColors.secondary }}>
           {item.file_info?.size ? formatFileSize(item.file_info.size) : ''}
         </span>
-        <span style={{ color: colors.textSecondary }}>
+        <span style={{ color: textColors.secondary }}>
           {item.file_info?.mime_type || ''}
         </span>
       </div>
       
       {/* Date de création */}
       <div className="flex items-center gap-1 text-xs">
-        <ClockIcon className="w-3 h-3" style={{ color: colors.textSecondary }} />
-        <span style={{ color: colors.textSecondary }}>
+        <ClockIcon className="w-3 h-3" style={{ color: textColors.secondary }} />
+        <span style={{ color: textColors.secondary }}>
           {new Date(item.created_at).toLocaleString('fr-FR')}
         </span>
       </div>
@@ -73,32 +85,32 @@ const FileTypeDisplay: React.FC<{
     if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'].includes(fileExtension)) {
       return {
         label: 'Image',
-        color: '#10b981', // Vert
-        bgColor: 'rgba(16, 185, 129, 0.1)',
+        color: getFileTypeColor('image'),
+        bgColor: getFileTypeBackgroundColor('image'),
       };
     } else if (['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv'].includes(fileExtension)) {
       return {
         label: 'Vidéo',
-        color: '#8b5cf6', // Violet
-        bgColor: 'rgba(139, 92, 246, 0.1)',
+        color: getFileTypeColor('video'),
+        bgColor: getFileTypeBackgroundColor('video'),
       };
     } else if (['mp3', 'wav', 'flac', 'aac', 'ogg', 'wma'].includes(fileExtension)) {
       return {
         label: 'Audio',
-        color: '#f59e0b', // Orange
-        bgColor: 'rgba(245, 158, 11, 0.1)',
+        color: getFileTypeColor('audio'),
+        bgColor: getFileTypeBackgroundColor('audio'),
       };
     } else if (['pdf', 'doc', 'docx', 'txt', 'rtf', 'odt'].includes(fileExtension)) {
       return {
         label: 'Document',
-        color: '#3b82f6', // Bleu
-        bgColor: 'rgba(59, 130, 246, 0.1)',
+        color: getFileTypeColor('document'),
+        bgColor: getFileTypeBackgroundColor('document'),
       };
     } else {
       return {
         label: 'Texte',
-        color: '#6b7280', // Gris
-        bgColor: 'rgba(107, 114, 128, 0.1)',
+        color: getFileTypeColor('text'),
+        bgColor: getFileTypeBackgroundColor('text'),
       };
     }
   };
@@ -125,11 +137,12 @@ const FileTypeDisplay: React.FC<{
 const ConfigurationCompact: React.FC<{
   item: any;
   colors: any;
+  textColors: any;
   prompts: Prompt[];
   onProviderChange: (itemId: string, provider: string) => void;
   onPromptChange: (itemId: string, promptId: string) => void;
   localSelections: { [itemId: string]: { provider?: string; prompt?: string } };
-}> = ({ item, colors, prompts, onProviderChange, onPromptChange, localSelections }) => {
+}> = ({ item, colors, textColors, prompts, onProviderChange, onPromptChange, localSelections }) => {
   const { getAIProviders } = useConfigStore();
   const allAIProviders = getAIProviders();
   
@@ -303,7 +316,7 @@ const ConfigurationCompact: React.FC<{
     <div className="space-y-2">
       {/* Fournisseur IA */}
       <div className="flex items-center gap-2">
-        <CpuChipIcon className="w-4 h-4" style={{ color: colors.textSecondary }} />
+        <CpuChipIcon className="w-4 h-4" style={{ color: textColors.secondary }} />
                  <select
            value={selectedProvider}
            onChange={(e) => onProviderChange(item.id, e.target.value)}
@@ -311,7 +324,7 @@ const ConfigurationCompact: React.FC<{
            style={{
              backgroundColor: colors.background,
              borderColor: colors.border,
-             color: colors.text
+             color: textColors.primary
            }}
          >
                        {allProvidersWithStatus.map(provider => {
@@ -337,7 +350,7 @@ const ConfigurationCompact: React.FC<{
                   key={provider.id} 
                   value={provider.id}
                   style={{
-                    color: provider.available ? '#10b981' : '#ef4444' // Vert si disponible, rouge si non disponible
+                    color: provider.available ? AVAILABILITY_COLORS.available : AVAILABILITY_COLORS.unavailable
                   }}
                 >
                   {provider.name}
@@ -354,7 +367,7 @@ const ConfigurationCompact: React.FC<{
       
       {/* Prompt */}
       <div className="flex items-center gap-2">
-        <ChatBubbleLeftRightIcon className="w-4 h-4" style={{ color: colors.textSecondary }} />
+        <ChatBubbleLeftRightIcon className="w-4 h-4" style={{ color: textColors.secondary }} />
                  <select
            value={selectedPromptId}
            onChange={(e) => onPromptChange(item.id, e.target.value)}
@@ -362,7 +375,7 @@ const ConfigurationCompact: React.FC<{
            style={{
              backgroundColor: colors.background,
              borderColor: colors.border,
-             color: colors.text
+             color: textColors.primary
            }}
                    >
             {(() => {
@@ -450,38 +463,38 @@ const StatusDisplay: React.FC<{
       case 'pending':
         return {
           label: 'En attente',
-          color: '#f59e0b', // Orange
-          bgColor: 'rgba(245, 158, 11, 0.1)'
+          color: getStatusColor('pending'),
+          bgColor: getStatusBackgroundColor('pending')
         };
       case 'processing':
         return {
           label: 'En cours',
-          color: '#3b82f6', // Bleu
-          bgColor: 'rgba(59, 130, 246, 0.1)'
+          color: getStatusColor('processing'),
+          bgColor: getStatusBackgroundColor('processing')
         };
       case 'completed':
         return {
           label: 'Terminé',
-          color: '#10b981', // Vert
-          bgColor: 'rgba(16, 185, 129, 0.1)'
+          color: getStatusColor('completed'),
+          bgColor: getStatusBackgroundColor('completed')
         };
       case 'failed':
         return {
           label: 'Échoué',
-          color: '#ef4444', // Rouge
-          bgColor: 'rgba(239, 68, 68, 0.1)'
+          color: getStatusColor('failed'),
+          bgColor: getStatusBackgroundColor('failed')
         };
       case 'paused':
         return {
           label: 'En pause',
-          color: '#8b5cf6', // Violet
-          bgColor: 'rgba(139, 92, 246, 0.1)'
+          color: getStatusColor('paused'),
+          bgColor: getStatusBackgroundColor('paused')
         };
       default:
         return {
           label: 'Inconnu',
           color: colors.textSecondary,
-          bgColor: 'rgba(107, 114, 128, 0.1)'
+          bgColor: getStatusBackgroundColor('unsupported')
         };
     }
   };
@@ -508,7 +521,8 @@ const UtilityActions: React.FC<{
   onAction: (action: string, itemId: string) => void;
   colors: any;
   localSelections: { [itemId: string]: { provider?: string; prompt?: string } };
-}> = ({ item, onAction, colors, localSelections }) => {
+  selectedItems: string[];
+}> = ({ item, onAction, colors, localSelections, selectedItems }) => {
   const isAnalysisCompleted = item.status === 'completed';
   const isAnalysisProcessing = item.status === 'processing';
   const isAnalysisFailed = item.status === 'failed';
@@ -567,12 +581,21 @@ const UtilityActions: React.FC<{
                !isAnalysisCompleted ? 'Analyse non terminée' :
                !hasPDF ? 'Aucun PDF disponible' : 'Visualiser le fichier'
     },
-    duplicate: {
-      action: 'duplicate_item', icon: <DocumentDuplicateIcon className="w-4 h-4" />, variant: 'warning', disabled: false, tooltip: 'Dupliquer l\'analyse' // Always active
-    },
-    delete: {
-      action: 'delete_item', icon: <TrashIcon className="w-4 h-4" />, variant: 'danger', disabled: false, tooltip: 'Supprimer l\'analyse' // Always active
-    }
+         duplicate: {
+       action: 'duplicate_item', icon: <DocumentDuplicateIcon className="w-4 h-4" />, variant: 'warning', disabled: false, tooltip: 'Dupliquer l\'analyse' // Always active
+     },
+           compare: {
+        action: 'compare_item', 
+        icon: <Squares2X2Icon className="w-4 h-4" />, 
+        variant: 'info', 
+        disabled: selectedItems.length < 2 || !selectedItems.includes(item.id.toString()), 
+        tooltip: selectedItems.length < 2 ? 'Comparer avec d\'autres analyses (sélectionnez au moins 2 analyses)' : 
+               !selectedItems.includes(item.id.toString()) ? 'Comparer avec d\'autres analyses (cet élément doit être sélectionné)' :
+               'Comparer avec d\'autres analyses'
+      },
+     delete: {
+       action: 'delete_item', icon: <TrashIcon className="w-4 h-4" />, variant: 'danger', disabled: false, tooltip: 'Supprimer l\'analyse' // Always active
+     }
   };
 
   // Logique pour l'action principale qui change selon le contexte
@@ -612,12 +635,12 @@ const UtilityActions: React.FC<{
         className={`inline-flex items-center justify-center px-2 py-1 rounded text-xs font-medium transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
           actionConfig.main.disabled ? 'opacity-50 cursor-not-allowed' : ''
         }`}
-        style={{
-          backgroundColor: 'transparent',
-          border: `1px solid ${actionConfig.main.disabled ? '#6b7280' : actionConfig.main.variant === 'success' ? '#10b981' : actionConfig.main.variant === 'warning' ? '#f59e0b' : actionConfig.main.variant === 'primary' ? '#3b82f6' : '#6b7280'}`,
-          color: actionConfig.main.disabled ? '#6b7280' : actionConfig.main.variant === 'success' ? '#10b981' : actionConfig.main.variant === 'warning' ? '#f59e0b' : actionConfig.main.variant === 'primary' ? '#3b82f6' : '#6b7280',
-          minHeight: '24px'
-        }}
+                 style={{
+           backgroundColor: 'transparent',
+           border: `1px solid ${actionConfig.main.disabled ? '#6b7280' : actionConfig.main.variant === 'success' ? getActionColor('start') : actionConfig.main.variant === 'warning' ? getActionColor('pause') : actionConfig.main.variant === 'primary' ? getActionColor('retry') : '#6b7280'}`,
+           color: actionConfig.main.disabled ? '#6b7280' : actionConfig.main.variant === 'success' ? getActionColor('start') : actionConfig.main.variant === 'warning' ? getActionColor('pause') : actionConfig.main.variant === 'primary' ? getActionColor('retry') : '#6b7280',
+           minHeight: '24px'
+         }}
         title={actionConfig.main.tooltip || 'Action principale'}
       >
         {actionConfig.main.icon || <div className="w-4 h-4" />}
@@ -630,52 +653,70 @@ const UtilityActions: React.FC<{
         className={`inline-flex items-center justify-center px-2 py-1 rounded text-xs font-medium transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
           actionConfig.view.disabled ? 'opacity-50 cursor-not-allowed' : ''
         }`}
-        style={{
-          backgroundColor: 'transparent',
-          border: `1px solid ${actionConfig.view.disabled ? '#6b7280' : '#3b82f6'}`,
-          color: actionConfig.view.disabled ? '#6b7280' : '#3b82f6',
-          minHeight: '24px'
-        }}
+                 style={{
+           backgroundColor: 'transparent',
+           border: `1px solid ${actionConfig.view.disabled ? '#6b7280' : getActionColor('view')}`,
+           color: actionConfig.view.disabled ? '#6b7280' : getActionColor('view'),
+           minHeight: '24px'
+         }}
         title={actionConfig.view.tooltip}
       >
         {actionConfig.view.icon}
       </button>
 
-      {/* Bouton de duplication - toujours visible et actif */}
-      <button
-        onClick={() => onAction(actionConfig.duplicate.action, item.id)}
-        disabled={actionConfig.duplicate.disabled}
-        className={`inline-flex items-center justify-center px-2 py-1 rounded text-xs font-medium transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
-          actionConfig.duplicate.disabled ? 'opacity-50 cursor-not-allowed' : ''
-        }`}
-        style={{
-          backgroundColor: 'transparent',
-          border: `1px solid ${actionConfig.duplicate.disabled ? '#6b7280' : '#f59e0b'}`,
-          color: actionConfig.duplicate.disabled ? '#6b7280' : '#f59e0b',
-          minHeight: '24px'
-        }}
-        title={actionConfig.duplicate.tooltip}
-      >
-        {actionConfig.duplicate.icon}
-      </button>
+             {/* Bouton de duplication - toujours visible et actif */}
+       <button
+         onClick={() => onAction(actionConfig.duplicate.action, item.id)}
+         disabled={actionConfig.duplicate.disabled}
+         className={`inline-flex items-center justify-center px-2 py-1 rounded text-xs font-medium transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
+           actionConfig.duplicate.disabled ? 'opacity-50 cursor-not-allowed' : ''
+         }`}
+                   style={{
+            backgroundColor: 'transparent',
+            border: `1px solid ${actionConfig.duplicate.disabled ? '#6b7280' : getActionColor('duplicate')}`,
+            color: actionConfig.duplicate.disabled ? '#6b7280' : getActionColor('duplicate'),
+            minHeight: '24px'
+          }}
+         title={actionConfig.duplicate.tooltip}
+       >
+         {actionConfig.duplicate.icon}
+       </button>
 
-      {/* Bouton de suppression - toujours visible et actif */}
-      <button
-        onClick={() => onAction(actionConfig.delete.action, item.id)}
-        disabled={actionConfig.delete.disabled}
-        className={`inline-flex items-center justify-center px-2 py-1 rounded text-xs font-medium transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
-          actionConfig.delete.disabled ? 'opacity-50 cursor-not-allowed' : ''
-        }`}
-        style={{
-          backgroundColor: 'transparent',
-          border: `1px solid ${actionConfig.delete.disabled ? '#6b7280' : '#ef4444'}`,
-          color: actionConfig.delete.disabled ? '#6b7280' : '#ef4444',
-          minHeight: '24px'
-        }}
-        title={actionConfig.delete.tooltip}
-      >
-        {actionConfig.delete.icon}
-      </button>
+       {/* Bouton de comparaison - toujours visible et actif */}
+       <button
+         onClick={() => onAction(actionConfig.compare.action, item.id)}
+         disabled={actionConfig.compare.disabled}
+         className={`inline-flex items-center justify-center px-2 py-1 rounded text-xs font-medium transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
+           actionConfig.compare.disabled ? 'opacity-50 cursor-not-allowed' : ''
+         }`}
+                   style={{
+            backgroundColor: 'transparent',
+            border: `1px solid ${actionConfig.compare.disabled ? '#6b7280' : getActionColor('compare')}`,
+            color: actionConfig.compare.disabled ? '#6b7280' : getActionColor('compare'),
+            minHeight: '24px'
+          }}
+         title={actionConfig.compare.tooltip}
+       >
+         {actionConfig.compare.icon}
+       </button>
+
+       {/* Bouton de suppression - toujours visible et actif */}
+       <button
+         onClick={() => onAction(actionConfig.delete.action, item.id)}
+         disabled={actionConfig.delete.disabled}
+         className={`inline-flex items-center justify-center px-2 py-1 rounded text-xs font-medium transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
+           actionConfig.delete.disabled ? 'opacity-50 cursor-not-allowed' : ''
+         }`}
+                   style={{
+            backgroundColor: 'transparent',
+            border: `1px solid ${actionConfig.delete.disabled ? '#6b7280' : getActionColor('delete')}`,
+            color: actionConfig.delete.disabled ? '#6b7280' : getActionColor('delete'),
+            minHeight: '24px'
+          }}
+         title={actionConfig.delete.tooltip}
+       >
+         {actionConfig.delete.icon}
+       </button>
     </div>
   );
 };
@@ -689,6 +730,7 @@ interface QueueTableProps {
   onPromptChange: (itemId: string, promptId: string) => void;
   onProviderChange: (itemId: string, provider: string) => void;
   localSelections: { [itemId: string]: { provider?: string; prompt?: string } };
+  textColors: any;
 }
 
 interface QueueFiltersProps {
@@ -705,7 +747,8 @@ const QueueTable: React.FC<QueueTableProps> = ({
   prompts,
   onPromptChange,
   onProviderChange,
-  localSelections
+  localSelections,
+  textColors
 }) => {
   const { colors } = useColors();
   const [sortConfig, setSortConfig] = useState({ key: '', direction: 'asc' as 'asc' | 'desc' });
@@ -725,6 +768,7 @@ const QueueTable: React.FC<QueueTableProps> = ({
         <FileInfo
           item={item}
           colors={colors}
+          textColors={textColors}
         />
       )
     },
@@ -747,6 +791,7 @@ const QueueTable: React.FC<QueueTableProps> = ({
         <ConfigurationCompact
           item={item}
           colors={colors}
+          textColors={textColors}
           prompts={prompts}
           onProviderChange={onProviderChange}
           onPromptChange={onPromptChange}
@@ -769,14 +814,15 @@ const QueueTable: React.FC<QueueTableProps> = ({
       key: 'actions',
       label: 'Actions',
       sortable: false,
-      render: (item) => (
-        <UtilityActions
-          item={item}
-          onAction={onAction}
-          colors={colors}
-          localSelections={localSelections}
-        />
-      )
+             render: (item) => (
+         <UtilityActions
+           item={item}
+           onAction={onAction}
+           colors={colors}
+           localSelections={localSelections}
+           selectedItems={selectedItems}
+         />
+       )
     }
   ];
   
@@ -812,25 +858,6 @@ const QueueFilters: React.FC<QueueFiltersProps> = ({ filters, onFilterChange }) 
         </div>
         
         <select
-          value={filters.status}
-          onChange={(e) => onFilterChange({ ...filters, status: e.target.value })}
-          className="px-2 py-1 rounded text-xs border"
-          style={{
-            backgroundColor: colors.background,
-            borderColor: colors.border,
-            color: colors.text,
-            minWidth: '120px'
-          }}
-        >
-          <option value="">Tous les statuts</option>
-          <option value="pending">En attente</option>
-          <option value="processing">En cours</option>
-          <option value="completed">Terminé</option>
-          <option value="failed">Échoué</option>
-          <option value="paused">En pause</option>
-        </select>
-        
-        <select
           value={filters.file_type}
           onChange={(e) => onFilterChange({ ...filters, file_type: e.target.value })}
           className="px-2 py-1 rounded text-xs border"
@@ -847,6 +874,25 @@ const QueueFilters: React.FC<QueueFiltersProps> = ({ filters, onFilterChange }) 
           <option value="video">Vidéo</option>
           <option value="audio">Audio</option>
           <option value="document">Document</option>
+        </select>
+        
+        <select
+          value={filters.status}
+          onChange={(e) => onFilterChange({ ...filters, status: e.target.value })}
+          className="px-2 py-1 rounded text-xs border"
+          style={{
+            backgroundColor: colors.background,
+            borderColor: colors.border,
+            color: colors.text,
+            minWidth: '120px'
+          }}
+        >
+          <option value="">Tous les statuts</option>
+          <option value="pending">En attente</option>
+          <option value="processing">En cours</option>
+          <option value="completed">Terminé</option>
+          <option value="failed">Échoué</option>
+          <option value="paused">En pause</option>
         </select>
         
         <div className="flex-1 relative">
@@ -887,12 +933,16 @@ const QueueFilters: React.FC<QueueFiltersProps> = ({ filters, onFilterChange }) 
   );
 };
 
+
+
 // Composant principal simplifié
 export const QueueIAAdvanced: React.FC = () => {
   const { colors } = useColors();
+  const { textColors } = useTypography();
   const { queueItems, loadQueueItems } = useQueueStore();
   const { prompts, loading: loadingPrompts, getPrompts } = usePromptStore();
   const { loadAIProviders, refreshAIProviders, isInitialized: configInitialized } = useConfigStore();
+  const { setActivePanel } = useUIStore();
   
   const currentPrompts = getPrompts();
   
@@ -925,12 +975,14 @@ export const QueueIAAdvanced: React.FC = () => {
 
 
   
-  const [selectedItems, setSelectedItems] = useState<string[]>([]);
-     const [filters, setFilters] = useState({
-     status: '',
-     file_type: '',
-     search: ''
-   });
+     const [selectedItems, setSelectedItems] = useState<string[]>([]);
+   const [isDuplicating, setIsDuplicating] = useState<boolean>(false);
+   const [itemsWithPDFs, setItemsWithPDFs] = useState<{ [itemId: string]: boolean }>({});
+   const [filters, setFilters] = useState({
+      status: '',
+      file_type: '',
+      search: ''
+    });
 
    // Filtrer les éléments selon les critères
    const filteredItems = React.useMemo(() => {
@@ -1054,7 +1106,32 @@ export const QueueIAAdvanced: React.FC = () => {
     }
   }, [queueItems, currentPrompts, configInitialized]);
   
-  const { simpleDelete, simpleAction } = useSimpleConfirm();
+     const { simpleDelete, simpleAction } = useSimpleConfirm();
+
+   // Fonction pour vérifier les PDFs des éléments sélectionnés
+   const checkPDFsForSelectedItems = React.useCallback(async (items: string[]) => {
+     const pdfStatus: { [itemId: string]: boolean } = {};
+     
+     for (const itemId of items) {
+       try {
+         const hasPDF = await pdfService.hasPDF(parseInt(itemId));
+         pdfStatus[itemId] = hasPDF;
+       } catch (error) {
+         pdfStatus[itemId] = false;
+       }
+     }
+     
+     setItemsWithPDFs(pdfStatus);
+   }, []);
+
+   // Vérifier les PDFs quand la sélection change
+   React.useEffect(() => {
+     if (selectedItems.length > 0) {
+       checkPDFsForSelectedItems(selectedItems);
+     } else {
+       setItemsWithPDFs({});
+     }
+   }, [selectedItems, checkPDFsForSelectedItems]);
 
   // Gérer le changement de prompt (mise à jour locale uniquement)
   const handlePromptChange = (itemId: string, promptId: string) => {
@@ -1219,49 +1296,79 @@ export const QueueIAAdvanced: React.FC = () => {
             logService.error('Erreur lors de la mise en pause', 'QueueIAAdvanced', { itemId, itemName, error: error.message });
           }
           break;
-        case 'view_file':
-          logService.debug('Ouverture du fichier analysé', 'QueueIAAdvanced', { itemId, itemName });
-          try {
-            // Vérifier si le PDF existe pour cette analyse
-            const hasPDF = await pdfService.hasPDF(parseInt(itemId));
-            
-            if (hasPDF) {
-              // Ouvrir le PDF dans un nouvel onglet
-              const pdfUrl = pdfService.getPDFDownloadURL(parseInt(itemId));
-              window.open(pdfUrl, '_blank');
+                 case 'view_file':
+           logService.debug('Ouverture du fichier analysé', 'QueueIAAdvanced', { itemId, itemName });
+           try {
+             // Vérifier si le PDF existe pour cette analyse
+             const hasPDF = await pdfService.hasPDF(parseInt(itemId));
+             
+             if (hasPDF) {
+               // Ouvrir dans l'onglet Visualiseur
+               setActivePanel('main');
+               // Émettre un événement pour ouvrir le PDF dans le visualiseur
+               window.dispatchEvent(new CustomEvent('openPDFInViewer', {
+                 detail: { pdfUrl: pdfService.getPDFDownloadURL(parseInt(itemId)), fileName: itemName }
+               }));
+               
+               logService.info('PDF ouvert dans l\'onglet Visualiseur', 'QueueIAAdvanced', { itemId, itemName });
+             } else {
+               // Générer le PDF d'abord
+               logService.info('Génération du PDF en cours...', 'QueueIAAdvanced', { itemId, itemName });
+               
+               try {
+                 await pdfService.generateAnalysisPDF(parseInt(itemId));
+                 
+                 // Ouvrir le PDF généré dans l'onglet Visualiseur
+                 setActivePanel('main');
+                 window.dispatchEvent(new CustomEvent('openPDFInViewer', {
+                   detail: { pdfUrl: pdfService.getPDFDownloadURL(parseInt(itemId)), fileName: itemName }
+                 }));
+                 
+                 logService.info('PDF généré et ouvert dans l\'onglet Visualiseur', 'QueueIAAdvanced', { itemId, itemName });
+               } catch (pdfError) {
+                 logService.error('Erreur lors de la génération du PDF', 'QueueIAAdvanced', { itemId, itemName, error: pdfError.message });
+               }
+             }
+             
+           } catch (error) {
+             logService.error('Erreur lors de l\'ouverture du fichier', 'QueueIAAdvanced', { itemId, itemName, error: error.message });
+           }
+           break;
+                 case 'retry_analysis':
+           logService.debug('Relance de l\'analyse', 'QueueIAAdvanced', { itemId, itemName });
+           try {
+             await queueService.retryQueueItem(parseInt(itemId));
+             logService.info('Analyse relancée', 'QueueIAAdvanced', { itemId, itemName });
+             await loadQueueItems();
+           } catch (error) {
+             logService.error('Erreur lors de la relance', 'QueueIAAdvanced', { itemId, itemName, error: error.message });
+           }
+           break;
+                   case 'compare_item':
+            logService.debug('Comparaison de l\'analyse', 'QueueIAAdvanced', { itemId, itemName });
+            try {
+              // Vérifier si le PDF existe pour cette analyse
+              const hasPDF = await pdfService.hasPDF(parseInt(itemId));
               
-              logService.info('PDF ouvert dans un nouvel onglet', 'QueueIAAdvanced', { itemId, itemName, pdfUrl });
-            } else {
-              // Générer le PDF d'abord
-              logService.info('Génération du PDF en cours...', 'QueueIAAdvanced', { itemId, itemName });
-              
-              try {
-                await pdfService.generateAnalysisPDF(parseInt(itemId));
-                
-                // Ouvrir le PDF généré
-                const pdfUrl = pdfService.getPDFDownloadURL(parseInt(itemId));
-                window.open(pdfUrl, '_blank');
-                
-                logService.info('PDF généré et ouvert', 'QueueIAAdvanced', { itemId, itemName, pdfUrl });
-              } catch (pdfError) {
-                logService.error('Erreur lors de la génération du PDF', 'QueueIAAdvanced', { itemId, itemName, error: pdfError.message });
+              if (!hasPDF) {
+                logService.warning('Aucun PDF disponible pour la comparaison', 'QueueIAAdvanced', { itemId, itemName });
+                return;
               }
+              
+              // Ouvrir la comparaison dans l'onglet Visualiseur
+              setActivePanel('main');
+              window.dispatchEvent(new CustomEvent('openMultiplePDFsInViewer', {
+                detail: { 
+                  selectedItems: [itemId],
+                  queueItems: queueItems,
+                  isComparison: true
+                }
+              }));
+              logService.info('Ouverture de la comparaison dans l\'onglet Visualiseur', 'QueueIAAdvanced', { itemId, itemName });
+            } catch (error) {
+              logService.error('Erreur lors de la comparaison', 'QueueIAAdvanced', { itemId, itemName, error: error.message });
             }
-            
-          } catch (error) {
-            logService.error('Erreur lors de l\'ouverture du fichier', 'QueueIAAdvanced', { itemId, itemName, error: error.message });
-          }
-          break;
-        case 'retry_analysis':
-          logService.debug('Relance de l\'analyse', 'QueueIAAdvanced', { itemId, itemName });
-          try {
-            await queueService.retryQueueItem(parseInt(itemId));
-            logService.info('Analyse relancée', 'QueueIAAdvanced', { itemId, itemName });
-            await loadQueueItems();
-          } catch (error) {
-            logService.error('Erreur lors de la relance', 'QueueIAAdvanced', { itemId, itemName, error: error.message });
-          }
-          break;
+            break;
         default:
           logService.warning('Action non implémentée', 'QueueIAAdvanced', { action, itemId, itemName });
           console.log('Action non implémentée:', action);
@@ -1273,48 +1380,197 @@ export const QueueIAAdvanced: React.FC = () => {
     }
   };
   
-  const handleBulkAction = async (action: string) => {
-    if (selectedItems.length === 0) return;
-    
-    try {
-      logService.debug(`Action bulk ${action} sur ${selectedItems.length} éléments`, 'QueueIAAdvanced', { action, selectedItems });
-      
-      switch (action) {
-        case 'pause_all':
-          await queueService.pauseQueue();
-          logService.info('Queue mise en pause', 'QueueIAAdvanced');
-          break;
-        case 'resume_all':
-          await queueService.resumeQueue();
-          logService.info('Queue reprise', 'QueueIAAdvanced');
-          break;
-        case 'retry_failed':
-          await queueService.retryFailedItems();
-          logService.info('Analyses échouées relancées', 'QueueIAAdvanced');
-          break;
-                 case 'compare_selected':
-           if (selectedItems.length < 2) {
-             logService.warning('Comparaison impossible - moins de 2 éléments sélectionnés', 'QueueIAAdvanced', { selectedItems });
-             return;
-           }
-           logService.info('Comparaison des analyses sélectionnées', 'QueueIAAdvanced', { selectedItems });
-           
-           try {
-             // TODO: Implémenter la logique de comparaison
-             // Pour l'instant, on log l'action et on pourrait :
-             // 1. Récupérer les PDFs des analyses sélectionnées
-             // 2. Ouvrir une interface de comparaison
-             // 3. Afficher les analyses côte à côte
-             
-             logService.info('Fonctionnalité de comparaison à implémenter', 'QueueIAAdvanced', { 
-               selectedItems, 
-               count: selectedItems.length 
-             });
-             
-           } catch (error) {
-             logService.error('Erreur lors de la comparaison', 'QueueIAAdvanced', { selectedItems, error: error.message });
-           }
+     const handleBulkAction = async (action: string) => {
+     if (selectedItems.length === 0) return;
+     
+     try {
+       logService.debug(`Action bulk ${action} sur ${selectedItems.length} éléments`, 'QueueIAAdvanced', { action, selectedItems });
+       
+       switch (action) {
+         case 'pause_all':
+           await queueService.pauseQueue();
+           logService.info('Queue mise en pause', 'QueueIAAdvanced');
            break;
+         case 'resume_all':
+           await queueService.resumeQueue();
+           logService.info('Queue reprise', 'QueueIAAdvanced');
+           break;
+         case 'retry_failed':
+           await queueService.retryFailedItems();
+           logService.info('Analyses échouées relancées', 'QueueIAAdvanced');
+           break;
+                   case 'view_multiple':
+            // Vérifier qu'au moins un PDF est disponible avant d'ouvrir la visualisation
+            const itemsWithPDFs = await Promise.all(
+              selectedItems.map(async (itemId) => {
+                try {
+                  const hasPDF = await pdfService.hasPDF(parseInt(itemId));
+                  return { itemId, hasPDF };
+                } catch (error) {
+                  return { itemId, hasPDF: false };
+                }
+              })
+            );
+            
+            const availablePDFs = itemsWithPDFs.filter(item => item.hasPDF);
+            
+            if (availablePDFs.length === 0) {
+              logService.warning('Aucun PDF disponible pour la visualisation', 'QueueIAAdvanced', { selectedItems });
+              return;
+            }
+            
+            // Ouvrir la visualisation multiple des PDFs dans l'onglet Visualiseur
+            setActivePanel('main');
+            window.dispatchEvent(new CustomEvent('openMultiplePDFsInViewer', {
+              detail: { 
+                selectedItems: availablePDFs.map(item => item.itemId),
+                queueItems: queueItems
+              }
+            }));
+            logService.info('Ouverture de la visualisation multiple dans l\'onglet Visualiseur', 'QueueIAAdvanced', { 
+              selectedItems: availablePDFs.map(item => item.itemId),
+              count: availablePDFs.length 
+            });
+            break;
+         case 'duplicate_selected':
+           // Dupliquer toutes les analyses sélectionnées
+           setIsDuplicating(true);
+           logService.info('Début de la duplication multiple', 'QueueIAAdvanced', { 
+             selectedItems, 
+             count: selectedItems.length 
+           });
+           
+           for (const itemId of selectedItems) {
+             const item = queueItems.find(q => q.id.toString() === itemId);
+             if (!item) {
+               logService.warning('Item non trouvé pour duplication', 'QueueIAAdvanced', { itemId });
+               continue;
+             }
+             
+             const itemName = item.file_info?.name || `ID: ${itemId}`;
+             
+             // Récupérer les sélections locales ou les valeurs par défaut
+             const duplicateLocalSelection = localSelections[itemId] || {};
+             const duplicateProvider = duplicateLocalSelection.provider || item.analysis_provider;
+             
+             // Pour les prompts, récupérer le contenu du prompt sélectionné
+             let duplicatePrompt = '';
+             if (duplicateLocalSelection.prompt) {
+               const selectedPromptObj = currentPrompts.find(p => p.id === duplicateLocalSelection.prompt);
+               duplicatePrompt = selectedPromptObj?.prompt || '';
+             } else if ((item as any).analysis_prompt) {
+               duplicatePrompt = (item as any).analysis_prompt;
+             }
+             
+             // Validation
+             if (!duplicateProvider || !duplicatePrompt) {
+               logService.warning('Impossible de dupliquer - IA ou prompt manquant', 'QueueIAAdvanced', { 
+                 itemId, 
+                 itemName, 
+                 duplicateProvider, 
+                 duplicatePrompt 
+               });
+               continue;
+             }
+             
+             try {
+               logService.debug('Duplication en cours', 'QueueIAAdvanced', { 
+                 itemId, 
+                 itemName, 
+                 provider: duplicateProvider, 
+                 prompt: duplicatePrompt.substring(0, 50) + '...' 
+               });
+               
+               const result = await queueService.duplicateAnalysis(
+                 parseInt(itemId), 
+                 duplicateProvider, 
+                 duplicatePrompt
+               );
+               
+               logService.info('Analyse dupliquée avec succès', 'QueueIAAdvanced', { 
+                 itemId, 
+                 itemName, 
+                 newItemId: result.new_item_id,
+                 newAnalysisId: result.new_analysis_id,
+                 provider: duplicateProvider
+               });
+               
+             } catch (error) {
+               logService.error('Erreur lors de la duplication', 'QueueIAAdvanced', { 
+                 itemId, 
+                 itemName, 
+                 error: error.message 
+               });
+             }
+           }
+           
+                       // Rafraîchir la queue après toutes les duplications
+            await loadQueueItems();
+            setIsDuplicating(false);
+            logService.info('Duplication multiple terminée', 'QueueIAAdvanced', { 
+              selectedItems, 
+              count: selectedItems.length 
+            });
+            break;
+                   case 'delete_selected':
+            // Supprimer toutes les analyses sélectionnées
+            for (const itemId of selectedItems) {
+              try {
+                await queueService.deleteQueueItem(parseInt(itemId));
+                logService.info('Analyse supprimée', 'QueueIAAdvanced', { itemId });
+              } catch (error) {
+                logService.error('Erreur lors de la suppression', 'QueueIAAdvanced', { itemId, error: error.message });
+              }
+            }
+            await loadQueueItems();
+            break;
+                     case 'compare_selected':
+             if (selectedItems.length < 2) {
+               logService.warning('Comparaison impossible - moins de 2 éléments sélectionnés', 'QueueIAAdvanced', { selectedItems });
+               return;
+             }
+             
+             // Vérifier qu'au moins un PDF est disponible pour la comparaison
+             const itemsWithPDFsForCompare = await Promise.all(
+               selectedItems.map(async (itemId) => {
+                 try {
+                   const hasPDF = await pdfService.hasPDF(parseInt(itemId));
+                   return { itemId, hasPDF };
+                 } catch (error) {
+                   return { itemId, hasPDF: false };
+                 }
+               })
+             );
+             
+             const availablePDFsForCompare = itemsWithPDFsForCompare.filter(item => item.hasPDF);
+             
+             if (availablePDFsForCompare.length === 0) {
+               logService.warning('Aucun PDF disponible pour la comparaison', 'QueueIAAdvanced', { selectedItems });
+               return;
+             }
+             
+             logService.info('Comparaison des analyses sélectionnées', 'QueueIAAdvanced', { selectedItems });
+             
+             try {
+               // Ouvrir la visualisation multiple pour la comparaison dans l'onglet Visualiseur
+               setActivePanel('main');
+               window.dispatchEvent(new CustomEvent('openMultiplePDFsInViewer', {
+                 detail: { 
+                   selectedItems: availablePDFsForCompare.map(item => item.itemId),
+                   queueItems: queueItems,
+                   isComparison: true
+                 }
+               }));
+               
+               logService.info('Ouverture de la comparaison multiple dans l\'onglet Visualiseur', 'QueueIAAdvanced', { 
+                 selectedItems: availablePDFsForCompare.map(item => item.itemId),
+                 count: availablePDFsForCompare.length 
+               });
+               
+             } catch (error) {
+               logService.error('Erreur lors de la comparaison', 'QueueIAAdvanced', { selectedItems, error: error.message });
+             }
+             break;
          case 'clear_completed':
            simpleAction(
              'supprimer toutes les analyses terminées',
@@ -1328,18 +1584,22 @@ export const QueueIAAdvanced: React.FC = () => {
              'danger'
            );
            return;
-        default:
-          logService.warning('Action bulk non implémentée', 'QueueIAAdvanced', { action });
-          console.log('Action bulk non implémentée:', action);
-      }
-      if (action !== 'clear_completed') {
-        setSelectedItems([]);
-      }
-    } catch (error) {
-      logService.error(`Erreur lors de l'action bulk ${action}`, 'QueueIAAdvanced', { action, error: error.message });
-      console.error('Erreur lors de l\'action bulk:', error);
-    }
-  };
+         default:
+           logService.warning('Action bulk non implémentée', 'QueueIAAdvanced', { action });
+           console.log('Action bulk non implémentée:', action);
+       }
+       if (action !== 'clear_completed') {
+         setSelectedItems([]);
+       }
+     } catch (error) {
+       logService.error(`Erreur lors de l'action bulk ${action}`, 'QueueIAAdvanced', { action, error: error.message });
+       console.error('Erreur lors de l\'action bulk:', error);
+       // Réinitialiser l'état de duplication en cas d'erreur
+       if (action === 'duplicate_selected') {
+         setIsDuplicating(false);
+       }
+     }
+   };
   
   return (
     <div className="h-full flex flex-col overflow-hidden" style={{ backgroundColor: colors.background }}>
@@ -1361,71 +1621,72 @@ export const QueueIAAdvanced: React.FC = () => {
         }}>
           <div className="flex items-center justify-between flex-wrap gap-3">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-medium" style={{ color: colors.text }}>
-                Actions globales:
-              </span>
-              <button
-                onClick={() => handleBulkAction('pause_all')}
-                className="inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95"
-                style={{
-                  backgroundColor: 'transparent',
-                  border: '1px solid #f59e0b',
-                  color: '#f59e0b'
-                }}
-              >
-                <PauseIcon className="w-3 h-3 mr-1" />
-                Pause
-              </button>
-              <button
-                onClick={() => handleBulkAction('resume_all')}
-                className="inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95"
-                style={{
-                  backgroundColor: 'transparent',
-                  border: '1px solid #10b981',
-                  color: '#10b981'
-                }}
-              >
-                <PlayIcon className="w-3 h-3 mr-1" />
-                Reprendre
-              </button>
-              <button
-                onClick={() => handleBulkAction('retry_failed')}
-                className="inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95"
-                style={{
-                  backgroundColor: 'transparent',
-                  border: '1px solid #3b82f6',
-                  color: '#3b82f6'
-                }}
-              >
-                <ArrowPathIcon className="w-3 h-3 mr-1" />
-                Relancer
-              </button>
-                             <button
-                 onClick={() => handleBulkAction('clear_completed')}
-                 className="inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95"
-                 style={{
-                   backgroundColor: 'transparent',
-                   border: '1px solid #ef4444',
-                   color: '#ef4444'
-                 }}
+                             <span className="text-sm font-medium" style={{ color: colors.text }}>
+                 Actions globales:
+               </span>
+                              <button
+                 onClick={() => handleBulkAction('view_multiple')}
+                 disabled={selectedItems.length === 0 || Object.values(itemsWithPDFs).every(hasPDF => !hasPDF)}
+                 className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
+                   selectedItems.length === 0 || Object.values(itemsWithPDFs).every(hasPDF => !hasPDF) ? 'opacity-50 cursor-not-allowed' : ''
+                 }`}
+                                   style={{
+                    backgroundColor: 'transparent',
+                    border: `1px solid ${selectedItems.length > 0 && Object.values(itemsWithPDFs).some(hasPDF => hasPDF) ? getActionColor('view') : '#6b7280'}`,
+                    color: selectedItems.length > 0 && Object.values(itemsWithPDFs).some(hasPDF => hasPDF) ? getActionColor('view') : '#6b7280'
+                  }}
                >
-                 <TrashIcon className="w-3 h-3 mr-1" />
-                 Vider
+                 <EyeIcon className="w-3 h-3 mr-1" />
+                 Visualiser
                </button>
+                                <button
+                  onClick={() => handleBulkAction('duplicate_selected')}
+                  disabled={selectedItems.length === 0 || isDuplicating}
+                  className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
+                    selectedItems.length === 0 || isDuplicating ? 'opacity-50 cursor-not-allowed' : ''
+                  }`}
+                                     style={{
+                     backgroundColor: 'transparent',
+                     border: `1px solid ${selectedItems.length > 0 && !isDuplicating ? getActionColor('duplicate') : '#6b7280'}`,
+                     color: selectedItems.length > 0 && !isDuplicating ? getActionColor('duplicate') : '#6b7280'
+                   }}
+                >
+                  {isDuplicating ? (
+                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-orange-500 mr-1"></div>
+                  ) : (
+                    <DocumentDuplicateIcon className="w-3 h-3 mr-1" />
+                  )}
+                  {isDuplicating ? 'Duplication...' : 'Dupliquer'}
+                </button>
                <button
                  onClick={() => handleBulkAction('compare_selected')}
-                 disabled={selectedItems.length < 2}
+                 disabled={selectedItems.length < 2 || Object.values(itemsWithPDFs).every(hasPDF => !hasPDF)}
                  className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
-                   selectedItems.length < 2 ? 'opacity-50 cursor-not-allowed' : ''
+                   selectedItems.length < 2 || Object.values(itemsWithPDFs).every(hasPDF => !hasPDF) ? 'opacity-50 cursor-not-allowed' : ''
                  }`}
-                 style={{
-                   backgroundColor: 'transparent',
-                   border: `1px solid ${selectedItems.length >= 2 ? '#3b82f6' : '#6b7280'}`,
-                   color: selectedItems.length >= 2 ? '#3b82f6' : '#6b7280'
-                 }}
+                                   style={{
+                    backgroundColor: 'transparent',
+                    border: `1px solid ${selectedItems.length >= 2 && Object.values(itemsWithPDFs).some(hasPDF => hasPDF) ? getActionColor('compare') : '#6b7280'}`,
+                    color: selectedItems.length >= 2 && Object.values(itemsWithPDFs).some(hasPDF => hasPDF) ? getActionColor('compare') : '#6b7280'
+                  }}
                >
                  <Squares2X2Icon className="w-3 h-3 mr-1" />
                  Comparer
+               </button>
+               <button
+                 onClick={() => handleBulkAction('delete_selected')}
+                 disabled={selectedItems.length === 0}
+                 className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
+                   selectedItems.length === 0 ? 'opacity-50 cursor-not-allowed' : ''
+                 }`}
+                                   style={{
+                    backgroundColor: 'transparent',
+                    border: `1px solid ${selectedItems.length > 0 ? getActionColor('delete') : '#6b7280'}`,
+                    color: selectedItems.length > 0 ? getActionColor('delete') : '#6b7280'
+                  }}
+               >
+                 <TrashIcon className="w-3 h-3 mr-1" />
+                 Supprimer
                </button>
             </div>
             
@@ -1478,13 +1739,16 @@ export const QueueIAAdvanced: React.FC = () => {
                   onPromptChange={handlePromptChange}
                   onProviderChange={handleProviderChange}
                   localSelections={localSelections}
+                  textColors={textColors}
                 />
              )}
           </div>
-        </div>
-      </div>
-    </div>
-  );
-};
+                 </div>
+       </div>
+       
+       
+     </div>
+   );
+ };
 
 export default QueueIAAdvanced;

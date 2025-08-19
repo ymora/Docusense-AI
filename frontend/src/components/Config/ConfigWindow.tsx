@@ -8,6 +8,11 @@ import ConfigService from '../../services/configService';
 import { logService } from '../../services/logService';
 import { useConfigStore } from '../../stores/configStore';
 import { Button, IconButton } from '../UI/Button';
+import { 
+  getStatusColor, 
+  getActionColor,
+  ACTION_COLORS
+} from '../../utils/colorConstants';
 
 interface ConfigWindowProps {
   onClose?: () => void;
@@ -359,7 +364,7 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
        case 'empty':
          return { 
            text: 'Non configuré', 
-           color: '#6b7280',
+           color: getStatusColor('empty'),
            description: provider.name.toLowerCase() === 'ollama' 
              ? 'Ollama non testé' 
              : 'Aucune clé API saisie'
@@ -367,43 +372,43 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
        case 'pending':
          return { 
            text: 'En attente', 
-           color: '#f59e0b',
+           color: getStatusColor('pending'),
            description: 'Clé API saisie, prêt à tester'
          };
        case 'configured':
          return { 
            text: 'Configuré', 
-           color: '#3b82f6',
+           color: getStatusColor('configured'),
            description: 'Test réussi, clé API validée'
          };
        case 'invalid':
          return { 
            text: 'Échec', 
-           color: '#ef4444',
+           color: getStatusColor('invalid'),
            description: provider.errorMessage || 'Test échoué'
          };
        case 'functional':
          return { 
            text: 'Fonctionnel', 
-           color: '#f59e0b',
+           color: getStatusColor('functional'),
            description: 'Testé avec succès, prêt à activer'
          };
        case 'active':
          return { 
            text: 'Actif', 
-           color: '#10b981',
+           color: getStatusColor('active'),
            description: 'Provider actif et utilisable'
          };
        case 'testing':
          return { 
            text: 'Test...', 
-           color: '#3b82f6',
+           color: getStatusColor('testing'),
            description: 'Test en cours'
          };
        default:
          return { 
            text: 'Inconnu', 
-           color: '#6b7280',
+           color: getStatusColor('empty'),
            description: 'Statut inconnu'
          };
      }
@@ -521,8 +526,8 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                                  <td className="p-3">
                                    <span className="text-xs px-2 py-1 rounded inline-block" style={{ 
                                      backgroundColor: 'transparent', 
-                                     color: '#3b82f6',
-                                     border: '1px solid #3b82f6'
+                                     color: ACTION_COLORS.local,
+                                     border: `1px solid ${ACTION_COLORS.local}`
                                    }}>
                                      Local
                                    </span>
@@ -678,8 +683,8 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                                  <td className="p-3">
                                    <span className="text-xs px-2 py-1 rounded inline-block" style={{ 
                                      backgroundColor: 'transparent', 
-                                     color: '#10b981',
-                                     border: '1px solid #10b981'
+                                     color: ACTION_COLORS.web,
+                                     border: `1px solid ${ACTION_COLORS.web}`
                                    }}>
                                      Web
                                    </span>
