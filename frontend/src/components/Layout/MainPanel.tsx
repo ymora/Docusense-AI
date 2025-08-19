@@ -260,7 +260,7 @@ const MainPanel: React.FC<MainPanelProps> = ({
             <div className="flex-1 overflow-y-auto">
               {selectedFiles.length === 0 ? (
                 // Aucun fichier sélectionné
-                <div className="flex items-center justify-center h-full">
+                <div className="flex items-center justify-center" style={{ height: 'calc(100vh - 200px)' }}>
                   <div className="text-center">
                     <div className="text-4xl mb-4">📁</div>
                     <h3 className="text-lg font-medium mb-2" style={{ color: colors.text }}>
