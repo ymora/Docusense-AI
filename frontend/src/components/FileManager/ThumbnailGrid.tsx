@@ -101,7 +101,7 @@ const ThumbnailGrid: React.FC<ThumbnailGridProps> = ({ files, onFileSelect }) =>
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="p-4 border-b" style={{ borderColor: colors.border }}>
+      <div className="p-4 border-b flex-shrink-0" style={{ borderColor: colors.border }}>
         <div className="flex items-center space-x-3">
           <div className="text-2xl">🖼️</div>
           <div>
@@ -115,72 +115,74 @@ const ThumbnailGrid: React.FC<ThumbnailGridProps> = ({ files, onFileSelect }) =>
         </div>
       </div>
 
-      {/* Grille de miniatures */}
-      <div className="flex-1 overflow-y-auto p-4">
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-          {files.map((file, index) => (
-            <div
-              key={`${file.path}-${index}`}
-              className="group cursor-pointer"
-              onClick={() => handleThumbnailClick(file)}
-            >
+      {/* Grille de miniatures redimensionnée */}
+      <div className="flex-1 overflow-hidden p-4">
+        <div className="h-full overflow-y-auto">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
+            {files.map((file, index) => (
               <div
-                className="aspect-square rounded-lg border-2 border-dashed flex flex-col items-center justify-center p-4 transition-all duration-200 hover:border-solid hover:scale-105"
-                style={{
-                  borderColor: colors.border,
-                  backgroundColor: colors.surface,
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.borderColor = colors.primary;
-                  e.currentTarget.style.backgroundColor = colors.hover.surface;
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.borderColor = colors.border;
-                  e.currentTarget.style.backgroundColor = colors.surface;
-                }}
+                key={`${file.path}-${index}`}
+                className="group cursor-pointer"
+                onClick={() => handleThumbnailClick(file)}
               >
-                {/* Icône du fichier */}
-                <div className="mb-2">
-                  {getFileIcon(file)}
-                </div>
-                
-                {/* Nom du fichier */}
-                <div className="text-center">
-                  <p 
-                    className="text-xs font-medium truncate w-full"
-                    style={{ color: colors.text }}
-                    title={file.name}
-                  >
-                    {file.name}
-                  </p>
+                <div
+                  className="aspect-square rounded-lg border-2 border-dashed flex flex-col items-center justify-center p-4 transition-all duration-200 hover:border-solid hover:scale-105"
+                  style={{
+                    borderColor: colors.border,
+                    backgroundColor: colors.surface,
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = colors.primary;
+                    e.currentTarget.style.backgroundColor = colors.hover.surface;
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = colors.border;
+                    e.currentTarget.style.backgroundColor = colors.surface;
+                  }}
+                >
+                  {/* Icône du fichier */}
+                  <div className="mb-2">
+                    {getFileIcon(file)}
+                  </div>
                   
-                  {/* Taille du fichier */}
-                  {!file.is_directory && file.size && (
+                  {/* Nom du fichier */}
+                  <div className="text-center">
                     <p 
-                      className="text-xs mt-1"
-                      style={{ color: colors.textSecondary }}
+                      className="text-xs font-medium truncate w-full"
+                      style={{ color: colors.text }}
+                      title={file.name}
                     >
-                      {formatFileSize(file.size)}
+                      {file.name}
                     </p>
-                  )}
+                    
+                    {/* Taille du fichier */}
+                    {!file.is_directory && file.size && (
+                      <p 
+                        className="text-xs mt-1"
+                        style={{ color: colors.textSecondary }}
+                      >
+                        {formatFileSize(file.size)}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Message si aucun fichier */}
-        {files.length === 0 && (
-          <div className="text-center py-12">
-            <div className="text-4xl mb-3">🖼️</div>
-            <h3 className="text-lg font-medium mb-2" style={{ color: colors.text }}>
-              Aucun fichier sélectionné
-            </h3>
-            <p className="text-sm" style={{ color: colors.textSecondary }}>
-              Sélectionnez des fichiers pour les afficher en miniatures
-            </p>
+            ))}
           </div>
-        )}
+
+          {/* Message si aucun fichier */}
+          {files.length === 0 && (
+            <div className="text-center py-12">
+              <div className="text-4xl mb-3">🖼️</div>
+              <h3 className="text-lg font-medium mb-2" style={{ color: colors.text }}>
+                Aucun fichier sélectionné
+              </h3>
+              <p className="text-sm" style={{ color: colors.textSecondary }}>
+                Sélectionnez des fichiers pour les afficher en miniatures
+              </p>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

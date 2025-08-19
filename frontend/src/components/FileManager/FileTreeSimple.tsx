@@ -4,7 +4,6 @@ import { useColors } from '../../hooks/useColors';
 import { isSupportedFormat } from '../../utils/mediaFormats';
 import { useUIStore } from '../../stores/uiStore';
 import { useQueueStore } from '../../stores/queueStore';
-import { analysisService } from '../../services/analysisService';
 
 interface FileTreeSimpleProps {
   currentDirectory: string;
@@ -35,11 +34,8 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
       setLoading(true);
       try {
         const encodedDirectory = encodeURIComponent(currentDirectory.replace(/\\/g, '/'));
-        console.log('Chargement du répertoire:', currentDirectory, 'Encodé:', encodedDirectory);
         const response = await fetch(`/api/files/list/${encodedDirectory}`);
         const data = await response.json();
-        
-        console.log('Réponse API:', data);
         
         if (data.success) {
           setDirectoryData(data.data);
@@ -64,11 +60,8 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
       // Pour Windows, utiliser les backslashes et encoder correctement
       const normalizedPath = folderPath.replace(/\//g, '\\');
       const encodedPath = encodeURIComponent(normalizedPath);
-      console.log('Chargement sous-dossier:', folderPath, 'Normalisé:', normalizedPath, 'Encodé:', encodedPath);
       const response = await fetch(`/api/files/list/${encodedPath}`);
       const data = await response.json();
-      
-      console.log('Réponse sous-dossier:', data);
       
       if (data.success) {
         return data.data;
@@ -84,7 +77,6 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
 
   // Gérer l'expansion/réduction d'un dossier
   const toggleFolder = useCallback(async (folderPath: string) => {
-    console.log('Toggle folder:', folderPath);
     const newExpanded = new Set(expandedFolders);
     
     if (newExpanded.has(folderPath)) {
@@ -94,7 +86,6 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
       
       // Charger les données si elles ne sont pas déjà en cache
       if (!folderData[folderPath]) {
-        console.log('Chargement des données pour:', folderPath);
         const data = await loadSubdirectory(folderPath);
         if (data) {
           setFolderData(prev => ({
@@ -127,7 +118,7 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
         },
         status: 'pending',
         analysis_type: 'general',
-        provider: 'auto', // Sera configuré par l'utilisateur
+        analysis_provider: 'ollama', // Ollama par défaut
         prompt: 'auto', // Sera configuré par l'utilisateur
         created_at: new Date().toISOString(),
         is_local: true // Marqueur pour indiquer que c'est local
@@ -136,7 +127,6 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
       // Ajouter à la queue locale
       addLocalToQueue(queueItem);
       
-      console.log(`Fichier ${file.name} ajouté à la queue locale d'analyse`);
     } catch (error) {
       console.error('Erreur lors de l\'ajout à la queue locale:', error);
     }
@@ -182,7 +172,6 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
     const subData = folderData[folder.path];
 
     const handleToggle = async () => {
-      console.log('Toggle FolderItem:', folder.path, 'Expanded:', isExpanded, 'Has data:', !!subData);
       if (!isExpanded && !subData) {
         setLoading(true);
         const data = await loadSubdirectory(folder.path);
@@ -200,7 +189,7 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
     return (
       <div>
         <div
-          className="flex items-center px-2 py-0.5 hover:bg-slate-700 cursor-pointer transition-colors"
+          className="flex items-center px-2 py-0.5 hover:bg-slate-700/30 cursor-pointer transition-colors"
           style={{ paddingLeft: `${level * 16 + 6}px` }}
         >
           {/* Chevron pour expansion */}
@@ -278,7 +267,7 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
     return (
       <div
         className={`flex items-center px-2 py-0.5 transition-colors ${
-          isSelected ? 'bg-blue-600' : 'hover:bg-slate-700'
+          isSelected ? 'bg-blue-600' : 'hover:bg-slate-700/30'
         }`}
         style={{ paddingLeft: `${level * 16 + 6}px` }}
       >
@@ -344,7 +333,7 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
     <div className="h-full overflow-y-auto">
       {/* Répertoire racine */}
       <div
-        className="flex items-center px-2 py-0.5 hover:bg-slate-700 cursor-pointer transition-colors"
+        className="flex items-center px-2 py-0.5 hover:bg-slate-700/30 cursor-pointer transition-colors"
         onClick={() => toggleFolder(currentDirectory)}
       >
         <div className="mr-1 flex-shrink-0">

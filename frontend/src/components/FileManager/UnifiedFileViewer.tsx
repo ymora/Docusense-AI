@@ -22,6 +22,18 @@ const UnifiedFileViewer: React.FC<UnifiedFileViewerProps> = ({ file, onClose, on
   const [error, setError] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
   const [showImageControls, setShowImageControls] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Effet pour gérer le chargement initial
+  useEffect(() => {
+    setIsLoading(true);
+    // Simuler un délai de chargement pour les types qui se chargent instantanément
+    const timer = setTimeout(() => {
+      setIsLoading(false);
+    }, 500);
+    
+    return () => clearTimeout(timer);
+  }, [file]);
 
   const handleDownload = () => {
     try {
@@ -187,23 +199,23 @@ const UnifiedFileViewer: React.FC<UnifiedFileViewerProps> = ({ file, onClose, on
         </div>
 
         {/* Contenu du fichier */}
-        <div className="flex-1 overflow-auto p-4">
+        <div className="flex-1 overflow-hidden p-4">
           {contentType.startsWith('image/') && fileUrl && (
-            <div className="flex items-center justify-center h-full">
+            <div className="flex items-center justify-center h-full overflow-hidden">
               <img
                 src={fileUrl}
                 alt={file.name}
                 className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
+                style={{
+                  width: 'auto',
+                  height: 'auto'
+                }}
                 loading="lazy"
                 onLoad={() => setIsLoading(false)}
                 onError={() => setError('Erreur lors du chargement de l\'image')}
               />
             </div>
           )}
-          
-
-          
-
           
           {contentType.startsWith('text/') && fileContent && (
             <div className="bg-slate-800 rounded-lg p-4 h-full overflow-auto">
@@ -228,14 +240,16 @@ const UnifiedFileViewer: React.FC<UnifiedFileViewerProps> = ({ file, onClose, on
       
       case 'pdf':
         return (
-                  <div className="w-full h-full bg-slate-900">
-          <iframe
-            src={`/api/files/stream-by-path/${encodeURIComponent(file.path)}?native=true`}
-            className="w-full h-full border-0"
+          <div className="w-full h-full bg-slate-900 overflow-hidden">
+            <iframe
+              src={`/api/files/stream-by-path/${encodeURIComponent(file.path)}?native=true`}
+              className="w-full h-full border-0"
               style={{ 
                 width: '100%', 
                 height: '100%', 
-                display: 'block'
+                display: 'block',
+                maxWidth: '100%',
+                maxHeight: '100%'
               }}
               title={file.name}
               onError={(e) => {
@@ -248,17 +262,19 @@ const UnifiedFileViewer: React.FC<UnifiedFileViewerProps> = ({ file, onClose, on
       case 'image':
         return (
           <div 
-            className="relative w-full h-full"
+            className="relative w-full h-full flex items-center justify-center overflow-hidden"
             onMouseEnter={() => setShowImageControls(true)}
             onMouseLeave={() => setShowImageControls(false)}
           >
             <img
               src={`/api/files/stream-by-path/${encodeURIComponent(file.path)}`}
               alt={file.name}
-              className="w-full h-full object-contain rounded-lg shadow-lg transition-transform duration-200"
+              className="max-w-full max-h-full object-contain rounded-lg shadow-lg transition-transform duration-200"
               style={{ 
                 transform: `scale(${zoom})`,
-                transformOrigin: 'center center'
+                transformOrigin: 'center center',
+                width: 'auto',
+                height: 'auto'
               }}
               onError={(e) => {
                 setError('Erreur lors du chargement de l\'image');
@@ -273,10 +289,16 @@ const UnifiedFileViewer: React.FC<UnifiedFileViewerProps> = ({ file, onClose, on
       
       case 'office':
         return (
-          <div className="h-full bg-slate-900">
+          <div className="h-full bg-slate-900 overflow-hidden">
             <iframe
               src={`/api/files/stream-by-path/${encodeURIComponent(file.path)}?html=true`}
               className="w-full h-full border-0"
+              style={{
+                width: '100%',
+                height: '100%',
+                maxWidth: '100%',
+                maxHeight: '100%'
+              }}
               title={file.name}
               onError={(e) => {
                 setError('Erreur lors du chargement du document Office');
@@ -296,11 +318,15 @@ const UnifiedFileViewer: React.FC<UnifiedFileViewerProps> = ({ file, onClose, on
         
         if (mimeType.startsWith('image/') || extension.match(/\.(jpg|jpeg|png|gif|bmp|tiff|webp|ico|svg|heic|heif)$/i)) {
           return (
-            <div className="relative w-full h-full">
+            <div className="relative w-full h-full flex items-center justify-center overflow-hidden">
               <img
                 src={`/api/files/stream-by-path/${encodeURIComponent(file.path)}`}
                 alt={file.name}
-                className="w-full h-full object-contain rounded-lg shadow-lg"
+                className="max-w-full max-h-full object-contain rounded-lg shadow-lg"
+                style={{
+                  width: 'auto',
+                  height: 'auto'
+                }}
                 onError={(e) => {
                   setError('Erreur lors du chargement de l\'image');
                 }}
@@ -403,7 +429,7 @@ const UnifiedFileViewer: React.FC<UnifiedFileViewerProps> = ({ file, onClose, on
 
   // Mode normal
   return (
-         <div className="h-full bg-slate-900 overflow-hidden flex flex-col">
+    <div className="h-full bg-slate-900 overflow-hidden flex flex-col">
       {/* Affichage des erreurs */}
       {error && (
         <div className="absolute inset-0 flex items-center justify-center z-50 bg-slate-900/95">
@@ -425,12 +451,22 @@ const UnifiedFileViewer: React.FC<UnifiedFileViewerProps> = ({ file, onClose, on
         </div>
       )}
 
-
+      {/* Animation de chargement centrée */}
+      {!error && isLoading && (
+        <div className="h-full flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+            <p className="text-slate-400">Chargement du fichier...</p>
+          </div>
+        </div>
+      )}
       
       {/* Contenu principal */}
-      <div className="flex-1 overflow-hidden relative" style={{ height: '100%' }}>
-        {renderContent()}
-      </div>
+      {!error && !isLoading && (
+        <div className="flex-1 overflow-hidden relative" style={{ height: '100%' }}>
+          {renderContent()}
+        </div>
+      )}
     </div>
   );
 };

@@ -88,15 +88,8 @@ const MainPanel: React.FC<MainPanelProps> = ({
 
   // Chargement des données de queue
   useEffect(() => {
-    // Charger les données initiales
+    // Charger les données initiales seulement au montage
     loadQueueItems();
-    
-    // Mettre en place un intervalle pour rafraîchir les données
-    const interval = setInterval(() => {
-      loadQueueItems();
-    }, 10000); // Rafraîchir toutes les 10 secondes
-    
-    return () => clearInterval(interval);
   }, [loadQueueItems]);
 
   // Écouter les événements de rechargement de la queue
@@ -170,115 +163,121 @@ const MainPanel: React.FC<MainPanelProps> = ({
     // Si c'est un dossier, afficher en mode miniature
     if (file.type === 'folder') {
       return (
-        <div className="p-4">
-          <div className="mb-4">
-            <h3 className="text-lg font-medium mb-2" style={{ color: colors.text }}>
-              📁 {file.name}
-            </h3>
-            <p className="text-sm" style={{ color: colors.textSecondary }}>
-              {file.files?.length || 0} fichier(s), {file.subdirectories?.length || 0} sous-dossier(s)
-            </p>
-          </div>
-          
-          {/* Affichage des fichiers du dossier */}
-          {file.files && file.files.length > 0 && (
-            <div className="mb-6">
-              <h4 className="text-md font-medium mb-3" style={{ color: colors.text }}>
-                Fichiers
-              </h4>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-                {file.files.map((f: any) => (
-                  <div
-                    key={f.path}
-                    className="p-3 border rounded-lg cursor-pointer hover:bg-slate-700 transition-colors"
-                    style={{ borderColor: colors.border }}
-                    onClick={() => {
-                      // Sélectionner ce fichier pour l'affichage
-                      selectFile(f);
-                    }}
-                  >
-                    <div className="text-center">
-                      {getFileType(f.name, f.mime_type) === 'image' ? (
-                        <PhotoIcon className="h-8 w-8 mx-auto mb-2" style={{ color: colors.primary }} />
-                      ) : getFileType(f.name, f.mime_type) === 'video' ? (
-                        <FilmIcon className="h-8 w-8 mx-auto mb-2" style={{ color: colors.primary }} />
-                      ) : getFileType(f.name, f.mime_type) === 'audio' ? (
-                        <MusicalNoteIcon className="h-8 w-8 mx-auto mb-2" style={{ color: colors.primary }} />
-                      ) : (
-                        <DocumentTextIcon className="h-8 w-8 mx-auto mb-2" style={{ color: colors.primary }} />
-                      )}
-                      <div className="text-xs truncate" style={{ color: colors.text }}>
-                        {f.name}
-                      </div>
-                      <div className="text-xs mt-1" style={{ color: colors.textSecondary }}>
-                        {formatFileSize(f.size)}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          
-          {/* Affichage des sous-dossiers */}
-          {file.subdirectories && file.subdirectories.length > 0 && (
-            <div>
-              <h4 className="text-md font-medium mb-3" style={{ color: colors.text }}>
-                Sous-dossiers
-              </h4>
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
-                {file.subdirectories.map((subfolder: any) => (
-                  <div
-                    key={subfolder.path}
-                    className="p-3 border rounded-lg cursor-pointer hover:bg-slate-700 transition-colors"
-                    style={{ borderColor: colors.border }}
-                    onClick={() => {
-                      // Créer un objet dossier pour la visualisation
-                      const folderForView = {
-                        ...subfolder,
-                        type: 'folder',
-                        files: [], // Sera chargé si nécessaire
-                        subdirectories: []
-                      };
-                      selectFile(folderForView);
-                    }}
-                  >
-                    <div className="text-center">
-                      <FolderIcon className="h-8 w-8 mx-auto mb-2" style={{ color: colors.primary }} />
-                      <div className="text-xs truncate" style={{ color: colors.text }}>
-                        {subfolder.name}
-                      </div>
-                      <div className="text-xs mt-1" style={{ color: colors.textSecondary }}>
-                        Dossier
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-          
-          {/* Message si dossier vide */}
-          {(!file.files || file.files.length === 0) && (!file.subdirectories || file.subdirectories.length === 0) && (
-            <div className="text-center py-8">
-              <div className="text-2xl mb-2">📁</div>
+        <div className="h-full w-full p-4 overflow-hidden">
+          <div className="h-full flex flex-col">
+            <div className="mb-4 flex-shrink-0">
+              <h3 className="text-lg font-medium mb-2" style={{ color: colors.text }}>
+                📁 {file.name}
+              </h3>
               <p className="text-sm" style={{ color: colors.textSecondary }}>
-                Ce dossier est vide
+                {file.files?.length || 0} fichier(s), {file.subdirectories?.length || 0} sous-dossier(s)
               </p>
             </div>
-          )}
+
+            <div className="flex-1 overflow-y-auto">
+              {/* Affichage des fichiers dans le dossier */}
+              {file.files && file.files.length > 0 && (
+                <div className="mb-6">
+                  <h4 className="text-md font-medium mb-3" style={{ color: colors.text }}>
+                    Fichiers
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+                    {file.files.map((f: any) => (
+                      <div
+                        key={f.path}
+                        className="p-3 border rounded-lg cursor-pointer hover:bg-slate-700 transition-colors"
+                        style={{ borderColor: colors.border }}
+                        onClick={() => {
+                          // Sélectionner ce fichier pour l'affichage
+                          selectFile(f);
+                        }}
+                      >
+                        <div className="text-center">
+                          {getFileType(f.name, f.mime_type) === 'image' ? (
+                            <PhotoIcon className="h-8 w-8 mx-auto mb-2" style={{ color: colors.primary }} />
+                          ) : getFileType(f.name, f.mime_type) === 'video' ? (
+                            <FilmIcon className="h-8 w-8 mx-auto mb-2" style={{ color: colors.primary }} />
+                          ) : getFileType(f.name, f.mime_type) === 'audio' ? (
+                            <MusicalNoteIcon className="h-8 w-8 mx-auto mb-2" style={{ color: colors.primary }} />
+                          ) : (
+                            <DocumentTextIcon className="h-8 w-8 mx-auto mb-2" style={{ color: colors.primary }} />
+                          )}
+                          <div className="text-xs truncate" style={{ color: colors.text }}>
+                            {f.name}
+                          </div>
+                          <div className="text-xs mt-1" style={{ color: colors.textSecondary }}>
+                            {formatFileSize(f.size)}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Affichage des sous-dossiers */}
+              {file.subdirectories && file.subdirectories.length > 0 && (
+                <div>
+                  <h4 className="text-md font-medium mb-3" style={{ color: colors.text }}>
+                    Sous-dossiers
+                  </h4>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3">
+                    {file.subdirectories.map((subfolder: any) => (
+                      <div
+                        key={subfolder.path}
+                        className="p-3 border rounded-lg cursor-pointer hover:bg-slate-700 transition-colors"
+                        style={{ borderColor: colors.border }}
+                        onClick={() => {
+                          // Créer un objet dossier pour la visualisation
+                          const folderForView = {
+                            ...subfolder,
+                            type: 'folder',
+                            files: [], // Sera chargé si nécessaire
+                            subdirectories: []
+                          };
+                          selectFile(folderForView);
+                        }}
+                      >
+                        <div className="text-center">
+                          <FolderIcon className="h-8 w-8 mx-auto mb-2" style={{ color: colors.primary }} />
+                          <div className="text-xs truncate" style={{ color: colors.text }}>
+                            {subfolder.name}
+                          </div>
+                          <div className="text-xs mt-1" style={{ color: colors.textSecondary }}>
+                            Dossier
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Message si dossier vide */}
+              {(!file.files || file.files.length === 0) && (!file.subdirectories || file.subdirectories.length === 0) && (
+                <div className="text-center py-8">
+                  <div className="text-2xl mb-2">📁</div>
+                  <p className="text-sm" style={{ color: colors.textSecondary }}>
+                    Ce dossier est vide
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
         </div>
       );
     }
 
-    // Pour les fichiers normaux, utiliser le visualiseur existant
+    // Pour les fichiers normaux, utiliser le visualiseur existant avec conteneur redimensionné
     return (
-      <UnifiedFileViewer 
-        file={file}
-        onClose={() => {
-          // Logique de fermeture si nécessaire
-        }}
-      />
+      <div className="h-full w-full">
+        <UnifiedFileViewer 
+          file={file}
+          onClose={() => {
+            // Logique de fermeture si nécessaire
+          }}
+        />
+      </div>
     );
   };
 
@@ -345,11 +344,11 @@ const MainPanel: React.FC<MainPanelProps> = ({
               </div>
             )}
 
-            {/* Zone de visualisation avec barre de défilement */}
-            <div className="flex-1 overflow-y-auto">
+            {/* Zone de visualisation redimensionnée pour tenir dans le conteneur */}
+            <div className="flex-1 overflow-hidden">
               {selectedFiles.length === 0 ? (
                 // Aucun fichier sélectionné
-                <div className="flex items-center justify-center" style={{ height: 'calc(100vh - 200px)' }}>
+                <div className="flex items-center justify-center h-full">
                   <div className="text-center">
                     <div className="text-4xl mb-4">📁</div>
                     <h3 className="text-lg font-medium mb-2" style={{ color: colors.text }}>
@@ -361,63 +360,67 @@ const MainPanel: React.FC<MainPanelProps> = ({
                   </div>
                 </div>
               ) : selectedFiles.length === 1 && selectedFile ? (
-                // Un seul fichier sélectionné
-                getViewerComponent(selectedFile)
+                // Un seul fichier sélectionné - conteneur redimensionné
+                <div className="h-full w-full">
+                  {getViewerComponent(selectedFile)}
+                </div>
               ) : selectedFiles.length > 1 ? (
-                // Plusieurs fichiers sélectionnés
-                viewMode === 'thumbnails' ? (
-                  <ThumbnailGrid 
-                    files={files.filter(f => selectedFiles.includes(f.id || f.path))}
-                    onFileSelect={(file) => {
-                      // Sélectionner le fichier pour l'affichage unique
-                      selectFile(file);
-                    }}
-                  />
-                ) : (
-                  // Mode liste pour plusieurs fichiers
-                  <div className="p-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {files
-                        .filter(f => selectedFiles.includes(f.id || f.path))
-                        .map((file) => (
-                          <div
-                            key={file.id || file.path}
-                            className="p-4 border rounded-lg cursor-pointer hover:bg-slate-700 transition-colors"
-                            style={{ borderColor: colors.border }}
-                            onClick={() => {
-                              // Sélectionner ce fichier pour l'affichage
-                              selectFile(file);
-                            }}
-                          >
-                            <div className="flex items-center space-x-3">
-                              {getFileType(file.name, file.mime_type) === 'image' ? (
-                                <PhotoIcon className="h-8 w-8" style={{ color: colors.primary }} />
-                              ) : getFileType(file.name, file.mime_type) === 'video' ? (
-                                <FilmIcon className="h-8 w-8" style={{ color: colors.primary }} />
-                              ) : getFileType(file.name, file.mime_type) === 'audio' ? (
-                                <MusicalNoteIcon className="h-8 w-8" style={{ color: colors.primary }} />
-                              ) : (
-                                <DocumentTextIcon className="h-8 w-8" style={{ color: colors.primary }} />
-                              )}
-                              <div className="flex-1 min-w-0">
-                                <h4 className="text-sm font-medium truncate" style={{ color: colors.text }}>
-                                  {file.name}
-                                </h4>
-                                <p className="text-xs" style={{ color: colors.textSecondary }}>
-                                  {formatFileSize(file.size)}
-                                </p>
-                                <div className="flex items-center space-x-2 mt-1">
-                                  <span className="text-xs" style={{ color: colors.textSecondary }}>
-                                    {isSupportedFormat(file.name) ? 'Supporté' : 'Non supporté'}
-                                  </span>
+                // Plusieurs fichiers sélectionnés - conteneur redimensionné
+                <div className="h-full w-full overflow-hidden">
+                  {viewMode === 'thumbnails' ? (
+                    <ThumbnailGrid 
+                      files={files.filter(f => selectedFiles.includes(f.id || f.path))}
+                      onFileSelect={(file) => {
+                        // Sélectionner le fichier pour l'affichage unique
+                        selectFile(file);
+                      }}
+                    />
+                  ) : (
+                    // Mode liste pour plusieurs fichiers - conteneur redimensionné
+                    <div className="h-full w-full p-4 overflow-hidden">
+                      <div className="h-full grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 overflow-y-auto">
+                        {files
+                          .filter(f => selectedFiles.includes(f.id || f.path))
+                          .map((file) => (
+                            <div
+                              key={file.id || file.path}
+                              className="p-4 border rounded-lg cursor-pointer hover:bg-slate-700 transition-colors"
+                              style={{ borderColor: colors.border }}
+                              onClick={() => {
+                                // Sélectionner ce fichier pour l'affichage
+                                selectFile(file);
+                              }}
+                            >
+                              <div className="flex items-center space-x-3">
+                                {getFileType(file.name, file.mime_type) === 'image' ? (
+                                  <PhotoIcon className="h-8 w-8" style={{ color: colors.primary }} />
+                                ) : getFileType(file.name, file.mime_type) === 'video' ? (
+                                  <FilmIcon className="h-8 w-8" style={{ color: colors.primary }} />
+                                ) : getFileType(file.name, file.mime_type) === 'audio' ? (
+                                  <MusicalNoteIcon className="h-8 w-8" style={{ color: colors.primary }} />
+                                ) : (
+                                  <DocumentTextIcon className="h-8 w-8" style={{ color: colors.primary }} />
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="text-sm font-medium truncate" style={{ color: colors.text }}>
+                                    {file.name}
+                                  </h4>
+                                  <p className="text-xs" style={{ color: colors.textSecondary }}>
+                                    {formatFileSize(file.size)}
+                                  </p>
+                                  <div className="flex items-center space-x-2 mt-1">
+                                    <span className="text-xs" style={{ color: colors.textSecondary }}>
+                                      {isSupportedFormat(file.name) ? 'Supporté' : 'Non supporté'}
+                                    </span>
+                                  </div>
                                 </div>
                               </div>
                             </div>
-                          </div>
-                        ))}
+                          ))}
+                      </div>
                     </div>
-                  </div>
-                )
+                  )}
+                </div>
               ) : (
                 // État de chargement ou erreur
                 <div className="flex items-center justify-center h-full">

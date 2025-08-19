@@ -956,7 +956,7 @@ export const QueueIAAdvanced: React.FC = () => {
       console.log('🔄 Rafraîchissement de la configuration IA...');
       refreshAIProviders();
     }
-  }, [loadQueueItems, loadAIProviders, refreshAIProviders, configInitialized]);
+  }, [loadAIProviders, refreshAIProviders, configInitialized]);
 
      // Debug: Afficher l'état des données
    React.useEffect(() => {

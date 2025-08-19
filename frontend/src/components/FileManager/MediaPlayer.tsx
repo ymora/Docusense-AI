@@ -112,12 +112,12 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ file, onClose, onError }) => 
       </div>
 
       {/* Contenu principal */}
-      <div className="flex-1 flex items-center justify-center p-4">
+      <div className="flex-1 flex items-center justify-center p-4 overflow-hidden">
         {(isVideo || isAudio) ? (
-          <div className="w-full h-full flex flex-col items-center justify-center">
+          <div className="w-full h-full flex flex-col items-center justify-center overflow-hidden">
             {/* Indicateur de chargement */}
             {isLoading && !hasError && (
-              <div className="mb-4 p-3 bg-slate-800 rounded-lg">
+              <div className="mb-4 p-3 bg-slate-800 rounded-lg flex-shrink-0">
                 <div className="flex items-center space-x-2">
                   <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-400"></div>
                   <span className="text-sm text-slate-300">Chargement...</span>
@@ -127,7 +127,7 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ file, onClose, onError }) => 
 
             {/* Message d'erreur */}
             {hasError && (
-              <div className="mb-4 p-3 bg-red-900/50 border border-red-600 rounded-lg max-w-md">
+              <div className="mb-4 p-3 bg-red-900/50 border border-red-600 rounded-lg max-w-md flex-shrink-0">
                 <div className="flex items-center space-x-2">
                   <span className="text-red-400">❌</span>
                   <div className="text-sm text-red-200">
@@ -154,14 +154,16 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ file, onClose, onError }) => 
             )}
             
             {/* ReactPlayer */}
-            <div className="w-full h-full flex items-center justify-center">
+            <div className="w-full h-full flex items-center justify-center overflow-hidden">
               <ReactPlayer
                 url={mediaUrl}
                 controls={true}
                 width="100%"
                 height={isVideo ? "100%" : "200px"}
                 style={{
-                  backgroundColor: isVideo ? '#000' : 'transparent'
+                  backgroundColor: isVideo ? '#000' : 'transparent',
+                  maxWidth: '100%',
+                  maxHeight: '100%'
                 }}
                 config={{
                   file: {

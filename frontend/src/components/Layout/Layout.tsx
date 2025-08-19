@@ -316,7 +316,7 @@ const Layout: React.FC = () => {
 
   // Charger le statut de la queue au montage et démarrer les mises à jour en temps réel
   useEffect(() => {
-    
+    // Charger les données initiales seulement au montage
     loadQueueItems();
     
     // Démarrer les mises à jour en temps réel
@@ -325,7 +325,7 @@ const Layout: React.FC = () => {
     return () => {
       // Nettoyage des mises à jour en temps réel
     };
-      }, [loadQueueItems]);
+  }, [loadQueueItems]);
 
 
 

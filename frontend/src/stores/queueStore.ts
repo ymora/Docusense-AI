@@ -47,12 +47,7 @@ interface QueueState {
   clearQueue: () => Promise<void>;
   retryFailedItems: () => Promise<void>;
   addToQueue: (analysisId: number, priority?: string) => Promise<void>;
-
-  // Actions par type
-  pauseType: (type: string) => Promise<void>;
-  resumeType: (type: string) => Promise<void>;
-  deleteType: (type: string) => Promise<void>;
-  retryType: (type: string) => Promise<void>;
+  addLocalToQueue: (queueItem: any) => void;
 
   // Nouveau: gestion de l'inactivité
   setInactive: (inactive: boolean) => void;
@@ -174,80 +169,13 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     }));
   },
 
-  // Actions par type d'analyse
-  pauseType: async (type: string) => {
-    set({ loading: true, error: null });
-    try {
-      // Filtrer les éléments par type et les mettre en pause
-      const itemsOfType = get().queueItems.filter(item => item.analysis_type === type);
-      for (const item of itemsOfType) {
-        await queueService.pauseItem(item.id);
-      }
-      await get().loadQueueItems();
-      set({ loading: false });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la pause du type';
-      set({ error: errorMessage, loading: false });
-    }
-  },
-
-  resumeType: async (type: string) => {
-    set({ loading: true, error: null });
-    try {
-      // Filtrer les éléments par type et les reprendre
-      const itemsOfType = get().queueItems.filter(item => item.analysis_type === type);
-      for (const item of itemsOfType) {
-        await queueService.resumeItem(item.id);
-      }
-      await get().loadQueueItems();
-      set({ loading: false });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la reprise du type';
-      set({ error: errorMessage, loading: false });
-    }
-  },
-
-  deleteType: async (type: string) => {
-    set({ loading: true, error: null });
-    try {
-      // Filtrer les éléments par type et les supprimer
-      const itemsOfType = get().queueItems.filter(item => item.analysis_type === type);
-      for (const item of itemsOfType) {
-        await queueService.deleteItem(item.id);
-      }
-      await get().loadQueueItems();
-      set({ loading: false });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la suppression du type';
-      set({ error: errorMessage, loading: false });
-    }
-  },
-
-  retryType: async (type: string) => {
-    set({ loading: true, error: null });
-    try {
-      // Filtrer les éléments par type et les relancer
-      const itemsOfType = get().queueItems.filter(item => item.analysis_type === type);
-      for (const item of itemsOfType) {
-        await queueService.retryItem(item.id);
-      }
-      await get().loadQueueItems();
-      set({ loading: false });
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la nouvelle tentative du type';
-      set({ error: errorMessage, loading: false });
-    }
-  },
-
   // Nouveau: définir l'état d'inactivité
   setInactive: (inactive: boolean) => {
-
     set({ isInactive: inactive });
   },
 
   // Nouveau: forcer un rafraîchissement (pour la reconnexion manuelle)
   forceRefresh: async () => {
-
     const { loadQueueItems } = get();
     set({ isInactive: false }); // Réactiver
     await loadQueueItems();
