@@ -634,7 +634,7 @@ class ConfigService(BaseService):
     def _set_ai_provider_priority_logic(self, provider: str, priority: int) -> bool:
         """Logic for setting AI provider priority with automatic reordering"""
         try:
-            # Get all configured providers (those with API keys)
+            # Get all configured providers (those with API keys or functional local services)
             configured_providers = self._get_configured_providers()
             
             if not configured_providers:
@@ -711,22 +711,93 @@ class ConfigService(BaseService):
 
     def _get_configured_providers(self) -> List[str]:
         """
-        Get list of configured providers (those with API keys)
+        Get list of configured providers (those with API keys or functional local services)
         """
         try:
             configured_providers = []
             all_providers = ["openai", "claude", "mistral", "ollama", "gemini"]
 
             for provider in all_providers:
-                # Un provider est configuré s'il a une clé API
-                api_key = self.get_ai_provider_key(provider)
-                if api_key and api_key.strip():
-                    configured_providers.append(provider)
+                if provider.lower() == "ollama":
+                    # Pour Ollama, vérifier s'il est fonctionnel
+                    is_functional = self.get_provider_functionality_status(provider)
+                    if is_functional:
+                        configured_providers.append(provider)
+                else:
+                    # Pour les autres providers, vérifier s'ils ont une clé API
+                    api_key = self.get_ai_provider_key(provider)
+                    if api_key and api_key.strip():
+                        configured_providers.append(provider)
+
+            # Initialiser automatiquement les priorités si nécessaire
+            self._initialize_priorities_if_needed(configured_providers)
 
             return configured_providers
         except Exception as e:
             self.logger.error(f"Error getting configured providers: {str(e)}")
             return []
+
+    def _initialize_priorities_if_needed(self, configured_providers: List[str]) -> None:
+        """
+        Initialize priorities for configured providers if they don't exist
+        """
+        try:
+            # Vérifier si des priorités existent déjà
+            existing_priorities = []
+            for provider in configured_providers:
+                priority = self.get_ai_provider_priority(provider)
+                if priority > 0:
+                    existing_priorities.append((provider, priority))
+
+            # Si aucune priorité n'existe, les initialiser
+            if not existing_priorities:
+                self.logger.info("Initializing provider priorities...")
+                
+                # Ollama en priorité 1 s'il est configuré
+                ollama_priority = 1
+                if "ollama" in configured_providers:
+                    self._set_provider_priority_internal("ollama", ollama_priority)
+                    self.logger.info(f"Set Ollama priority to {ollama_priority}")
+                    current_priority = 2
+                else:
+                    current_priority = 1
+
+                # Les autres providers dans l'ordre
+                for provider in configured_providers:
+                    if provider.lower() != "ollama":
+                        self._set_provider_priority_internal(provider, current_priority)
+                        self.logger.info(f"Set {provider} priority to {current_priority}")
+                        current_priority += 1
+
+            # Si des priorités existent mais ne sont pas séquentielles, les corriger
+            elif len(existing_priorities) != len(configured_providers):
+                self.logger.info("Correcting provider priorities...")
+                self._correct_priorities(configured_providers)
+
+        except Exception as e:
+            self.logger.error(f"Error initializing priorities: {str(e)}")
+
+    def _correct_priorities(self, configured_providers: List[str]) -> None:
+        """
+        Correct priorities to be sequential (1, 2, 3, ...)
+        """
+        try:
+            # Ollama en priorité 1 s'il est configuré
+            current_priority = 1
+            if "ollama" in configured_providers:
+                self._set_provider_priority_internal("ollama", current_priority)
+                self.logger.info(f"Corrected Ollama priority to {current_priority}")
+                current_priority += 1
+
+            # Les autres providers dans l'ordre
+            for provider in configured_providers:
+                if provider.lower() != "ollama":
+                    self._set_provider_priority_internal(provider, current_priority)
+                    self.logger.info(f"Corrected {provider} priority to {current_priority}")
+                    current_priority += 1
+
+        except Exception as e:
+            self.logger.error(f"Error correcting priorities: {str(e)}")
 
     def _get_active_providers(self) -> List[str]:
         """

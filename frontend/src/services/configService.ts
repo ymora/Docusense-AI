@@ -59,6 +59,39 @@ export class ConfigService {
     }
   }
 
+  // Récupérer une clé API
+  static async getAPIKey(provider: string): Promise<{ success: boolean; data?: { key: string; provider: string }; message?: string }> {
+    try {
+      console.log(`🔑 ConfigService: Récupération clé API pour ${provider}...`);
+      const response = await apiRequest(`/api/config/ai/key/${encodeURIComponent(provider)}`, {
+        method: 'GET'
+      });
+
+      console.log(`🔑 ConfigService: Réponse brute pour ${provider}:`, response);
+
+      if (response.success) {
+        logService.info(`Clé API récupérée pour ${provider}`, 'ConfigService', { provider });
+        console.log(`🔑 ConfigService: Succès pour ${provider}, data:`, response.data);
+      } else {
+        logService.warning(`Échec de la récupération de la clé API pour ${provider}`, 'ConfigService', { 
+          provider, 
+          message: response.message 
+        });
+        console.log(`🔑 ConfigService: Échec pour ${provider}:`, response.message);
+      }
+
+      return response;
+    } catch (error) {
+      const errorMessage = `Erreur lors de la récupération de la clé API pour ${provider}: ${handleApiError(error)}`;
+      logService.error(errorMessage, 'ConfigService', { provider, error: error.message });
+      console.error(`Erreur lors de la récupération de la clé API pour ${provider}:`, error);
+      return {
+        success: false,
+        message: `Erreur lors de la récupération: ${handleApiError(error)}`
+      };
+    }
+  }
+
   // Sauvegarder une clé API
   static async saveAPIKey(provider: string, apiKey: string): Promise<{ success: boolean; message: string }> {
     try {

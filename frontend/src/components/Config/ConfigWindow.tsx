@@ -52,7 +52,7 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
     }
   }, [aiProviders]);
 
-  const updateProviderStates = (aiProviders: any[]) => {
+    const updateProviderStates = async (aiProviders: any[]) => {
     try {
       setLoading(true);
       setError(null);
@@ -69,20 +69,21 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
         });
       }
       
-             const providerStates: ProviderState[] = aiProviders.map((provider: any) => {
-         let status: ProviderStatus = 'empty';
-         let errorMessage: string | undefined;
+      // Récupérer les clés API pour tous les providers qui en ont une
+      const providerStates: ProviderState[] = await Promise.all(aiProviders.map(async (provider: any) => {
+        let status: ProviderStatus = 'empty';
+        let errorMessage: string | undefined;
 
-         // Debug: Log pour chaque provider
-         console.log(`🔍 Provider ${provider.name}:`, {
-           is_functional: provider.is_functional,
-           status: provider.status,
-           has_api_key: provider.has_api_key,
-           api_key: provider.api_key
-         });
+        // Debug: Log pour chaque provider
+        console.log(`🔍 Provider ${provider.name}:`, {
+          is_functional: provider.is_functional,
+          status: provider.status,
+          has_api_key: provider.has_api_key,
+          api_key: provider.api_key
+        });
 
-         // Déterminer le statut du provider
-         if (provider.name.toLowerCase() === 'ollama') {
+        // Déterminer le statut du provider
+        if (provider.name.toLowerCase() === 'ollama') {
           // Pour Ollama, pas besoin de clé API
           if (provider.is_functional && provider.status === 'valid') {
             status = 'active';
@@ -99,47 +100,67 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
             status = 'empty';
             errorMessage = 'Ollama non testé. Cliquez sur "Tester" pour vérifier la connexion.';
           }
-                 } else {
-           // Pour les autres providers, vérifier la clé API
-           console.log(`🔍 Logique pour ${provider.name}:`, {
-             has_api_key: provider.has_api_key,
-             is_functional: provider.is_functional,
-             status: provider.status,
-             condition1: !provider.api_key || provider.api_key.trim() === '',
-             condition2: provider.is_functional && provider.status === 'valid',
-             condition3: provider.is_functional,
-             condition4: provider.has_api_key
-           });
-           
-           if (!provider.has_api_key) {
-             status = 'empty';
-             console.log(`  → ${provider.name} → empty (pas de clé API)`);
-           } else if (provider.is_functional && provider.status === 'valid') {
-             status = 'active';
-             console.log(`  → ${provider.name} → active (fonctionnel + valid)`);
-           } else if (provider.is_functional) {
-             status = 'functional';
-             console.log(`  → ${provider.name} → functional (fonctionnel)`);
-           } else if (provider.has_api_key) {
-             // Si une clé API est configurée mais pas testée
-             status = 'pending';
-             console.log(`  → ${provider.name} → pending (clé API mais pas testé)`);
-           } else {
-             status = 'invalid';
-             errorMessage = 'Clé API invalide ou service non accessible.';
-             console.log(`  → ${provider.name} → invalid (échec)`);
-           }
-         }
+        } else {
+          // Pour les autres providers, vérifier la clé API
+          console.log(`🔍 Logique pour ${provider.name}:`, {
+            has_api_key: provider.has_api_key,
+            is_functional: provider.is_functional,
+            status: provider.status,
+            condition1: !provider.api_key || provider.api_key.trim() === '',
+            condition2: provider.is_functional && provider.status === 'valid',
+            condition3: provider.is_functional,
+            condition4: provider.has_api_key
+          });
+          
+          if (!provider.has_api_key) {
+            status = 'empty';
+            console.log(`  → ${provider.name} → empty (pas de clé API)`);
+          } else if (provider.is_functional && provider.status === 'valid') {
+            status = 'active';
+            console.log(`  → ${provider.name} → active (fonctionnel + valid)`);
+          } else if (provider.is_functional) {
+            status = 'functional';
+            console.log(`  → ${provider.name} → functional (fonctionnel)`);
+          } else if (provider.has_api_key) {
+            // Si une clé API est configurée mais pas testée
+            status = 'pending';
+            console.log(`  → ${provider.name} → pending (clé API mais pas testé)`);
+          } else {
+            status = 'invalid';
+            errorMessage = 'Clé API invalide ou service non accessible.';
+            console.log(`  → ${provider.name} → invalid (échec)`);
+          }
+        }
+
+        // Récupérer la clé API si le provider en a une
+        let apiKey = '';
+        if (provider.has_api_key && provider.name.toLowerCase() !== 'ollama') {
+          try {
+            console.log(`🔑 Tentative de récupération de la clé API pour ${provider.name}...`);
+            const keyResponse = await ConfigService.getAPIKey(provider.name);
+            console.log(`🔑 Réponse pour ${provider.name}:`, keyResponse);
+            if (keyResponse.success && keyResponse.data) {
+              apiKey = keyResponse.data.key || '';
+              console.log(`🔑 Clé API récupérée pour ${provider.name}: ${apiKey ? 'OUI' : 'NON'}`);
+            } else {
+              console.warn(`🔑 Échec de récupération pour ${provider.name}:`, keyResponse.message);
+            }
+          } catch (error) {
+            console.warn(`Impossible de récupérer la clé API pour ${provider.name}:`, error);
+          }
+        } else {
+          console.log(`🔑 Pas de récupération pour ${provider.name}: has_api_key=${provider.has_api_key}, is_ollama=${provider.name.toLowerCase() === 'ollama'}`);
+        }
 
         return {
           name: provider.name,
           status,
-          apiKey: provider.api_key || '',
+          apiKey,
           priority: provider.priority || 0,
           isVisible: true,
           errorMessage
         };
-      });
+      }));
 
       setProviders(providerStates);
     } catch (error) {
@@ -201,9 +222,6 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
 
         // Recharger tous les providers pour obtenir les statuts mis à jour
         await refreshAIProviders();
-
-        // Recalculer les priorités
-        await recalculatePriorities();
       } else {
         setError(`Test échoué pour ${getProviderDisplayName(providerName)}: ${result.message}`);
       }
@@ -225,15 +243,19 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
         // Désactiver le provider
         await ConfigService.setProviderStatus(providerName, 'inactive');
       } else {
-        // Activer le provider
+        // Activer le provider - attribution automatique de la priorité
         await ConfigService.setProviderStatus(providerName, 'valid');
+        
+        // Attribuer automatiquement la prochaine priorité disponible
+        const activeProviders = providers.filter(p => p.status === 'active');
+        const nextPriority = activeProviders.length + 1; // +1 car on vient d'ajouter ce provider
+        
+        console.log(`🔄 Attribution automatique priorité ${nextPriority} à ${providerName}`);
+        await ConfigService.setProviderPriority(providerName, nextPriority);
       }
 
-             // Recharger les providers
-       await refreshAIProviders();
-       
-       // Recalculer les priorités
-       await recalculatePriorities();
+      // Recharger les providers
+      await refreshAIProviders();
     } catch (error) {
       logService.error(`Erreur toggle provider ${providerName}`, 'ConfigWindow', { error: error.message, provider: providerName });
       setError(`Erreur lors de l'activation/désactivation de ${getProviderDisplayName(providerName)}`);
@@ -269,22 +291,7 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
     }
   };
 
-  // Recalculer les priorités pour les providers actifs
-  const recalculatePriorities = async () => {
-    try {
-      const activeProviders = providers.filter(p => p.status === 'active');
-      
-      // Réassigner les priorités de 1 à N
-      for (let i = 0; i < activeProviders.length; i++) {
-        await ConfigService.setProviderPriority(activeProviders[i].name, i + 1);
-      }
-      
-      // Recharger les providers
-      await refreshAIProviders();
-    } catch (error) {
-      logService.error('Erreur recalcul priorités', 'ConfigWindow', { error: error.message });
-    }
-  };
+
 
   // Basculer la visibilité de la clé API
   const toggleApiKeyVisibility = (providerName: string) => {
@@ -586,15 +593,16 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                   </div>
                 </div>
 
-                                 {/* Note sur les priorités */}
-                 {activeProviders.length > 0 && (
-                   <div className="p-3 rounded-lg border" style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
-                     <p className="text-xs" style={{ color: colors.textSecondary }}>
-                       <strong>💡 Gestion des priorités :</strong> Définissez l'ordre d'utilisation des providers (1 = priorité la plus haute). 
-                       <strong> Échange automatique :</strong> Si vous changez une priorité, les autres s'échangent automatiquement.
-                     </p>
-                   </div>
-                 )}
+                                                   {/* Note sur les priorités */}
+                  {activeProviders.length > 0 && (
+                    <div className="p-3 rounded-lg border" style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
+                      <p className="text-xs" style={{ color: colors.textSecondary }}>
+                        <strong>💡 Gestion automatique des priorités :</strong> Ollama est priorité 1 par défaut. 
+                        Les nouveaux providers actifs s'ajoutent automatiquement (2, 3, 4...). 
+                        <strong> Permutation automatique :</strong> Si vous changez une priorité, les autres s'échangent automatiquement.
+                      </p>
+                    </div>
+                  )}
 
                 
               </>

@@ -74,6 +74,9 @@ export const useConfigStore = create<ConfigState>()(
                 lastUpdated: new Date().toISOString()
               });
               
+              // Vérifier et corriger les priorités au chargement
+              await get()._ensurePrioritiesAreValid();
+              
             } catch (error) {
               const errorMessage = error instanceof Error ? error.message : 'Erreur lors du chargement des configurations';
               set({ 
@@ -340,6 +343,30 @@ export const useConfigStore = create<ConfigState>()(
             isInitialized: false,
             lastUpdated: null
           });
+        },
+
+        // Méthode privée pour s'assurer que les priorités sont valides
+        _ensurePrioritiesAreValid: async () => {
+          try {
+            const providers = get().aiProviders;
+            const activeProviders = providers.filter(p => p.is_active);
+            
+            // Vérifier si les priorités sont séquentielles
+            const priorities = activeProviders.map(p => p.priority).sort((a, b) => a - b);
+            const expectedPriorities = Array.from({ length: activeProviders.length }, (_, i) => i + 1);
+            
+            const prioritiesAreValid = priorities.length === expectedPriorities.length && 
+              priorities.every((p, i) => p === expectedPriorities[i]);
+            
+            if (!prioritiesAreValid && activeProviders.length > 0) {
+              console.log('🔄 Correction automatique des priorités...');
+              
+              // Recharger les providers pour obtenir les priorités corrigées
+              await get().refreshAIProviders();
+            }
+          } catch (error) {
+            console.warn('⚠️ Erreur lors de la vérification des priorités:', error);
+          }
         }
       }),
       {
