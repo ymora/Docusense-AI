@@ -19,25 +19,55 @@ const TabPanel: React.FC<TabPanelProps> = ({ tabs, activeTab, onTabChange }) => 
 
   return (
     <div className="flex border-b" style={{ borderColor: colors.border }}>
-      {tabs.map((tab) => (
-        <button
-          key={tab.id}
-          onClick={() => onTabChange(tab.id)}
-          className={`flex items-center space-x-2 px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
-            activeTab === tab.id
-              ? 'border-blue-500 text-blue-500'
-              : 'border-transparent text-slate-400 hover:text-slate-200 hover:border-slate-600'
-          }`}
-        >
-          {tab.icon}
-          <span>{tab.label}</span>
-          {tab.count !== undefined && tab.count > 0 && (
-            <span className="bg-slate-600 text-slate-200 text-xs px-2 py-1 rounded-full">
-              {tab.count}
-            </span>
-          )}
-        </button>
-      ))}
+      {tabs.map((tab) => {
+        const isActive = activeTab === tab.id;
+        
+        return (
+          <button
+            key={tab.id}
+            onClick={() => onTabChange(tab.id)}
+            className={`flex items-center space-x-2 px-4 py-3 text-sm font-medium transition-all duration-300 ease-in-out border-b-2 hover:scale-105 ${
+              isActive
+                ? 'border-b-2'
+                : 'border-transparent hover:border-opacity-50'
+            }`}
+            style={{
+              borderColor: isActive ? colors.primary : 'transparent',
+              color: isActive ? colors.primary : colors.textSecondary,
+              backgroundColor: 'transparent'
+            }}
+            onMouseEnter={(e) => {
+              if (!isActive) {
+                e.currentTarget.style.color = colors.text;
+                e.currentTarget.style.borderColor = colors.border;
+              }
+            }}
+            onMouseLeave={(e) => {
+              if (!isActive) {
+                e.currentTarget.style.color = colors.textSecondary;
+                e.currentTarget.style.borderColor = 'transparent';
+              }
+            }}
+          >
+            <div className="transition-transform duration-200">
+              {tab.icon}
+            </div>
+            <span>{tab.label}</span>
+            {tab.count !== undefined && tab.count > 0 && (
+              <span 
+                className="text-xs px-2 py-1 rounded-full border transition-all duration-300 ease-in-out hover:scale-110"
+                style={{
+                  backgroundColor: isActive ? colors.primary : colors.surface,
+                  borderColor: isActive ? colors.primary : colors.border,
+                  color: isActive ? '#ffffff' : colors.textSecondary
+                }}
+              >
+                {tab.count}
+              </span>
+            )}
+          </button>
+        );
+      })}
     </div>
   );
 };

@@ -60,6 +60,67 @@ const FileInfo: React.FC<{
   );
 };
 
+// Composant pour afficher le type de fichier
+const FileTypeDisplay: React.FC<{
+  item: any;
+  colors: any;
+}> = ({ item, colors }) => {
+  const getFileTypeInfo = () => {
+    const fileName = item.file_info?.name || '';
+    const fileExtension = fileName.split('.').pop()?.toLowerCase() || '';
+
+    // Déterminer le type de fichier basé sur l'extension
+    if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'].includes(fileExtension)) {
+      return {
+        label: 'Image',
+        color: '#10b981', // Vert
+        bgColor: 'rgba(16, 185, 129, 0.1)',
+      };
+    } else if (['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv'].includes(fileExtension)) {
+      return {
+        label: 'Vidéo',
+        color: '#8b5cf6', // Violet
+        bgColor: 'rgba(139, 92, 246, 0.1)',
+      };
+    } else if (['mp3', 'wav', 'flac', 'aac', 'ogg', 'wma'].includes(fileExtension)) {
+      return {
+        label: 'Audio',
+        color: '#f59e0b', // Orange
+        bgColor: 'rgba(245, 158, 11, 0.1)',
+      };
+    } else if (['pdf', 'doc', 'docx', 'txt', 'rtf', 'odt'].includes(fileExtension)) {
+      return {
+        label: 'Document',
+        color: '#3b82f6', // Bleu
+        bgColor: 'rgba(59, 130, 246, 0.1)',
+      };
+    } else {
+      return {
+        label: 'Texte',
+        color: '#6b7280', // Gris
+        bgColor: 'rgba(107, 114, 128, 0.1)',
+      };
+    }
+  };
+
+  const typeInfo = getFileTypeInfo();
+
+  return (
+    <div className="flex items-center gap-2">
+      <span
+        className="px-2 py-1 rounded text-xs font-medium"
+        style={{
+          backgroundColor: typeInfo.bgColor,
+          color: typeInfo.color,
+          border: `1px solid ${typeInfo.color}`
+        }}
+      >
+        {typeInfo.label}
+      </span>
+    </div>
+  );
+};
+
 // Composant pour la configuration compacte (IA + Prompt en ligne)
 const ConfigurationCompact: React.FC<{
   item: any;
@@ -203,161 +264,195 @@ const ConfigurationCompact: React.FC<{
   );
 };
 
-// Composant pour le bouton d'action de statut dynamique
-const StatusActionButton: React.FC<{
+// Composant pour afficher le statut avec couleur
+const StatusDisplay: React.FC<{
+  item: any;
+  colors: any;
+}> = ({ item, colors }) => {
+  const getStatusConfig = () => {
+    switch (item.status) {
+      case 'pending':
+        return {
+          label: 'En attente',
+          color: '#f59e0b', // Orange
+          bgColor: 'rgba(245, 158, 11, 0.1)'
+        };
+      case 'processing':
+        return {
+          label: 'En cours',
+          color: '#3b82f6', // Bleu
+          bgColor: 'rgba(59, 130, 246, 0.1)'
+        };
+      case 'completed':
+        return {
+          label: 'Terminé',
+          color: '#10b981', // Vert
+          bgColor: 'rgba(16, 185, 129, 0.1)'
+        };
+      case 'failed':
+        return {
+          label: 'Échoué',
+          color: '#ef4444', // Rouge
+          bgColor: 'rgba(239, 68, 68, 0.1)'
+        };
+      case 'paused':
+        return {
+          label: 'En pause',
+          color: '#8b5cf6', // Violet
+          bgColor: 'rgba(139, 92, 246, 0.1)'
+        };
+      default:
+        return {
+          label: 'Inconnu',
+          color: colors.textSecondary,
+          bgColor: 'rgba(107, 114, 128, 0.1)'
+        };
+    }
+  };
+
+  const config = getStatusConfig();
+
+  return (
+    <span
+      className="px-2 py-1 rounded text-xs font-medium"
+      style={{
+        backgroundColor: config.bgColor,
+        color: config.color,
+        border: `1px solid ${config.color}`
+      }}
+    >
+      {config.label}
+    </span>
+  );
+};
+
+// Composant pour les actions utilitaires (dupliquer, supprimer, visualiser) + actions de statut
+const UtilityActions: React.FC<{
   item: any;
   onAction: (action: string, itemId: string) => void;
   colors: any;
   localSelections: { [itemId: string]: { provider?: string; prompt?: string } };
 }> = ({ item, onAction, colors, localSelections }) => {
-  // Utiliser les sélections locales ou les valeurs par défaut
+  const isAnalysisCompleted = item.status === 'completed';
+  const isAnalysisProcessing = item.status === 'processing';
+  const isAnalysisFailed = item.status === 'failed';
+  const isAnalysisPending = item.status === 'pending';
+  const isAnalysisPaused = item.status === 'paused';
+
   const localSelection = localSelections[item.id] || {};
   const hasProvider = localSelection.provider !== undefined ? localSelection.provider : item.analysis_provider;
   const hasPrompt = localSelection.prompt !== undefined ? localSelection.prompt : item.analysis_prompt;
   const canStart = hasProvider && hasPrompt;
-  
-  const getButtonConfig = () => {
-    switch (item.status) {
-      case 'pending':
-        if (!canStart) {
-          return {
-            action: 'configure',
-            onClick: () => {}, // Pas d'action, juste indicateur
-            icon: <CogIcon className="w-4 h-4" />,
-            label: 'Configurer',
-            variant: 'warning' as const,
-            disabled: true
-          };
-        }
-        return {
-          action: 'start_analysis',
-          onClick: () => onAction('start_analysis', item.id),
-          icon: <PlayIcon className="w-4 h-4" />,
-          label: 'Démarrer',
-          variant: 'success' as const,
-          disabled: false
-        };
-        
-      case 'processing':
-        return {
-          action: 'pause_item',
-          onClick: () => onAction('pause_item', item.id),
-          icon: <PauseIcon className="w-4 h-4" />,
-          label: 'Pause',
-          variant: 'warning' as const,
-          disabled: false
-        };
-        
-      case 'paused':
-        return {
-          action: 'retry_item',
-          onClick: () => onAction('retry_item', item.id),
-          icon: <PlayIcon className="w-4 h-4" />,
-          label: 'Reprendre',
-          variant: 'success' as const,
-          disabled: false
-        };
-        
-      case 'failed':
-        return {
-          action: 'retry_item',
-          onClick: () => onAction('retry_item', item.id),
-          icon: <ArrowPathIcon className="w-4 h-4" />,
-          label: 'Relancer',
-          variant: 'warning' as const,
-          disabled: false
-        };
-        
-      case 'completed':
-        return {
-          action: 'view_result',
-          onClick: () => onAction('view_result', item.id),
-          icon: <EyeIcon className="w-4 h-4" />,
-          label: 'Voir',
-          variant: 'primary' as const,
-          disabled: false
-        };
-        
-      default:
-        return {
-          action: 'unknown',
-          onClick: () => {},
-          icon: <CogIcon className="w-4 h-4" />,
-          label: 'Inconnu',
-          variant: 'secondary' as const,
-          disabled: true
-        };
-    }
-  };
-  
-  const config = getButtonConfig();
-  
-  const getVariantStyles = () => {
-    switch (config.variant) {
-      case 'primary':
-        return 'bg-blue-500 hover:bg-blue-600 text-white';
-      case 'secondary':
-        return 'bg-gray-500 hover:bg-gray-600 text-white';
-      case 'danger':
-        return 'bg-red-500 hover:bg-red-600 text-white';
-      case 'success':
-        return 'bg-green-500 hover:bg-green-600 text-white';
-      case 'warning':
-        return 'bg-yellow-500 hover:bg-yellow-600 text-white';
-      default:
-        return 'bg-gray-500 hover:bg-gray-600 text-white';
-    }
-  };
-  
-  return (
-    <button
-      onClick={config.onClick}
-      disabled={config.disabled}
-      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${getVariantStyles()} ${
-        config.disabled ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-md active:scale-95'
-      }`}
-      title={config.label}
-    >
-      {config.icon}
-      <span>{config.label}</span>
-    </button>
-  );
-};
 
-// Composant pour les actions utilitaires (dupliquer, supprimer)
-const UtilityActions: React.FC<{
-  item: any;
-  onAction: (action: string, itemId: string) => void;
-  colors: any;
-}> = ({ item, onAction, colors }) => {
+  // Configuration des actions
+  const actionConfig = {
+    main: {
+      action: '', icon: null, variant: 'primary', disabled: true, tooltip: ''
+    },
+    view: {
+      action: 'view_file', icon: <EyeIcon />, variant: 'info', disabled: true, tooltip: 'Visualiser le fichier'
+    },
+    duplicate: {
+      action: 'duplicate_item', icon: <DocumentDuplicateIcon />, variant: 'warning', disabled: false, tooltip: 'Dupliquer l\'analyse' // Always active
+    },
+    delete: {
+      action: 'delete_item', icon: <TrashIcon />, variant: 'danger', disabled: true, tooltip: 'Supprimer l\'analyse'
+    }
+  };
+
+  // Logique pour l'action principale
+  if (isAnalysisPending) {
+    actionConfig.main = canStart
+      ? { action: 'start_analysis', icon: <PlayIcon />, variant: 'success', disabled: false, tooltip: 'Démarrer l\'analyse' }
+      : { action: 'configure', icon: <CogIcon />, variant: 'primary', disabled: false, tooltip: 'Configurer l\'IA et le prompt' };
+    actionConfig.delete.disabled = false; // Peut supprimer en attente
+  } else if (isAnalysisProcessing) {
+    actionConfig.main = { action: 'pause_item', icon: <PauseIcon />, variant: 'warning', disabled: false, tooltip: 'Mettre en pause l\'analyse' };
+    actionConfig.delete.disabled = true; // Impossible de supprimer pendant le traitement
+  } else if (isAnalysisPaused) {
+    actionConfig.main = { action: 'start_analysis', icon: <PlayIcon />, variant: 'success', disabled: false, tooltip: 'Reprendre l\'analyse' };
+    actionConfig.delete.disabled = false; // Peut supprimer en pause
+  } else if (isAnalysisCompleted) {
+    actionConfig.main = { action: 'retry_analysis', icon: <ArrowPathIcon />, variant: 'primary', disabled: false, tooltip: 'Relancer l\'analyse' };
+    actionConfig.view.disabled = false; // Peut visualiser si terminée
+    actionConfig.delete.disabled = false; // Peut supprimer si terminée
+  } else if (isAnalysisFailed) {
+    actionConfig.main = { action: 'retry_analysis', icon: <ArrowPathIcon />, variant: 'primary', disabled: false, tooltip: 'Relancer l\'analyse' };
+    actionConfig.delete.disabled = false; // Peut supprimer si échouée
+  } else { // Unknown status
+    actionConfig.main = { action: '', icon: null, variant: 'primary', disabled: true, tooltip: 'Statut inconnu' };
+    actionConfig.view.disabled = true;
+    actionConfig.delete.disabled = true;
+  }
+
   return (
     <div className="flex items-center gap-1">
+      {/* Bouton d'action principal (Démarrer/Pause/Reprendre/Relancer/Configurer) */}
+      <button
+        onClick={() => onAction(actionConfig.main.action, item.id)}
+        disabled={actionConfig.main.disabled}
+        className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
+          actionConfig.main.disabled ? 'opacity-50 cursor-not-allowed' : ''
+        }`}
+        style={{
+          backgroundColor: 'transparent',
+          border: `1px solid ${actionConfig.main.variant === 'success' ? '#10b981' : actionConfig.main.variant === 'warning' ? '#f59e0b' : actionConfig.main.variant === 'primary' ? '#3b82f6' : '#6b7280'}`,
+          color: actionConfig.main.variant === 'success' ? '#10b981' : actionConfig.main.variant === 'warning' ? '#f59e0b' : actionConfig.main.variant === 'primary' ? '#3b82f6' : '#6b7280'
+        }}
+        title={actionConfig.main.tooltip}
+      >
+        {actionConfig.main.icon}
+      </button>
+
+      {/* Bouton de visualisation */}
+      <button
+        onClick={() => onAction(actionConfig.view.action, item.id)}
+        disabled={actionConfig.view.disabled}
+        className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
+          actionConfig.view.disabled ? 'opacity-50 cursor-not-allowed' : ''
+        }`}
+        style={{
+          backgroundColor: 'transparent',
+          border: `1px solid ${actionConfig.view.disabled ? '#6b7280' : '#3b82f6'}`,
+          color: actionConfig.view.disabled ? '#6b7280' : '#3b82f6'
+        }}
+        title={actionConfig.view.tooltip}
+      >
+        {actionConfig.view.icon}
+      </button>
+
       {/* Bouton de duplication */}
       <button
-        onClick={() => onAction('duplicate_item', item.id)}
-        className="text-xs px-2 py-1 rounded border hover:bg-blue-50 hover:border-blue-300 transition-colors"
+        onClick={() => onAction(actionConfig.duplicate.action, item.id)}
+        disabled={actionConfig.duplicate.disabled}
+        className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
+          actionConfig.duplicate.disabled ? 'opacity-50 cursor-not-allowed' : ''
+        }`}
         style={{
-          backgroundColor: colors.background,
-          borderColor: colors.border,
-          color: colors.textSecondary,
+          backgroundColor: 'transparent',
+          border: `1px solid ${actionConfig.duplicate.disabled ? '#6b7280' : '#f59e0b'}`,
+          color: actionConfig.duplicate.disabled ? '#6b7280' : '#f59e0b'
         }}
-        title="Dupliquer l'analyse"
+        title={actionConfig.duplicate.tooltip}
       >
-        <DocumentDuplicateIcon className="w-3 h-3" />
+        {actionConfig.duplicate.icon}
       </button>
-      
+
       {/* Bouton de suppression */}
       <button
-        onClick={() => onAction('delete_item', item.id)}
-        className="text-xs px-2 py-1 rounded border hover:bg-red-50 hover:border-red-300 transition-colors"
+        onClick={() => onAction(actionConfig.delete.action, item.id)}
+        disabled={actionConfig.delete.disabled}
+        className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
+          actionConfig.delete.disabled ? 'opacity-50 cursor-not-allowed' : ''
+        }`}
         style={{
-          backgroundColor: colors.background,
-          borderColor: colors.border,
-          color: colors.textSecondary,
+          backgroundColor: 'transparent',
+          border: `1px solid ${actionConfig.delete.disabled ? '#6b7280' : '#ef4444'}`,
+          color: actionConfig.delete.disabled ? '#6b7280' : '#ef4444'
         }}
-        title="Supprimer"
+        title={actionConfig.delete.tooltip}
       >
-        <TrashIcon className="w-3 h-3" />
+        {actionConfig.delete.icon}
       </button>
     </div>
   );
@@ -405,8 +500,19 @@ const QueueTable: React.FC<QueueTableProps> = ({
       label: 'Fichier',
       sortable: true,
       render: (item) => (
-        <FileInfo 
-          item={item} 
+        <FileInfo
+          item={item}
+          colors={colors}
+        />
+      )
+    },
+    {
+      key: 'file_type',
+      label: 'Type',
+      sortable: true,
+      render: (item) => (
+        <FileTypeDisplay
+          item={item}
           colors={colors}
         />
       )
@@ -415,29 +521,27 @@ const QueueTable: React.FC<QueueTableProps> = ({
       key: 'configuration',
       label: 'Configuration',
       sortable: false,
-             render: (item) => (
-         <ConfigurationCompact
-           item={item}
-           colors={colors}
-           prompts={prompts}
-           onProviderChange={onProviderChange}
-           onPromptChange={onPromptChange}
-           localSelections={localSelections}
-         />
-       )
+      render: (item) => (
+        <ConfigurationCompact
+          item={item}
+          colors={colors}
+          prompts={prompts}
+          onProviderChange={onProviderChange}
+          onPromptChange={onPromptChange}
+          localSelections={localSelections}
+        />
+      )
     },
     {
       key: 'status',
       label: 'Statut',
       sortable: true,
-             render: (item) => (
-         <StatusActionButton
-           item={item}
-           onAction={onAction}
-           colors={colors}
-           localSelections={localSelections}
-         />
-       )
+      render: (item) => (
+        <StatusDisplay
+          item={item}
+          colors={colors}
+        />
+      )
     },
     {
       key: 'actions',
@@ -448,6 +552,7 @@ const QueueTable: React.FC<QueueTableProps> = ({
           item={item}
           onAction={onAction}
           colors={colors}
+          localSelections={localSelections}
         />
       )
     }
@@ -503,22 +608,49 @@ const QueueFilters: React.FC<QueueFiltersProps> = ({ filters, onFilterChange }) 
           <option value="paused">En pause</option>
         </select>
         
-        <input
-          type="text"
-          placeholder="Rechercher par nom..."
-          value={filters.search}
-          onChange={(e) => onFilterChange({ ...filters, search: e.target.value })}
-          className="px-2 py-1 rounded text-xs border flex-1"
+        <select
+          value={filters.file_type}
+          onChange={(e) => onFilterChange({ ...filters, file_type: e.target.value })}
+          className="px-2 py-1 rounded text-xs border"
           style={{
             backgroundColor: colors.background,
             borderColor: colors.border,
             color: colors.text,
-            minWidth: '150px'
+            minWidth: '120px'
           }}
-        />
+        >
+          <option value="">Tous les types de fichiers</option>
+          <option value="text">Texte</option>
+          <option value="image">Image</option>
+          <option value="video">Vidéo</option>
+          <option value="audio">Audio</option>
+          <option value="document">Document</option>
+        </select>
+        
+        <div className="flex-1 relative">
+          <input
+            type="text"
+            placeholder="Rechercher par nom de fichier..."
+            value={filters.search}
+            onChange={(e) => onFilterChange({ ...filters, search: e.target.value })}
+            className="px-2 py-1 rounded text-xs border w-full"
+            style={{
+              backgroundColor: colors.background,
+              borderColor: colors.border,
+              color: colors.text,
+              minWidth: '150px'
+            }}
+          />
+          <div
+            className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 cursor-help"
+            title="Recherche par nom de fichier. Utilisez ';' pour séparer plusieurs termes (ex: 'doc;rapport')."
+          >
+            ⓘ
+          </div>
+        </div>
         
         <button
-          onClick={() => onFilterChange({ status: '', priority: '', analysis_type: '', search: '' })}
+          onClick={() => onFilterChange({ status: '', file_type: '', search: '' })}
           className="px-2 py-1 text-xs rounded border hover:opacity-80 transition-opacity"
           style={{
             backgroundColor: colors.background,
@@ -543,14 +675,27 @@ export const QueueIAAdvanced: React.FC = () => {
   const currentPrompts = getPrompts();
   
   React.useEffect(() => {
+    console.log('🔄 Chargement des données de la queue...');
     loadQueueItems();
     if (!configInitialized) {
+      console.log('🔄 Chargement de la configuration IA...');
       loadAIProviders();
     } else {
       // Rafraîchir la configuration IA pour s'assurer d'avoir les dernières données
+      console.log('🔄 Rafraîchissement de la configuration IA...');
       refreshAIProviders();
     }
   }, [loadQueueItems, loadAIProviders, refreshAIProviders, configInitialized]);
+
+  // Debug: Afficher l'état des données
+  React.useEffect(() => {
+    console.log('📊 État des données:', {
+      queueItems: queueItems.length,
+      prompts: currentPrompts.length,
+      configInitialized,
+      loadingPrompts
+    });
+  }, [queueItems, currentPrompts, configInitialized, loadingPrompts]);
 
 
 
@@ -559,8 +704,7 @@ export const QueueIAAdvanced: React.FC = () => {
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [filters, setFilters] = useState({
     status: '',
-    priority: '',
-    analysis_type: '',
+    file_type: '',
     search: ''
   });
   

@@ -17,6 +17,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { useColors } from '../../hooks/useColors';
 import { formatFileSize, getEmailAttachmentIcon, canPreviewFile, isVideoFormatSupported, getVideoErrorMessage } from '../../utils/fileUtils';
+import { Button, IconButton } from '../UI/Button';
 
 interface EmailViewerProps {
   file: any;
@@ -533,14 +534,16 @@ const EmailViewer: React.FC<EmailViewerProps> = ({ file, onClose, onPreviewAttac
                             
                             {/* Contrôles au survol */}
                             <div className="absolute top-2 right-2 flex items-center space-x-1 opacity-0 hover:opacity-100 transition-opacity duration-200 z-10">
-                              <button
+                              <IconButton
+                                icon={<MagnifyingGlassPlusIcon />}
                                 onClick={() => handlePreviewAttachment(attachment, index)}
-                                className="p-1.5 bg-black/50 hover:bg-black/70 rounded transition-colors text-white"
-                                title="Plein écran"
-                              >
-                                <MagnifyingGlassPlusIcon className="h-4 w-4" />
-                              </button>
-                              <button
+                                variant="info"
+                                size="sm"
+                                tooltip="Plein écran"
+                                className="transition-all duration-300 ease-in-out hover:scale-110 hover:shadow-lg active:scale-95"
+                              />
+                              <IconButton
+                                icon={<ArrowDownTrayIcon />}
                                 onClick={() => {
                                   const link = document.createElement('a');
                                   link.href = `/api/emails/attachment-preview/${encodeURIComponent(file.path)}/${index}`;
@@ -552,11 +555,11 @@ const EmailViewer: React.FC<EmailViewerProps> = ({ file, onClose, onPreviewAttac
                                   link.click();
                                   document.body.removeChild(link);
                                 }}
-                                className="p-1.5 bg-black/50 hover:bg-black/70 rounded transition-colors text-white"
-                                title="Télécharger"
-                              >
-                                <ArrowDownTrayIcon className="h-4 w-4" />
-                              </button>
+                                variant="primary"
+                                size="sm"
+                                tooltip="Télécharger"
+                                className="transition-all duration-300 ease-in-out hover:scale-110 hover:shadow-lg active:scale-95"
+                              />
                             </div>
                           </div>
                         </div>
@@ -588,17 +591,19 @@ const EmailViewer: React.FC<EmailViewerProps> = ({ file, onClose, onPreviewAttac
                         <div className="absolute top-2 right-2 flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200 z-10">
                           {/* Bouton Consulter */}
                           {canPreviewFile(attachment.content_type, attachment.filename) && (
-                            <button
+                            <IconButton
+                              icon={<EyeIcon />}
                               onClick={() => handlePreviewAttachment(attachment, index)}
-                              className="p-1.5 bg-black/50 hover:bg-black/70 rounded transition-colors text-white"
-                              title="Consulter"
-                            >
-                              <EyeIcon className="h-4 w-4" />
-                            </button>
+                              variant="info"
+                              size="sm"
+                              tooltip="Consulter"
+                              className="transition-all duration-300 ease-in-out hover:scale-110 hover:shadow-lg active:scale-95"
+                            />
                           )}
                           
                           {/* Bouton Télécharger */}
-                          <button
+                          <IconButton
+                            icon={<ArrowDownTrayIcon />}
                             onClick={() => {
                               const link = document.createElement('a');
                               link.href = `/api/emails/attachment-preview/${encodeURIComponent(file.path)}/${index}`;
@@ -610,11 +615,11 @@ const EmailViewer: React.FC<EmailViewerProps> = ({ file, onClose, onPreviewAttac
                               link.click();
                               document.body.removeChild(link);
                             }}
-                            className="p-1.5 bg-black/50 hover:bg-black/70 rounded transition-colors text-white"
-                            title="Télécharger"
-                          >
-                            <ArrowDownTrayIcon className="h-4 w-4" />
-                          </button>
+                            variant="primary"
+                            size="sm"
+                            tooltip="Télécharger"
+                            className="transition-all duration-300 ease-in-out hover:scale-110 hover:shadow-lg active:scale-95"
+                          />
                         </div>
                       </div>
                     ))}

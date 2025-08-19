@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { XMarkIcon, FolderIcon, DocumentIcon } from '@heroicons/react/24/outline';
 import { useFileStore } from '../../stores/fileStore';
 import { useColors } from '../../hooks/useColors';
+import { IconButton } from './Button';
 
 const SelectionIndicator: React.FC = () => {
   const { colors } = useColors();
@@ -57,16 +58,17 @@ const SelectionIndicator: React.FC = () => {
         >
           {selectedFiles.length} fichier{selectedFiles.length > 1 ? 's' : ''} sélectionné{selectedFiles.length > 1 ? 's' : ''}
         </span>
-        <button
+        <IconButton
+          icon={<XMarkIcon />}
           onClick={(e) => {
             e.stopPropagation();
             handleClearSelection();
           }}
-          className="p-1 rounded hover:bg-red-500/20 transition-colors"
-          title="Désélectionner tous les fichiers"
-        >
-          <XMarkIcon className="h-4 w-4" style={{ color: colors.error }} />
-        </button>
+          variant="danger"
+          size="sm"
+          tooltip="Désélectionner tous les fichiers"
+          className="transition-all duration-300 ease-in-out hover:scale-110 hover:shadow-lg active:scale-95"
+        />
       </div>
 
       {/* Détails au survol */}

@@ -9,6 +9,7 @@ import {
   FolderIcon,
   ArrowLeftIcon
 } from '@heroicons/react/24/outline';
+import { Button } from '../UI/Button';
 
 interface File {
   id?: number;
@@ -66,16 +67,21 @@ const ThumbnailGrid: React.FC<ThumbnailGridProps> = ({ files, onFileSelect }) =>
     return (
       <div className="h-full flex flex-col">
         {/* Header avec bouton retour */}
-        <div className="flex items-center justify-between px-4 py-2 border-b border-slate-700 flex-shrink-0">
-          <button 
-            className="flex items-center px-3 py-1 text-sm rounded hover:bg-slate-700 transition-colors"
-            style={{ color: colors.primary }}
+        <div className="flex items-center justify-between px-4 py-2 border-b flex-shrink-0" style={{ borderColor: colors.border }}>
+          <Button
             onClick={handleBackToThumbnails}
+            variant="secondary"
+            size="sm"
+            icon={<ArrowLeftIcon />}
+            className="transition-all duration-300 ease-in-out hover:scale-105 hover:shadow-lg active:scale-95"
           >
-            <ArrowLeftIcon className="h-4 w-4 mr-1" />
             Retour aux miniatures ({files.length})
-          </button>
-          <h3 className="text-sm font-medium text-white truncate mx-4" title={selectedThumbnailFile.name}>
+          </Button>
+          <h3 
+            className="text-sm font-medium truncate mx-4" 
+            title={selectedThumbnailFile.name}
+            style={{ color: colors.text }}
+          >
             {selectedThumbnailFile.name}
           </h3>
           <div className="w-32"></div>

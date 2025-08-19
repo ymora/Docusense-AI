@@ -5,6 +5,8 @@
 import React, { useEffect } from 'react';
 import { XMarkIcon } from '@heroicons/react/24/outline';
 import { clsx } from 'clsx';
+import { useColors } from '../../hooks/useColors';
+import { IconButton } from './Button';
 
 export interface ModalProps {
   isOpen: boolean;
@@ -25,6 +27,8 @@ export const Modal: React.FC<ModalProps> = ({
   showCloseButton = true,
   className,
 }) => {
+  const { colors } = useColors();
+
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
@@ -57,7 +61,8 @@ export const Modal: React.FC<ModalProps> = ({
     <div className="fixed inset-0 z-50 overflow-y-auto">
       {/* Overlay */}
       <div
-        className="fixed inset-0 bg-black bg-opacity-50 transition-opacity"
+        className="fixed inset-0 transition-opacity"
+        style={{ backgroundColor: 'rgba(0, 0, 0, 0.5)' }}
         onClick={onClose}
       />
 
@@ -65,28 +70,39 @@ export const Modal: React.FC<ModalProps> = ({
       <div className="flex min-h-full items-center justify-center p-4">
         <div
           className={clsx(
-            'relative bg-slate-800 rounded-lg shadow-xl w-full',
+            'relative rounded-lg shadow-xl w-full border transition-all duration-300 ease-in-out',
             sizeClasses[size],
             className,
           )}
+          style={{
+            backgroundColor: colors.surface,
+            borderColor: colors.border
+          }}
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
           {(title || showCloseButton) && (
-            <div className="flex items-center justify-between p-4 border-b border-slate-700">
+            <div 
+              className="flex items-center justify-between p-4 border-b"
+              style={{ borderColor: colors.border }}
+            >
               {title && (
-                <h3 className="text-lg font-semibold text-slate-200">
+                <h3 
+                  className="text-lg font-semibold"
+                  style={{ color: colors.text }}
+                >
                   {title}
                 </h3>
               )}
               {showCloseButton && (
-                <button
+                <IconButton
+                  icon={<XMarkIcon />}
                   onClick={onClose}
-                  className="p-1 rounded-lg hover:bg-slate-700 transition-colors"
-                  aria-label="Fermer"
-                >
-                  <XMarkIcon className="w-5 h-5 text-slate-400" />
-                </button>
+                  variant="secondary"
+                  size="sm"
+                  tooltip="Fermer"
+                  className="transition-all duration-300 ease-in-out hover:scale-110 hover:shadow-lg active:scale-95"
+                />
               )}
             </div>
           )}

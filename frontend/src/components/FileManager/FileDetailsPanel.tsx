@@ -10,6 +10,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { formatFileSize, getFileIcon, formatDate } from '../../utils/fileUtils';
 import { getStatusColor } from '../../utils/statusUtils.tsx';
+import { IconButton } from '../UI/Button';
 
 interface FileDetailsPanelProps {
   file: {
@@ -87,13 +88,14 @@ const FileDetailsPanel: React.FC<FileDetailsPanelProps> = ({
             </p>
           </div>
         </div>
-        <button
+        <IconButton
+          icon={<XMarkIcon />}
           onClick={handleClose}
-          className="p-1 rounded-md hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
-          style={{ color: colors.textSecondary }}
-        >
-          <XMarkIcon className="h-5 w-5" />
-        </button>
+          variant="secondary"
+          size="sm"
+          tooltip="Fermer"
+          className="transition-all duration-300 ease-in-out hover:scale-110 hover:shadow-lg active:scale-95"
+        />
       </div>
 
       {/* Content */}

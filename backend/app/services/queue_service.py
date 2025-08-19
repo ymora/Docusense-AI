@@ -475,6 +475,14 @@ class QueueService(BaseService):
         if not item:
             return False
         
+        # Supprimer l'analyse associée si elle existe
+        if item.analysis_id:
+            analysis = self.db.query(Analysis).filter(Analysis.id == item.analysis_id).first()
+            if analysis:
+                self.db.delete(analysis)
+                self.logger.info(f"Deleted associated analysis {item.analysis_id}")
+        
+        # Supprimer l'élément de queue
         self.db.delete(item)
         self.db.commit()
         

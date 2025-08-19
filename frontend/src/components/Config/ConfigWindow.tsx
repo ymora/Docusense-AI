@@ -4,6 +4,7 @@ import { useColors } from '../../hooks/useColors';
 import ConfigService from '../../services/configService';
 import { logService } from '../../services/logService';
 import { useConfigStore } from '../../stores/configStore';
+import { Button, IconButton } from '../UI/Button';
 
 interface ConfigWindowProps {
   onClose?: () => void;
@@ -115,6 +116,10 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
           if (!provider.has_api_key) {
             status = 'empty';
             console.log(`  → ${provider.name} → empty (pas de clé API)`);
+          } else if (provider.is_active) {
+            // Si le provider est déjà actif, le garder actif
+            status = 'active';
+            console.log(`  → ${provider.name} → active (déjà actif)`);
           } else if (provider.is_functional && provider.status === 'valid') {
             status = 'active';
             console.log(`  → ${provider.name} → active (fonctionnel + valid)`);
@@ -157,7 +162,7 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
           status,
           apiKey,
           priority: provider.priority || 0,
-          isVisible: true,
+          isVisible: false, // Masquer les clés API par défaut
           errorMessage
         };
       }));
@@ -201,7 +206,26 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
         result = await ConfigService.testProvider(providerName);
       } else {
         // Test avec la clé API fournie
-        result = await ConfigService.testProvider(providerName, provider.apiKey);
+        console.log(`🧪 Test de ${providerName} avec clé API: ${provider.apiKey ? 'PRÉSENTE' : 'ABSENTE'}`);
+        if (!provider.apiKey) {
+          console.warn(`⚠️ Pas de clé API pour ${providerName}, tentative de récupération...`);
+          // Récupérer la clé API si elle n'est pas présente
+          try {
+            const keyResponse = await ConfigService.getAPIKey(providerName);
+            if (keyResponse.success && keyResponse.data) {
+              const apiKey = keyResponse.data.key;
+              console.log(`🔑 Clé API récupérée pour test: ${apiKey ? 'OUI' : 'NON'}`);
+              result = await ConfigService.testProvider(providerName, apiKey);
+            } else {
+              result = await ConfigService.testProvider(providerName, provider.apiKey);
+            }
+          } catch (error) {
+            console.warn(`Erreur récupération clé pour test:`, error);
+            result = await ConfigService.testProvider(providerName, provider.apiKey);
+          }
+        } else {
+          result = await ConfigService.testProvider(providerName, provider.apiKey);
+        }
       }
 
       if (result.success) {
@@ -382,6 +406,19 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
     }
   };
 
+  // Obtenir les providers organisés par type (local/web) et triés alphabétiquement
+  const getOrganizedProviders = () => {
+    const localProviders = providers.filter(provider => 
+      provider.name.toLowerCase() === 'ollama'
+    ).sort((a, b) => a.name.localeCompare(b.name));
+    
+    const webProviders = providers.filter(provider => 
+      provider.name.toLowerCase() !== 'ollama'
+    ).sort((a, b) => a.name.localeCompare(b.name));
+    
+    return { localProviders, webProviders };
+  };
+
   // Obtenir les providers actifs triés par priorité
   const getActiveProviders = () => {
     return providers
@@ -389,6 +426,7 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
       .sort((a, b) => a.priority - b.priority);
   };
 
+  const { localProviders, webProviders } = getOrganizedProviders();
   const activeProviders = getActiveProviders();
 
   return (
@@ -396,21 +434,25 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
       <div className="flex-1 overflow-hidden">
         <div className="h-full overflow-y-auto p-4">
           <div className="space-y-6">
-            <h3 className="text-lg font-semibold" style={{ color: colors.text }}>
-              Configuration des Providers IA
-            </h3>
+                         <div className="flex items-center gap-3">
+               <h3 className="text-lg font-semibold" style={{ color: colors.text }}>
+                 Configuration des Providers IA
+               </h3>
+             </div>
             
             {error && (
               <div className="p-3 rounded-lg border bg-red-50 border-red-200">
                 <div className="flex items-center space-x-2">
                   <span className="text-red-500">⚠️</span>
                   <span className="text-sm text-red-700">{error}</span>
-                  <button
+                  <IconButton
+                    icon={<XMarkIcon />}
                     onClick={() => setError(null)}
-                    className="ml-auto text-red-500 hover:text-red-700"
-                  >
-                    ✕
-                  </button>
+                    variant="danger"
+                    size="xs"
+                    tooltip="Fermer"
+                    className="transition-all duration-300 ease-in-out hover:scale-110 hover:shadow-lg active:scale-95"
+                  />
                 </div>
               </div>
             )}
@@ -430,104 +472,113 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                   
                   <div className="overflow-x-auto">
                     <table className="w-full border-collapse" style={{ borderColor: colors.border }}>
-                      <thead>
-                        <tr style={{ backgroundColor: colors.surface }}>
-                          <th className="p-3 text-left text-xs font-medium border-b" style={{ color: colors.text, borderColor: colors.border }}>
-                            Provider
-                          </th>
-                          <th className="p-3 text-left text-xs font-medium border-b" style={{ color: colors.text, borderColor: colors.border }}>
-                            Statut
-                          </th>
-                          <th className="p-3 text-left text-xs font-medium border-b" style={{ color: colors.text, borderColor: colors.border }}>
-                            Clé API
-                          </th>
-                                                     <th className="p-3 text-left text-xs font-medium border-b" style={{ color: colors.text, borderColor: colors.border }}>
-                             Actions
+                                             <thead>
+                         <tr style={{ backgroundColor: colors.surface }}>
+                           <th className="p-3 text-left text-xs font-medium border-b" style={{ color: colors.text, borderColor: colors.border }}>
+                             Provider
                            </th>
                            <th className="p-3 text-left text-xs font-medium border-b" style={{ color: colors.text, borderColor: colors.border }}>
-                             Priorité
+                             Type
                            </th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {providers.map((provider) => {
-                          const statusInfo = getProviderStatusInfo(provider);
-                          const isTesting = testing[provider.name];
-                          
-                          return (
-                            <tr key={provider.name} className="border-b" style={{ borderColor: colors.border }}>
-                              {/* Colonne Provider */}
-                              <td className="p-3">
-                                <div className="flex items-center space-x-2">
-                                  <span className="text-lg">{getProviderIcon(provider.name)}</span>
-                                  <span className="text-sm font-medium" style={{ color: colors.text }}>
-                                    {getProviderDisplayName(provider.name)}
-                                  </span>
-                                </div>
-                              </td>
-                              
-                              {/* Colonne Statut */}
-                              <td className="p-3">
-                                <div className="flex flex-col space-y-1">
-                                  <span 
-                                    className="text-xs px-2 py-1 rounded inline-block w-fit"
-                                    style={{ 
-                                      backgroundColor: statusInfo.color,
-                                      color: 'white'
-                                    }}
-                                  >
-                                    {statusInfo.text}
-                                  </span>
-                                  {provider.errorMessage && (
-                                    <span className="text-xs" style={{ color: '#ef4444' }}>
-                                      {provider.errorMessage}
+                           <th className="p-3 text-left text-xs font-medium border-b" style={{ color: colors.text, borderColor: colors.border }}>
+                             Statut
+                           </th>
+                           <th className="p-3 text-left text-xs font-medium border-b" style={{ color: colors.text, borderColor: colors.border }}>
+                             Clé API
+                           </th>
+                                                      <th className="p-3 text-left text-xs font-medium border-b" style={{ color: colors.text, borderColor: colors.border }}>
+                              Actions
+                            </th>
+                            <th className="p-3 text-left text-xs font-medium border-b" style={{ color: colors.text, borderColor: colors.border }}>
+                              Priorité
+                            </th>
+                         </tr>
+                       </thead>
+                                             <tbody>
+                                                   {/* Section IA Locales */}
+                          {localProviders.map((provider) => {
+                            const statusInfo = getProviderStatusInfo(provider);
+                            const isTesting = testing[provider.name];
+                            
+                            return (
+                              <tr key={provider.name} className="border-b" style={{ borderColor: colors.border }}>
+                                {/* Colonne Provider */}
+                                <td className="p-3">
+                                  <div className="flex items-center space-x-2">
+                                    <span className="text-lg">{getProviderIcon(provider.name)}</span>
+                                    <span className="text-sm font-medium" style={{ color: colors.text }}>
+                                      {getProviderDisplayName(provider.name)}
                                     </span>
-                                  )}
-                                </div>
-                              </td>
-                              
-                              {/* Colonne Clé API */}
-                              <td className="p-3">
-                                {provider.name.toLowerCase() !== 'ollama' ? (
-                                  <div className="relative">
-                                    <input
-                                      type={provider.isVisible ? "text" : "password"}
-                                      value={provider.apiKey}
-                                      onChange={(e) => handleApiKeyChange(provider.name, e.target.value)}
-                                      placeholder="Clé API"
-                                      className="w-full px-2 py-1 rounded border text-xs"
-                                      style={{
-                                        backgroundColor: colors.background,
-                                        borderColor: colors.border,
-                                        color: colors.text
-                                      }}
-                                    />
-                                    <button
-                                      type="button"
-                                      onClick={() => toggleApiKeyVisibility(provider.name)}
-                                      className="absolute right-1 top-1/2 transform -translate-y-1/2 p-0.5"
-                                      style={{ color: colors.textSecondary }}
-                                    >
-                                      {provider.isVisible ? (
-                                        <EyeSlashIcon className="h-3 w-3" />
-                                      ) : (
-                                        <EyeIcon className="h-3 w-3" />
-                                      )}
-                                    </button>
                                   </div>
-                                ) : (
-                                  <span className="text-xs" style={{ color: colors.textSecondary }}>
-                                    Non requis
+                                </td>
+                                
+                                {/* Colonne Type */}
+                                <td className="p-3">
+                                  <span className="text-xs px-2 py-1 rounded inline-block" style={{ 
+                                    backgroundColor: '#3b82f6', 
+                                    color: 'white' 
+                                  }}>
+                                    Local
                                   </span>
-                                )}
-                              </td>
-                              
-                                                             {/* Colonne Actions */}
+                                </td>
+                                
+                                {/* Colonne Statut */}
                                <td className="p-3">
-                                 <button
+                                 <div className="flex flex-col space-y-1">
+                                   <span 
+                                     className="text-xs px-2 py-1 rounded inline-block w-fit"
+                                     style={{ 
+                                       backgroundColor: statusInfo.color,
+                                       color: 'white'
+                                     }}
+                                   >
+                                     {statusInfo.text}
+                                   </span>
+                                   {provider.errorMessage && (
+                                     <span className="text-xs" style={{ color: '#ef4444' }}>
+                                       {provider.errorMessage}
+                                     </span>
+                                   )}
+                                 </div>
+                               </td>
+                               
+                               {/* Colonne Clé API */}
+                               <td className="p-3">
+                                 {provider.name.toLowerCase() !== 'ollama' ? (
+                                   <div className="relative">
+                                     <input
+                                       type={provider.isVisible ? "text" : "password"}
+                                       value={provider.apiKey}
+                                       onChange={(e) => handleApiKeyChange(provider.name, e.target.value)}
+                                       placeholder="Clé API"
+                                       className="w-full px-2 py-1 rounded border text-xs"
+                                       style={{
+                                         backgroundColor: colors.background,
+                                         borderColor: colors.border,
+                                         color: colors.text
+                                       }}
+                                     />
+                                     <IconButton
+                                       icon={provider.isVisible ? <EyeSlashIcon /> : <EyeIcon />}
+                                       onClick={() => toggleApiKeyVisibility(provider.name)}
+                                       variant="secondary"
+                                       size="xs"
+                                       tooltip={provider.isVisible ? "Masquer la clé" : "Afficher la clé"}
+                                       className="absolute right-1 top-1/2 transform -translate-y-1/2"
+                                     />
+                                   </div>
+                                 ) : (
+                                   <span className="text-xs" style={{ color: colors.textSecondary }}>
+                                     Non requis
+                                   </span>
+                                 )}
+                               </td>
+                               
+                               {/* Colonne Actions */}
+                               <td className="p-3">
+                                 <Button
                                    onClick={() => {
                                      if (isTesting) return;
-                                     
                                      if (provider.status === 'active') {
                                        handleToggleProvider(provider.name);
                                      } else if (provider.status === 'configured' || provider.status === 'functional') {
@@ -537,27 +588,26 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                                      }
                                    }}
                                    disabled={isTesting || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty')}
-                                   className="px-3 py-1 rounded text-xs font-medium transition-colors disabled:opacity-50"
-                                   style={{
-                                     backgroundColor: (() => {
-                                       if (isTesting) return '#3b82f6';
-                                       if (provider.status === 'active') return '#ef4444';
-                                       if (provider.status === 'configured' || provider.status === 'functional') return '#10b981';
-                                       if (provider.status === 'pending') return '#f59e0b';
-                                       return colors.primary;
-                                     })(),
-                                     color: 'white'
-                                   }}
+                                   variant={(() => {
+                                     if (isTesting) return 'primary';
+                                     if (provider.status === 'active') return 'danger';
+                                     if (provider.status === 'configured' || provider.status === 'functional') return 'success';
+                                     if (provider.status === 'pending') return 'warning';
+                                     return 'primary';
+                                   })()}
+                                   size="sm"
+                                   loading={isTesting}
+                                   className="transition-all duration-300 ease-in-out hover:scale-105 hover:shadow-lg active:scale-95"
                                  >
                                    {(() => {
-                                     if (isTesting) return '⏳ Test...';
-                                     if (provider.status === 'active') return '❌ Désactiver';
-                                     if (provider.status === 'configured' || provider.status === 'functional') return '✅ Activer';
-                                     if (provider.status === 'pending') return '🔑 Tester';
-                                     if (provider.status === 'empty') return '🔑 Configurer';
-                                     return '🔧 Tester';
-                                   })(                                   )}
-                                 </button>
+                                     if (isTesting) return 'Test...';
+                                     if (provider.status === 'active') return 'Désactiver';
+                                     if (provider.status === 'configured' || provider.status === 'functional') return 'Activer';
+                                     if (provider.status === 'pending') return 'Tester';
+                                     if (provider.status === 'empty') return 'Configurer';
+                                     return 'Tester';
+                                   })()}
+                                 </Button>
                                </td>
                                
                                {/* Colonne Priorité */}
@@ -586,21 +636,180 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                                  )}
                                </td>
                              </tr>
-                          );
-                        })}
-                      </tbody>
+                           );
+                         })}
+
+                                                   {/* Séparateur IA Locales / IA Web */}
+                          {localProviders.length > 0 && webProviders.length > 0 && (
+                            <tr>
+                              <td colSpan={6} className="p-0">
+                                <div className="border-t" style={{ borderColor: colors.border, opacity: 0.3 }}></div>
+                              </td>
+                            </tr>
+                          )}
+
+                         {/* Section IA Web */}
+                         {webProviders.map((provider) => {
+                           const statusInfo = getProviderStatusInfo(provider);
+                           const isTesting = testing[provider.name];
+                           
+                           return (
+                             <tr key={provider.name} className="border-b" style={{ borderColor: colors.border }}>
+                               {/* Colonne Provider */}
+                               <td className="p-3">
+                                 <div className="flex items-center space-x-2">
+                                   <span className="text-lg">{getProviderIcon(provider.name)}</span>
+                                   <span className="text-sm font-medium" style={{ color: colors.text }}>
+                                     {getProviderDisplayName(provider.name)}
+                                   </span>
+                                 </div>
+                               </td>
+                               
+                               {/* Colonne Type */}
+                               <td className="p-3">
+                                 <span className="text-xs px-2 py-1 rounded inline-block" style={{ 
+                                   backgroundColor: '#10b981', 
+                                   color: 'white' 
+                                 }}>
+                                   Web
+                                 </span>
+                               </td>
+                               
+                               {/* Colonne Statut */}
+                               <td className="p-3">
+                                 <div className="flex flex-col space-y-1">
+                                   <span 
+                                     className="text-xs px-2 py-1 rounded inline-block w-fit"
+                                     style={{ 
+                                       backgroundColor: statusInfo.color,
+                                       color: 'white'
+                                     }}
+                                   >
+                                     {statusInfo.text}
+                                   </span>
+                                   {provider.errorMessage && (
+                                     <span className="text-xs" style={{ color: '#ef4444' }}>
+                                       {provider.errorMessage}
+                                     </span>
+                                   )}
+                                 </div>
+                               </td>
+                               
+                               {/* Colonne Clé API */}
+                               <td className="p-3">
+                                 {provider.name.toLowerCase() !== 'ollama' ? (
+                                   <div className="relative">
+                                     <input
+                                       type={provider.isVisible ? "text" : "password"}
+                                       value={provider.apiKey}
+                                       onChange={(e) => handleApiKeyChange(provider.name, e.target.value)}
+                                       placeholder="Clé API"
+                                       className="w-full px-2 py-1 rounded border text-xs"
+                                       style={{
+                                         backgroundColor: colors.background,
+                                         borderColor: colors.border,
+                                         color: colors.text
+                                       }}
+                                     />
+                                     <IconButton
+                                       icon={provider.isVisible ? <EyeSlashIcon /> : <EyeIcon />}
+                                       onClick={() => toggleApiKeyVisibility(provider.name)}
+                                       variant="secondary"
+                                       size="xs"
+                                       tooltip={provider.isVisible ? "Masquer la clé" : "Afficher la clé"}
+                                       className="absolute right-1 top-1/2 transform -translate-y-1/2"
+                                     />
+                                   </div>
+                                 ) : (
+                                   <span className="text-xs" style={{ color: colors.textSecondary }}>
+                                     Non requis
+                                   </span>
+                                 )}
+                               </td>
+                               
+                               {/* Colonne Actions */}
+                               <td className="p-3">
+                                 <Button
+                                   onClick={() => {
+                                     if (isTesting) return;
+                                     
+                                     if (provider.status === 'active') {
+                                       handleToggleProvider(provider.name);
+                                     } else if (provider.status === 'configured' || provider.status === 'functional') {
+                                       handleToggleProvider(provider.name);
+                                     } else {
+                                       handleTestProvider(provider.name);
+                                     }
+                                   }}
+                                   disabled={isTesting || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty')}
+                                   variant={(() => {
+                                     if (isTesting) return 'primary';
+                                     if (provider.status === 'active') return 'danger';
+                                     if (provider.status === 'configured' || provider.status === 'functional') return 'success';
+                                     if (provider.status === 'pending') return 'warning';
+                                     return 'primary';
+                                   })()}
+                                   size="sm"
+                                   loading={isTesting}
+                                 >
+                                   {(() => {
+                                     if (isTesting) return 'Test...';
+                                     if (provider.status === 'active') return 'Désactiver';
+                                     if (provider.status === 'configured' || provider.status === 'functional') return 'Activer';
+                                     if (provider.status === 'pending') return 'Tester';
+                                     if (provider.status === 'empty') return 'Configurer';
+                                     return 'Tester';
+                                   })()}
+                                 </Button>
+                               </td>
+                               
+                               {/* Colonne Priorité */}
+                               <td className="p-3">
+                                 {provider.status === 'active' ? (
+                                   <select
+                                     value={provider.priority}
+                                     onChange={(e) => handlePriorityChange(provider.name, parseInt(e.target.value))}
+                                     className="px-2 py-1 rounded border text-xs"
+                                     style={{
+                                       backgroundColor: colors.background,
+                                       borderColor: colors.border,
+                                       color: colors.text
+                                     }}
+                                   >
+                                     {Array.from({ length: activeProviders.length }, (_, i) => i + 1).map(priority => (
+                                       <option key={priority} value={priority}>
+                                         {priority}
+                                       </option>
+                                     ))}
+                                   </select>
+                                 ) : (
+                                   <span className="text-xs" style={{ color: colors.textSecondary }}>
+                                     -
+                                   </span>
+                                 )}
+                               </td>
+                             </tr>
+                           );
+                         })}
+                       </tbody>
                     </table>
                   </div>
                 </div>
 
-                                                   {/* Note sur les priorités */}
+                  {/* Note sur les priorités */}
                   {activeProviders.length > 0 && (
-                    <div className="p-3 rounded-lg border" style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
-                      <p className="text-xs" style={{ color: colors.textSecondary }}>
-                        <strong>💡 Gestion automatique des priorités :</strong> Ollama est priorité 1 par défaut. 
-                        Les nouveaux providers actifs s'ajoutent automatiquement (2, 3, 4...). 
-                        <strong> Permutation automatique :</strong> Si vous changez une priorité, les autres s'échangent automatiquement.
-                      </p>
+                    <div className="p-4 rounded-lg border" style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
+                      <div className="text-sm space-y-2" style={{ color: colors.textSecondary }}>
+                        <p className="font-semibold" style={{ color: colors.text }}>
+                          💡 Gestion automatique des priorités :
+                        </p>
+                        <ul className="list-disc list-inside space-y-1 ml-2">
+                          <li>Ollama est priorité 1 par défaut (IA locale)</li>
+                          <li>Les nouveaux providers actifs s'ajoutent automatiquement (2, 3, 4...)</li>
+                          <li>Permutation automatique : Si vous changez une priorité, les autres s'échangent automatiquement</li>
+                          <li>Les priorités sont restaurées au chargement de l'application</li>
+                        </ul>
+                      </div>
                     </div>
                   )}
 
@@ -616,6 +825,18 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
 
 const ConfigWindow: React.FC<ConfigWindowProps> = ({ onClose, onMinimize }) => {
   const { colors } = useColors();
+  const { getActiveProviders, isInitialized } = useConfigStore();
+  
+  // Obtenir les providers actifs pour l'indicateur
+  const activeProviders = getActiveProviders().filter(provider => provider.is_functional);
+  
+  // Debug pour voir les providers
+  console.log('🔍 ConfigWindow - Providers actifs:', {
+    allProviders: getActiveProviders(),
+    functionalProviders: activeProviders,
+    isInitialized,
+    count: activeProviders.length
+  });
 
   return (
     <div className="h-full flex flex-col" style={{ backgroundColor: colors.background }}>
@@ -627,37 +848,48 @@ const ConfigWindow: React.FC<ConfigWindowProps> = ({ onClose, onMinimize }) => {
           borderColor: colors.border
         }}
       >
-        <div className="flex items-center space-x-3">
-          <span className="text-2xl">⚙️</span>
-          <div>
-            <h2 className="text-lg font-semibold" style={{ color: colors.text }}>
-              Configuration IA
-            </h2>
-            <p className="text-sm" style={{ color: colors.textSecondary }}>
-              Validation des clés et gestion des priorités
-            </p>
-          </div>
-        </div>
+                 <div className="flex items-center space-x-3">
+           <span className="text-2xl">⚙️</span>
+           <div className="flex items-center gap-3">
+             <div>
+               <h2 className="text-lg font-semibold" style={{ color: colors.text }}>
+                 Configuration IA
+               </h2>
+               <p className="text-sm" style={{ color: colors.textSecondary }}>
+                 Validation des clés et gestion des priorités
+               </p>
+             </div>
+             {isInitialized && activeProviders.length > 0 && (
+               <div 
+                 className="flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold text-white"
+                 style={{ backgroundColor: colors.primary }}
+                 title={`${activeProviders.length} IA(s) active(s)`}
+               >
+                 {activeProviders.length}
+               </div>
+             )}
+           </div>
+         </div>
         <div className="flex items-center space-x-2">
           {onMinimize && (
-            <button
+            <IconButton
+              icon={<MinusIcon />}
               onClick={onMinimize}
-              className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
-              style={{ color: colors.textSecondary }}
-              title="Réduire"
-            >
-              <MinusIcon className="h-5 w-5" />
-            </button>
+              variant="secondary"
+              size="sm"
+              tooltip="Réduire"
+              className="transition-all duration-300 ease-in-out hover:scale-110 hover:shadow-lg active:scale-95"
+            />
           )}
           {onClose && (
-            <button
+            <IconButton
+              icon={<XMarkIcon />}
               onClick={onClose}
-              className="p-2 hover:bg-slate-700 rounded-lg transition-colors"
-              style={{ color: colors.textSecondary }}
-              title="Fermer"
-            >
-              <XMarkIcon className="h-5 w-5" />
-            </button>
+              variant="secondary"
+              size="sm"
+              tooltip="Fermer"
+              className="transition-all duration-300 ease-in-out hover:scale-110 hover:shadow-lg active:scale-95"
+            />
           )}
         </div>
       </div>

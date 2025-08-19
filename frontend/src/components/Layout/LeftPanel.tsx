@@ -113,7 +113,7 @@ const LeftPanel: React.FC = () => {
   // Déterminer la couleur du titre selon l'état du backend
   const getTitleColor = () => {
     if (!isOnline || consecutiveFailures >= 3) {
-      return colors.error || '#ef4444'; // Rouge quand le backend ne répond pas
+      return '#ff0000'; // Rouge vif flashy quand le backend ne répond pas
     }
     return colors.text; // Couleur normale
   };
@@ -121,9 +121,9 @@ const LeftPanel: React.FC = () => {
   // Déterminer le tooltip du titre
   const getTitleTooltip = () => {
     if (!isOnline || consecutiveFailures >= 3) {
-      return 'Backend déconnecté';
+      return `🚨 Backend déconnecté (${consecutiveFailures} échecs consécutifs)`;
     }
-    return 'Backend connecté';
+    return '✅ Backend connecté';
   };
 
   return (
@@ -144,7 +144,8 @@ const LeftPanel: React.FC = () => {
             className="text-lg font-semibold transition-colors duration-300"
             style={{ 
               color: getTitleColor(),
-              animation: (!isOnline || consecutiveFailures >= 3) ? 'pulse 2s infinite' : 'none'
+              animation: (!isOnline || consecutiveFailures >= 3) ? 'flash 1s infinite' : 'none',
+              textShadow: (!isOnline || consecutiveFailures >= 3) ? '0 0 10px #ff0000, 0 0 20px #ff0000' : 'none'
             }}
             title={getTitleTooltip()}
           >

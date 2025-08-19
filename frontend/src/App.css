@@ -253,6 +253,17 @@ h1, h2, h3, h4, h5, h6 {
   50% { box-shadow: 0 0 0 4px rgba(74, 222, 128, 0.3); }
 }
 
+@keyframes flash {
+  0%, 50%, 100% { 
+    color: #ff0000;
+    text-shadow: 0 0 10px #ff0000, 0 0 20px #ff0000;
+  }
+  25%, 75% { 
+    color: #ff6666;
+    text-shadow: 0 0 5px #ff6666, 0 0 10px #ff6666;
+  }
+}
+
 /* Mode clair */
 body[data-theme="light"] .config-button:hover {
   background-color: rgba(37, 99, 235, 0.1) !important;

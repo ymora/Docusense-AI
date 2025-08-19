@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
+import { useColors } from '../../hooks/useColors';
 import {
-  ArrowDownTrayIcon,
-  MagnifyingGlassPlusIcon,
   MagnifyingGlassMinusIcon,
+  MagnifyingGlassPlusIcon,
+  ArrowDownTrayIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
+import { Button, IconButton } from '../UI/Button';
 import MediaPlayer from './MediaPlayer';
 import EmailViewer from './EmailViewer';
 import { getFileType } from '../../utils/fileTypeUtils';
@@ -341,49 +344,55 @@ const UnifiedFileViewer: React.FC<UnifiedFileViewerProps> = ({ file, onClose, on
         showImageControls ? 'opacity-100' : 'opacity-0'
       }`}>
         {/* Zoom Out */}
-        <button
+        <IconButton
+          icon={<MagnifyingGlassMinusIcon />}
           onClick={handleZoomOut}
-          className="p-2 bg-black/50 hover:bg-black/70 rounded-lg transition-colors text-white"
-          title="Zoom arrière"
-        >
-          <MagnifyingGlassMinusIcon className="h-4 w-4" />
-        </button>
+          variant="secondary"
+          size="sm"
+          tooltip="Zoom arrière"
+          className="transition-all duration-300 ease-in-out hover:scale-110 hover:shadow-lg active:scale-95"
+        />
         
         {/* Zoom Level Indicator */}
-        <span className="px-2 py-1 bg-black/50 text-white text-xs rounded-lg font-medium">
+        <div className="px-2 py-1 rounded-lg font-medium text-xs border" style={{
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          borderColor: 'rgba(255, 255, 255, 0.2)',
+          color: '#ffffff'
+        }}>
           {Math.round(zoom * 100)}%
-        </span>
+        </div>
         
         {/* Zoom In */}
-        <button
+        <IconButton
+          icon={<MagnifyingGlassPlusIcon />}
           onClick={handleZoomIn}
-          className="p-2 bg-black/50 hover:bg-black/70 rounded-lg transition-colors text-white"
-          title="Zoom avant"
-        >
-          <MagnifyingGlassPlusIcon className="h-4 w-4" />
-        </button>
+          variant="secondary"
+          size="sm"
+          tooltip="Zoom avant"
+          className="transition-all duration-300 ease-in-out hover:scale-110 hover:shadow-lg active:scale-95"
+        />
         
         {/* Reset Zoom */}
         {zoom !== 1 && (
-          <button
+          <Button
             onClick={resetZoom}
-            className="p-2 bg-black/50 hover:bg-black/70 rounded-lg transition-colors text-white"
-            title="Zoom normal"
+            variant="secondary"
+            size="sm"
+            className="transition-all duration-300 ease-in-out hover:scale-105 hover:shadow-lg active:scale-95"
           >
             <span className="text-xs font-bold">1:1</span>
-          </button>
+          </Button>
         )}
         
         {/* Download */}
-        <button
+        <IconButton
+          icon={<ArrowDownTrayIcon />}
           onClick={handleDownload}
-          className="p-2 bg-black/50 hover:bg-black/70 rounded-lg transition-colors text-white"
-          title="Télécharger"
-        >
-          <ArrowDownTrayIcon className="h-4 w-4" />
-        </button>
-        
-        
+          variant="primary"
+          size="sm"
+          tooltip="Télécharger"
+          className="transition-all duration-300 ease-in-out hover:scale-110 hover:shadow-lg active:scale-95"
+        />
       </div>
     );
   };

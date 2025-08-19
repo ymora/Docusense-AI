@@ -208,6 +208,30 @@ async def update_queue_item(
          )
 
 
+@router.delete("/items/{item_id}")
+@APIUtils.handle_errors
+async def delete_queue_item(
+    item_id: int,
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    Delete a queue item
+    """
+    queue_service = QueueService(db)
+    deleted = queue_service.delete_queue_item(item_id)
+    
+    if deleted:
+        return ResponseFormatter.success_response(
+            data={"item_id": item_id},
+            message="Élément de queue supprimé avec succès"
+        )
+    else:
+        raise HTTPException(
+            status_code=404,
+            detail="Élément de queue non trouvé"
+        )
+
+
 @router.post("/items/{item_id}/duplicate")
 @APIUtils.handle_errors
 async def duplicate_queue_item(

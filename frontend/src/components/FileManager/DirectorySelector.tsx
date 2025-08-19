@@ -75,7 +75,7 @@ const DirectorySelector: React.FC<DirectorySelectorProps> = ({
     <div ref={ref} className={`relative ${className}`}>
       <button
         onClick={() => setShowDrives(!showDrives)}
-        className="w-full flex items-center justify-between p-2 hover:bg-slate-700 rounded border border-slate-600 text-blue-400 hover:text-blue-500 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-50"
+        className="w-full flex items-center justify-between p-2 hover:bg-slate-700 rounded border border-slate-600 text-blue-400 hover:text-blue-500 transition-all duration-200"
         title="Sélectionner un disque système (D: par défaut)"
       >
         <div className="flex items-center">
