@@ -82,9 +82,15 @@ class LogService {
 
   // S'abonner aux changements de logs
   subscribe(listener: (logs: LogEntry[]) => void) {
+    // Éviter les doublons d'abonnements
+    if (this.listeners.includes(listener)) {
+      console.warn('[LogService] Tentative d\'abonnement en double détectée');
+      return () => {
+        this.listeners = this.listeners.filter(l => l !== listener);
+      };
+    }
+    
     this.listeners.push(listener);
-    // Appeler immédiatement avec les logs actuels
-    listener(this.logs);
     
     // Retourner une fonction pour se désabonner
     return () => {
@@ -101,6 +107,17 @@ class LogService {
         console.error('[LogService] Erreur lors de la notification d\'un listener:', error);
       }
     });
+  }
+
+  // Nettoyer tous les abonnements (pour le debug)
+  clearAllListeners() {
+    console.log(`[LogService] Nettoyage de ${this.listeners.length} listeners`);
+    this.listeners = [];
+  }
+
+  // Obtenir le nombre d'abonnements actifs (pour le debug)
+  getListenerCount() {
+    return this.listeners.length;
   }
 
   // Effacer tous les logs

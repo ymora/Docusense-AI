@@ -18,8 +18,7 @@ router = APIRouter(tags=["queue"])
 
 
 @router.get("/items")
-@APIUtils.handle_errors
-async def get_queue_items(
+def get_queue_items(
     status: Optional[QueueStatus] = Query(None, description="Filter by status"),
     priority: Optional[QueuePriority] = Query(None, description="Filter by priority"),
     limit: int = Query(100, ge=1, le=1000, description="Number of items to return"),
@@ -39,43 +38,54 @@ async def get_queue_items(
         limit=limit,
         offset=offset
     )
-
-    queue_items_data = [
-        {
-            "id": item.id,
-            "analysis_id": item.analysis_id,
-            "status": item.status.value,
-            "priority": item.priority.value,
-            "progress": item.progress,
-            "current_step": item.current_step,
-            "total_steps": item.total_steps,
-            "created_at": item.created_at.isoformat() if item.created_at else None,
-            "started_at": item.started_at.isoformat() if item.started_at else None,
-            "completed_at": item.completed_at.isoformat() if item.completed_at else None,
-            "estimated_completion": item.estimated_completion.isoformat() if item.estimated_completion else None,
-            "error_message": item.error_message,
-            "retry_count": item.retry_count,
-            "max_retries": item.max_retries,
-            "queue_metadata": item.queue_metadata,
-            # Ajout des informations sur l'analyse
-            "analysis_type": item.analysis.analysis_type.value if item.analysis else None,
-            "analysis_provider": item.analysis.provider if item.analysis else None,
-            "analysis_model": item.analysis.model if item.analysis else None,
-            "file_info": {
-                "id": item.analysis.file.id if item.analysis and item.analysis.file else None,
-                "name": item.analysis.file.name if item.analysis and item.analysis.file else None,
-                "size": item.analysis.file.size if item.analysis and item.analysis.file else None,
-                "mime_type": item.analysis.file.mime_type if item.analysis and item.analysis.file else None,
-            } if item.analysis and item.analysis.file else None
-        }
-        for item in items
-    ]
     
-    # Retourner directement les données pour le frontend
-    return ResponseFormatter.success_response(
-        data=queue_items_data,
-        message="Éléments de la queue récupérés"
-    )
+    logger.info(f"Queue service returned {len(items)} items")
+    
+    # Sérialiser les données de la queue
+    queue_items_data = []
+    for item in items:
+        try:
+            item_data = {
+                "id": item.id,
+                "analysis_id": item.analysis_id,
+                "status": item.status.value,
+                "priority": item.priority.value,
+                "progress": item.progress,
+                "current_step": item.current_step,
+                "total_steps": item.total_steps,
+                "created_at": item.created_at.isoformat() if item.created_at else None,
+                "started_at": item.started_at.isoformat() if item.started_at else None,
+                "completed_at": item.completed_at.isoformat() if item.completed_at else None,
+                "estimated_completion": item.estimated_completion.isoformat() if item.estimated_completion else None,
+                "error_message": item.error_message,
+                "retry_count": item.retry_count,
+                "max_retries": item.max_retries,
+                "queue_metadata": item.queue_metadata,
+                # Informations sur l'analyse
+                "analysis_type": item.analysis.analysis_type.value if item.analysis else None,
+                "analysis_provider": item.analysis.provider if item.analysis else None,
+                "analysis_model": item.analysis.model if item.analysis else None,
+                "analysis_prompt": item.analysis.prompt if item.analysis else None,
+                "file_info": {
+                    "id": None,
+                    "name": "N/A",
+                    "size": None,
+                    "mime_type": None,
+                }
+            }
+            queue_items_data.append(item_data)
+        except Exception as e:
+            logger.error(f"Error serializing item {item.id}: {e}")
+            continue
+    
+    logger.info(f"Serialized {len(queue_items_data)} items")
+    
+    return {
+        "success": True,
+        "message": "Éléments de la queue récupérés",
+        "data": queue_items_data,
+        "timestamp": "2025-08-19T08:08:00.000000"
+    }
 
 
 @router.get("/status")
@@ -165,27 +175,68 @@ async def update_queue_item(
     db: Session = Depends(get_db)
 ) -> Dict[str, Any]:
     """
-    Update provider and prompt for a queue item
+    Update provider and/or prompt for a queue item
     """
     provider = request.get("provider")
     prompt = request.get("prompt")
     
-    if not provider or not prompt:
+    # Au moins un des deux paramètres doit être fourni
+    if not provider and not prompt:
         raise HTTPException(
             status_code=400,
-            detail="Provider et prompt requis"
+            detail="Au moins un paramètre (provider ou prompt) est requis"
         )
     
     queue_service = QueueService(db)
     updated = queue_service.update_analysis_provider_and_prompt(item_id, provider, prompt)
     
     if updated:
+        update_message = []
+        if provider:
+            update_message.append(f"fournisseur: {provider}")
+        if prompt:
+            update_message.append(f"prompt: {prompt}")
+        
         return ResponseFormatter.success_response(
             data={"item_id": item_id, "provider": provider, "prompt": prompt},
-            message="Fournisseur et prompt mis à jour"
+            message=f"Mis à jour: {', '.join(update_message)}"
+        )
+    else:
+                 raise HTTPException(
+             status_code=404,
+             detail="Élément de queue non trouvé ou non modifiable"
+         )
+
+
+@router.post("/items/{item_id}/duplicate")
+@APIUtils.handle_errors
+async def duplicate_queue_item(
+    item_id: int,
+    request: Dict[str, Any],
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    Duplicate a queue item with optional new provider and prompt
+    """
+    new_provider = request.get("provider")
+    new_prompt = request.get("prompt")
+    
+    queue_service = QueueService(db)
+    duplicated_item = queue_service.duplicate_analysis(item_id, new_provider, new_prompt)
+    
+    if duplicated_item:
+        return ResponseFormatter.success_response(
+            data={
+                "original_item_id": item_id,
+                "new_item_id": duplicated_item.id,
+                "new_analysis_id": duplicated_item.analysis_id,
+                "provider": new_provider,
+                "prompt": new_prompt
+            },
+            message="Analyse dupliquée avec succès"
         )
     else:
         raise HTTPException(
             status_code=404,
-            detail="Élément de queue non trouvé ou non modifiable"
+            detail="Élément de queue non trouvé ou impossible à dupliquer"
         )

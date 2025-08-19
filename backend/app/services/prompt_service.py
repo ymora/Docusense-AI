@@ -4,6 +4,7 @@ Handles specialized prompts for different domains
 """
 
 import json
+import logging
 import os
 from typing import Dict, Any, Optional
 from enum import Enum

@@ -104,8 +104,8 @@ class QueueService(BaseService):
         # Apply filters
         query = self._apply_queue_filters(query, status, priority)
         
-        # Join with analysis and file to load all related data
-        query = query.join(QueueItem.analysis).join(Analysis.file)
+        # Join with analysis (left join to include analyses without files)
+        query = query.join(QueueItem.analysis)
         
         # Apply pagination
         query = query.order_by(QueueItem.created_at.desc())
@@ -564,3 +564,60 @@ class QueueService(BaseService):
         
         self.logger.info(f"Updated analysis {analysis.id} provider to {provider} and prompt for queue item {item_id}")
         return True
+
+    @log_service_operation("duplicate_analysis")
+    def duplicate_analysis(self, item_id: int, new_provider: str = None, new_prompt: str = None) -> Optional[QueueItem]:
+        """Duplicate an analysis with optional new provider and prompt"""
+        return self.safe_execute("duplicate_analysis", self._duplicate_analysis_logic, item_id, new_provider, new_prompt)
+
+    def _duplicate_analysis_logic(self, item_id: int, new_provider: str = None, new_prompt: str = None) -> Optional[QueueItem]:
+        """Logic for duplicating an analysis"""
+        # Trouver l'élément de queue original
+        original_queue_item = self.db.query(QueueItem).filter(QueueItem.id == item_id).first()
+        if not original_queue_item:
+            self.logger.warning(f"Queue item {item_id} not found for duplication")
+            return None
+        
+        # Trouver l'analyse originale
+        original_analysis = self.db.query(Analysis).filter(Analysis.id == original_queue_item.analysis_id).first()
+        if not original_analysis:
+            self.logger.warning(f"Analysis {original_queue_item.analysis_id} not found for duplication")
+            return None
+        
+        # Créer une nouvelle analyse basée sur l'originale
+        new_analysis = Analysis(
+            file_id=original_analysis.file_id,
+            analysis_type=original_analysis.analysis_type,
+            provider=new_provider if new_provider else original_analysis.provider,
+            model=original_analysis.model,
+            prompt=new_prompt if new_prompt else original_analysis.prompt,
+            status=AnalysisStatus.PENDING,
+            created_at=datetime.now(),
+            analysis_metadata={
+                "duplicated_from": original_analysis.id,
+                "duplicated_at": datetime.now().isoformat(),
+                "original_provider": original_analysis.provider,
+                "original_prompt": original_analysis.prompt
+            }
+        )
+        
+        # Sauvegarder la nouvelle analyse
+        self.db.add(new_analysis)
+        self.db.commit()
+        self.db.refresh(new_analysis)
+        
+        # Créer un nouvel élément de queue pour la nouvelle analyse
+        new_queue_item = QueueItem(
+            analysis_id=new_analysis.id,
+            priority=QueuePriority.NORMAL,
+            status=QueueStatus.PENDING,
+            created_at=datetime.now()
+        )
+        
+        # Sauvegarder le nouvel élément de queue
+        self.db.add(new_queue_item)
+        self.db.commit()
+        self.db.refresh(new_queue_item)
+        
+        self.logger.info(f"Duplicated analysis {original_analysis.id} to {new_analysis.id} with queue item {new_queue_item.id}")
+        return new_queue_item

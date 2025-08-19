@@ -79,17 +79,27 @@ async def get_default_prompt(analysis_type: str) -> Dict[str, str]:
 
 
 @router.get("/specialized")
-@APIUtils.handle_errors
-async def get_specialized_prompts() -> Dict[str, Dict[str, Any]]:
+def get_specialized_prompts() -> Dict[str, Any]:
     """
     Get all specialized prompts
     """
-    prompt_service = PromptService()
-    specialized_prompts = prompt_service.get_all_prompts()
-    return ResponseFormatter.success_response(
-        data=specialized_prompts,
-        message="Prompts spécialisés récupérés"
-    )
+    try:
+        prompt_service = PromptService()
+        specialized_prompts = prompt_service.get_all_prompts()
+        return {
+            "success": True,
+            "message": "Prompts spécialisés récupérés",
+            "data": specialized_prompts,
+            "timestamp": "2025-08-19T08:15:00.000000"
+        }
+    except Exception as e:
+        logger.error(f"Error in get_specialized_prompts: {str(e)}")
+        return {
+            "success": False,
+            "message": f"Erreur lors du chargement des prompts: {str(e)}",
+            "data": {},
+            "timestamp": "2025-08-19T08:15:00.000000"
+        }
 
 
 @router.get("/specialized/{prompt_id}")

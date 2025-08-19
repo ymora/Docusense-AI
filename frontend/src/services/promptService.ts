@@ -82,7 +82,7 @@ export const promptService = {
           name: 'Analyse Générale',
           description: 'Analyse générale du contenu du document',
           domain: 'général',
-          type: 'analysis',
+        type: 'analysis',
           content: 'Analysez le contenu de ce document de manière générale.'
         },
         'legal_analysis': {

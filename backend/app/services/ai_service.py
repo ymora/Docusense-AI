@@ -463,7 +463,7 @@ class AIService(BaseService):
             )
             
             self.logger.info(f"[CLAUDE] SDK test successful - model: {config.get('default_model', 'claude-3-sonnet-20240229')}")
-            return bool(response.content)
+            return bool(response.content and len(response.content) > 0)
             
         except ImportError as e:
             self.logger.error(f"[CLAUDE] Missing dependency: {str(e)}")
@@ -473,52 +473,30 @@ class AIService(BaseService):
             return False
 
     async def _test_mistral_api(self, config: dict[str, any]) -> bool:
-        """Test Mistral using REST API"""
+        """Test Mistral using official SDK"""
         try:
-            import requests
-            import asyncio
-
-            # Normalize base URL to avoid double /v1
-            raw_base_url = config.get('base_url', 'https://api.mistral.ai') or 'https://api.mistral.ai'
-            base = raw_base_url.rstrip('/')
-            if base.endswith('/v1'):
-                models_url = f"{base}/models"
-            else:
-                models_url = f"{base}/v1/models"
-
-            api_key = config.get('api_key', '')
-
-            self.logger.info(f"[MISTRAL] Testing REST API at: {models_url}")
-
-            def sync_request():
-                headers = {
-                    'Authorization': f'Bearer {api_key}',
-                    'Content-Type': 'application/json'
-                }
-                try:
-                    self.logger.debug(f"[MISTRAL] Sending GET request to: {models_url}")
-                    response = requests.get(models_url, headers=headers, timeout=10)
-                    return response
-                except Exception as e:
-                    self.logger.error(f"[MISTRAL] Request failed: {str(e)}")
-                    return None
-
-            loop = asyncio.get_event_loop()
-            response = await loop.run_in_executor(None, sync_request)
-
-            if response is None:
-                self.logger.error(f"[MISTRAL] No response received from API")
-                return False
-
-            if response.status_code == 200:
-                self.logger.info(f"[MISTRAL] REST API test successful - status: {response.status_code}")
-                return True
-            else:
-                self.logger.error(f"[MISTRAL] REST API test failed - status: {response.status_code} - response: {response.text}")
-                return False
-
+            import mistralai
+            
+            self.logger.info(f"[MISTRAL] Testing with SDK at: {config.get('base_url', 'https://api.mistral.ai')}")
+            
+            client = mistralai.Mistral(
+                api_key=config["api_key"]
+            )
+            
+            response = await client.chat.complete_async(
+                model=config.get("default_model", "mistral-large-latest"),
+                messages=[{"role": "user", "content": "Test"}],
+                max_tokens=5
+            )
+            
+            self.logger.info(f"[MISTRAL] SDK test successful - model: {config.get('default_model', 'mistral-large-latest')}")
+            return bool(response.choices)
+            
+        except ImportError as e:
+            self.logger.error(f"[MISTRAL] Missing dependency: {str(e)}")
+            return False
         except Exception as e:
-            self.logger.error(f"[MISTRAL] Unexpected error during test: {str(e)}")
+            self.logger.error(f"[MISTRAL] SDK test failed: {str(e)}")
             return False
 
     async def _test_ollama_api(self, config: dict[str, any]) -> bool:
@@ -534,7 +512,7 @@ class AIService(BaseService):
             def sync_request():
                 try:
                     self.logger.debug(f"[OLLAMA] Sending GET request to: {base_url}/api/tags")
-                    response = requests.get(f"{base_url}/api/tags", timeout=10)
+                    response = requests.get(f"{base_url}/api/tags", timeout=5)
                     return response
                 except Exception as e:
                     self.logger.error(f"[OLLAMA] Request failed: {str(e)}")
@@ -645,7 +623,7 @@ class AIService(BaseService):
         
         client = openai.AsyncOpenAI(
             api_key=config["api_key"],
-            base_url=config["base_url"]
+            base_url=config.get("base_url", "https://api.openai.com/v1")
         )
         
         response = await client.chat.completions.create(
@@ -668,45 +646,32 @@ class AIService(BaseService):
             messages=[{"role": "user", "content": prompt}]
         )
         
-        return response.content[0].text
+        # Claude API returns content as a list of content blocks
+        if response.content and len(response.content) > 0:
+            return response.content[0].text
+        else:
+            raise Exception("No content received from Claude API")
 
     async def _call_mistral(self, prompt: str, model: str, config: dict[str, any]) -> str:
-        """Call Mistral API"""
-        import requests
-        import asyncio
-        
-        base_url = config.get('base_url', 'https://api.mistral.ai')
-        api_key = config.get('api_key', '')
-        
-        def sync_request():
-            headers = {
-                'Authorization': f'Bearer {api_key}',
-                'Content-Type': 'application/json'
-            }
-            payload = {
-                'model': model,
-                'messages': [{'role': 'user', 'content': prompt}],
-                'max_tokens': 2000
-            }
-            try:
-                response = requests.post(f"{base_url}/v1/chat/completions", 
-                                       headers=headers, json=payload, timeout=60)
-                return response
-            except Exception as e:
-                self.logger.error(f"Mistral API request failed: {str(e)}")
-                return None
-        
-        # Exécuter de manière asynchrone
-        loop = asyncio.get_event_loop()
-        response = await loop.run_in_executor(None, sync_request)
-        
-        if response is None:
-            raise Exception("Failed to connect to Mistral API")
-        
-        if response.status_code != 200:
-            raise Exception(f"Mistral API error: {response.text}")
-        
-        return response.json()["choices"][0]["message"]["content"]
+        """Call Mistral API using official SDK"""
+        try:
+            import mistralai
+            
+            client = mistralai.Mistral(
+                api_key=config["api_key"]
+            )
+            
+            response = await client.chat.complete_async(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                max_tokens=2000
+            )
+            
+            return response.choices[0].message.content
+            
+        except Exception as e:
+            self.logger.error(f"Mistral API call failed: {str(e)}")
+            raise Exception(f"Mistral API error: {str(e)}")
 
     async def _call_ollama(self, prompt: str, model: str, config: dict[str, any]) -> str:
         """Call Ollama API"""

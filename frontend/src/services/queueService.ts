@@ -16,6 +16,14 @@ export interface QueueItem {
   retry_count: number;
   max_retries: number;
   analysis_metadata?: any;
+  // Informations sur l'analyse
+  analysis_type?: string;
+  analysis_provider?: string;
+  analysis_model?: string;
+  analysis_prompt?: string;
+  // Valeurs sélectionnées par l'utilisateur (pour les modifications)
+  selected_provider_id?: string;
+  selected_prompt_id?: string;
   file_info?: {
     id: number;
     name: string;
@@ -173,6 +181,11 @@ export const queueService = {
   // Mettre à jour le fournisseur IA et le prompt d'une analyse
   async updateAnalysisProviderAndPrompt(itemId: string, provider: string, prompt: string): Promise<void> {
     try {
+      // Vérifier que les paramètres ne sont pas vides
+      if (!provider || !prompt) {
+        throw new Error('Provider et prompt sont requis');
+      }
+      
       await apiRequest(`/api/queue/items/${itemId}/update`, {
         method: 'PUT',
         headers: {
@@ -186,6 +199,28 @@ export const queueService = {
     } catch (error) {
       console.error('❌ QueueService: Erreur lors de la mise à jour du fournisseur et du prompt:', error);
       throw new Error(`Erreur lors de la mise à jour: ${handleApiError(error)}`);
+    }
+  },
+
+  // Dupliquer une analyse
+  async duplicateAnalysis(itemId: number, provider?: string, prompt?: string): Promise<any> {
+    try {
+      const body: any = {};
+      if (provider) body.provider = provider;
+      if (prompt) body.prompt = prompt;
+      
+      const response = await apiRequest(`/api/queue/items/${itemId}/duplicate`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(body)
+      }, DEFAULT_TIMEOUT);
+      
+      return response.data;
+    } catch (error) {
+      console.error('❌ QueueService: Erreur lors de la duplication de l\'analyse:', error);
+      throw new Error(`Erreur lors de la duplication: ${handleApiError(error)}`);
     }
   }
 };

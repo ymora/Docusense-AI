@@ -3,6 +3,8 @@ import LeftPanel from './LeftPanel';
 import MainPanel from './MainPanel';
 
 import { StartupLoader } from '../UI/StartupLoader';
+import AuthModal from '../UI/AuthModal';
+import { authService } from '../../services/authService';
 import { useUIStore } from '../../stores/uiStore';
 import { useQueueStore } from '../../stores/queueStore';
 import { useFileStore } from '../../stores/fileStore';
@@ -24,12 +26,42 @@ const Layout: React.FC = () => {
   const [isResizing, setIsResizing] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
   
+  // États pour l'authentification
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  
   // États pour les actions de fichiers
 
   
 
 
   // L'application est maintenant initialisée automatiquement via le hook useStartupInitialization
+
+  // Gestion de l'authentification
+  useEffect(() => {
+    // Vérifier si l'utilisateur est local
+    const isLocal = authService.isLocalUser();
+    
+    if (isLocal) {
+      // Utilisateur local - pas besoin d'authentification
+      setIsAuthenticated(true);
+    } else {
+      // Utilisateur distant - vérifier l'authentification
+      const restored = authService.restoreAuth();
+      if (restored) {
+        // Vérifier si le token est encore valide
+        authService.validateToken().then(isValid => {
+          if (isValid) {
+            setIsAuthenticated(true);
+          } else {
+            setShowAuthModal(true);
+          }
+        });
+      } else {
+        setShowAuthModal(true);
+      }
+    }
+  }, []);
 
   // Gestion des actions de fichiers (menu contextuel)
   useEffect(() => {
@@ -426,63 +458,95 @@ const Layout: React.FC = () => {
         isInitialized={isInitialized}
       />
       
+      {/* Modal d'authentification */}
+      <AuthModal
+        isOpen={showAuthModal && !isAuthenticated}
+        onClose={() => {
+          // Ne pas permettre de fermer la modal si pas authentifié
+          if (!isAuthenticated) return;
+          setShowAuthModal(false);
+        }}
+        onSuccess={() => {
+          setIsAuthenticated(true);
+          setShowAuthModal(false);
+        }}
+      />
+      
 
       
       <div
         className="flex h-screen"
         style={{ backgroundColor: colors.background }}
       >
-      {/* Panneau de gauche */}
-      <div
-        className="overflow-hidden"
-        style={{
-          width: sidebarWidth,
-          minWidth: '200px',
-          maxWidth: '33%',
-          backgroundColor: colors.surface,
-          borderRight: `1px solid ${colors.border}`,
-        }}
-        onDoubleClick={handleAutoResize}
-        onContextMenu={(e) => {
-          e.preventDefault();
-          handleResizeToThird();
-        }}
-        title="Double-clic pour redimensionner automatiquement, Clic droit pour redimensionner à 40%"
-      >
-        <LeftPanel />
-      </div>
+        {/* Afficher le contenu seulement si authentifié ou utilisateur local */}
+        {isAuthenticated ? (
+          <>
+            {/* Panneau de gauche */}
+            <div
+              className="overflow-hidden"
+              style={{
+                width: sidebarWidth,
+                minWidth: '200px',
+                maxWidth: '33%',
+                backgroundColor: colors.surface,
+                borderRight: `1px solid ${colors.border}`,
+              }}
+              onDoubleClick={handleAutoResize}
+              onContextMenu={(e) => {
+                e.preventDefault();
+                handleResizeToThird();
+              }}
+              title="Double-clic pour redimensionner automatiquement, Clic droit pour redimensionner à 40%"
+            >
+              <LeftPanel />
+            </div>
 
-      {/* Séparateur redimensionnable */}
-      <div
-        className="w-2 cursor-col-resize transition-colors hover:w-3"
-        style={{
-          backgroundColor: isResizing ? colors.primary : colors.border,
-        }}
-        onMouseEnter={(e) => {
-          if (!isResizing) {
-            e.currentTarget.style.backgroundColor = colors.primary;
-          }
-        }}
-        onMouseLeave={(e) => {
-          if (!isResizing) {
-            e.currentTarget.style.backgroundColor = colors.border;
-          }
-        }}
-        onMouseDown={handleResizeStart}
-        title="Glisser pour redimensionner le panneau gauche (max 1/3 de l'écran)"
-      />
+            {/* Séparateur redimensionnable */}
+            <div
+              className="w-2 cursor-col-resize transition-colors hover:w-3"
+              style={{
+                backgroundColor: isResizing ? colors.primary : colors.border,
+              }}
+              onMouseEnter={(e) => {
+                if (!isResizing) {
+                  e.currentTarget.style.backgroundColor = colors.primary;
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isResizing) {
+                  e.currentTarget.style.backgroundColor = colors.border;
+                }
+              }}
+              onMouseDown={handleResizeStart}
+              title="Glisser pour redimensionner le panneau gauche (max 1/3 de l'écran)"
+            />
 
-      {/* Panneau principal */}
-      <div className="flex-1 flex flex-col">
-        
-        {/* Contenu principal */}
-        <div className="flex-1">
-          <MainPanel 
-            activePanel={activePanel} 
-            onSetActivePanel={setActivePanel}
-          />
-        </div>
-      </div>
+            {/* Panneau principal */}
+            <div className="flex-1 flex flex-col">
+              
+              {/* Contenu principal */}
+              <div className="flex-1">
+                <MainPanel 
+                  activePanel={activePanel} 
+                  onSetActivePanel={setActivePanel}
+                />
+              </div>
+            </div>
+          </>
+        ) : (
+          // Écran de chargement pendant l'authentification
+          <div className="flex items-center justify-center h-screen" style={{ backgroundColor: colors.background }}>
+            <div className="text-center">
+              <div className="text-4xl mb-4">🔐</div>
+              <h2 className="text-xl font-semibold mb-2" style={{ color: colors.text }}>
+                Authentification requise
+              </h2>
+              <p className="text-sm" style={{ color: colors.textSecondary }}>
+                Veuillez vous connecter pour accéder à l'application
+              </p>
+            </div>
+          </div>
+        )}
     </div>
     </>
   );

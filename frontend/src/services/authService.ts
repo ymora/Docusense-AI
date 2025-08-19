@@ -46,12 +46,12 @@ class AuthService {
         }),
       }) as any;
 
-      if (data.session_token) {
-        this.token = data.session_token;
+      if (data.token) {
+        this.token = data.token;
         this.isAuthenticated = true;
 
         // Stocker le token dans le localStorage pour la persistance
-        localStorage.setItem('auth_token', this.token);
+        localStorage.setItem('session_token', this.token);
 
         return {
           success: true,
@@ -75,12 +75,12 @@ class AuthService {
   logout(): void {
     this.token = null;
     this.isAuthenticated = false;
-    localStorage.removeItem('auth_token');
+    localStorage.removeItem('session_token');
   }
 
   // Restaurer l'authentification depuis le localStorage
   restoreAuth(): boolean {
-    const savedToken = localStorage.getItem('auth_token');
+    const savedToken = localStorage.getItem('session_token');
     if (savedToken) {
       this.token = savedToken;
       this.isAuthenticated = true;
