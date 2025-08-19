@@ -5,7 +5,7 @@ import {
   ClockIcon,
   CogIcon, FunnelIcon,
   CpuChipIcon, DocumentIcon, EyeIcon, ChatBubbleLeftRightIcon,
-  DocumentDuplicateIcon
+  DocumentDuplicateIcon, Squares2X2Icon
 } from '@heroicons/react/24/outline';
 import { useColors } from '../../hooks/useColors';
 import { useQueueStore } from '../../stores/queueStore';
@@ -181,15 +181,41 @@ const ConfigurationCompact: React.FC<{
     }
   });
   
-  // Pour les prompts, on doit trouver l'ID correspondant au contenu
-  let selectedPromptId = '';
-  if (localSelection.prompt !== undefined) {
-    selectedPromptId = localSelection.prompt;
-  } else if (item.analysis_prompt) {
-    // Chercher le prompt par son contenu
-    const matchingPrompt = prompts.find(p => p.prompt === item.analysis_prompt);
-    selectedPromptId = matchingPrompt?.id || '';
-  }
+     // Pour les prompts, on doit trouver l'ID correspondant au contenu
+   let selectedPromptId = '';
+   if (localSelection.prompt !== undefined) {
+     selectedPromptId = localSelection.prompt;
+   } else if (item.analysis_prompt) {
+     // Chercher le prompt par son contenu
+     const matchingPrompt = prompts.find(p => p.prompt === item.analysis_prompt);
+     selectedPromptId = matchingPrompt?.id || '';
+   } else {
+     // Sélection automatique basée sur le type de fichier
+     const fileName = item.file_info?.name || '';
+     const fileExtension = fileName.split('.').pop()?.toLowerCase() || '';
+     
+     // Déterminer le type de fichier et sélectionner un prompt par défaut
+     let defaultDomain = 'GENERAL';
+     if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'].includes(fileExtension)) {
+       defaultDomain = 'IMAGE';
+     } else if (['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv'].includes(fileExtension)) {
+       defaultDomain = 'VIDEO';
+     } else if (['mp3', 'wav', 'flac', 'aac', 'ogg', 'wma'].includes(fileExtension)) {
+       defaultDomain = 'AUDIO';
+     } else if (['pdf', 'doc', 'docx', 'txt', 'rtf', 'odt'].includes(fileExtension)) {
+       defaultDomain = 'DOCUMENT';
+     }
+     
+     // Trouver le premier prompt du domaine correspondant
+     const defaultPrompt = prompts.find(p => (p.domain || 'GENERAL').toUpperCase() === defaultDomain);
+     if (defaultPrompt) {
+       selectedPromptId = defaultPrompt.id;
+       // Mettre à jour automatiquement la sélection locale
+       if (!localSelection.prompt) {
+         onPromptChange(item.id, defaultPrompt.id);
+       }
+     }
+   }
   
 
   
@@ -214,18 +240,17 @@ const ConfigurationCompact: React.FC<{
              color: colors.text
            }}
          >
-           <option value="">IA...</option>
-           {allProvidersWithStatus.map(provider => (
-             <option 
-               key={provider.id} 
-               value={provider.id}
-               style={{
-                 color: provider.available ? '#10b981' : '#ef4444' // Vert si disponible, rouge si non disponible
-               }}
-             >
-               {provider.name} {provider.available ? '(disponible)' : '(non disponible)'}
-             </option>
-           ))}
+                       {allProvidersWithStatus.map(provider => (
+              <option 
+                key={provider.id} 
+                value={provider.id}
+                style={{
+                  color: provider.available ? '#10b981' : '#ef4444' // Vert si disponible, rouge si non disponible
+                }}
+              >
+                {provider.name}
+              </option>
+            ))}
          </select>
          {selectedProvider && (
            <span className="text-xs text-gray-500">
@@ -237,23 +262,41 @@ const ConfigurationCompact: React.FC<{
       {/* Prompt */}
       <div className="flex items-center gap-2">
         <ChatBubbleLeftRightIcon className="w-4 h-4" style={{ color: colors.textSecondary }} />
-        <select
-          value={selectedPromptId}
-          onChange={(e) => onPromptChange(item.id, e.target.value)}
-          className="flex-1 px-2 py-1 text-xs rounded border"
-          style={{
-            backgroundColor: colors.background,
-            borderColor: colors.border,
-            color: colors.text
-          }}
-        >
-          <option value="">Prompt...</option>
-          {prompts.map(prompt => (
-            <option key={prompt.id} value={prompt.id}>
-              {prompt.name} ({prompt.domain})
-            </option>
-          ))}
-        </select>
+                 <select
+           value={selectedPromptId}
+           onChange={(e) => onPromptChange(item.id, e.target.value)}
+           className="flex-1 px-2 py-1 text-xs rounded border"
+           style={{
+             backgroundColor: colors.background,
+             borderColor: colors.border,
+             color: colors.text
+           }}
+         >
+           {(() => {
+             // Grouper les prompts par domaine
+             const groupedPrompts = prompts.reduce((groups, prompt) => {
+               const domain = prompt.domain || 'GENERAL';
+               if (!groups[domain]) {
+                 groups[domain] = [];
+               }
+               groups[domain].push(prompt);
+               return groups;
+             }, {} as { [key: string]: Prompt[] });
+
+             // Trier les domaines
+             const sortedDomains = Object.keys(groupedPrompts).sort();
+
+             return sortedDomains.map(domain => (
+               <optgroup key={domain} label={domain.toUpperCase()}>
+                 {groupedPrompts[domain].map(prompt => (
+                   <option key={prompt.id} value={prompt.id}>
+                     {prompt.name}
+                   </option>
+                 ))}
+               </optgroup>
+             ));
+           })()}
+         </select>
         {selectedPromptId && (
           <span className="text-xs text-gray-500">
             {selectedPromptId === item.analysis_prompt ? '(défaut)' : '(modifié)'}
@@ -344,21 +387,21 @@ const UtilityActions: React.FC<{
   const hasPrompt = localSelection.prompt !== undefined ? localSelection.prompt : item.analysis_prompt;
   const canStart = hasProvider && hasPrompt;
 
-  // Configuration des actions
-  const actionConfig = {
-    main: {
-      action: '', icon: null, variant: 'primary', disabled: true, tooltip: ''
-    },
-    view: {
-      action: 'view_file', icon: <EyeIcon />, variant: 'info', disabled: true, tooltip: 'Visualiser le fichier'
-    },
-    duplicate: {
-      action: 'duplicate_item', icon: <DocumentDuplicateIcon />, variant: 'warning', disabled: false, tooltip: 'Dupliquer l\'analyse' // Always active
-    },
-    delete: {
-      action: 'delete_item', icon: <TrashIcon />, variant: 'danger', disabled: true, tooltip: 'Supprimer l\'analyse'
-    }
-  };
+     // Configuration des actions
+   const actionConfig = {
+     main: {
+       action: '', icon: null, variant: 'primary', disabled: true, tooltip: ''
+     },
+     view: {
+       action: 'view_file', icon: <EyeIcon className="w-5 h-5" />, variant: 'info', disabled: true, tooltip: 'Visualiser le fichier'
+     },
+     duplicate: {
+       action: 'duplicate_item', icon: <DocumentDuplicateIcon className="w-5 h-5" />, variant: 'warning', disabled: false, tooltip: 'Dupliquer l\'analyse' // Always active
+     },
+     delete: {
+       action: 'delete_item', icon: <TrashIcon className="w-5 h-5" />, variant: 'danger', disabled: true, tooltip: 'Supprimer l\'analyse'
+     }
+   };
 
   // Logique pour l'action principale
   if (isAnalysisPending) {
@@ -391,68 +434,80 @@ const UtilityActions: React.FC<{
       <button
         onClick={() => onAction(actionConfig.main.action, item.id)}
         disabled={actionConfig.main.disabled}
-        className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
+        className={`inline-flex items-center justify-center px-3 py-2 rounded text-xs font-medium transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
           actionConfig.main.disabled ? 'opacity-50 cursor-not-allowed' : ''
         }`}
         style={{
           backgroundColor: 'transparent',
           border: `1px solid ${actionConfig.main.variant === 'success' ? '#10b981' : actionConfig.main.variant === 'warning' ? '#f59e0b' : actionConfig.main.variant === 'primary' ? '#3b82f6' : '#6b7280'}`,
-          color: actionConfig.main.variant === 'success' ? '#10b981' : actionConfig.main.variant === 'warning' ? '#f59e0b' : actionConfig.main.variant === 'primary' ? '#3b82f6' : '#6b7280'
+          color: actionConfig.main.variant === 'success' ? '#10b981' : actionConfig.main.variant === 'warning' ? '#f59e0b' : actionConfig.main.variant === 'primary' ? '#3b82f6' : '#6b7280',
+          minHeight: '28px'
         }}
         title={actionConfig.main.tooltip}
       >
-        {actionConfig.main.icon}
+        <div className="w-5 h-5">
+          {actionConfig.main.icon}
+        </div>
       </button>
 
       {/* Bouton de visualisation */}
       <button
         onClick={() => onAction(actionConfig.view.action, item.id)}
         disabled={actionConfig.view.disabled}
-        className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
+        className={`inline-flex items-center justify-center px-3 py-2 rounded text-xs font-medium transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
           actionConfig.view.disabled ? 'opacity-50 cursor-not-allowed' : ''
         }`}
         style={{
           backgroundColor: 'transparent',
           border: `1px solid ${actionConfig.view.disabled ? '#6b7280' : '#3b82f6'}`,
-          color: actionConfig.view.disabled ? '#6b7280' : '#3b82f6'
+          color: actionConfig.view.disabled ? '#6b7280' : '#3b82f6',
+          minHeight: '28px'
         }}
         title={actionConfig.view.tooltip}
       >
-        {actionConfig.view.icon}
+        <div className="w-5 h-5">
+          {actionConfig.view.icon}
+        </div>
       </button>
 
       {/* Bouton de duplication */}
       <button
         onClick={() => onAction(actionConfig.duplicate.action, item.id)}
         disabled={actionConfig.duplicate.disabled}
-        className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
+        className={`inline-flex items-center justify-center px-3 py-2 rounded text-xs font-medium transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
           actionConfig.duplicate.disabled ? 'opacity-50 cursor-not-allowed' : ''
         }`}
         style={{
           backgroundColor: 'transparent',
           border: `1px solid ${actionConfig.duplicate.disabled ? '#6b7280' : '#f59e0b'}`,
-          color: actionConfig.duplicate.disabled ? '#6b7280' : '#f59e0b'
+          color: actionConfig.duplicate.disabled ? '#6b7280' : '#f59e0b',
+          minHeight: '28px'
         }}
         title={actionConfig.duplicate.tooltip}
       >
-        {actionConfig.duplicate.icon}
+        <div className="w-5 h-5">
+          {actionConfig.duplicate.icon}
+        </div>
       </button>
 
       {/* Bouton de suppression */}
       <button
         onClick={() => onAction(actionConfig.delete.action, item.id)}
         disabled={actionConfig.delete.disabled}
-        className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
+        className={`inline-flex items-center justify-center px-3 py-2 rounded text-xs font-medium transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
           actionConfig.delete.disabled ? 'opacity-50 cursor-not-allowed' : ''
         }`}
         style={{
           backgroundColor: 'transparent',
           border: `1px solid ${actionConfig.delete.disabled ? '#6b7280' : '#ef4444'}`,
-          color: actionConfig.delete.disabled ? '#6b7280' : '#ef4444'
+          color: actionConfig.delete.disabled ? '#6b7280' : '#ef4444',
+          minHeight: '28px'
         }}
         title={actionConfig.delete.tooltip}
       >
-        {actionConfig.delete.icon}
+        <div className="w-5 h-5">
+          {actionConfig.delete.icon}
+        </div>
       </button>
     </div>
   );
@@ -687,26 +742,74 @@ export const QueueIAAdvanced: React.FC = () => {
     }
   }, [loadQueueItems, loadAIProviders, refreshAIProviders, configInitialized]);
 
-  // Debug: Afficher l'état des données
-  React.useEffect(() => {
-    console.log('📊 État des données:', {
-      queueItems: queueItems.length,
-      prompts: currentPrompts.length,
-      configInitialized,
-      loadingPrompts
-    });
-  }, [queueItems, currentPrompts, configInitialized, loadingPrompts]);
+     // Debug: Afficher l'état des données
+   React.useEffect(() => {
+     console.log('📊 État des données:', {
+       queueItems: queueItems.length,
+       prompts: currentPrompts.length,
+       configInitialized,
+       loadingPrompts
+     });
+   }, [queueItems, currentPrompts, configInitialized, loadingPrompts]);
+
+
 
 
 
 
   
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
-  const [filters, setFilters] = useState({
-    status: '',
-    file_type: '',
-    search: ''
-  });
+     const [filters, setFilters] = useState({
+     status: '',
+     file_type: '',
+     search: ''
+   });
+
+   // Filtrer les éléments selon les critères
+   const filteredItems = React.useMemo(() => {
+     return queueItems.filter(item => {
+       // Filtre par statut
+       if (filters.status && item.status !== filters.status) {
+         return false;
+       }
+
+       // Filtre par type de fichier
+       if (filters.file_type) {
+         const fileName = item.file_info?.name || '';
+         const fileExtension = fileName.split('.').pop()?.toLowerCase() || '';
+         
+         let itemFileType = 'text';
+         if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'].includes(fileExtension)) {
+           itemFileType = 'image';
+         } else if (['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv'].includes(fileExtension)) {
+           itemFileType = 'video';
+         } else if (['mp3', 'wav', 'flac', 'aac', 'ogg', 'wma'].includes(fileExtension)) {
+           itemFileType = 'audio';
+         } else if (['pdf', 'doc', 'docx', 'txt', 'rtf', 'odt'].includes(fileExtension)) {
+           itemFileType = 'document';
+         }
+         
+         if (itemFileType !== filters.file_type) {
+           return false;
+         }
+       }
+
+       // Filtre par recherche (nom de fichier)
+       if (filters.search) {
+         const fileName = item.file_info?.name || '';
+         const searchTerms = filters.search.split(';').map(term => term.trim().toLowerCase());
+         const fileNameLower = fileName.toLowerCase();
+         
+         // Au moins un terme doit correspondre
+         const hasMatch = searchTerms.some(term => fileNameLower.includes(term));
+         if (!hasMatch) {
+           return false;
+         }
+       }
+
+       return true;
+     });
+   }, [queueItems, filters]);
   
   // État local pour les sélections d'IA et prompt
   const [localSelections, setLocalSelections] = useState<{
@@ -925,19 +1028,27 @@ export const QueueIAAdvanced: React.FC = () => {
           await queueService.retryFailedItems();
           logService.info('Analyses échouées relancées', 'QueueIAAdvanced');
           break;
-        case 'clear_completed':
-          simpleAction(
-            'supprimer toutes les analyses terminées',
-            'les analyses terminées',
-            async () => {
-              await queueService.clearQueue();
-              logService.info('Analyses terminées supprimées', 'QueueIAAdvanced');
-              setSelectedItems([]);
-            },
-            undefined,
-            'danger'
-          );
-          return;
+                 case 'compare_selected':
+           if (selectedItems.length < 2) {
+             logService.warning('Comparaison impossible - moins de 2 éléments sélectionnés', 'QueueIAAdvanced', { selectedItems });
+             return;
+           }
+           logService.info('Comparaison des analyses sélectionnées', 'QueueIAAdvanced', { selectedItems });
+           // TODO: Implémenter la logique de comparaison
+           break;
+         case 'clear_completed':
+           simpleAction(
+             'supprimer toutes les analyses terminées',
+             'les analyses terminées',
+             async () => {
+               await queueService.clearQueue();
+               logService.info('Analyses terminées supprimées', 'QueueIAAdvanced');
+               setSelectedItems([]);
+             },
+             undefined,
+             'danger'
+           );
+           return;
         default:
           logService.warning('Action bulk non implémentée', 'QueueIAAdvanced', { action });
           console.log('Action bulk non implémentée:', action);
@@ -995,13 +1106,25 @@ export const QueueIAAdvanced: React.FC = () => {
                 <ArrowPathIcon className="w-3 h-3 mr-1" />
                 Relancer
               </button>
-              <button
-                onClick={() => handleBulkAction('clear_completed')}
-                className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-red-600 hover:bg-red-700 transition-colors"
-              >
-                <TrashIcon className="w-3 h-3 mr-1" />
-                Vider
-              </button>
+                             <button
+                 onClick={() => handleBulkAction('clear_completed')}
+                 className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-red-600 hover:bg-red-700 transition-colors"
+               >
+                 <TrashIcon className="w-3 h-3 mr-1" />
+                 Vider
+               </button>
+               <button
+                 onClick={() => handleBulkAction('compare_selected')}
+                 disabled={selectedItems.length < 2}
+                 className={`inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded transition-colors ${
+                   selectedItems.length >= 2 
+                     ? 'text-white bg-blue-600 hover:bg-blue-700' 
+                     : 'text-gray-400 bg-gray-300 cursor-not-allowed'
+                 }`}
+               >
+                 <Squares2X2Icon className="w-3 h-3 mr-1" />
+                 Comparer
+               </button>
             </div>
             
             <div className="flex items-center gap-2">
@@ -1043,18 +1166,18 @@ export const QueueIAAdvanced: React.FC = () => {
                   <span style={{ color: colors.textSecondary }}>Chargement des prompts...</span>
                 </div>
               </div>
-            ) : (
-                             <QueueTable
-                 items={queueItems}
-                 onAction={handleAction}
-                 selectedItems={selectedItems}
-                 onSelectionChange={setSelectedItems}
-                 prompts={currentPrompts}
-                 onPromptChange={handlePromptChange}
-                 onProviderChange={handleProviderChange}
-                 localSelections={localSelections}
-               />
-            )}
+                         ) : (
+                              <QueueTable
+                  items={filteredItems}
+                  onAction={handleAction}
+                  selectedItems={selectedItems}
+                  onSelectionChange={setSelectedItems}
+                  prompts={currentPrompts}
+                  onPromptChange={handlePromptChange}
+                  onProviderChange={handleProviderChange}
+                  localSelections={localSelections}
+                />
+             )}
           </div>
         </div>
       </div>
