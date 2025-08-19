@@ -15,6 +15,7 @@ import { useSimpleConfirm } from '../../hooks/useSimpleConfirm';
 import { queueService } from '../../services/queueService';
 import { pdfService } from '../../services/pdfService';
 import { logService } from '../../services/logService';
+import { analysisService } from '../../services/analysisService';
 import { formatFileSize } from '../../utils/fileUtils';
 import { UnifiedTable, TableColumn } from '../UI/UnifiedTable';
 import { Prompt } from '../../services/promptService';
@@ -1244,8 +1245,7 @@ export const QueueIAAdvanced: React.FC = () => {
                prompt_id: 'default'
              };
              
-             // Importer le service d'analyse
-             const { analysisService } = await import('../../services/analysisService');
+             // Utiliser le service d'analyse importé directement
              const analysisResponse = await analysisService.createPendingAnalysis(analysisRequest);
              
              // Ajouter à la queue backend

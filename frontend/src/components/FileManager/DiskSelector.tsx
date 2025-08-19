@@ -21,7 +21,16 @@ const DiskSelector: React.FC<DiskSelectorProps> = ({ onDiskSelect, currentDisk }
         setIsLoading(true);
         const response = await fetch('/api/files/drives');
         const data = await response.json();
-        setAvailableDisks(data.drives || []);
+        const disks = data.drives || [];
+        setAvailableDisks(disks);
+        
+        // Sélection automatique : D si disponible, sinon C
+        if (disks.length > 0) {
+          const preferredDisk = disks.find(disk => disk === 'D:') || disks.find(disk => disk === 'C:') || disks[0];
+          if (preferredDisk && !currentDisk) {
+            onDiskSelect(preferredDisk);
+          }
+        }
       } catch (error) {
         console.error('Erreur lors du chargement des disques:', error);
         setAvailableDisks([]);
@@ -31,7 +40,7 @@ const DiskSelector: React.FC<DiskSelectorProps> = ({ onDiskSelect, currentDisk }
     };
 
     fetchDisks();
-  }, []);
+  }, [currentDisk, onDiskSelect]);
 
   // Fermer le menu si clic à l'extérieur
   useEffect(() => {

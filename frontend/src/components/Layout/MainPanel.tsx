@@ -3,7 +3,6 @@ import { useFileStore } from '../../stores/fileStore';
 import { useQueueStore } from '../../stores/queueStore';
 import { useConfigStore } from '../../stores/configStore';
 import { useColors } from '../../hooks/useColors';
-import { useBackendStatus } from '../../hooks/useBackendStatus';
 import { formatFileSize } from '../../utils/fileUtils';
 import { getFileType } from '../../utils/fileTypeUtils';
 import { isSupportedFormat } from '../../utils/mediaFormats';
@@ -42,10 +41,8 @@ const MainPanel: React.FC<MainPanelProps> = ({
 }) => {
   const { selectedFile, selectedFiles, files, selectFile } = useFileStore();
   const { colors } = useColors();
-  const { isOnline } = useBackendStatus();
   const { queueItems, loadQueueItems } = useQueueStore();
-  const { getActiveProviders, isInitialized } = useConfigStore();
-  const [activeTab, setActiveTab] = useState('viewer');
+  const { getActiveProviders } = useConfigStore();
   const [showFileDetails, setShowFileDetails] = useState(false);
   const [viewMode, setViewMode] = useState<'single' | 'thumbnails'>('single');
 
@@ -92,16 +89,7 @@ const MainPanel: React.FC<MainPanelProps> = ({
     loadQueueItems();
   }, [loadQueueItems]);
 
-  // Écouter les événements de rechargement de la queue
-  useEffect(() => {
-    const handleReloadQueue = () => {
-    };
 
-    window.addEventListener('reloadQueue', handleReloadQueue);
-    return () => {
-      window.removeEventListener('reloadQueue', handleReloadQueue);
-    };
-  }, []);
 
   // Écouter l'événement d'affichage des détails de fichier
   useEffect(() => {
@@ -120,7 +108,7 @@ const MainPanel: React.FC<MainPanelProps> = ({
     const handleViewDirectoryThumbnails = (event: CustomEvent) => {
       const { directoryPath } = event.detail;
       setViewMode('thumbnails');
-      setActiveTab('viewer');
+      onSetActivePanel('viewer');
       // Charger les fichiers du dossier pour l'affichage en miniatures
       fetchDirectoryFiles(directoryPath);
     };
@@ -129,7 +117,7 @@ const MainPanel: React.FC<MainPanelProps> = ({
     return () => {
       window.removeEventListener('viewDirectoryThumbnails', handleViewDirectoryThumbnails as EventListener);
     };
-  }, []);
+  }, [onSetActivePanel]);
 
   // Fonction pour charger les fichiers d'un dossier
   const fetchDirectoryFiles = async (directoryPath: string) => {
@@ -283,7 +271,7 @@ const MainPanel: React.FC<MainPanelProps> = ({
 
   // Rendu du contenu selon l'onglet actif
   const renderTabContent = () => {
-    switch (activeTab) {
+    switch (activePanel) {
       case 'queue':
         return <QueueIAAdvanced />;
 
@@ -449,8 +437,8 @@ const MainPanel: React.FC<MainPanelProps> = ({
       {/* Onglets */}
       <TabPanel 
         tabs={tabs} 
-        activeTab={activeTab} 
-        onTabChange={setActiveTab} 
+        activeTab={activePanel} 
+        onTabChange={onSetActivePanel} 
       />
       
       {/* Contenu des onglets */}

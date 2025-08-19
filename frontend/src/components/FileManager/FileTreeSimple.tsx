@@ -104,8 +104,14 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
     e.stopPropagation();
     
     try {
+      console.log('🔄 Ajout d\'analyse pour le fichier:', file.name);
+      
       // Ouvrir automatiquement l'onglet "File d'attente et analyse"
+      console.log('📋 Basculement vers l\'onglet queue...');
       setActivePanel('queue');
+      
+      // Attendre un peu pour s'assurer que l'onglet se met à jour
+      await new Promise(resolve => setTimeout(resolve, 100));
       
       // Ajouter directement à la queue locale (pas de backend pour l'instant)
       const queueItem = {
@@ -124,11 +130,15 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
         is_local: true // Marqueur pour indiquer que c'est local
       };
       
+      console.log('📝 Ajout à la queue locale:', queueItem);
+      
       // Ajouter à la queue locale
       addLocalToQueue(queueItem);
       
+      console.log('✅ Fichier ajouté à la queue avec succès');
+      
     } catch (error) {
-      console.error('Erreur lors de l\'ajout à la queue locale:', error);
+      console.error('❌ Erreur lors de l\'ajout à la queue locale:', error);
     }
   }, [setActivePanel, addLocalToQueue]);
 

@@ -1,5 +1,5 @@
 
-import { apiRequest, handleApiError } from './apiUtils';
+import { apiRequest, handleApiError } from '../utils/apiUtils';
 import { logService } from './logService';
 
 const DEFAULT_TIMEOUT = 30000; // 30 secondes
