@@ -1,10 +1,10 @@
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   ArrowPathIcon, TrashIcon, PauseIcon, PlayIcon, XMarkIcon,
-  ClockIcon, CheckCircleIcon, ExclamationTriangleIcon,
-  CogIcon, FunnelIcon, ArrowsUpDownIcon,
-  CpuChipIcon, DocumentIcon, EyeIcon, ArrowDownTrayIcon, ChatBubbleLeftRightIcon,
+  ClockIcon,
+  CogIcon, FunnelIcon,
+  CpuChipIcon, DocumentIcon, EyeIcon, ChatBubbleLeftRightIcon,
   DocumentDuplicateIcon
 } from '@heroicons/react/24/outline';
 import { useColors } from '../../hooks/useColors';
@@ -16,44 +16,10 @@ import { queueService } from '../../services/queueService';
 import { pdfService } from '../../services/pdfService';
 import { logService } from '../../services/logService';
 import { formatFileSize } from '../../utils/fileUtils';
-import { getPriorityColor } from '../../utils/statusUtils';
 import { UnifiedTable, TableColumn } from '../UI/UnifiedTable';
 import { Prompt } from '../../services/promptService';
 
-// Fonctions utilitaires pour les emojis de statut
-const getStatusColor = (status: string) => {
-  switch (status?.toLowerCase()) {
-    case 'completed':
-      return 'bg-green-100 text-green-800';
-    case 'processing':
-      return 'bg-blue-100 text-blue-800';
-    case 'pending':
-      return 'bg-yellow-100 text-yellow-800';
-    case 'failed':
-      return 'bg-red-100 text-red-800';
-    case 'paused':
-      return 'bg-gray-100 text-gray-800';
-    default:
-      return 'bg-gray-100 text-gray-800';
-  }
-};
 
-const getStatusIcon = (status: string) => {
-  switch (status?.toLowerCase()) {
-    case 'completed':
-      return '✅';
-    case 'processing':
-      return '🔄';
-    case 'pending':
-      return '⏳';
-    case 'failed':
-      return '❌';
-    case 'paused':
-      return '⏸️';
-    default:
-      return '❓';
-  }
-};
 
 // Composant pour afficher les informations du fichier (compact)
 const FileInfo: React.FC<{ 
@@ -103,27 +69,16 @@ const ConfigurationCompact: React.FC<{
   onPromptChange: (itemId: string, promptId: string) => void;
   localSelections: { [itemId: string]: { provider?: string; prompt?: string } };
 }> = ({ item, colors, prompts, onProviderChange, onPromptChange, localSelections }) => {
-  const { getFunctionalProviders } = useConfigStore();
-  const functionalProviders = getFunctionalProviders();
+  const { getAIProviders } = useConfigStore();
+  const allAIProviders = getAIProviders();
   
-  const availableProviders = functionalProviders.map(provider => ({
+  // Créer la liste complète avec statut de disponibilité basé sur la configuration réelle
+  // Utiliser tous les providers de la configuration IA, pas seulement les fonctionnels
+  const allProvidersWithStatus = allAIProviders.map(provider => ({
     id: provider.name,
-    name: getProviderDisplayName(provider.name)
+    name: getProviderDisplayName(provider.name),
+    available: provider.is_active && provider.is_functional
   }));
-  
-  // Utiliser les sélections locales ou les valeurs par défaut
-  const localSelection = localSelections[item.id] || {};
-  const selectedProvider = localSelection.provider || item.analysis_provider || '';
-  const selectedPromptId = localSelection.prompt || item.analysis_prompt || '';
-  
-  // Debug: Afficher les valeurs pour comprendre le problème
-  console.log(`ConfigurationCompact pour item ${item.id}:`, {
-    localSelection,
-    itemProvider: item.analysis_provider,
-    itemPrompt: item.analysis_prompt,
-    selectedProvider,
-    selectedPromptId
-  });
   
   function getProviderDisplayName(providerName: string): string {
     const displayNames: { [key: string]: string } = {
@@ -136,33 +91,86 @@ const ConfigurationCompact: React.FC<{
     return displayNames[providerName] || providerName;
   }
   
+  // Utiliser les sélections locales ou les valeurs par défaut
+  const localSelection = localSelections[item.id] || {};
+  let selectedProvider = localSelection.provider !== undefined ? localSelection.provider : (item.analysis_provider || '');
+  
+  // S'assurer que la valeur sélectionnée est dans la liste des options disponibles
+  if (selectedProvider && !allProvidersWithStatus.some(p => p.id === selectedProvider)) {
+    console.warn(`Provider ${selectedProvider} non trouvé dans les options disponibles:`, allProvidersWithStatus.map(p => p.id));
+    selectedProvider = ''; // Réinitialiser si non trouvé
+  }
+  
+  // Debug temporaire pour voir les fournisseurs IA disponibles
+  console.log(`🔍 Fournisseurs IA pour item ${item.id}:`, {
+    allProvidersWithStatus: allProvidersWithStatus.map(p => ({ id: p.id, name: p.name, available: p.available })),
+    selectedProvider,
+    itemProvider: item.analysis_provider,
+    localSelection: localSelection,
+    // Debug spécifique pour comprendre le problème
+    debug: {
+      hasLocalSelection: !!localSelection.provider,
+      localSelectionProvider: localSelection.provider,
+      itemAnalysisProvider: item.analysis_provider,
+      finalSelectedProvider: selectedProvider,
+      isProviderInAvailable: allProvidersWithStatus.some(p => p.id === selectedProvider && p.available),
+      // Debug du select
+      selectValue: selectedProvider,
+      selectOptions: allProvidersWithStatus.map(p => ({ value: p.id, label: p.name, available: p.available }))
+    }
+  });
+  
+  // Pour les prompts, on doit trouver l'ID correspondant au contenu
+  let selectedPromptId = '';
+  if (localSelection.prompt !== undefined) {
+    selectedPromptId = localSelection.prompt;
+  } else if (item.analysis_prompt) {
+    // Chercher le prompt par son contenu
+    const matchingPrompt = prompts.find(p => p.prompt === item.analysis_prompt);
+    selectedPromptId = matchingPrompt?.id || '';
+  }
+  
+
+  
+
+  
+
+  
+
+  
   return (
     <div className="space-y-2">
       {/* Fournisseur IA */}
       <div className="flex items-center gap-2">
         <CpuChipIcon className="w-4 h-4" style={{ color: colors.textSecondary }} />
-        <select
-          value={selectedProvider}
-          onChange={(e) => onProviderChange(item.id, e.target.value)}
-          className="flex-1 px-2 py-1 text-xs rounded border"
-          style={{
-            backgroundColor: colors.background,
-            borderColor: colors.border,
-            color: colors.text
-          }}
-        >
-          <option value="">IA...</option>
-          {availableProviders.map(provider => (
-            <option key={provider.id} value={provider.id}>
-              {provider.name}
-            </option>
-          ))}
-        </select>
-        {selectedProvider && (
-          <span className="text-xs text-gray-500">
-            {selectedProvider === item.analysis_provider ? '(défaut)' : '(modifié)'}
-          </span>
-        )}
+                 <select
+           value={selectedProvider}
+           onChange={(e) => onProviderChange(item.id, e.target.value)}
+           className="flex-1 px-2 py-1 text-xs rounded border"
+           style={{
+             backgroundColor: colors.background,
+             borderColor: colors.border,
+             color: colors.text
+           }}
+         >
+           <option value="">IA...</option>
+           {allProvidersWithStatus.map(provider => (
+             <option 
+               key={provider.id} 
+               value={provider.id}
+               style={{
+                 color: provider.available ? '#10b981' : '#ef4444' // Vert si disponible, rouge si non disponible
+               }}
+             >
+               {provider.name} {provider.available ? '(disponible)' : '(non disponible)'}
+             </option>
+           ))}
+         </select>
+         {selectedProvider && (
+           <span className="text-xs text-gray-500">
+             {selectedProvider === item.analysis_provider ? '(défaut)' : '(modifié)'}
+           </span>
+         )}
       </div>
       
       {/* Prompt */}
@@ -204,8 +212,8 @@ const StatusActionButton: React.FC<{
 }> = ({ item, onAction, colors, localSelections }) => {
   // Utiliser les sélections locales ou les valeurs par défaut
   const localSelection = localSelections[item.id] || {};
-  const hasProvider = localSelection.provider || item.analysis_provider;
-  const hasPrompt = localSelection.prompt || item.analysis_prompt;
+  const hasProvider = localSelection.provider !== undefined ? localSelection.provider : item.analysis_provider;
+  const hasPrompt = localSelection.prompt !== undefined ? localSelection.prompt : item.analysis_prompt;
   const canStart = hasProvider && hasPrompt;
   
   const getButtonConfig = () => {
@@ -530,7 +538,7 @@ export const QueueIAAdvanced: React.FC = () => {
   const { colors } = useColors();
   const { queueItems, loadQueueItems } = useQueueStore();
   const { prompts, loading: loadingPrompts, getPrompts } = usePromptStore();
-  const { loadAIProviders, isInitialized: configInitialized } = useConfigStore();
+  const { loadAIProviders, refreshAIProviders, isInitialized: configInitialized } = useConfigStore();
   
   const currentPrompts = getPrompts();
   
@@ -538,19 +546,15 @@ export const QueueIAAdvanced: React.FC = () => {
     loadQueueItems();
     if (!configInitialized) {
       loadAIProviders();
+    } else {
+      // Rafraîchir la configuration IA pour s'assurer d'avoir les dernières données
+      refreshAIProviders();
     }
-  }, [loadQueueItems, loadAIProviders, configInitialized]);
+  }, [loadQueueItems, loadAIProviders, refreshAIProviders, configInitialized]);
 
-  // Debug: Afficher les données reçues
-  React.useEffect(() => {
-    if (queueItems.length > 0) {
-      console.log('QueueItems reçus:', queueItems.map(item => ({
-        id: item.id,
-        analysis_provider: item.analysis_provider,
-        analysis_prompt: item.analysis_prompt ? item.analysis_prompt.substring(0, 50) + '...' : null
-      })));
-    }
-  }, [queueItems]);
+
+
+
   
   const [selectedItems, setSelectedItems] = useState<string[]>([]);
   const [filters, setFilters] = useState({
@@ -570,14 +574,21 @@ export const QueueIAAdvanced: React.FC = () => {
 
   // Initialiser les sélections locales avec les valeurs de la base de données
   React.useEffect(() => {
-    if (queueItems.length > 0) {
+    if (queueItems.length > 0 && currentPrompts.length > 0 && configInitialized) {
       const initialSelections: { [itemId: string]: { provider?: string; prompt?: string } } = {};
       
       queueItems.forEach(item => {
         if (item.analysis_provider || item.analysis_prompt) {
+          // Pour les prompts, on doit trouver l'ID correspondant au contenu
+          let promptId = undefined;
+          if (item.analysis_prompt) {
+            const matchingPrompt = currentPrompts.find(p => p.prompt === item.analysis_prompt);
+            promptId = matchingPrompt?.id;
+          }
+          
           initialSelections[item.id] = {
             provider: item.analysis_provider || undefined,
-            prompt: item.analysis_prompt || undefined
+            prompt: promptId
           };
         }
       });
@@ -587,7 +598,7 @@ export const QueueIAAdvanced: React.FC = () => {
         ...initialSelections
       }));
     }
-  }, [queueItems]);
+  }, [queueItems, currentPrompts, configInitialized]);
   
   const { simpleDelete, simpleAction } = useSimpleConfirm();
 
@@ -651,7 +662,15 @@ export const QueueIAAdvanced: React.FC = () => {
             // Récupérer les sélections locales ou les valeurs par défaut pour la duplication
             const duplicateLocalSelection = localSelections[itemId] || {};
             const duplicateProvider = duplicateLocalSelection.provider || item.analysis_provider;
-            const duplicatePrompt = duplicateLocalSelection.prompt || item.analysis_prompt;
+            
+            // Pour les prompts, on doit récupérer le contenu du prompt sélectionné
+            let duplicatePrompt = '';
+            if (duplicateLocalSelection.prompt) {
+              const selectedPromptObj = currentPrompts.find(p => p.id === duplicateLocalSelection.prompt);
+              duplicatePrompt = selectedPromptObj?.prompt || '';
+            } else if (item.analysis_prompt) {
+              duplicatePrompt = item.analysis_prompt;
+            }
            
            try {
              const result = await queueService.duplicateAnalysis(
@@ -689,11 +708,19 @@ export const QueueIAAdvanced: React.FC = () => {
              }
            );
            return;
-                 case 'start_analysis':
-           // Récupérer les sélections locales ou les valeurs par défaut
-           const localSelection = localSelections[itemId] || {};
-           const selectedProvider = localSelection.provider || item.analysis_provider;
-           const selectedPrompt = localSelection.prompt || item.analysis_prompt;
+                         case 'start_analysis':
+            // Récupérer les sélections locales ou les valeurs par défaut
+            const startLocalSelection = localSelections[itemId] || {};
+            const selectedProvider = startLocalSelection.provider || item.analysis_provider;
+            
+            // Pour les prompts, on doit récupérer le contenu du prompt sélectionné
+            let selectedPrompt = '';
+            if (startLocalSelection.prompt) {
+              const selectedPromptObj = currentPrompts.find(p => p.id === startLocalSelection.prompt);
+              selectedPrompt = selectedPromptObj?.prompt || '';
+            } else if (item.analysis_prompt) {
+              selectedPrompt = item.analysis_prompt;
+            }
            
            if (!selectedProvider || !selectedPrompt) {
              logService.warning('Impossible de démarrer l\'analyse - IA ou prompt manquant', 'QueueIAAdvanced', { 

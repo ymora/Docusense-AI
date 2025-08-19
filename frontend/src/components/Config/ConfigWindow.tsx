@@ -3,6 +3,7 @@ import { MinusIcon, XMarkIcon, CheckCircleIcon, ExclamationTriangleIcon, ClockIc
 import { useColors } from '../../hooks/useColors';
 import ConfigService from '../../services/configService';
 import { logService } from '../../services/logService';
+import { useConfigStore } from '../../stores/configStore';
 
 interface ConfigWindowProps {
   onClose?: () => void;
@@ -30,53 +31,105 @@ interface ProviderState {
 // Composant de contenu simplifié pour utilisation dans MainPanel
 export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimize, isStandalone = false }) => {
   const { colors } = useColors();
+  const { aiProviders, loadAIProviders, refreshAIProviders, isInitialized } = useConfigStore();
   const [loading, setLoading] = useState(false);
   const [providers, setProviders] = useState<ProviderState[]>([]);
   const [testing, setTesting] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
 
-  // Charger les providers
+  // Charger les providers depuis le store
   useEffect(() => {
-    loadProviders();
-  }, []);
+    if (!isInitialized) {
+      loadAIProviders();
+    }
+  }, [isInitialized, loadAIProviders]);
 
-  const loadProviders = async () => {
+  // Mettre à jour les providers quand le store change
+  useEffect(() => {
+    console.log('🔄 ConfigWindow: aiProviders changé, longueur:', aiProviders.length);
+    if (aiProviders.length > 0) {
+      updateProviderStates(aiProviders);
+    }
+  }, [aiProviders]);
+
+  const updateProviderStates = (aiProviders: any[]) => {
     try {
       setLoading(true);
       setError(null);
-      const response = await ConfigService.getAIProviders();
       
-      const providerStates: ProviderState[] = (response.providers || []).map((provider: any) => {
-        let status: ProviderStatus = 'empty';
-        let errorMessage: string | undefined;
+      // Debug: Afficher les données reçues pour Mistral
+      const mistralProvider = aiProviders.find((p: any) => p.name === 'mistral');
+      if (mistralProvider) {
+        console.log('🔍 Mistral dans ConfigWindow (depuis store):', {
+          name: mistralProvider.name,
+          is_active: mistralProvider.is_active,
+          is_functional: mistralProvider.is_functional,
+          status: mistralProvider.status,
+          has_api_key: mistralProvider.has_api_key
+        });
+      }
+      
+             const providerStates: ProviderState[] = aiProviders.map((provider: any) => {
+         let status: ProviderStatus = 'empty';
+         let errorMessage: string | undefined;
 
-        // Déterminer le statut du provider
-        if (provider.name.toLowerCase() === 'ollama') {
+         // Debug: Log pour chaque provider
+         console.log(`🔍 Provider ${provider.name}:`, {
+           is_functional: provider.is_functional,
+           status: provider.status,
+           has_api_key: provider.has_api_key,
+           api_key: provider.api_key
+         });
+
+         // Déterminer le statut du provider
+         if (provider.name.toLowerCase() === 'ollama') {
           // Pour Ollama, pas besoin de clé API
           if (provider.is_functional && provider.status === 'valid') {
             status = 'active';
           } else if (provider.is_functional) {
             status = 'functional';
-          } else {
-            status = 'invalid';
-            errorMessage = 'Ollama non accessible. Vérifiez qu\'il est installé et en cours d\'exécution.';
-          }
-        } else {
-          // Pour les autres providers, vérifier la clé API
-          if (!provider.api_key || provider.api_key.trim() === '') {
-            status = 'empty';
-          } else if (provider.is_functional && provider.status === 'valid') {
-            status = 'active';
-          } else if (provider.is_functional) {
-            status = 'functional';
-          } else if (provider.has_api_key) {
-            // Si une clé API est configurée mais pas testée
+          } else if (provider.status === 'valid') {
+            // Ollama est marqué comme valide mais pas fonctionnel - probablement en cours de test
             status = 'pending';
-          } else {
+          } else if (provider.is_functional === false) {
+            // Ollama a été testé et n'est pas fonctionnel
             status = 'invalid';
-            errorMessage = 'Clé API invalide ou service non accessible.';
+            errorMessage = 'Ollama non accessible. Vérifiez qu\'il est installé et en cours d\'exécution sur http://localhost:11434.';
+          } else {
+            status = 'empty';
+            errorMessage = 'Ollama non testé. Cliquez sur "Tester" pour vérifier la connexion.';
           }
-        }
+                 } else {
+           // Pour les autres providers, vérifier la clé API
+           console.log(`🔍 Logique pour ${provider.name}:`, {
+             has_api_key: provider.has_api_key,
+             is_functional: provider.is_functional,
+             status: provider.status,
+             condition1: !provider.api_key || provider.api_key.trim() === '',
+             condition2: provider.is_functional && provider.status === 'valid',
+             condition3: provider.is_functional,
+             condition4: provider.has_api_key
+           });
+           
+           if (!provider.has_api_key) {
+             status = 'empty';
+             console.log(`  → ${provider.name} → empty (pas de clé API)`);
+           } else if (provider.is_functional && provider.status === 'valid') {
+             status = 'active';
+             console.log(`  → ${provider.name} → active (fonctionnel + valid)`);
+           } else if (provider.is_functional) {
+             status = 'functional';
+             console.log(`  → ${provider.name} → functional (fonctionnel)`);
+           } else if (provider.has_api_key) {
+             // Si une clé API est configurée mais pas testée
+             status = 'pending';
+             console.log(`  → ${provider.name} → pending (clé API mais pas testé)`);
+           } else {
+             status = 'invalid';
+             errorMessage = 'Clé API invalide ou service non accessible.';
+             console.log(`  → ${provider.name} → invalid (échec)`);
+           }
+         }
 
         return {
           name: provider.name,
@@ -90,8 +143,8 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
 
       setProviders(providerStates);
     } catch (error) {
-      logService.error('Erreur chargement providers', 'ConfigWindow', { error: error.message });
-      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue lors du chargement des providers';
+      logService.error('Erreur mise à jour providers', 'ConfigWindow', { error: error.message });
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue lors de la mise à jour des providers';
       setError(errorMessage);
     } finally {
       setLoading(false);
@@ -147,7 +200,7 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
         await ConfigService.setProviderStatus(providerName, 'valid');
 
         // Recharger tous les providers pour obtenir les statuts mis à jour
-        await loadProviders();
+        await refreshAIProviders();
 
         // Recalculer les priorités
         await recalculatePriorities();
@@ -176,11 +229,11 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
         await ConfigService.setProviderStatus(providerName, 'valid');
       }
 
-      // Recharger les providers
-      await loadProviders();
-      
-      // Recalculer les priorités
-      await recalculatePriorities();
+             // Recharger les providers
+       await refreshAIProviders();
+       
+       // Recalculer les priorités
+       await recalculatePriorities();
     } catch (error) {
       logService.error(`Erreur toggle provider ${providerName}`, 'ConfigWindow', { error: error.message, provider: providerName });
       setError(`Erreur lors de l'activation/désactivation de ${getProviderDisplayName(providerName)}`);
@@ -209,7 +262,7 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
       }
       
       // Recharger les providers
-      await loadProviders();
+      await refreshAIProviders();
     } catch (error) {
       logService.error(`Erreur changement priorité ${providerName}`, 'ConfigWindow', { error: error.message, provider: providerName });
       setError(`Erreur lors du changement de priorité de ${getProviderDisplayName(providerName)}`);
@@ -227,7 +280,7 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
       }
       
       // Recharger les providers
-      await loadProviders();
+      await refreshAIProviders();
     } catch (error) {
       logService.error('Erreur recalcul priorités', 'ConfigWindow', { error: error.message });
     }
@@ -249,6 +302,7 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
       case 'claude': return '🟠';
       case 'mistral': return '🟣';
       case 'ollama': return '🐙';
+      case 'gemini': return '🟢';
       default: return '❓';
     }
   };
@@ -260,6 +314,7 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
       case 'claude': return 'Claude (Anthropic)';
       case 'mistral': return 'Mistral AI';
       case 'ollama': return 'Ollama';
+      case 'gemini': return 'Google Gemini';
       default: return providerName;
     }
   };

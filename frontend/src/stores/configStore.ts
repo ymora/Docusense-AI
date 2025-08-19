@@ -31,6 +31,7 @@ interface ConfigState {
   getFunctionalProviders: () => AIProvider[];
   getActiveProviders: () => AIProvider[];
   getConfiguredProviders: () => AIProvider[];
+  getAIProviders: () => AIProvider[];
   getProviderStatus: (name: string) => 'valid' | 'invalid' | 'testing' | 'not_configured';
   
   // Utilitaires
@@ -310,6 +311,10 @@ export const useConfigStore = create<ConfigState>()(
 
         getConfiguredProviders: () => {
           return get().aiProviders.filter(provider => provider.has_api_key);
+        },
+
+        getAIProviders: () => {
+          return get().aiProviders;
         },
 
         getProviderStatus: (name: string) => {

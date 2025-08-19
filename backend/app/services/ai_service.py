@@ -64,7 +64,7 @@ class AIService(BaseService):
         """Logic for loading AI providers"""
         from .config_service import ConfigService
         config_service = ConfigService(self.db)
-        providers = ["openai", "claude", "mistral", "ollama"]
+        providers = ["openai", "claude", "mistral", "ollama", "gemini"]
         
         self._load_provider_configs(config_service, providers)
         self._log_provider_loading()

@@ -192,7 +192,7 @@ async def get_functional_ai_providers(db: Session = Depends(get_db)) -> Dict[str
     
     # Count functional providers
     functional_count = len(providers)
-    total_providers = 4  # openai, claude, mistral, ollama
+    total_providers = 5  # openai, claude, mistral, ollama, gemini
     
     return ResponseFormatter.success_response(
         data={

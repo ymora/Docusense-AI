@@ -619,6 +619,10 @@ class ConfigService(BaseService):
             self.logger.error(f"Error getting all provider priorities: {str(e)}")
             return {}
 
+    def get_ai_provider_cost(self, provider: str, model: str) -> float:
+        """Get AI provider cost for a specific model (placeholder - returns 0.0)"""
+        return 0.0
+
     @log_service_operation("set_ai_provider_priority")
     def set_ai_provider_priority(self, provider: str, priority: int) -> bool:
         """
@@ -711,7 +715,7 @@ class ConfigService(BaseService):
         """
         try:
             configured_providers = []
-            all_providers = ["openai", "claude", "mistral", "ollama"]
+            all_providers = ["openai", "claude", "mistral", "ollama", "gemini"]
 
             for provider in all_providers:
                 # Un provider est configuré s'il a une clé API
@@ -730,7 +734,7 @@ class ConfigService(BaseService):
         """
         try:
             active_providers = []
-            all_providers = ["openai", "claude", "mistral", "ollama"]
+            all_providers = ["openai", "claude", "mistral", "ollama", "gemini"]
 
             for provider in all_providers:
                 # Un provider n'est actif que s'il a été explicitement configuré ET validé
@@ -797,7 +801,7 @@ class ConfigService(BaseService):
         """Logic for validating and fixing priorities"""
         try:
             # Get all providers and their current priorities
-            all_providers = ["openai", "claude", "mistral", "ollama"]
+            all_providers = ["openai", "claude", "mistral", "ollama", "gemini"]
             current_priorities = {}
             active_providers = []
             
@@ -921,7 +925,7 @@ class ConfigService(BaseService):
         try:
             providers = []
             
-            for provider in ["openai", "claude", "mistral", "ollama"]:
+            for provider in ["openai", "claude", "mistral", "ollama", "gemini"]:
                 # Check if provider has API key
                 api_key = self.get_ai_provider_key(provider)
                 if not api_key:
@@ -959,6 +963,11 @@ class ConfigService(BaseService):
                     models = [
                         {"name": "llama2", "cost": self.get_ai_provider_cost(provider, "llama2")},
                         {"name": "mistral", "cost": self.get_ai_provider_cost(provider, "mistral")}
+                    ]
+                elif provider == "gemini":
+                    models = [
+                        {"name": "gemini-pro", "cost": self.get_ai_provider_cost(provider, "gemini-pro")},
+                        {"name": "gemini-pro-vision", "cost": self.get_ai_provider_cost(provider, "gemini-pro-vision")}
                     ]
 
                 providers.append({
@@ -999,7 +1008,7 @@ class ConfigService(BaseService):
             providers = []
             ai_service = get_ai_service(self.db)
             
-            for provider in ["openai", "claude", "mistral", "ollama"]:
+            for provider in ["openai", "claude", "mistral", "ollama", "gemini"]:
                 # Check if provider has API key (except Ollama which doesn't need one)
                 if provider.lower() != "ollama":
                     api_key = self.get_ai_provider_key(provider)
@@ -1009,10 +1018,11 @@ class ConfigService(BaseService):
                 # Get saved functionality status from database (NO automatic testing)
                 is_functional = self.get_provider_functionality_status(provider)
                 last_tested = self.get_provider_last_tested(provider)
+                status = self.get_provider_status(provider)
                 
-                # Only include functional providers
-                if not is_functional:
-                    self.logger.debug(f"[PROVIDERS] {provider.upper()}: Skipped (not functional)")
+                # Only include providers that are BOTH functional AND active (user has activated them)
+                if not is_functional or status != "valid":
+                    self.logger.debug(f"[PROVIDERS] {provider.upper()}: Skipped (functional={is_functional}, status={status})")
                     continue
                 
                 priority = self.get_ai_provider_priority(provider)
@@ -1039,6 +1049,11 @@ class ConfigService(BaseService):
                     models = [
                         {"name": "llama2", "cost": self.get_ai_provider_cost(provider, "llama2")},
                         {"name": "mistral", "cost": self.get_ai_provider_cost(provider, "mistral")}
+                    ]
+                elif provider == "gemini":
+                    models = [
+                        {"name": "gemini-pro", "cost": self.get_ai_provider_cost(provider, "gemini-pro")},
+                        {"name": "gemini-pro-vision", "cost": self.get_ai_provider_cost(provider, "gemini-pro-vision")}
                     ]
 
                 providers.append({
@@ -1398,7 +1413,7 @@ class ConfigService(BaseService):
         """Logic for getting AI metrics"""
         try:
             metrics = {}
-            for provider in ["openai", "claude", "mistral", "ollama"]:
+            for provider in ["openai", "claude", "mistral", "ollama", "gemini"]:
                 provider_metrics = {
                     "total_requests": int(
                         self.get_config(
@@ -1429,7 +1444,7 @@ class ConfigService(BaseService):
         """Logic for getting AI providers config"""
         try:
             # Obtenir tous les providers avec leurs configurations de base
-            all_providers = ["openai", "claude", "mistral", "ollama"]
+            all_providers = ["openai", "claude", "mistral", "ollama", "gemini"]
             providers = []
             
             for provider_name in all_providers:
@@ -1457,8 +1472,8 @@ class ConfigService(BaseService):
                 # Un provider est actif s'il a une clé API valide ET est fonctionnel ET n'est pas explicitement désactivé
                 is_active = has_api_key and is_functional and manual_status != 'inactive'
                 
-                # Pour Ollama, considérer comme actif si configuré et pas explicitement désactivé
-                if provider_name == "ollama" and priority > 0 and manual_status != 'inactive':
+                # Pour Ollama, considérer comme actif si fonctionnel et pas explicitement désactivé
+                if provider_name == "ollama" and is_functional and manual_status != 'inactive':
                     is_active = True
                 
                 provider_data = {
@@ -1478,7 +1493,7 @@ class ConfigService(BaseService):
                 
                 providers.append(provider_data)
             
-            # Maintenir l'ordre fixe des providers : OpenAI, Claude, Mistral, Ollama
+            # Maintenir l'ordre fixe des providers : OpenAI, Claude, Mistral, Ollama, Gemini
             # Ne pas trier par statut ou priorité pour éviter les changements de position
             sorted_providers = providers
             
