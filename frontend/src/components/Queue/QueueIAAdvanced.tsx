@@ -245,8 +245,10 @@ const ConfigurationCompact: React.FC<{
      // Chercher le prompt par son contenu
      const matchingPrompt = prompts.find(p => p.prompt === (item as any).analysis_prompt);
      selectedPromptId = matchingPrompt?.id || '';
-   } else {
-     // Sélection automatique basée sur le type de fichier
+   }
+   
+   // Si aucun prompt n'est sélectionné, sélectionner automatiquement un prompt adapté au type de fichier
+   if (!selectedPromptId) {
      const fileName = item.file_info?.name || '';
      const fileExtension = fileName.split('.').pop()?.toLowerCase() || '';
      
@@ -262,14 +264,30 @@ const ConfigurationCompact: React.FC<{
        defaultDomain = 'DOCUMENT';
      }
      
-     // Trouver le premier prompt du domaine correspondant
-     const defaultPrompt = prompts.find(p => (p.domain || 'GENERAL').toUpperCase() === defaultDomain);
+     // Chercher d'abord un prompt spécifique au domaine
+     let defaultPrompt = prompts.find(p => (p.domain || 'GENERAL').toUpperCase() === defaultDomain);
+     
+     // Si aucun prompt spécifique n'est trouvé, chercher un prompt "Résumé général"
+     if (!defaultPrompt) {
+       defaultPrompt = prompts.find(p => p.name.toLowerCase().includes('résumé général') || p.name.toLowerCase().includes('resume general'));
+     }
+     
+     // Si toujours aucun prompt trouvé, prendre le premier prompt disponible
+     if (!defaultPrompt && prompts.length > 0) {
+       defaultPrompt = prompts[0];
+     }
+     
      if (defaultPrompt) {
        selectedPromptId = defaultPrompt.id;
        // Mettre à jour automatiquement la sélection locale
-       if (!localSelection.prompt) {
-         onPromptChange(item.id, defaultPrompt.id);
-       }
+       onPromptChange(item.id, defaultPrompt.id);
+       
+       console.log(`🔍 Prompt automatique sélectionné pour ${fileName}:`, {
+         fileExtension,
+         defaultDomain,
+         selectedPrompt: defaultPrompt.name,
+         promptId: defaultPrompt.id
+       });
      }
    }
   
@@ -500,7 +518,10 @@ const UtilityActions: React.FC<{
   const localSelection = localSelections[item.id] || {};
   const hasProvider = localSelection.provider !== undefined ? localSelection.provider : item.analysis_provider;
   const hasPrompt = localSelection.prompt !== undefined ? localSelection.prompt : (item as any).analysis_prompt;
-  const canStart = hasProvider && hasPrompt;
+  
+  // Validation plus stricte : s'assurer qu'un prompt approprié est sélectionné (pas un prompt GENERAL)
+  const hasValidPrompt = hasPrompt && hasPrompt.trim() !== '';
+  const canStart = hasProvider && hasValidPrompt;
 
   // État pour vérifier l'existence du PDF
   const [hasPDF, setHasPDF] = React.useState<boolean>(false);
@@ -559,7 +580,15 @@ const UtilityActions: React.FC<{
     if (canStart) {
       actionConfig.main = { action: 'start_analysis', icon: <PlayIcon className="w-4 h-4" />, variant: 'success', disabled: false, tooltip: 'Démarrer l\'analyse' };
     } else {
-      actionConfig.main = { action: '', icon: <PlayIcon className="w-4 h-4" />, variant: 'primary', disabled: true, tooltip: 'Configurer l\'IA et le prompt pour démarrer' };
+      const missingItems = [];
+      if (!hasProvider) missingItems.push('IA');
+      if (!hasValidPrompt) missingItems.push('prompt adapté');
+      
+      const tooltip = missingItems.length > 0 
+        ? `Sélectionner ${missingItems.join(' et ')} pour démarrer`
+        : 'Configurer l\'IA et le prompt pour démarrer';
+        
+      actionConfig.main = { action: '', icon: <PlayIcon className="w-4 h-4" />, variant: 'primary', disabled: true, tooltip };
     }
   } else if (isAnalysisProcessing) {
     actionConfig.main = { action: 'pause_item', icon: <PauseIcon className="w-4 h-4" />, variant: 'warning', disabled: false, tooltip: 'Mettre en pause l\'analyse' };
@@ -580,14 +609,14 @@ const UtilityActions: React.FC<{
       <button
         onClick={() => onAction(actionConfig.main.action, item.id)}
         disabled={actionConfig.main.disabled}
-        className={`inline-flex items-center justify-center px-3 py-2 rounded text-xs font-medium transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
+        className={`inline-flex items-center justify-center px-2 py-1 rounded text-xs font-medium transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
           actionConfig.main.disabled ? 'opacity-50 cursor-not-allowed' : ''
         }`}
         style={{
           backgroundColor: 'transparent',
           border: `1px solid ${actionConfig.main.disabled ? '#6b7280' : actionConfig.main.variant === 'success' ? '#10b981' : actionConfig.main.variant === 'warning' ? '#f59e0b' : actionConfig.main.variant === 'primary' ? '#3b82f6' : '#6b7280'}`,
           color: actionConfig.main.disabled ? '#6b7280' : actionConfig.main.variant === 'success' ? '#10b981' : actionConfig.main.variant === 'warning' ? '#f59e0b' : actionConfig.main.variant === 'primary' ? '#3b82f6' : '#6b7280',
-          minHeight: '28px'
+          minHeight: '24px'
         }}
         title={actionConfig.main.tooltip || 'Action principale'}
       >
@@ -598,14 +627,14 @@ const UtilityActions: React.FC<{
       <button
         onClick={() => onAction(actionConfig.view.action, item.id)}
         disabled={actionConfig.view.disabled}
-        className={`inline-flex items-center justify-center px-3 py-2 rounded text-xs font-medium transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
+        className={`inline-flex items-center justify-center px-2 py-1 rounded text-xs font-medium transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
           actionConfig.view.disabled ? 'opacity-50 cursor-not-allowed' : ''
         }`}
         style={{
           backgroundColor: 'transparent',
           border: `1px solid ${actionConfig.view.disabled ? '#6b7280' : '#3b82f6'}`,
           color: actionConfig.view.disabled ? '#6b7280' : '#3b82f6',
-          minHeight: '28px'
+          minHeight: '24px'
         }}
         title={actionConfig.view.tooltip}
       >
@@ -616,14 +645,14 @@ const UtilityActions: React.FC<{
       <button
         onClick={() => onAction(actionConfig.duplicate.action, item.id)}
         disabled={actionConfig.duplicate.disabled}
-        className={`inline-flex items-center justify-center px-3 py-2 rounded text-xs font-medium transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
+        className={`inline-flex items-center justify-center px-2 py-1 rounded text-xs font-medium transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
           actionConfig.duplicate.disabled ? 'opacity-50 cursor-not-allowed' : ''
         }`}
         style={{
           backgroundColor: 'transparent',
           border: `1px solid ${actionConfig.duplicate.disabled ? '#6b7280' : '#f59e0b'}`,
           color: actionConfig.duplicate.disabled ? '#6b7280' : '#f59e0b',
-          minHeight: '28px'
+          minHeight: '24px'
         }}
         title={actionConfig.duplicate.tooltip}
       >
@@ -634,14 +663,14 @@ const UtilityActions: React.FC<{
       <button
         onClick={() => onAction(actionConfig.delete.action, item.id)}
         disabled={actionConfig.delete.disabled}
-        className={`inline-flex items-center justify-center px-3 py-2 rounded text-xs font-medium transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
+        className={`inline-flex items-center justify-center px-2 py-1 rounded text-xs font-medium transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
           actionConfig.delete.disabled ? 'opacity-50 cursor-not-allowed' : ''
         }`}
         style={{
           backgroundColor: 'transparent',
           border: `1px solid ${actionConfig.delete.disabled ? '#6b7280' : '#ef4444'}`,
           color: actionConfig.delete.disabled ? '#6b7280' : '#ef4444',
-          minHeight: '28px'
+          minHeight: '24px'
         }}
         title={actionConfig.delete.tooltip}
       >
@@ -968,20 +997,55 @@ export const QueueIAAdvanced: React.FC = () => {
           // Ne pas écraser les sélections locales existantes
           if (!prev[item.id]) {
                       // Seulement initialiser si aucune sélection locale n'existe
-          if (item.analysis_provider || (item as any).analysis_prompt) {
-            // Pour les prompts, on doit trouver l'ID correspondant au contenu
-            let promptId = undefined;
-            if ((item as any).analysis_prompt) {
-              const matchingPrompt = currentPrompts.find(p => p.prompt === (item as any).analysis_prompt);
-              promptId = matchingPrompt?.id;
+          // Toujours initialiser les sélections, même si aucune n'existe en base
+          let promptId = undefined;
+          
+          // Si un prompt existe en base, l'utiliser
+          if ((item as any).analysis_prompt) {
+            const matchingPrompt = currentPrompts.find(p => p.prompt === (item as any).analysis_prompt);
+            promptId = matchingPrompt?.id;
+          }
+          
+          // Si aucun prompt n'est trouvé, sélectionner automatiquement un prompt adapté
+          if (!promptId) {
+            const fileName = item.file_info?.name || '';
+            const fileExtension = fileName.split('.').pop()?.toLowerCase() || '';
+            
+            // Déterminer le type de fichier
+            let defaultDomain = 'GENERAL';
+            if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'].includes(fileExtension)) {
+              defaultDomain = 'IMAGE';
+            } else if (['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv'].includes(fileExtension)) {
+              defaultDomain = 'VIDEO';
+            } else if (['mp3', 'wav', 'flac', 'aac', 'ogg', 'wma'].includes(fileExtension)) {
+              defaultDomain = 'AUDIO';
+            } else if (['pdf', 'doc', 'docx', 'txt', 'rtf', 'odt'].includes(fileExtension)) {
+              defaultDomain = 'DOCUMENT';
             }
-              
-              updatedSelections[item.id] = {
-                provider: item.analysis_provider || undefined,
-                prompt: promptId
-              };
-              hasChanges = true;
+            
+            // Chercher un prompt spécifique au domaine
+            let defaultPrompt = currentPrompts.find(p => (p.domain || 'GENERAL').toUpperCase() === defaultDomain);
+            
+            // Si aucun prompt spécifique, chercher "Résumé général"
+            if (!defaultPrompt) {
+              defaultPrompt = currentPrompts.find(p => p.name.toLowerCase().includes('résumé général') || p.name.toLowerCase().includes('resume general'));
             }
+            
+            // Si toujours aucun, prendre le premier disponible
+            if (!defaultPrompt && currentPrompts.length > 0) {
+              defaultPrompt = currentPrompts[0];
+            }
+            
+            if (defaultPrompt) {
+              promptId = defaultPrompt.id;
+            }
+          }
+          
+          updatedSelections[item.id] = {
+            provider: item.analysis_provider || undefined,
+            prompt: promptId
+          };
+          hasChanges = true;
           }
         });
         
@@ -1302,28 +1366,48 @@ export const QueueIAAdvanced: React.FC = () => {
               </span>
               <button
                 onClick={() => handleBulkAction('pause_all')}
-                className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-yellow-600 hover:bg-yellow-700 transition-colors"
+                className="inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95"
+                style={{
+                  backgroundColor: 'transparent',
+                  border: '1px solid #f59e0b',
+                  color: '#f59e0b'
+                }}
               >
                 <PauseIcon className="w-3 h-3 mr-1" />
                 Pause
               </button>
               <button
                 onClick={() => handleBulkAction('resume_all')}
-                className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-green-600 hover:bg-green-700 transition-colors"
+                className="inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95"
+                style={{
+                  backgroundColor: 'transparent',
+                  border: '1px solid #10b981',
+                  color: '#10b981'
+                }}
               >
                 <PlayIcon className="w-3 h-3 mr-1" />
                 Reprendre
               </button>
               <button
                 onClick={() => handleBulkAction('retry_failed')}
-                className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-blue-600 hover:bg-blue-700 transition-colors"
+                className="inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95"
+                style={{
+                  backgroundColor: 'transparent',
+                  border: '1px solid #3b82f6',
+                  color: '#3b82f6'
+                }}
               >
                 <ArrowPathIcon className="w-3 h-3 mr-1" />
                 Relancer
               </button>
                              <button
                  onClick={() => handleBulkAction('clear_completed')}
-                 className="inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded text-white bg-red-600 hover:bg-red-700 transition-colors"
+                 className="inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95"
+                 style={{
+                   backgroundColor: 'transparent',
+                   border: '1px solid #ef4444',
+                   color: '#ef4444'
+                 }}
                >
                  <TrashIcon className="w-3 h-3 mr-1" />
                  Vider
@@ -1331,11 +1415,14 @@ export const QueueIAAdvanced: React.FC = () => {
                <button
                  onClick={() => handleBulkAction('compare_selected')}
                  disabled={selectedItems.length < 2}
-                 className={`inline-flex items-center px-2 py-1 border border-transparent text-xs font-medium rounded transition-colors ${
-                   selectedItems.length >= 2 
-                     ? 'text-white bg-blue-600 hover:bg-blue-700' 
-                     : 'text-gray-400 bg-gray-300 cursor-not-allowed'
+                 className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
+                   selectedItems.length < 2 ? 'opacity-50 cursor-not-allowed' : ''
                  }`}
+                 style={{
+                   backgroundColor: 'transparent',
+                   border: `1px solid ${selectedItems.length >= 2 ? '#3b82f6' : '#6b7280'}`,
+                   color: selectedItems.length >= 2 ? '#3b82f6' : '#6b7280'
+                 }}
                >
                  <Squares2X2Icon className="w-3 h-3 mr-1" />
                  Comparer
