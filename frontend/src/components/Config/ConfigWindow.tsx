@@ -7,7 +7,7 @@ import { useColors } from '../../hooks/useColors';
 import ConfigService from '../../services/configService';
 import { logService } from '../../services/logService';
 import { useConfigStore } from '../../stores/configStore';
-import { Button, IconButton } from '../UI/Button';
+import { IconButton } from '../UI/Button';
 import { 
   getStatusColor, 
   getActionColor,
@@ -503,92 +503,95 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                          </tr>
                        </thead>
                                              <tbody>
-                                                   {/* Section IA Locales */}
-                          {localProviders.map((provider) => {
-                            const statusInfo = getProviderStatusInfo(provider);
-                            const isTesting = testing[provider.name];
-                            
-                            return (
-                              <tr key={provider.name} className="border-b" style={{ borderColor: colors.border }}>
-                                {/* Colonne Provider */}
-                                <td className="p-3">
-                                  <div className="flex items-center gap-2">
-                                    <div style={{ color: colors.textSecondary }}>
-                                      {getProviderIcon(provider.name)}
-                                    </div>
-                                    <span className="text-sm font-medium" style={{ color: colors.text }}>
-                                      {getProviderDisplayName(provider.name)}
+                                                                            {/* Section IA Locales */}
+                           {localProviders.map((provider) => {
+                             const statusInfo = getProviderStatusInfo(provider);
+                             const isTesting = testing[provider.name];
+                             
+                             return (
+                               <tr key={provider.name} className="border-b" style={{ borderColor: colors.border }}>
+                                 {/* Colonne Provider */}
+                                 <td className="p-3">
+                                   <div className="flex items-center gap-2">
+                                     <div style={{ color: colors.textSecondary }}>
+                                       {getProviderIcon(provider.name)}
+                                     </div>
+                                     <span className="text-sm font-medium" style={{ color: colors.text }}>
+                                       {getProviderDisplayName(provider.name)}
+                                     </span>
+                                   </div>
+                                 </td>
+                                 
+                                                                  {/* Colonne Type */}
+                                  <td className="p-3">
+                                    <span className="text-xs px-2 py-1 rounded inline-block" style={{ 
+                                      backgroundColor: 'transparent', 
+                                      color: ACTION_COLORS.local,
+                                      border: `1px solid ${ACTION_COLORS.local}`
+                                    }}>
+                                      Local
                                     </span>
+                                  </td>
+                                 
+                                 {/* Colonne Statut */}
+                                <td className="p-3">
+                                  <div className="flex flex-col space-y-1">
+                                    <span 
+                                      className="text-xs px-2 py-1 rounded inline-block w-fit"
+                                      style={{ 
+                                        backgroundColor: 'transparent',
+                                        color: statusInfo.color,
+                                        border: `1px solid ${statusInfo.color}`
+                                      }}
+                                    >
+                                      {statusInfo.text}
+                                    </span>
+                                    {provider.errorMessage && (
+                                      <span className="text-xs" style={{ color: '#ef4444' }}>
+                                        {provider.errorMessage}
+                                      </span>
+                                    )}
                                   </div>
                                 </td>
                                 
-                                                                 {/* Colonne Type */}
-                                 <td className="p-3">
-                                   <span className="text-xs px-2 py-1 rounded inline-block" style={{ 
-                                     backgroundColor: 'transparent', 
-                                     color: ACTION_COLORS.local,
-                                     border: `1px solid ${ACTION_COLORS.local}`
-                                   }}>
-                                     Local
-                                   </span>
-                                 </td>
-                                
-                                {/* Colonne Statut */}
-                               <td className="p-3">
-                                 <div className="flex flex-col space-y-1">
-                                   <span 
-                                     className="text-xs px-2 py-1 rounded inline-block w-fit"
-                                     style={{ 
-                                       backgroundColor: 'transparent',
-                                       color: statusInfo.color,
-                                       border: `1px solid ${statusInfo.color}`
-                                     }}
-                                   >
-                                     {statusInfo.text}
-                                   </span>
-                                   {provider.errorMessage && (
-                                     <span className="text-xs" style={{ color: '#ef4444' }}>
-                                       {provider.errorMessage}
-                                     </span>
-                                   )}
-                                 </div>
-                               </td>
-                               
-                               {/* Colonne Clé API */}
-                               <td className="p-3">
-                                 {provider.name.toLowerCase() !== 'ollama' ? (
-                                   <div className="relative">
-                                     <input
-                                       type={provider.isVisible ? "text" : "password"}
-                                       value={provider.apiKey}
-                                       onChange={(e) => handleApiKeyChange(provider.name, e.target.value)}
-                                       placeholder="Clé API"
-                                       className="w-full px-2 py-1 rounded border text-xs"
-                                       style={{
-                                         backgroundColor: colors.background,
-                                         borderColor: colors.border,
-                                         color: colors.text
-                                       }}
-                                     />
-                                     <IconButton
-                                       icon={provider.isVisible ? <EyeSlashIcon /> : <EyeIcon />}
-                                       onClick={() => toggleApiKeyVisibility(provider.name)}
-                                       variant="secondary"
-                                       size="xs"
-                                       tooltip={provider.isVisible ? "Masquer la clé" : "Afficher la clé"}
-                                       className="absolute right-1 top-1/2 transform -translate-y-1/2"
-                                     />
-                                   </div>
-                                 ) : (
-                                   <span className="text-xs" style={{ color: colors.textSecondary }}>
-                                     Non requis
-                                   </span>
-                                 )}
-                               </td>
+                                {/* Colonne Clé API */}
+                                <td className="p-3">
+                                  {provider.name.toLowerCase() !== 'ollama' ? (
+                                    <div className="relative">
+                                      <input
+                                        type={provider.isVisible ? "text" : "password"}
+                                        value={provider.apiKey}
+                                        onChange={(e) => handleApiKeyChange(provider.name, e.target.value)}
+                                        placeholder="Clé API"
+                                        className="w-full px-2 py-1 rounded border text-xs"
+                                        style={{
+                                          backgroundColor: colors.background,
+                                          borderColor: colors.border,
+                                          color: colors.text
+                                        }}
+                                      />
+                                      <button
+                                        onClick={() => toggleApiKeyVisibility(provider.name)}
+                                        className="absolute right-1 top-1/2 transform -translate-y-1/2 p-1 rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95"
+                                        style={{
+                                          backgroundColor: 'transparent',
+                                          color: colors.textSecondary
+                                        }}
+                                        title={provider.isVisible ? "Masquer la clé" : "Afficher la clé"}
+                                      >
+                                        {provider.isVisible ? <EyeSlashIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <span className="text-xs" style={{ color: colors.textSecondary }}>
+                                      Non requis
+                                    </span>
+                                  )}
+                                </td>
                                
                                                                {/* Colonne Actions */}
                                 <td className="p-3">
-                                  <Button
+                                  <button
                                     onClick={() => {
                                       if (isTesting) return;
                                       if (provider.status === 'active') {
@@ -600,16 +603,26 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                                       }
                                     }}
                                     disabled={isTesting || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty')}
-                                    variant={(() => {
-                                      if (isTesting) return 'primary';
-                                      if (provider.status === 'active') return 'danger';
-                                      if (provider.status === 'configured' || provider.status === 'functional') return 'success';
-                                      if (provider.status === 'pending') return 'warning';
-                                      return 'primary';
-                                    })()}
-                                    size="xs"
-                                    loading={isTesting}
-                                    className="transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 text-xs px-2 py-1"
+                                    className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
+                                      isTesting || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty') ? 'opacity-50 cursor-not-allowed' : ''
+                                    }`}
+                                    style={{
+                                      backgroundColor: 'transparent',
+                                      border: `1px solid ${(() => {
+                                        if (isTesting) return getActionColor('primary');
+                                        if (provider.status === 'active') return getActionColor('delete');
+                                        if (provider.status === 'configured' || provider.status === 'functional') return getActionColor('start');
+                                        if (provider.status === 'pending') return getActionColor('pause');
+                                        return getActionColor('primary');
+                                      })()}`,
+                                      color: (() => {
+                                        if (isTesting) return getActionColor('primary');
+                                        if (provider.status === 'active') return getActionColor('delete');
+                                        if (provider.status === 'configured' || provider.status === 'functional') return getActionColor('start');
+                                        if (provider.status === 'pending') return getActionColor('pause');
+                                        return getActionColor('primary');
+                                      })()
+                                    }}
                                   >
                                    {(() => {
                                      if (isTesting) return 'Test...';
@@ -619,7 +632,7 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                                      if (provider.status === 'empty') return 'Configurer';
                                      return 'Tester';
                                    })()}
-                                 </Button>
+                                 </button>
                                </td>
                                
                                {/* Colonne Priorité */}
@@ -711,41 +724,44 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                                  </div>
                                </td>
                                
-                               {/* Colonne Clé API */}
-                               <td className="p-3">
-                                 {provider.name.toLowerCase() !== 'ollama' ? (
-                                   <div className="relative">
-                                     <input
-                                       type={provider.isVisible ? "text" : "password"}
-                                       value={provider.apiKey}
-                                       onChange={(e) => handleApiKeyChange(provider.name, e.target.value)}
-                                       placeholder="Clé API"
-                                       className="w-full px-2 py-1 rounded border text-xs"
-                                       style={{
-                                         backgroundColor: colors.background,
-                                         borderColor: colors.border,
-                                         color: colors.text
-                                       }}
-                                     />
-                                     <IconButton
-                                       icon={provider.isVisible ? <EyeSlashIcon /> : <EyeIcon />}
-                                       onClick={() => toggleApiKeyVisibility(provider.name)}
-                                       variant="secondary"
-                                       size="xs"
-                                       tooltip={provider.isVisible ? "Masquer la clé" : "Afficher la clé"}
-                                       className="absolute right-1 top-1/2 transform -translate-y-1/2"
-                                     />
-                                   </div>
-                                 ) : (
-                                   <span className="text-xs" style={{ color: colors.textSecondary }}>
-                                     Non requis
-                                   </span>
-                                 )}
-                               </td>
+                                                               {/* Colonne Clé API */}
+                                <td className="p-3">
+                                  {provider.name.toLowerCase() !== 'ollama' ? (
+                                    <div className="relative">
+                                      <input
+                                        type={provider.isVisible ? "text" : "password"}
+                                        value={provider.apiKey}
+                                        onChange={(e) => handleApiKeyChange(provider.name, e.target.value)}
+                                        placeholder="Clé API"
+                                        className="w-full px-2 py-1 rounded border text-xs"
+                                        style={{
+                                          backgroundColor: colors.background,
+                                          borderColor: colors.border,
+                                          color: colors.text
+                                        }}
+                                      />
+                                      <button
+                                        onClick={() => toggleApiKeyVisibility(provider.name)}
+                                        className="absolute right-1 top-1/2 transform -translate-y-1/2 p-1 rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95"
+                                        style={{
+                                          backgroundColor: 'transparent',
+                                          color: colors.textSecondary
+                                        }}
+                                        title={provider.isVisible ? "Masquer la clé" : "Afficher la clé"}
+                                      >
+                                        {provider.isVisible ? <EyeSlashIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <span className="text-xs" style={{ color: colors.textSecondary }}>
+                                      Non requis
+                                    </span>
+                                  )}
+                                </td>
                                
                                                                {/* Colonne Actions */}
                                 <td className="p-3">
-                                  <Button
+                                  <button
                                     onClick={() => {
                                       if (isTesting) return;
                                       
@@ -758,16 +774,26 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                                       }
                                     }}
                                     disabled={isTesting || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty')}
-                                    variant={(() => {
-                                      if (isTesting) return 'primary';
-                                      if (provider.status === 'active') return 'danger';
-                                      if (provider.status === 'configured' || provider.status === 'functional') return 'success';
-                                      if (provider.status === 'pending') return 'warning';
-                                      return 'primary';
-                                    })()}
-                                    size="xs"
-                                    loading={isTesting}
-                                    className="transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 text-xs px-2 py-1"
+                                    className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
+                                      isTesting || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty') ? 'opacity-50 cursor-not-allowed' : ''
+                                    }`}
+                                    style={{
+                                      backgroundColor: 'transparent',
+                                      border: `1px solid ${(() => {
+                                        if (isTesting) return getActionColor('primary');
+                                        if (provider.status === 'active') return getActionColor('delete');
+                                        if (provider.status === 'configured' || provider.status === 'functional') return getActionColor('start');
+                                        if (provider.status === 'pending') return getActionColor('pause');
+                                        return getActionColor('primary');
+                                      })()}`,
+                                      color: (() => {
+                                        if (isTesting) return getActionColor('primary');
+                                        if (provider.status === 'active') return getActionColor('delete');
+                                        if (provider.status === 'configured' || provider.status === 'functional') return getActionColor('start');
+                                        if (provider.status === 'pending') return getActionColor('pause');
+                                        return getActionColor('primary');
+                                      })()
+                                    }}
                                   >
                                    {(() => {
                                      if (isTesting) return 'Test...';
@@ -777,7 +803,7 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                                      if (provider.status === 'empty') return 'Configurer';
                                      return 'Tester';
                                    })()}
-                                 </Button>
+                                 </button>
                                </td>
                                
                                {/* Colonne Priorité */}
