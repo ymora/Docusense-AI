@@ -1,5 +1,6 @@
 import React from 'react';
 import { useColors } from '../../hooks/useColors';
+import { useConfigStore } from '../../stores/configStore';
 import {
   EyeIcon,
   QueueListIcon,
@@ -21,6 +22,27 @@ interface TabNavigationProps {
 
 const TabNavigation: React.FC<TabNavigationProps> = ({ activePanel, onTabChange }) => {
   const { colors } = useColors();
+  const { getActiveProviders, isInitialized, loadAIProviders } = useConfigStore();
+  
+  // S'assurer que le store est initialisé
+  React.useEffect(() => {
+    if (!isInitialized) {
+      loadAIProviders();
+    }
+  }, [isInitialized, loadAIProviders]);
+  
+  // Obtenir les providers actifs pour l'indicateur
+  const allProviders = getActiveProviders();
+  const activeProviders = allProviders.filter(provider => provider.is_functional === true);
+  
+  // Debug pour voir les providers
+  console.log('🔍 TabNavigation - Providers:', {
+    allProviders: allProviders.map(p => ({ name: p.name, is_active: p.is_active, is_functional: p.is_functional })),
+    activeProviders: activeProviders.map(p => ({ name: p.name, is_active: p.is_active, is_functional: p.is_functional })),
+    isInitialized,
+    count: activeProviders.length,
+    shouldShowCounter: tab.id === 'config' && isInitialized
+  });
 
   const tabs: Tab[] = [
     {
@@ -113,6 +135,15 @@ const TabNavigation: React.FC<TabNavigationProps> = ({ activePanel, onTabChange 
             >
               <Icon className="h-4 w-4" />
               <span>{tab.label}</span>
+              {tab.id === 'config' && isInitialized && (
+                <div 
+                  className="flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold text-white ml-1"
+                  style={{ backgroundColor: activeProviders.length > 0 ? colors.primary : '#6b7280' }}
+                  title={`${activeProviders.length} IA(s) active(s)`}
+                >
+                  {activeProviders.length}
+                </div>
+              )}
             </button>
           );
         })}

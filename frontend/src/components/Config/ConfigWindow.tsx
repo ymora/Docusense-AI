@@ -1,5 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { MinusIcon, XMarkIcon, CheckCircleIcon, ExclamationTriangleIcon, ClockIcon, EyeIcon, EyeSlashIcon } from '@heroicons/react/24/outline';
+import { 
+  MinusIcon, XMarkIcon, CheckCircleIcon, ExclamationTriangleIcon, ClockIcon, EyeIcon, EyeSlashIcon,
+  CpuChipIcon, ChatBubbleLeftRightIcon, SparklesIcon, CommandLineIcon, BeakerIcon
+} from '@heroicons/react/24/outline';
 import { useColors } from '../../hooks/useColors';
 import ConfigService from '../../services/configService';
 import { logService } from '../../services/logService';
@@ -329,12 +332,12 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
   // Obtenir l'icône d'un provider
   const getProviderIcon = (providerName: string) => {
     switch (providerName.toLowerCase()) {
-      case 'openai': return '🔵';
-      case 'claude': return '🟠';
-      case 'mistral': return '🟣';
-      case 'ollama': return '🐙';
-      case 'gemini': return '🟢';
-      default: return '❓';
+      case 'openai': return <SparklesIcon className="w-4 h-4" />;
+      case 'claude': return <ChatBubbleLeftRightIcon className="w-4 h-4" />;
+      case 'mistral': return <BeakerIcon className="w-4 h-4" />;
+      case 'ollama': return <CommandLineIcon className="w-4 h-4" />;
+      case 'gemini': return <CpuChipIcon className="w-4 h-4" />;
+      default: return <CpuChipIcon className="w-4 h-4" />;
     }
   };
 
@@ -350,61 +353,61 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
     }
   };
 
-  // Obtenir le statut visuel d'un provider
-  const getProviderStatusInfo = (provider: ProviderState) => {
-    switch (provider.status) {
-      case 'empty':
-        return { 
-          text: 'Non configuré', 
-          color: '#6b7280',
-          description: provider.name.toLowerCase() === 'ollama' 
-            ? 'Ollama non testé' 
-            : 'Aucune clé API saisie'
-        };
-      case 'pending':
-        return { 
-          text: '⏳ En attente', 
-          color: '#f59e0b',
-          description: 'Clé API saisie, prêt à tester'
-        };
-      case 'configured':
-        return { 
-          text: '🔑 Configuré', 
-          color: '#3b82f6',
-          description: 'Test réussi, clé API validée'
-        };
-      case 'invalid':
-        return { 
-          text: '❌ Échec', 
-          color: '#ef4444',
-          description: provider.errorMessage || 'Test échoué'
-        };
-      case 'functional':
-        return { 
-          text: '🟡 Fonctionnel', 
-          color: '#f59e0b',
-          description: 'Testé avec succès, prêt à activer'
-        };
-      case 'active':
-        return { 
-          text: '✅ Actif', 
-          color: '#10b981',
-          description: 'Provider actif et utilisable'
-        };
-      case 'testing':
-        return { 
-          text: '⏳ Test...', 
-          color: '#3b82f6',
-          description: 'Test en cours'
-        };
-      default:
-        return { 
-          text: 'Inconnu', 
-          color: '#6b7280',
-          description: 'Statut inconnu'
-        };
-    }
-  };
+     // Obtenir le statut visuel d'un provider
+   const getProviderStatusInfo = (provider: ProviderState) => {
+     switch (provider.status) {
+       case 'empty':
+         return { 
+           text: 'Non configuré', 
+           color: '#6b7280',
+           description: provider.name.toLowerCase() === 'ollama' 
+             ? 'Ollama non testé' 
+             : 'Aucune clé API saisie'
+         };
+       case 'pending':
+         return { 
+           text: 'En attente', 
+           color: '#f59e0b',
+           description: 'Clé API saisie, prêt à tester'
+         };
+       case 'configured':
+         return { 
+           text: 'Configuré', 
+           color: '#3b82f6',
+           description: 'Test réussi, clé API validée'
+         };
+       case 'invalid':
+         return { 
+           text: 'Échec', 
+           color: '#ef4444',
+           description: provider.errorMessage || 'Test échoué'
+         };
+       case 'functional':
+         return { 
+           text: 'Fonctionnel', 
+           color: '#f59e0b',
+           description: 'Testé avec succès, prêt à activer'
+         };
+       case 'active':
+         return { 
+           text: 'Actif', 
+           color: '#10b981',
+           description: 'Provider actif et utilisable'
+         };
+       case 'testing':
+         return { 
+           text: 'Test...', 
+           color: '#3b82f6',
+           description: 'Test en cours'
+         };
+       default:
+         return { 
+           text: 'Inconnu', 
+           color: '#6b7280',
+           description: 'Statut inconnu'
+         };
+     }
+   };
 
   // Obtenir les providers organisés par type (local/web) et triés alphabétiquement
   const getOrganizedProviders = () => {
@@ -451,7 +454,7 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                     variant="danger"
                     size="xs"
                     tooltip="Fermer"
-                    className="transition-all duration-300 ease-in-out hover:scale-110 hover:shadow-lg active:scale-95"
+                    className="transition-all duration-300 ease-in-out hover:scale-110 active:scale-95"
                   />
                 </div>
               </div>
@@ -504,23 +507,26 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                               <tr key={provider.name} className="border-b" style={{ borderColor: colors.border }}>
                                 {/* Colonne Provider */}
                                 <td className="p-3">
-                                  <div className="flex items-center space-x-2">
-                                    <span className="text-lg">{getProviderIcon(provider.name)}</span>
+                                  <div className="flex items-center gap-2">
+                                    <div style={{ color: colors.textSecondary }}>
+                                      {getProviderIcon(provider.name)}
+                                    </div>
                                     <span className="text-sm font-medium" style={{ color: colors.text }}>
                                       {getProviderDisplayName(provider.name)}
                                     </span>
                                   </div>
                                 </td>
                                 
-                                {/* Colonne Type */}
-                                <td className="p-3">
-                                  <span className="text-xs px-2 py-1 rounded inline-block" style={{ 
-                                    backgroundColor: '#3b82f6', 
-                                    color: 'white' 
-                                  }}>
-                                    Local
-                                  </span>
-                                </td>
+                                                                 {/* Colonne Type */}
+                                 <td className="p-3">
+                                   <span className="text-xs px-2 py-1 rounded inline-block" style={{ 
+                                     backgroundColor: 'transparent', 
+                                     color: '#3b82f6',
+                                     border: '1px solid #3b82f6'
+                                   }}>
+                                     Local
+                                   </span>
+                                 </td>
                                 
                                 {/* Colonne Statut */}
                                <td className="p-3">
@@ -528,8 +534,9 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                                    <span 
                                      className="text-xs px-2 py-1 rounded inline-block w-fit"
                                      style={{ 
-                                       backgroundColor: statusInfo.color,
-                                       color: 'white'
+                                       backgroundColor: 'transparent',
+                                       color: statusInfo.color,
+                                       border: `1px solid ${statusInfo.color}`
                                      }}
                                    >
                                      {statusInfo.text}
@@ -574,31 +581,31 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                                  )}
                                </td>
                                
-                               {/* Colonne Actions */}
-                               <td className="p-3">
-                                 <Button
-                                   onClick={() => {
-                                     if (isTesting) return;
-                                     if (provider.status === 'active') {
-                                       handleToggleProvider(provider.name);
-                                     } else if (provider.status === 'configured' || provider.status === 'functional') {
-                                       handleToggleProvider(provider.name);
-                                     } else {
-                                       handleTestProvider(provider.name);
-                                     }
-                                   }}
-                                   disabled={isTesting || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty')}
-                                   variant={(() => {
-                                     if (isTesting) return 'primary';
-                                     if (provider.status === 'active') return 'danger';
-                                     if (provider.status === 'configured' || provider.status === 'functional') return 'success';
-                                     if (provider.status === 'pending') return 'warning';
-                                     return 'primary';
-                                   })()}
-                                   size="sm"
-                                   loading={isTesting}
-                                   className="transition-all duration-300 ease-in-out hover:scale-105 hover:shadow-lg active:scale-95"
-                                 >
+                                                               {/* Colonne Actions */}
+                                <td className="p-3">
+                                  <Button
+                                    onClick={() => {
+                                      if (isTesting) return;
+                                      if (provider.status === 'active') {
+                                        handleToggleProvider(provider.name);
+                                      } else if (provider.status === 'configured' || provider.status === 'functional') {
+                                        handleToggleProvider(provider.name);
+                                      } else {
+                                        handleTestProvider(provider.name);
+                                      }
+                                    }}
+                                    disabled={isTesting || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty')}
+                                    variant={(() => {
+                                      if (isTesting) return 'primary';
+                                      if (provider.status === 'active') return 'danger';
+                                      if (provider.status === 'configured' || provider.status === 'functional') return 'success';
+                                      if (provider.status === 'pending') return 'warning';
+                                      return 'primary';
+                                    })()}
+                                    size="xs"
+                                    loading={isTesting}
+                                    className="transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 text-xs px-2 py-1"
+                                  >
                                    {(() => {
                                      if (isTesting) return 'Test...';
                                      if (provider.status === 'active') return 'Désactiver';
@@ -657,23 +664,26 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                              <tr key={provider.name} className="border-b" style={{ borderColor: colors.border }}>
                                {/* Colonne Provider */}
                                <td className="p-3">
-                                 <div className="flex items-center space-x-2">
-                                   <span className="text-lg">{getProviderIcon(provider.name)}</span>
+                                 <div className="flex items-center gap-2">
+                                   <div style={{ color: colors.textSecondary }}>
+                                     {getProviderIcon(provider.name)}
+                                   </div>
                                    <span className="text-sm font-medium" style={{ color: colors.text }}>
                                      {getProviderDisplayName(provider.name)}
                                    </span>
                                  </div>
                                </td>
                                
-                               {/* Colonne Type */}
-                               <td className="p-3">
-                                 <span className="text-xs px-2 py-1 rounded inline-block" style={{ 
-                                   backgroundColor: '#10b981', 
-                                   color: 'white' 
-                                 }}>
-                                   Web
-                                 </span>
-                               </td>
+                                                                {/* Colonne Type */}
+                                 <td className="p-3">
+                                   <span className="text-xs px-2 py-1 rounded inline-block" style={{ 
+                                     backgroundColor: 'transparent', 
+                                     color: '#10b981',
+                                     border: '1px solid #10b981'
+                                   }}>
+                                     Web
+                                   </span>
+                                 </td>
                                
                                {/* Colonne Statut */}
                                <td className="p-3">
@@ -681,8 +691,9 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                                    <span 
                                      className="text-xs px-2 py-1 rounded inline-block w-fit"
                                      style={{ 
-                                       backgroundColor: statusInfo.color,
-                                       color: 'white'
+                                       backgroundColor: 'transparent',
+                                       color: statusInfo.color,
+                                       border: `1px solid ${statusInfo.color}`
                                      }}
                                    >
                                      {statusInfo.text}
@@ -727,31 +738,32 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                                  )}
                                </td>
                                
-                               {/* Colonne Actions */}
-                               <td className="p-3">
-                                 <Button
-                                   onClick={() => {
-                                     if (isTesting) return;
-                                     
-                                     if (provider.status === 'active') {
-                                       handleToggleProvider(provider.name);
-                                     } else if (provider.status === 'configured' || provider.status === 'functional') {
-                                       handleToggleProvider(provider.name);
-                                     } else {
-                                       handleTestProvider(provider.name);
-                                     }
-                                   }}
-                                   disabled={isTesting || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty')}
-                                   variant={(() => {
-                                     if (isTesting) return 'primary';
-                                     if (provider.status === 'active') return 'danger';
-                                     if (provider.status === 'configured' || provider.status === 'functional') return 'success';
-                                     if (provider.status === 'pending') return 'warning';
-                                     return 'primary';
-                                   })()}
-                                   size="sm"
-                                   loading={isTesting}
-                                 >
+                                                               {/* Colonne Actions */}
+                                <td className="p-3">
+                                  <Button
+                                    onClick={() => {
+                                      if (isTesting) return;
+                                      
+                                      if (provider.status === 'active') {
+                                        handleToggleProvider(provider.name);
+                                      } else if (provider.status === 'configured' || provider.status === 'functional') {
+                                        handleToggleProvider(provider.name);
+                                      } else {
+                                        handleTestProvider(provider.name);
+                                      }
+                                    }}
+                                    disabled={isTesting || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty')}
+                                    variant={(() => {
+                                      if (isTesting) return 'primary';
+                                      if (provider.status === 'active') return 'danger';
+                                      if (provider.status === 'configured' || provider.status === 'functional') return 'success';
+                                      if (provider.status === 'pending') return 'warning';
+                                      return 'primary';
+                                    })()}
+                                    size="xs"
+                                    loading={isTesting}
+                                    className="transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 text-xs px-2 py-1"
+                                  >
                                    {(() => {
                                      if (isTesting) return 'Test...';
                                      if (provider.status === 'active') return 'Désactiver';
@@ -859,10 +871,10 @@ const ConfigWindow: React.FC<ConfigWindowProps> = ({ onClose, onMinimize }) => {
                  Validation des clés et gestion des priorités
                </p>
              </div>
-             {isInitialized && activeProviders.length > 0 && (
+             {isInitialized && (
                <div 
                  className="flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold text-white"
-                 style={{ backgroundColor: colors.primary }}
+                 style={{ backgroundColor: activeProviders.length > 0 ? colors.primary : '#6b7280' }}
                  title={`${activeProviders.length} IA(s) active(s)`}
                >
                  {activeProviders.length}
@@ -878,7 +890,7 @@ const ConfigWindow: React.FC<ConfigWindowProps> = ({ onClose, onMinimize }) => {
               variant="secondary"
               size="sm"
               tooltip="Réduire"
-              className="transition-all duration-300 ease-in-out hover:scale-110 hover:shadow-lg active:scale-95"
+              className="transition-all duration-300 ease-in-out hover:scale-110 active:scale-95"
             />
           )}
           {onClose && (
@@ -888,7 +900,7 @@ const ConfigWindow: React.FC<ConfigWindowProps> = ({ onClose, onMinimize }) => {
               variant="secondary"
               size="sm"
               tooltip="Fermer"
-              className="transition-all duration-300 ease-in-out hover:scale-110 hover:shadow-lg active:scale-95"
+              className="transition-all duration-300 ease-in-out hover:scale-110 active:scale-95"
             />
           )}
         </div>

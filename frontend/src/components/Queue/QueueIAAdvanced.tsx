@@ -133,13 +133,69 @@ const ConfigurationCompact: React.FC<{
   const { getAIProviders } = useConfigStore();
   const allAIProviders = getAIProviders();
   
+  // Fonction pour organiser les providers avec séparateurs (comme dans la configuration)
+  const getOrganizedProviders = () => {
+    const localProviders = allAIProviders.filter(provider => 
+      provider.name.toLowerCase() === 'ollama'
+    ).sort((a, b) => a.name.localeCompare(b.name));
+    
+    const webProviders = allAIProviders.filter(provider => 
+      provider.name.toLowerCase() !== 'ollama'
+    ).sort((a, b) => a.name.localeCompare(b.name));
+    
+    const organizedProviders: Array<{
+      id: string;
+      name: string;
+      available: boolean;
+      type: 'local' | 'web' | 'separator';
+    }> = [];
+    
+    // Ajouter les providers locaux
+    if (localProviders.length > 0) {
+      organizedProviders.push({
+        id: 'separator-local',
+        name: '────────── IA Locale ──────────',
+        available: false,
+        type: 'separator'
+      });
+      
+      localProviders.forEach(provider => {
+        organizedProviders.push({
+          id: provider.name,
+          name: getProviderDisplayName(provider.name),
+          available: provider.is_active && provider.is_functional,
+          type: 'local'
+        });
+      });
+    }
+    
+    // Ajouter les providers web
+    if (webProviders.length > 0) {
+      if (localProviders.length > 0) {
+        organizedProviders.push({
+          id: 'separator-web',
+          name: '────────── IA Web ──────────',
+          available: false,
+          type: 'separator'
+        });
+      }
+      
+      webProviders.forEach(provider => {
+        organizedProviders.push({
+          id: provider.name,
+          name: getProviderDisplayName(provider.name),
+          available: provider.is_active && provider.is_functional,
+          type: 'web'
+        });
+      });
+    }
+    
+    return organizedProviders;
+  };
+  
   // Créer la liste complète avec statut de disponibilité basé sur la configuration réelle
   // Utiliser tous les providers de la configuration IA, pas seulement les fonctionnels
-  const allProvidersWithStatus = allAIProviders.map(provider => ({
-    id: provider.name,
-    name: getProviderDisplayName(provider.name),
-    available: provider.is_active && provider.is_functional
-  }));
+  const allProvidersWithStatus = getOrganizedProviders();
   
   function getProviderDisplayName(providerName: string): string {
     const displayNames: { [key: string]: string } = {
@@ -185,10 +241,10 @@ const ConfigurationCompact: React.FC<{
    let selectedPromptId = '';
    if (localSelection.prompt !== undefined) {
      selectedPromptId = localSelection.prompt;
-       } else if ((item as any).analysis_prompt) {
-      // Chercher le prompt par son contenu
-      const matchingPrompt = prompts.find(p => p.prompt === (item as any).analysis_prompt);
-      selectedPromptId = matchingPrompt?.id || '';
+   } else if ((item as any).analysis_prompt) {
+     // Chercher le prompt par son contenu
+     const matchingPrompt = prompts.find(p => p.prompt === (item as any).analysis_prompt);
+     selectedPromptId = matchingPrompt?.id || '';
    } else {
      // Sélection automatique basée sur le type de fichier
      const fileName = item.file_info?.name || '';
@@ -240,17 +296,36 @@ const ConfigurationCompact: React.FC<{
              color: colors.text
            }}
          >
-                       {allProvidersWithStatus.map(provider => (
-              <option 
-                key={provider.id} 
-                value={provider.id}
-                style={{
-                  color: provider.available ? '#10b981' : '#ef4444' // Vert si disponible, rouge si non disponible
-                }}
-              >
-                {provider.name}
-              </option>
-            ))}
+                       {allProvidersWithStatus.map(provider => {
+              if (provider.type === 'separator') {
+                return (
+                  <option 
+                    key={provider.id} 
+                    value=""
+                    disabled
+                    style={{
+                      color: '#6b7280',
+                      fontStyle: 'italic',
+                      backgroundColor: '#f3f4f6'
+                    }}
+                  >
+                    {provider.name}
+                  </option>
+                );
+              }
+              
+              return (
+                <option 
+                  key={provider.id} 
+                  value={provider.id}
+                  style={{
+                    color: provider.available ? '#10b981' : '#ef4444' // Vert si disponible, rouge si non disponible
+                  }}
+                >
+                  {provider.name}
+                </option>
+              );
+            })}
          </select>
          {selectedProvider && (
            <span className="text-xs text-gray-500">
@@ -271,31 +346,71 @@ const ConfigurationCompact: React.FC<{
              borderColor: colors.border,
              color: colors.text
            }}
-         >
-           {(() => {
-             // Grouper les prompts par domaine
-             const groupedPrompts = prompts.reduce((groups, prompt) => {
-               const domain = prompt.domain || 'GENERAL';
-               if (!groups[domain]) {
-                 groups[domain] = [];
-               }
-               groups[domain].push(prompt);
-               return groups;
-             }, {} as { [key: string]: Prompt[] });
+                   >
+            {(() => {
+              // Grouper les prompts par domaine
+              const groupedPrompts = prompts.reduce((groups, prompt) => {
+                const domain = prompt.domain || 'GENERAL';
+                if (!groups[domain]) {
+                  groups[domain] = [];
+                }
+                groups[domain].push(prompt);
+                return groups;
+              }, {} as { [key: string]: Prompt[] });
 
-             // Trier les domaines
-             const sortedDomains = Object.keys(groupedPrompts).sort();
+              // Trier les domaines
+              const sortedDomains = Object.keys(groupedPrompts).sort();
 
-             return sortedDomains.map(domain => (
-               <optgroup key={domain} label={domain.toUpperCase()}>
-                 {groupedPrompts[domain].map(prompt => (
-                   <option key={prompt.id} value={prompt.id}>
-                     {prompt.name}
-                   </option>
-                 ))}
-               </optgroup>
-             ));
-           })()}
+              // Créer une liste plate avec séparateurs
+              const organizedPrompts: Array<{
+                id: string;
+                name: string;
+                type: 'separator' | 'prompt';
+              }> = [];
+
+              sortedDomains.forEach(domain => {
+                // Ajouter le séparateur
+                organizedPrompts.push({
+                  id: `separator-${domain}`,
+                  name: `────────── ${domain.toUpperCase()} ──────────`,
+                  type: 'separator'
+                });
+
+                // Ajouter les prompts du domaine
+                groupedPrompts[domain].forEach(prompt => {
+                  organizedPrompts.push({
+                    id: prompt.id,
+                    name: prompt.name,
+                    type: 'prompt'
+                  });
+                });
+              });
+
+              return organizedPrompts.map(item => {
+                if (item.type === 'separator') {
+                  return (
+                    <option 
+                      key={item.id} 
+                      value=""
+                      disabled
+                      style={{
+                        color: '#6b7280',
+                        fontStyle: 'italic',
+                        backgroundColor: '#f3f4f6'
+                      }}
+                    >
+                      {item.name}
+                    </option>
+                  );
+                }
+
+                return (
+                  <option key={item.id} value={item.id}>
+                    {item.name}
+                  </option>
+                );
+              });
+            })()}
          </select>
                  {selectedPromptId && (
            <span className="text-xs text-gray-500">
@@ -387,13 +502,49 @@ const UtilityActions: React.FC<{
   const hasPrompt = localSelection.prompt !== undefined ? localSelection.prompt : (item as any).analysis_prompt;
   const canStart = hasProvider && hasPrompt;
 
+  // État pour vérifier l'existence du PDF
+  const [hasPDF, setHasPDF] = React.useState<boolean>(false);
+  const [isCheckingPDF, setIsCheckingPDF] = React.useState<boolean>(false);
+
+  // Vérifier l'existence du PDF pour les analyses terminées
+  React.useEffect(() => {
+    if (isAnalysisCompleted) {
+      setIsCheckingPDF(true);
+      pdfService.hasPDF(parseInt(item.id))
+        .then(exists => {
+          setHasPDF(exists);
+        })
+        .catch(error => {
+          console.error('Erreur lors de la vérification du PDF:', error);
+          setHasPDF(false);
+        })
+        .finally(() => {
+          setIsCheckingPDF(false);
+        });
+    } else {
+      setHasPDF(false);
+    }
+  }, [item.id, isAnalysisCompleted]);
+
        // Configuration des actions avec une seule icône principale qui change selon le contexte
   const actionConfig = {
     main: {
       action: '', icon: null, variant: 'primary', disabled: true, tooltip: ''
     },
     view: {
-      action: 'view_file', icon: <EyeIcon className="w-4 h-4" />, variant: 'info', disabled: true, tooltip: 'Visualiser le fichier'
+      action: 'view_file', 
+      icon: isCheckingPDF ? (
+        <div className="w-4 h-4 flex items-center justify-center">
+          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500"></div>
+        </div>
+      ) : (
+        <EyeIcon className="w-4 h-4" />
+      ), 
+      variant: 'info', 
+      disabled: !isAnalysisCompleted || !hasPDF, 
+      tooltip: isCheckingPDF ? 'Vérification du PDF...' : 
+               !isAnalysisCompleted ? 'Analyse non terminée' :
+               !hasPDF ? 'Aucun PDF disponible' : 'Visualiser le fichier'
     },
     duplicate: {
       action: 'duplicate_item', icon: <DocumentDuplicateIcon className="w-4 h-4" />, variant: 'warning', disabled: false, tooltip: 'Dupliquer l\'analyse' // Always active
@@ -416,7 +567,6 @@ const UtilityActions: React.FC<{
     actionConfig.main = { action: 'start_analysis', icon: <PlayIcon className="w-4 h-4" />, variant: 'success', disabled: false, tooltip: 'Reprendre l\'analyse' };
   } else if (isAnalysisCompleted) {
     actionConfig.main = { action: 'retry_analysis', icon: <ArrowPathIcon className="w-4 h-4" />, variant: 'primary', disabled: false, tooltip: 'Relancer l\'analyse' };
-    actionConfig.view.disabled = false; // Peut visualiser si terminée
   } else if (isAnalysisFailed) {
     actionConfig.main = { action: 'retry_analysis', icon: <ArrowPathIcon className="w-4 h-4" />, variant: 'primary', disabled: false, tooltip: 'Relancer l\'analyse' };
   } else { // Unknown status
@@ -817,14 +967,14 @@ export const QueueIAAdvanced: React.FC = () => {
         queueItems.forEach(item => {
           // Ne pas écraser les sélections locales existantes
           if (!prev[item.id]) {
-            // Seulement initialiser si aucune sélection locale n'existe
-            if (item.analysis_provider || item.analysis_prompt) {
-              // Pour les prompts, on doit trouver l'ID correspondant au contenu
-              let promptId = undefined;
-              if (item.analysis_prompt) {
-                const matchingPrompt = currentPrompts.find(p => p.prompt === item.analysis_prompt);
-                promptId = matchingPrompt?.id;
-              }
+                      // Seulement initialiser si aucune sélection locale n'existe
+          if (item.analysis_provider || (item as any).analysis_prompt) {
+            // Pour les prompts, on doit trouver l'ID correspondant au contenu
+            let promptId = undefined;
+            if ((item as any).analysis_prompt) {
+              const matchingPrompt = currentPrompts.find(p => p.prompt === (item as any).analysis_prompt);
+              promptId = matchingPrompt?.id;
+            }
               
               updatedSelections[item.id] = {
                 provider: item.analysis_provider || undefined,
@@ -908,8 +1058,8 @@ export const QueueIAAdvanced: React.FC = () => {
             if (duplicateLocalSelection.prompt) {
               const selectedPromptObj = currentPrompts.find(p => p.id === duplicateLocalSelection.prompt);
               duplicatePrompt = selectedPromptObj?.prompt || '';
-            } else if (item.analysis_prompt) {
-              duplicatePrompt = item.analysis_prompt;
+            } else if ((item as any).analysis_prompt) {
+              duplicatePrompt = (item as any).analysis_prompt;
             }
            
            try {
@@ -959,8 +1109,8 @@ export const QueueIAAdvanced: React.FC = () => {
             if (startLocalSelection.prompt) {
               const selectedPromptObj = currentPrompts.find(p => p.id === startLocalSelection.prompt);
               selectedPrompt = selectedPromptObj?.prompt || '';
-            } else if (item.analysis_prompt) {
-              selectedPrompt = item.analysis_prompt;
+            } else if ((item as any).analysis_prompt) {
+              selectedPrompt = (item as any).analysis_prompt;
             }
            
            if (!selectedProvider || !selectedPrompt) {
@@ -978,7 +1128,7 @@ export const QueueIAAdvanced: React.FC = () => {
            // Envoyer la requête au backend pour mettre à jour et démarrer l'analyse
            try {
              await queueService.updateAnalysisProviderAndPrompt(
-               parseInt(itemId), 
+               itemId, 
                selectedProvider, 
                selectedPrompt
              );
@@ -990,7 +1140,53 @@ export const QueueIAAdvanced: React.FC = () => {
            break;
         case 'pause_item':
           logService.debug('Mise en pause de l\'analyse', 'QueueIAAdvanced', { itemId, itemName });
-          // TODO: Implémenter la pause
+          try {
+            // TODO: Implémenter la pause d'une analyse spécifique
+            // Pour l'instant, on log l'action
+            logService.info('Mise en pause de l\'analyse', 'QueueIAAdvanced', { itemId, itemName });
+            
+            // Ici on devrait :
+            // 1. Appeler le service pour mettre en pause l'analyse
+            // 2. Rafraîchir la queue
+            // await queueService.pauseAnalysis(parseInt(itemId));
+            // await loadQueueItems();
+            
+          } catch (error) {
+            logService.error('Erreur lors de la mise en pause', 'QueueIAAdvanced', { itemId, itemName, error: error.message });
+          }
+          break;
+        case 'view_file':
+          logService.debug('Ouverture du fichier analysé', 'QueueIAAdvanced', { itemId, itemName });
+          try {
+            // Vérifier si le PDF existe pour cette analyse
+            const hasPDF = await pdfService.hasPDF(parseInt(itemId));
+            
+            if (hasPDF) {
+              // Ouvrir le PDF dans un nouvel onglet
+              const pdfUrl = pdfService.getPDFDownloadURL(parseInt(itemId));
+              window.open(pdfUrl, '_blank');
+              
+              logService.info('PDF ouvert dans un nouvel onglet', 'QueueIAAdvanced', { itemId, itemName, pdfUrl });
+            } else {
+              // Générer le PDF d'abord
+              logService.info('Génération du PDF en cours...', 'QueueIAAdvanced', { itemId, itemName });
+              
+              try {
+                await pdfService.generateAnalysisPDF(parseInt(itemId));
+                
+                // Ouvrir le PDF généré
+                const pdfUrl = pdfService.getPDFDownloadURL(parseInt(itemId));
+                window.open(pdfUrl, '_blank');
+                
+                logService.info('PDF généré et ouvert', 'QueueIAAdvanced', { itemId, itemName, pdfUrl });
+              } catch (pdfError) {
+                logService.error('Erreur lors de la génération du PDF', 'QueueIAAdvanced', { itemId, itemName, error: pdfError.message });
+              }
+            }
+            
+          } catch (error) {
+            logService.error('Erreur lors de l\'ouverture du fichier', 'QueueIAAdvanced', { itemId, itemName, error: error.message });
+          }
           break;
         case 'retry_analysis':
           logService.debug('Relance de l\'analyse', 'QueueIAAdvanced', { itemId, itemName });
@@ -1038,7 +1234,22 @@ export const QueueIAAdvanced: React.FC = () => {
              return;
            }
            logService.info('Comparaison des analyses sélectionnées', 'QueueIAAdvanced', { selectedItems });
-           // TODO: Implémenter la logique de comparaison
+           
+           try {
+             // TODO: Implémenter la logique de comparaison
+             // Pour l'instant, on log l'action et on pourrait :
+             // 1. Récupérer les PDFs des analyses sélectionnées
+             // 2. Ouvrir une interface de comparaison
+             // 3. Afficher les analyses côte à côte
+             
+             logService.info('Fonctionnalité de comparaison à implémenter', 'QueueIAAdvanced', { 
+               selectedItems, 
+               count: selectedItems.length 
+             });
+             
+           } catch (error) {
+             logService.error('Erreur lors de la comparaison', 'QueueIAAdvanced', { selectedItems, error: error.message });
+           }
            break;
          case 'clear_completed':
            simpleAction(
