@@ -66,7 +66,7 @@ export function UnifiedTable<T>({
   };
 
   return (
-    <div className={`overflow-x-auto ${className}`}>
+    <div className={`h-full overflow-auto ${className}`}>
       <table className="min-w-full divide-y" style={{ borderColor: colors.border }}>
         <thead style={{ backgroundColor: colors.surface }}>
           <tr>

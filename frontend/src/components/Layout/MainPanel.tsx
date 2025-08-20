@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useFileStore } from '../../stores/fileStore';
 import { useQueueStore } from '../../stores/queueStore';
 import { useConfigStore } from '../../stores/configStore';
+import { logService } from '../../services/logService';
 import { useColors } from '../../hooks/useColors';
 import { formatFileSize } from '../../utils/fileUtils';
 import { getFileType } from '../../utils/fileTypeUtils';
@@ -45,10 +46,29 @@ const MainPanel: React.FC<MainPanelProps> = ({
   const { getActiveProviders } = useConfigStore();
   const [showFileDetails, setShowFileDetails] = useState(false);
   const [viewMode, setViewMode] = useState<'single' | 'thumbnails'>('single');
+  const [logsCount, setLogsCount] = useState(0);
 
   // Obtenir les providers actifs pour l'indicateur
   const allProviders = getActiveProviders();
   const activeProviders = allProviders.filter(provider => provider.is_active === true);
+  
+  // Charger le nombre de logs
+  useEffect(() => {
+    const updateLogsCount = () => {
+      const logs = logService.getLogs();
+      setLogsCount(logs.length);
+    };
+    
+    // Charger le nombre initial
+    updateLogsCount();
+    
+    // S'abonner aux changements de logs
+    const unsubscribe = logService.subscribe(() => {
+      updateLogsCount();
+    });
+    
+    return unsubscribe;
+  }, []);
   
   // Debug pour voir les providers
   console.log('🔍 MainPanel - Providers actifs:', {
@@ -75,6 +95,7 @@ const MainPanel: React.FC<MainPanelProps> = ({
       id: 'logs',
       label: 'Logs',
       icon: <LogsIcon className="h-4 w-4" />,
+      count: logsCount,
     },
     {
       id: 'viewer',
@@ -88,8 +109,6 @@ const MainPanel: React.FC<MainPanelProps> = ({
     // Charger les données initiales seulement au montage
     loadQueueItems();
   }, [loadQueueItems]);
-
-
 
   // Écouter l'événement d'affichage des détails de fichier
   useEffect(() => {
@@ -434,15 +453,62 @@ const MainPanel: React.FC<MainPanelProps> = ({
         color: 'var(--text-color)',
       }}
     >
-      {/* Onglets */}
-      <TabPanel 
-        tabs={tabs} 
-        activeTab={activePanel} 
-        onTabChange={onSetActivePanel} 
-      />
+      {/* Panneau haut (fixe) */}
+      <div className="flex-shrink-0">
+        {/* TabPanel (onglets) */}
+        <TabPanel 
+          tabs={tabs} 
+          activeTab={activePanel} 
+          onTabChange={onSetActivePanel} 
+        />
+        
+        {/* Description dynamique */}
+        <div className="p-4 border-b" style={{ borderColor: colors.border }}>
+          {activePanel === 'queue' && (
+            <>
+              <h1 className="text-xl font-bold" style={{ color: colors.text }}>
+                Queue IA Avancée
+              </h1>
+              <p className="text-sm" style={{ color: colors.textSecondary }}>
+                Gestion simplifiée de la queue d'analyses
+              </p>
+            </>
+          )}
+          {activePanel === 'logs' && (
+            <>
+              <h1 className="text-xl font-bold" style={{ color: colors.text }}>
+                Journal des événements
+              </h1>
+              <p className="text-sm" style={{ color: colors.textSecondary }}>
+                Gestion et consultation des logs système avec filtres et actions
+              </p>
+            </>
+          )}
+          {activePanel === 'config' && (
+            <>
+              <h1 className="text-xl font-bold" style={{ color: colors.text }}>
+                Configuration des Providers IA
+              </h1>
+              <p className="text-sm" style={{ color: colors.textSecondary }}>
+                Configuration et test des providers d'intelligence artificielle
+              </p>
+            </>
+          )}
+          {activePanel === 'main' && (
+            <>
+              <h1 className="text-xl font-bold" style={{ color: colors.text }}>
+                Visualiseur de fichiers
+              </h1>
+              <p className="text-sm" style={{ color: colors.textSecondary }}>
+                Visualisation et gestion des fichiers sélectionnés
+              </p>
+            </>
+          )}
+        </div>
+      </div>
       
-      {/* Contenu des onglets */}
-      <div className="flex-1 min-h-0 overflow-hidden">
+      {/* Panneau bas (défilant) */}
+      <div className="flex-1 overflow-y-auto">
         {renderTabContent()}
       </div>
 

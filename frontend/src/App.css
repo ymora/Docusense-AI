@@ -563,6 +563,41 @@ input[type="range"]::-moz-range-thumb:active {
   .scrollbar-thin::-webkit-scrollbar-thumb {
     transition: background-color 0.2s ease-in-out;
   }
+  
+  /* Scrollbar spécifique pour les tableaux */
+  .table-scrollbar::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+  
+  .table-scrollbar::-webkit-scrollbar-track {
+    background: #1e293b; /* slate-800 */
+    border-radius: 6px;
+    margin: 2px;
+  }
+  
+  .table-scrollbar::-webkit-scrollbar-thumb {
+    background: #475569; /* slate-600 */
+    border-radius: 6px;
+    border: 1px solid #334155; /* slate-700 */
+    transition: all 0.3s ease;
+  }
+  
+  .table-scrollbar::-webkit-scrollbar-thumb:hover {
+    background: #64748b; /* slate-500 */
+    border-color: #475569; /* slate-600 */
+    transform: scale(1.05);
+  }
+  
+  .table-scrollbar::-webkit-scrollbar-corner {
+    background: #1e293b; /* slate-800 */
+  }
+  
+  /* Scrollbar pour Firefox - tableaux */
+  .table-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: #475569 #1e293b;
+  }
 }
 
 /* Styles spécifiques pour le conteneur de scroll des emails */

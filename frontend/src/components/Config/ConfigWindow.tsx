@@ -442,11 +442,6 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
       <div className="flex-1 overflow-hidden">
         <div className="h-full overflow-y-auto p-4">
           <div className="space-y-6">
-                         <div className="flex items-center gap-3">
-               <h3 className="text-lg font-semibold" style={{ color: colors.text }}>
-                 Configuration des Providers IA
-               </h3>
-             </div>
             
             {error && (
               <div className="p-3 rounded-lg border bg-red-50 border-red-200">

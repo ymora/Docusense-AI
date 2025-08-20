@@ -1618,17 +1618,7 @@ export const QueueIAAdvanced: React.FC = () => {
    };
   
   return (
-    <div className="h-full flex flex-col overflow-hidden" style={{ backgroundColor: colors.background }}>
-      <div className="p-4 border-b flex-shrink-0" style={{ borderColor: colors.border }}>
-        <h1 className="text-xl font-bold" style={{ color: colors.text }}>
-          Queue IA Avancée
-        </h1>
-        <p className="text-sm" style={{ color: colors.textSecondary }}>
-          Gestion simplifiée de la queue d'analyses
-        </p>
-      </div>
-      
-      <div className="flex-1 flex flex-col p-4 min-h-0">
+    <div className="h-full flex flex-col p-4 overflow-hidden" style={{ backgroundColor: colors.background }}>
         
         {/* Actions globales */}
         <div className="mb-4 p-3 rounded-lg border flex-shrink-0" style={{
@@ -1733,11 +1723,14 @@ export const QueueIAAdvanced: React.FC = () => {
         </div>
         
         {/* Tableau avec scroll */}
-        <div className="flex-1 rounded-lg border min-h-0" style={{
+        <div className="flex-1 rounded-lg border min-h-0 overflow-hidden" style={{
           backgroundColor: colors.surface,
           borderColor: colors.border,
         }}>
-          <div className="h-full overflow-y-auto">
+          <div className="h-full overflow-auto table-scrollbar" style={{
+            scrollbarWidth: 'thin',
+            scrollbarColor: `${colors.border} ${colors.surface}`,
+          }}>
             {loadingPrompts ? (
               <div className="flex items-center justify-center h-32">
                 <div className="text-center">
@@ -1761,9 +1754,6 @@ export const QueueIAAdvanced: React.FC = () => {
           </div>
                  </div>
        </div>
-       
-       
-     </div>
    );
  };
 
