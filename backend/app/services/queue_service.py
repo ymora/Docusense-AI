@@ -7,7 +7,7 @@ import asyncio
 from datetime import datetime, timedelta
 from typing import List, Optional, Dict, Any
 from sqlalchemy.orm import Session
-from sqlalchemy import and_, desc
+from sqlalchemy import and_, desc, asc
 
 from ..core.database import get_db
 from ..models.queue import QueueItem, QueueStatus
@@ -17,7 +17,11 @@ from .ai_service import get_ai_service
 from .ocr_service import OCRService
 from .base_service import BaseService, log_service_operation
 from ..core.types import ServiceResponse, QueueData
+from ..core.logging import get_logger, log_with_context
+import threading
+import time
 
+logger = get_logger("services.queue")
 
 class QueueService(BaseService):
     """Service for managing analysis queue"""
@@ -28,6 +32,9 @@ class QueueService(BaseService):
         self.ocr_service = OCRService(db)
         self.is_processing = False
         self.processing_task = None
+        self.processing = False
+        self.processing_thread = None
+        self.stop_processing = False
 
     @log_service_operation("add_to_queue")
     def add_to_queue(
@@ -35,7 +42,18 @@ class QueueService(BaseService):
         analysis_id: int
     ) -> QueueItem:
         """Add analysis to queue"""
-        return self.safe_execute("add_to_queue", self._add_to_queue_logic, analysis_id)
+        try:
+            log_with_context(logger, "info", "Ajout d'analyse à la queue", {
+                "analysis_id": analysis_id,
+                "action": "add_to_queue"
+            })
+            return self.safe_execute("add_to_queue", self._add_to_queue_logic, analysis_id)
+        except Exception as e:
+            log_with_context(logger, "error", "Erreur lors de l'ajout à la queue", {
+                "analysis_id": analysis_id
+            }, exception=e)
+            self.db.rollback()
+            raise
 
     def _add_to_queue_logic(self, analysis_id: int) -> QueueItem:
         """Logic for adding to queue"""
@@ -92,7 +110,23 @@ class QueueService(BaseService):
         offset: int = 0
     ) -> List[QueueItem]:
         """Get queue items with optional filtering"""
-        return self.safe_execute("get_queue_items", self._get_queue_items_logic, status, limit, offset)
+        try:
+            log_with_context(logger, "debug", "Récupération des éléments de queue", {
+                "action": "get_queue_items"
+            })
+            items = self.db.query(QueueItem).order_by(asc(QueueItem.created_at)).all()
+            log_with_context(logger, "info", "Éléments de queue récupérés", {
+                "count": len(items),
+                "pending": len([i for i in items if i.status == QueueStatus.PENDING]),
+                "processing": len([i for i in items if i.status == QueueStatus.PROCESSING]),
+                "completed": len([i for i in items if i.status == QueueStatus.COMPLETED]),
+                "failed": len([i for i in items if i.status == QueueStatus.FAILED])
+            })
+            return items
+        except Exception as e:
+            log_with_context(logger, "error", "Erreur lors de la récupération des éléments de queue", 
+                           exception=e)
+            raise
 
     def _get_queue_items_logic(self, status: Optional[QueueStatus], limit: int, offset: int) -> List[QueueItem]:
         """Logic for getting queue items"""
@@ -176,33 +210,54 @@ class QueueService(BaseService):
             self.processing_task.cancel()
         self.logger.info("Traitement de queue arrêté")
 
-    async def _process_queue(self):
-        """Main queue processing loop"""
-        while self.is_processing:
+    def _process_queue(self):
+        """Méthode interne pour traiter la queue"""
+        logger.info("Début du traitement de queue")
+        
+        while not self.stop_processing:
             try:
-                # Get pending items
-                pending_items = self.get_queue_items(status=QueueStatus.PENDING, limit=5)
+                # Récupérer les éléments en attente
+                pending_items = self.db.query(QueueItem).filter(
+                    QueueItem.status == QueueStatus.PENDING
+                ).order_by(asc(QueueItem.created_at)).limit(5).all()
                 
                 if not pending_items:
-                    await asyncio.sleep(1)
+                    log_with_context(logger, "debug", "Aucun élément en attente", {
+                        "action": "process_queue"
+                    })
+                    time.sleep(2)
                     continue
                 
-                # Process items concurrently
-                tasks = []
+                log_with_context(logger, "info", "Traitement d'éléments en attente", {
+                    "count": len(pending_items),
+                    "action": "process_queue"
+                })
+                
                 for item in pending_items:
-                    task = asyncio.create_task(self._start_processing_item(item))
-                    tasks.append(task)
+                    if self.stop_processing:
+                        break
+                    
+                    try:
+                        self._process_item(item)
+                    except Exception as e:
+                        log_with_context(logger, "error", "Erreur lors du traitement d'un élément", {
+                            "queue_item_id": item.id,
+                            "analysis_id": item.analysis_id
+                        }, exception=e)
+                        
+                        # Marquer comme échoué
+                        item.status = QueueStatus.FAILED
+                        item.error_message = str(e)
+                        self.db.commit()
                 
-                # Wait for all tasks to complete
-                if tasks:
-                    await asyncio.gather(*tasks, return_exceptions=True)
-                
-                # Cleanup completed tasks
-                self._cleanup_completed_tasks()
+                time.sleep(1)
                 
             except Exception as e:
-                self.logger.error(f"Error in queue processing: {str(e)}")
-                await asyncio.sleep(5)
+                log_with_context(logger, "error", "Erreur dans la boucle de traitement", 
+                               exception=e)
+                time.sleep(5)
+        
+        logger.info("Fin du traitement de queue")
 
     def _calculate_available_slots(self) -> int:
         """Calculate available processing slots"""
@@ -379,7 +434,16 @@ class QueueService(BaseService):
     @log_service_operation("clear_queue")
     def clear_queue(self, status: Optional[QueueStatus] = None):
         """Clear queue items by status"""
-        return self.safe_execute("clear_queue", self._clear_queue_logic, status)
+        try:
+            log_with_context(logger, "info", "Vidage de la queue", {
+                "action": "clear_queue"
+            })
+            return self.safe_execute("clear_queue", self._clear_queue_logic, status)
+        except Exception as e:
+            log_with_context(logger, "error", "Erreur lors du vidage de la queue", 
+                           exception=e)
+            self.db.rollback()
+            return 0
 
     def _clear_queue_logic(self, status: Optional[QueueStatus]) -> int:
         """Logic for clearing queue"""
@@ -461,7 +525,18 @@ class QueueService(BaseService):
     @log_service_operation("delete_queue_item")
     def delete_queue_item(self, item_id: int) -> bool:
         """Delete a specific queue item"""
-        return self.safe_execute("delete_queue_item", self._delete_queue_item_logic, item_id)
+        try:
+            log_with_context(logger, "info", "Suppression d'un élément de queue", {
+                "item_id": item_id,
+                "action": "delete_queue_item"
+            })
+            return self.safe_execute("delete_queue_item", self._delete_queue_item_logic, item_id)
+        except Exception as e:
+            log_with_context(logger, "error", "Erreur lors de la suppression d'un élément", {
+                "item_id": item_id
+            }, exception=e)
+            self.db.rollback()
+            return False
 
     def _delete_queue_item_logic(self, item_id: int) -> bool:
         """Logic for deleting queue item"""

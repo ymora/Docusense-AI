@@ -1,217 +1,321 @@
+import { apiRequest, handleApiError } from '../utils/apiUtils';
+
 export interface LogEntry {
   id: string;
   timestamp: string;
-  level: 'info' | 'warning' | 'error' | 'debug';
+  level: 'debug' | 'info' | 'warning' | 'error';
+  source: string;
   message: string;
-  source?: string;
   details?: any;
   performance?: {
     executionTime?: number;
     memoryUsage?: number;
   };
-}
-
-export interface LogStats {
-  total: number;
-  byLevel: Record<string, number>;
-  bySource: Record<string, number>;
-  performance: {
-    averageExecutionTime: number;
-    maxExecutionTime: number;
-    totalMemoryUsage: number;
+  // NOUVEAU: Propriétés pour les logs backend
+  isBackend?: boolean;
+  module?: string;
+  function?: string;
+  line?: number;
+  path?: string;
+  exception?: {
+    type?: string;
+    message?: string;
+    traceback?: string;
   };
 }
 
 class LogService {
   private logs: LogEntry[] = [];
-  private listeners: ((logs: LogEntry[]) => void)[] = [];
-  private maxLogs = 1000; // Limite pour éviter la surcharge mémoire
+  private listeners: Set<(logs: LogEntry[]) => void> = new Set();
+  private maxLogs = 1000;
+  private backendLogs: LogEntry[] = [];
+  private backendSSE: EventSource | null = null;
 
-  // Ajouter un log
-  addLog(level: LogEntry['level'], message: string, source?: string, details?: any, performance?: LogEntry['performance']) {
-    const log: LogEntry = {
-      id: Date.now().toString() + Math.random().toString(36).substr(2, 9),
+  constructor() {
+    this.initializeBackendLogs();
+  }
+
+  private initializeBackendLogs() {
+    // Charger les logs backend initiaux
+    this.loadBackendLogs();
+    
+    // Démarrer le streaming des logs backend
+    this.startBackendLogStream();
+  }
+
+  private async loadBackendLogs() {
+    try {
+      const response = await apiRequest('/api/logs/backend', {}, 5000);
+      if (response.success && response.data) {
+        this.backendLogs = response.data.map((log: any) => ({
+          ...log,
+          isBackend: true,
+          id: log.id || `backend_${Date.now()}_${Math.random()}`
+        }));
+        this.notifyListeners();
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement des logs backend:', error);
+    }
+  }
+
+  private startBackendLogStream() {
+    try {
+      this.backendSSE = new EventSource('/api/logs/backend/stream');
+      
+      this.backendSSE.onopen = () => {
+        console.log('🔗 SSE connecté pour les logs backend');
+      };
+
+      this.backendSSE.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          
+          if (data.type === 'backend_log' && data.log) {
+            const backendLog: LogEntry = {
+              ...data.log,
+              isBackend: true,
+              id: data.log.id || `backend_${Date.now()}_${Math.random()}`
+            };
+            
+            this.backendLogs.push(backendLog);
+            
+            // Limiter la taille du buffer backend
+            if (this.backendLogs.length > this.maxLogs) {
+              this.backendLogs = this.backendLogs.slice(-this.maxLogs);
+            }
+            
+            this.notifyListeners();
+          }
+        } catch (error) {
+          console.error('Erreur parsing SSE logs backend:', error);
+        }
+      };
+
+      this.backendSSE.onerror = (error) => {
+        console.error('Erreur SSE logs backend:', error);
+        // Tentative de reconnexion après 5 secondes
+        setTimeout(() => {
+          if (this.backendSSE) {
+            this.backendSSE.close();
+            this.startBackendLogStream();
+          }
+        }, 5000);
+      };
+    } catch (error) {
+      console.error('Erreur connexion SSE logs backend:', error);
+    }
+  }
+
+  private notifyListeners() {
+    // Combiner les logs frontend et backend
+    const allLogs = [...this.logs, ...this.backendLogs];
+    
+    // Trier par timestamp (plus récent en premier)
+    allLogs.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    
+    this.listeners.forEach(callback => {
+      try {
+        callback(allLogs);
+      } catch (error) {
+        console.error('Erreur callback logs:', error);
+      }
+    });
+  }
+
+  // Méthodes de logging avec catégorisation améliorée
+  debug(message: string, source: string, details?: any, performance?: any) {
+    this.addLog('debug', message, source, details, performance);
+  }
+
+  info(message: string, source: string, details?: any, performance?: any) {
+    this.addLog('info', message, source, details, performance);
+  }
+
+  warning(message: string, source: string, details?: any, performance?: any) {
+    this.addLog('warning', message, source, details, performance);
+  }
+
+  error(message: string, source: string, details?: any, performance?: any) {
+    this.addLog('error', message, source, details, performance);
+  }
+
+  // NOUVEAU: Méthodes spécialisées pour différents types d'événements
+  navigation(from: string, to: string, context?: any) {
+    this.info(`Navigation: ${from} → ${to}`, 'Navigation', {
+      from,
+      to,
+      ...context
+    });
+  }
+
+  fileOperation(operation: string, fileName: string, details?: any) {
+    this.info(`Opération fichier: ${operation}`, 'FileManager', {
+      operation,
+      fileName,
+      ...details
+    });
+  }
+
+  queueAction(action: string, itemId: string | number, details?: any) {
+    this.info(`Action queue: ${action}`, 'QueueManager', {
+      action,
+      itemId,
+      ...details
+    });
+  }
+
+  apiCall(endpoint: string, method: string, success: boolean, details?: any) {
+    const level = success ? 'info' : 'error';
+    this[level](`API ${method} ${endpoint}`, 'APIClient', {
+      endpoint,
+      method,
+      success,
+      ...details
+    });
+  }
+
+  configurationChange(setting: string, oldValue: any, newValue: any) {
+    this.info(`Configuration modifiée: ${setting}`, 'ConfigManager', {
+      setting,
+      oldValue,
+      newValue
+    });
+  }
+
+  performance(operation: string, executionTime: number, memoryUsage?: number) {
+    this.debug(`Performance: ${operation}`, 'Performance', {
+      operation,
+      executionTime,
+      memoryUsage
+    }, {
+      executionTime,
+      memoryUsage
+    });
+  }
+
+  exception(error: Error, context: string, details?: any) {
+    this.error(`Exception dans ${context}: ${error.message}`, 'ExceptionHandler', {
+      context,
+      errorType: error.constructor.name,
+      errorMessage: error.message,
+      stack: error.stack,
+      ...details
+    });
+  }
+
+  private addLog(level: LogEntry['level'], message: string, source: string, details?: any, performance?: any) {
+    const logEntry: LogEntry = {
+      id: `frontend_${Date.now()}_${Math.random()}`,
       timestamp: new Date().toISOString(),
       level,
-      message,
       source,
+      message,
       details,
-      performance
+      performance,
+      isBackend: false
     };
 
-    this.logs.unshift(log); // Ajouter au début pour avoir les plus récents en haut
+    this.logs.unshift(logEntry);
 
     // Limiter le nombre de logs
     if (this.logs.length > this.maxLogs) {
       this.logs = this.logs.slice(0, this.maxLogs);
     }
 
-    // Notifier les listeners
     this.notifyListeners();
 
-    // Log dans la console pour le debug
-    console.log(`[${log.source || 'App'}] ${log.level.toUpperCase()}: ${log.message}`, details || '');
+    // Log dans la console pour le débogage
+    const consoleMethod = level === 'error' ? 'error' : 
+                         level === 'warning' ? 'warn' : 
+                         level === 'debug' ? 'debug' : 'info';
+    
+    console[consoleMethod](`[${source}] ${message}`, details || '');
   }
 
-  // Méthodes de convenance
-  info(message: string, source?: string, details?: any, performance?: LogEntry['performance']) {
-    this.addLog('info', message, source, details, performance);
-  }
-
-  warning(message: string, source?: string, details?: any, performance?: LogEntry['performance']) {
-    this.addLog('warning', message, source, details, performance);
-  }
-
-  error(message: string, source?: string, details?: any, performance?: LogEntry['performance']) {
-    this.addLog('error', message, source, details, performance);
-  }
-
-  debug(message: string, source?: string, details?: any, performance?: LogEntry['performance']) {
-    this.addLog('debug', message, source, details, performance);
-  }
-
-  // Méthode pour logger avec performance
-  performance(message: string, executionTime: number, source?: string, details?: any) {
-    this.addLog('info', message, source, details, { executionTime });
-  }
-
-  // Obtenir tous les logs
   getLogs(): LogEntry[] {
-    return [...this.logs];
+    return [...this.logs, ...this.backendLogs];
   }
 
-  // S'abonner aux changements de logs
-  subscribe(listener: (logs: LogEntry[]) => void) {
-    // Éviter les doublons d'abonnements
-    if (this.listeners.includes(listener)) {
-      console.warn('[LogService] Tentative d\'abonnement en double détectée');
-      return () => {
-        this.listeners = this.listeners.filter(l => l !== listener);
-      };
+  getLogsByLevel(level: LogEntry['level']): LogEntry[] {
+    return this.getLogs().filter(log => log.level === level);
+  }
+
+  getLogsBySource(source: string): LogEntry[] {
+    return this.getLogs().filter(log => log.source === source);
+  }
+
+  getLogsByType(type: 'frontend' | 'backend'): LogEntry[] {
+    if (type === 'frontend') {
+      return [...this.logs];
+    } else {
+      return [...this.backendLogs];
     }
-    
-    this.listeners.push(listener);
-    
-    // Retourner une fonction pour se désabonner
-    return () => {
-      this.listeners = this.listeners.filter(l => l !== listener);
-    };
   }
 
-  // Notifier tous les listeners
-  private notifyListeners() {
-    this.listeners.forEach(listener => {
-      try {
-        listener([...this.logs]); // Envoyer une copie pour éviter les mutations
-      } catch (error) {
-        console.error('[LogService] Erreur lors de la notification d\'un listener:', error);
-      }
-    });
+  subscribe(callback: (logs: LogEntry[]) => void): () => void {
+    this.listeners.add(callback);
+    return () => this.listeners.delete(callback);
   }
 
-  // Nettoyer tous les abonnements (pour le debug)
-  clearAllListeners() {
-    console.log(`[LogService] Nettoyage de ${this.listeners.length} listeners`);
-    this.listeners = [];
+  getListenerCount(): number {
+    return this.listeners.size;
   }
 
-  // Obtenir le nombre d'abonnements actifs (pour le debug)
-  getListenerCount() {
-    return this.listeners.length;
-  }
-
-  // Effacer tous les logs
-  clearLogs() {
-    const count = this.logs.length;
-    this.logs = [];
-    this.notifyListeners();
-  }
-
-  // Supprimer des logs spécifiques par ID
-  deleteLogs(logIds: string[]) {
-    if (!logIds || logIds.length === 0) {
-      return 0;
-    }
-
-    const initialCount = this.logs.length;
-    const logsToDelete = this.logs.filter(log => logIds.includes(log.id));
-    
-    if (logsToDelete.length === 0) {
-      return 0;
-    }
-
-    // Supprimer les logs
+  deleteLogs(logIds: string[]): void {
     this.logs = this.logs.filter(log => !logIds.includes(log.id));
-    const deletedCount = initialCount - this.logs.length;
-    
-    // Notifier les listeners immédiatement
+    this.backendLogs = this.backendLogs.filter(log => !logIds.includes(log.id));
     this.notifyListeners();
-    
-    return deletedCount;
   }
 
-  // Filtrer les logs
-  filterLogs(level?: LogEntry['level'], source?: string): LogEntry[] {
-    return this.logs.filter(log => {
-      if (level && log.level !== level) return false;
-      if (source && log.source !== source) return false;
-      return true;
-    });
+  clearLogs(): void {
+    this.logs = [];
+    this.backendLogs = [];
+    this.notifyListeners();
   }
 
-  // Obtenir les statistiques des logs
-  getStats(): LogStats {
-    const stats: LogStats = {
-      total: this.logs.length,
-      byLevel: {},
-      bySource: {},
-      performance: {
-        averageExecutionTime: 0,
-        maxExecutionTime: 0,
-        totalMemoryUsage: 0
-      }
-    };
-
-    let totalExecutionTime = 0;
-    let executionTimeCount = 0;
-
-    this.logs.forEach(log => {
-      // Compter par niveau
-      stats.byLevel[log.level] = (stats.byLevel[log.level] || 0) + 1;
-      
-      // Compter par source
-      if (log.source) {
-        stats.bySource[log.source] = (stats.bySource[log.source] || 0) + 1;
-      }
-
-      // Calculer les statistiques de performance
-      if (log.performance?.executionTime) {
-        totalExecutionTime += log.performance.executionTime;
-        executionTimeCount++;
-        stats.performance.maxExecutionTime = Math.max(stats.performance.maxExecutionTime, log.performance.executionTime);
-      }
-
-      if (log.performance?.memoryUsage) {
-        stats.performance.totalMemoryUsage += log.performance.memoryUsage;
-      }
-    });
-
-    if (executionTimeCount > 0) {
-      stats.performance.averageExecutionTime = totalExecutionTime / executionTimeCount;
+  async clearBackendLogs(): Promise<void> {
+    try {
+      await apiRequest('/api/logs/backend', { method: 'DELETE' }, 5000);
+      this.backendLogs = [];
+      this.notifyListeners();
+    } catch (error) {
+      console.error('Erreur lors de la suppression des logs backend:', error);
+      throw error;
     }
-
-    return stats;
   }
 
-  // Méthode pour obtenir un résumé des logs
-  getSummary(): string {
-    const stats = this.getStats();
-    return `Logs: ${stats.total} total | ${Object.entries(stats.byLevel).map(([level, count]) => `${level}: ${count}`).join(' | ')}`;
+  // Méthodes utilitaires pour l'analyse des logs
+  getErrorCount(): number {
+    return this.getLogsByLevel('error').length;
+  }
+
+  getWarningCount(): number {
+    return this.getLogsByLevel('warning').length;
+  }
+
+  getRecentLogs(minutes: number = 5): LogEntry[] {
+    const cutoff = new Date(Date.now() - minutes * 60 * 1000);
+    return this.getLogs().filter(log => new Date(log.timestamp) > cutoff);
+  }
+
+  getLogsByTimeRange(start: Date, end: Date): LogEntry[] {
+    return this.getLogs().filter(log => {
+      const logTime = new Date(log.timestamp);
+      return logTime >= start && logTime <= end;
+    });
+  }
+
+  // Nettoyage à la destruction
+  destroy() {
+    if (this.backendSSE) {
+      this.backendSSE.close();
+      this.backendSSE = null;
+    }
+    this.listeners.clear();
+    this.logs = [];
+    this.backendLogs = [];
   }
 }
 
-// Instance singleton
 export const logService = new LogService();
-
-// Export pour utilisation globale
-export default logService;

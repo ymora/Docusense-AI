@@ -166,7 +166,7 @@ body[data-theme="light"], [data-theme="light"] body, [data-theme="light"] {
 body, html, #root, .App {
   background: var(--background-color) !important;
   color: var(--text-primary) !important;
-  font-family: var(--font-main) !important;
+  font-family: 'Inter', 'Segoe UI', Arial, sans-serif !important;
   overflow-x: hidden !important;
   overflow-y: auto !important;
   transition: background 0.3s, color 0.3s;
@@ -182,7 +182,7 @@ body, html, #root, .App {
 .menu,
 .menu-item,
 input, textarea, select, button, .btn, h1, h2, h3, h4, h5, h6, p, span, label, a {
-  font-family: var(--font-main) !important;
+  font-family: 'Inter', 'Segoe UI', Arial, sans-serif !important;
 }
 
 .left-panel-container,

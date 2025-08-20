@@ -103,17 +103,77 @@ const MainPanel: React.FC<MainPanelProps> = ({
     },
   ];
 
+  // Gestion du changement d'onglet avec logs détaillés
+  const handleTabChange = (tabId: string) => {
+    const previousTab = activeTab;
+    setActiveTab(tabId);
+    
+    logService.info('Changement d\'onglet', 'MainPanel', {
+      from: previousTab,
+      to: tabId,
+      timestamp: new Date().toISOString(),
+      context: {
+        queueItemsCount: queueItems?.length || 0,
+        logsCount,
+        activeProvidersCount: activeProviders.length,
+        selectedFilesCount: selectedFiles?.length || 0
+      }
+    });
+  };
+
   // Écouter l'événement d'affichage des détails de fichier
   useEffect(() => {
     const handleShowFileDetails = (event: CustomEvent) => {
       setShowFileDetails(true);
+      logService.info('Affichage des détails de fichier', 'MainPanel', {
+        file: event.detail?.file,
+        source: event.detail?.source || 'unknown',
+        timestamp: new Date().toISOString()
+      });
     };
 
     window.addEventListener('showFileDetails', handleShowFileDetails as EventListener);
+    
     return () => {
       window.removeEventListener('showFileDetails', handleShowFileDetails as EventListener);
     };
   }, []);
+
+  // Log de l'état d'initialisation
+  useEffect(() => {
+    if (isInitialized) {
+      logService.info('Application initialisée', 'MainPanel', {
+        initializationStep,
+        activeProvidersCount: activeProviders.length,
+        queueItemsCount: queueItems?.length || 0,
+        timestamp: new Date().toISOString()
+      });
+    }
+  }, [isInitialized, initializationStep, activeProviders.length, queueItems?.length]);
+
+  // Log des changements de sélection de fichiers
+  useEffect(() => {
+    if (selectedFiles && selectedFiles.length > 0) {
+      logService.debug('Sélection de fichiers mise à jour', 'MainPanel', {
+        selectedFilesCount: selectedFiles.length,
+        selectedFiles: selectedFiles.map(f => ({ id: f.id, name: f.name })),
+        timestamp: new Date().toISOString()
+      });
+    }
+  }, [selectedFiles]);
+
+  // Log des changements de queue
+  useEffect(() => {
+    if (queueItems && queueItems.length > 0) {
+      logService.debug('Queue mise à jour', 'MainPanel', {
+        queueItemsCount: queueItems.length,
+        pendingCount: queueItems.filter(item => item.status === 'pending').length,
+        processingCount: queueItems.filter(item => item.status === 'processing').length,
+        completedCount: queueItems.filter(item => item.status === 'completed').length,
+        timestamp: new Date().toISOString()
+      });
+    }
+  }, [queueItems]);
 
   // Écouter l'événement d'affichage des miniatures de dossier
   useEffect(() => {

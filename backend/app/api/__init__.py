@@ -17,6 +17,7 @@ from .emails import router as emails_router
 from .video_converter import router as video_converter_router
 from .secure_streaming import router as secure_streaming_router
 from .pdf_files import router as pdf_files_router
+from .logs import router as logs_router
 
 __all__ = [
     "files_router",
@@ -32,5 +33,6 @@ __all__ = [
     "emails_router",
     "video_converter_router",
     "secure_streaming_router",
-    "pdf_files_router"
+    "pdf_files_router",
+    "logs_router"
 ]

@@ -4,6 +4,7 @@ import { useColors } from '../../hooks/useColors';
 import { isSupportedFormat } from '../../utils/mediaFormats';
 import { useUIStore } from '../../stores/uiStore';
 import { useQueueStore } from '../../stores/queueStore';
+import { logService } from '../../services/logService';
 
 interface FileTreeSimpleProps {
   currentDirectory: string;
@@ -32,6 +33,11 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
       if (!currentDirectory) return;
       
       setLoading(true);
+      logService.info('Chargement du répertoire', 'FileTreeSimple', {
+        directory: currentDirectory,
+        timestamp: new Date().toISOString()
+      });
+      
       try {
         const encodedDirectory = encodeURIComponent(currentDirectory.replace(/\\/g, '/'));
         const response = await fetch(`/api/files/list/${encodedDirectory}`);
@@ -41,11 +47,26 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
           setDirectoryData(data.data);
           // Expansion automatique du répertoire racine
           setExpandedFolders(new Set([currentDirectory]));
+          
+          logService.info('Répertoire chargé avec succès', 'FileTreeSimple', {
+            directory: currentDirectory,
+            filesCount: data.data.files?.length || 0,
+            foldersCount: data.data.subdirectories?.length || 0,
+            timestamp: new Date().toISOString()
+          });
         } else {
-          console.error('Erreur API:', data);
+          logService.error('Erreur lors du chargement du répertoire', 'FileTreeSimple', {
+            directory: currentDirectory,
+            error: data,
+            timestamp: new Date().toISOString()
+          });
         }
       } catch (error) {
-        console.error('Erreur lors du chargement du répertoire:', error);
+        logService.error('Erreur lors du chargement du répertoire', 'FileTreeSimple', {
+          directory: currentDirectory,
+          error: error.message,
+          timestamp: new Date().toISOString()
+        });
       } finally {
         setLoading(false);
       }
@@ -56,6 +77,11 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
 
   // Charger le contenu d'un sous-dossier
   const loadSubdirectory = useCallback(async (folderPath: string) => {
+    logService.debug('Chargement du sous-dossier', 'FileTreeSimple', {
+      folderPath,
+      timestamp: new Date().toISOString()
+    });
+    
     try {
       // Pour Windows, utiliser les backslashes et encoder correctement
       const normalizedPath = folderPath.replace(/\//g, '\\');
@@ -64,13 +90,27 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
       const data = await response.json();
       
       if (data.success) {
+        logService.debug('Sous-dossier chargé avec succès', 'FileTreeSimple', {
+          folderPath,
+          filesCount: data.data.files?.length || 0,
+          foldersCount: data.data.subdirectories?.length || 0,
+          timestamp: new Date().toISOString()
+        });
         return data.data;
       } else {
-        console.error('Erreur sous-dossier:', data);
+        logService.error('Erreur lors du chargement du sous-dossier', 'FileTreeSimple', {
+          folderPath,
+          error: data,
+          timestamp: new Date().toISOString()
+        });
         return null;
       }
     } catch (error) {
-      console.error('Erreur lors du chargement du sous-dossier:', error);
+      logService.error('Erreur lors du chargement du sous-dossier', 'FileTreeSimple', {
+        folderPath,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      });
       return null;
     }
   }, []);
@@ -78,11 +118,22 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
   // Gérer l'expansion/réduction d'un dossier
   const toggleFolder = useCallback(async (folderPath: string) => {
     const newExpanded = new Set(expandedFolders);
+    const wasExpanded = newExpanded.has(folderPath);
     
-    if (newExpanded.has(folderPath)) {
+    if (wasExpanded) {
       newExpanded.delete(folderPath);
+      logService.debug('Réduction du dossier', 'FileTreeSimple', {
+        folderPath,
+        action: 'collapse',
+        timestamp: new Date().toISOString()
+      });
     } else {
       newExpanded.add(folderPath);
+      logService.debug('Expansion du dossier', 'FileTreeSimple', {
+        folderPath,
+        action: 'expand',
+        timestamp: new Date().toISOString()
+      });
       
       // Charger les données si elles ne sont pas déjà en cache
       if (!folderData[folderPath]) {
@@ -102,6 +153,14 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
   // Ajouter un fichier à la queue d'analyse IA
   const handleAnalyzeFile = useCallback(async (file: any, e: React.MouseEvent) => {
     e.stopPropagation();
+    
+    logService.info('Ajout d\'analyse pour fichier', 'FileTreeSimple', {
+      fileName: file.name,
+      filePath: file.path,
+      fileSize: file.size,
+      mimeType: file.mime_type,
+      timestamp: new Date().toISOString()
+    });
     
     try {
       console.log('🔄 Ajout d\'analyse pour le fichier:', file.name);
@@ -135,9 +194,20 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
       // Ajouter à la queue locale
       addLocalToQueue(queueItem);
       
+      logService.info('Fichier ajouté à la queue avec succès', 'FileTreeSimple', {
+        fileName: file.name,
+        queueItemId: queueItem.id,
+        timestamp: new Date().toISOString()
+      });
+      
       console.log('✅ Fichier ajouté à la queue avec succès');
       
     } catch (error) {
+      logService.error('Erreur lors de l\'ajout à la queue locale', 'FileTreeSimple', {
+        fileName: file.name,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      });
       console.error('❌ Erreur lors de l\'ajout à la queue locale:', error);
     }
   }, [setActivePanel, addLocalToQueue]);
@@ -145,12 +215,27 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
   // Visualiser un fichier
   const handleViewFile = useCallback((file: any, e: React.MouseEvent) => {
     e.stopPropagation();
+    
+    logService.info('Visualisation de fichier', 'FileTreeSimple', {
+      fileName: file.name,
+      filePath: file.path,
+      fileSize: file.size,
+      mimeType: file.mime_type,
+      timestamp: new Date().toISOString()
+    });
+    
     onFileSelect(file);
   }, [onFileSelect]);
 
   // Visualiser le contenu d'un dossier
   const handleViewFolder = useCallback(async (folder: any, e: React.MouseEvent) => {
     e.stopPropagation();
+    
+    logService.info('Visualisation de dossier', 'FileTreeSimple', {
+      folderName: folder.name,
+      folderPath: folder.path,
+      timestamp: new Date().toISOString()
+    });
     
     // Charger le contenu du dossier si pas déjà fait
     if (!folderData[folder.path]) {

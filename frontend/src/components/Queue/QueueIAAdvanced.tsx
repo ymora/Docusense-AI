@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { 
   ArrowPathIcon, TrashIcon, PauseIcon, PlayIcon, XMarkIcon,
   ClockIcon,
@@ -923,11 +923,11 @@ export const QueueIAAdvanced: React.FC = () => {
   const { colors } = useColors();
   const { textColors } = useTypography();
   const { queueItems, startRealtimeUpdates, stopRealtimeUpdates } = useQueueStore();
-  const { prompts, loading: loadingPrompts, getPrompts } = usePromptStore();
-  const { loadAIProviders, refreshAIProviders, isInitialized: configInitialized } = useConfigStore();
+  const { prompts, loading: loadingPrompts, loadPrompts } = usePromptStore();
+  const { aiProviders, loadAIProviders, refreshAIProviders, isInitialized: configInitialized } = useConfigStore();
   const { setActivePanel } = useUIStore();
   
-  const currentPrompts = getPrompts();
+  const currentPrompts = prompts;
   
   // OPTIMISATION: États locaux simplifiés
   const [loading, setLoading] = useState(false);
@@ -941,6 +941,10 @@ export const QueueIAAdvanced: React.FC = () => {
   useEffect(() => {
     const initializeQueue = async () => {
       try {
+        logService.info('Initialisation de la queue', 'QueueIAAdvanced', {
+          timestamp: new Date().toISOString()
+        });
+        
         // Charger les données initiales
         await Promise.all([
           loadPrompts(),
@@ -949,7 +953,17 @@ export const QueueIAAdvanced: React.FC = () => {
         
         // Démarrer les mises à jour temps réel
         startRealtimeUpdates();
+        
+        logService.info('Queue initialisée avec succès', 'QueueIAAdvanced', {
+          promptsCount: currentPrompts.length,
+          providersCount: aiProviders.length,
+          timestamp: new Date().toISOString()
+        });
       } catch (error) {
+        logService.error('Erreur lors de l\'initialisation de la queue', 'QueueIAAdvanced', {
+          error: error.message,
+          timestamp: new Date().toISOString()
+        });
         console.error('❌ Erreur initialisation queue:', error);
       }
     };
@@ -958,6 +972,9 @@ export const QueueIAAdvanced: React.FC = () => {
 
     // Nettoyage à la destruction du composant
     return () => {
+      logService.debug('Nettoyage de la queue', 'QueueIAAdvanced', {
+        timestamp: new Date().toISOString()
+      });
       stopRealtimeUpdates();
     };
   }, []);
@@ -1068,47 +1085,57 @@ export const QueueIAAdvanced: React.FC = () => {
      }
    }, [selectedItems, checkPDFsForSelectedItems]);
 
-  // Gérer le changement de prompt (mise à jour locale uniquement)
-  const handlePromptChange = (itemId: string, promptId: string) => {
-    const item = queueItems.find(q => q.id.toString() === itemId);
-    const itemName = item?.file_info?.name || `ID: ${itemId}`;
+  // Log des changements de configuration
+  const handleProviderChange = useCallback((itemId: string, providerId: string) => {
+    logService.info('Changement de fournisseur IA', 'QueueIAAdvanced', {
+      itemId,
+      providerId,
+      previousProvider: localSelections[itemId]?.provider,
+      timestamp: new Date().toISOString()
+    });
     
-    logService.debug(`Changement de prompt pour ${itemName}`, 'QueueIAAdvanced', { itemId, promptId, itemName });
-    
-    // Mise à jour de l'état local
     setLocalSelections(prev => ({
       ...prev,
-      [itemId]: {
-        ...prev[itemId],
-        prompt: promptId
-      }
+      [itemId]: { ...prev[itemId], provider: providerId }
     }));
-  };
+  }, [localSelections]);
 
-  // Gérer le changement de fournisseur IA (mise à jour locale uniquement)
-  const handleProviderChange = (itemId: string, providerId: string) => {
-    const item = queueItems.find(q => q.id.toString() === itemId);
-    const itemName = item?.file_info?.name || `ID: ${itemId}`;
+  const handlePromptChange = useCallback((itemId: string, promptId: string) => {
+    logService.info('Changement de prompt', 'QueueIAAdvanced', {
+      itemId,
+      promptId,
+      previousPrompt: localSelections[itemId]?.prompt,
+      timestamp: new Date().toISOString()
+    });
     
-    logService.debug(`Changement de fournisseur IA pour ${itemName}`, 'QueueIAAdvanced', { itemId, providerId, itemName });
-    
-    // Mise à jour de l'état local
     setLocalSelections(prev => ({
       ...prev,
-      [itemId]: {
-        ...prev[itemId],
-        provider: providerId
-      }
+      [itemId]: { ...prev[itemId], prompt: promptId }
     }));
-  };
+  }, [localSelections]);
 
   const handleAction = async (action: string, itemId: string | number) => {
     const item = queueItems.find(q => q.id.toString() === itemId.toString());
     
     if (!item) {
+      logService.error('Élément non trouvé pour action', 'QueueIAAdvanced', {
+        itemId,
+        action,
+        availableItems: queueItems.map(i => i.id),
+        timestamp: new Date().toISOString()
+      });
       console.error(`❌ Élément avec ID ${itemId} non trouvé dans queueItems:`, queueItems);
       return;
     }
+
+    logService.info('Action sur élément de queue', 'QueueIAAdvanced', {
+      action,
+      itemId,
+      itemName: item.file_info?.name,
+      itemStatus: item.status,
+      isLocal: item.is_local,
+      timestamp: new Date().toISOString()
+    });
 
     try {
       setLoading(true);
@@ -1116,36 +1143,65 @@ export const QueueIAAdvanced: React.FC = () => {
       switch (action) {
         case 'start_analysis':
           if (item.is_local) {
-            // Conversion locale → backend
+            logService.info('Conversion locale → backend', 'QueueIAAdvanced', {
+              itemId,
+              fileName: item.file_info?.name,
+              timestamp: new Date().toISOString()
+            });
             await convertLocalToBackend(item);
           } else {
-            // Redémarrer une analyse existante
+            logService.info('Redémarrage d\'analyse existante', 'QueueIAAdvanced', {
+              itemId,
+              fileName: item.file_info?.name,
+              timestamp: new Date().toISOString()
+            });
             await queueService.startQueueProcessing();
           }
           break;
 
         case 'duplicate_item':
+          logService.info('Duplication d\'élément', 'QueueIAAdvanced', {
+            itemId,
+            fileName: item.file_info?.name,
+            timestamp: new Date().toISOString()
+          });
           await queueService.duplicateQueueItem(item.id);
           break;
 
         case 'delete_item':
+          logService.info('Suppression d\'élément', 'QueueIAAdvanced', {
+            itemId,
+            fileName: item.file_info?.name,
+            timestamp: new Date().toISOString()
+          });
           await queueService.deleteQueueItem(item.id);
           break;
 
         case 'retry_item':
+          logService.info('Nouvelle tentative d\'élément', 'QueueIAAdvanced', {
+            itemId,
+            fileName: item.file_info?.name,
+            timestamp: new Date().toISOString()
+          });
           await queueService.retryQueueItem(item.id);
           break;
 
         default:
+          logService.warning('Action non reconnue', 'QueueIAAdvanced', {
+            action,
+            itemId,
+            timestamp: new Date().toISOString()
+          });
           console.warn(`⚠️ Action non reconnue: ${action}`);
       }
     } catch (error) {
-      console.error(`❌ Erreur lors de l'action ${action}:`, error);
-      logService.error(`Erreur lors de l'action ${action}`, 'QueueIAAdvanced', { 
+      logService.error('Erreur lors de l\'action', 'QueueIAAdvanced', { 
+        action,
         itemId, 
-        action, 
-        error: error.message 
+        error: error.message,
+        timestamp: new Date().toISOString()
       });
+      console.error(`❌ Erreur lors de l'action ${action}:`, error);
     } finally {
       setLoading(false);
     }
@@ -1153,6 +1209,14 @@ export const QueueIAAdvanced: React.FC = () => {
 
   // OPTIMISATION: Conversion locale → backend simplifiée
   const convertLocalToBackend = async (localItem: any) => {
+    logService.info('Début conversion locale → backend', 'QueueIAAdvanced', {
+      fileName: localItem.file_info?.name,
+      filePath: localItem.file_info?.path,
+      provider: localItem.analysis_provider,
+      prompt: localItem.prompt,
+      timestamp: new Date().toISOString()
+    });
+
     try {
       // Créer l'analyse backend
       const analysisResponse = await analysisService.createPendingAnalysis({
@@ -1171,271 +1235,339 @@ export const QueueIAAdvanced: React.FC = () => {
         // Démarrer le traitement
         await queueService.startQueueProcessing();
         
+        logService.info('Conversion locale → backend réussie', 'QueueIAAdvanced', {
+          fileName: localItem.file_info?.name,
+          analysisId: analysisResponse.analysis_id,
+          timestamp: new Date().toISOString()
+        });
+        
         console.log('✅ Élément local converti en backend:', analysisResponse.analysis_id);
       }
     } catch (error) {
+      logService.error('Erreur conversion locale → backend', 'QueueIAAdvanced', {
+        fileName: localItem.file_info?.name,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      });
       console.error('❌ Erreur conversion locale → backend:', error);
       throw error;
     }
   };
 
   const handleBulkAction = async (action: string) => {
-     if (selectedItems.size === 0) return;
-     
-     try {
-       logService.debug(`Action bulk ${action} sur ${selectedItems.size} éléments`, 'QueueIAAdvanced', { action, selectedItems: Array.from(selectedItems) });
-       
-       switch (action) {
-         case 'pause_all':
-           await queueService.pauseQueue();
-           logService.info('Queue mise en pause', 'QueueIAAdvanced');
-           break;
-         case 'resume_all':
-           await queueService.resumeQueue();
-           logService.info('Queue reprise', 'QueueIAAdvanced');
-           break;
-         case 'retry_failed':
-           await queueService.retryFailedItems();
-           logService.info('Analyses échouées relancées', 'QueueIAAdvanced');
-           break;
-                   case 'view_multiple':
-            // Vérifier qu'au moins un PDF est disponible avant d'ouvrir la visualisation
-            const itemsWithPDFs = await Promise.all(
-              Array.from(selectedItems).map(async (itemId) => {
-                try {
-                  const hasPDF = await pdfService.hasPDF(parseInt(itemId));
-                  return { itemId, hasPDF };
-                } catch (error) {
-                  return { itemId, hasPDF: false };
-                }
-              })
-            );
-            
-            const availablePDFs = itemsWithPDFs.filter(item => item.hasPDF);
-            
-            if (availablePDFs.length === 0) {
-              logService.warning('Aucun PDF disponible pour la visualisation', 'QueueIAAdvanced', { selectedItems: Array.from(selectedItems) });
-              return;
-            }
-            
-            // Ouvrir la visualisation multiple des PDFs dans l'onglet Visualiseur
-            setActivePanel('viewer');
-            window.dispatchEvent(new CustomEvent('openMultiplePDFsInViewer', {
-              detail: { 
-                selectedItems: availablePDFs.map(item => item.itemId),
-                queueItems: queueItems
-              }
-            }));
-            logService.info('Ouverture de la visualisation multiple dans l\'onglet Visualiseur', 'QueueIAAdvanced', { 
-              selectedItems: availablePDFs.map(item => item.itemId),
-              count: availablePDFs.length 
-            });
-            break;
-                   case 'duplicate_selected':
-            // Dupliquer toutes les analyses sélectionnées
-            // setIsDuplicating(true); // This state is no longer needed
-            logService.info('Début de la duplication multiple', 'QueueIAAdvanced', { 
-              selectedItems: Array.from(selectedItems), 
-              count: selectedItems.size,
-              queueItemsCount: queueItems.length
-            });
-            
-            let successCount = 0;
-            let errorCount = 0;
-            
-                         // Traiter chaque duplication comme un ajout simple
-             for (const itemId of Array.from(selectedItems)) {
-               let item: any = null;
-               try {
-                 console.log(`🔄 Début de duplication pour l'élément ${itemId}`);
-                 
-                 item = queueItems.find(q => q.id.toString() === itemId);
-                 if (!item) {
-                   logService.warning('Item non trouvé pour duplication', 'QueueIAAdvanced', { itemId });
-                   errorCount++;
-                   continue;
-                 }
-                
-                const itemName = item.file_info?.name || `ID: ${itemId}`;
-                console.log(`📄 Duplication de: ${itemName}`);
-                
-                // Récupérer les sélections locales ou les valeurs par défaut
-                const duplicateLocalSelection = localSelections[itemId] || {};
-                const duplicateProvider = duplicateLocalSelection.provider || item.analysis_provider;
-                
-                console.log(`🔧 Provider sélectionné: ${duplicateProvider}`);
-                console.log(`🔧 Sélection locale:`, duplicateLocalSelection);
-                
-                // Pour les prompts, récupérer le contenu du prompt sélectionné
-                let duplicatePrompt = '';
-                if (duplicateLocalSelection.prompt) {
-                  const selectedPromptObj = currentPrompts.find(p => p.id === duplicateLocalSelection.prompt);
-                  duplicatePrompt = selectedPromptObj?.prompt || '';
-                  console.log(`📝 Prompt sélectionné depuis local: ${selectedPromptObj?.name || 'N/A'}`);
-                } else if ((item as any).analysis_prompt) {
-                  duplicatePrompt = (item as any).analysis_prompt;
-                  console.log(`📝 Prompt utilisé depuis item: ${duplicatePrompt.substring(0, 50)}...`);
-                }
-                
-                // Validation
-                if (!duplicateProvider || !duplicatePrompt) {
-                  logService.warning('Impossible de dupliquer - IA ou prompt manquant', 'QueueIAAdvanced', { 
-                    itemId, 
-                    itemName, 
-                    duplicateProvider, 
-                    duplicatePrompt,
-                    hasProvider: !!duplicateProvider,
-                    hasPrompt: !!duplicatePrompt,
-                    promptLength: duplicatePrompt ? duplicatePrompt.length : 0
+    if (selectedItems.size === 0) return;
+    
+    logService.info('Action en lot démarrée', 'QueueIAAdvanced', {
+      action,
+      selectedItemsCount: selectedItems.size,
+      selectedItems: Array.from(selectedItems),
+      timestamp: new Date().toISOString()
+    });
+    
+    try {
+      logService.debug(`Action bulk ${action} sur ${selectedItems.size} éléments`, 'QueueIAAdvanced', { action, selectedItems: Array.from(selectedItems) });
+      
+      switch (action) {
+        case 'start_selected':
+          logService.info('Démarrage d\'analyses sélectionnées', 'QueueIAAdvanced', {
+            count: selectedItems.size,
+            selectedItems: Array.from(selectedItems),
+            timestamp: new Date().toISOString()
+          });
+          
+          // Traiter chaque élément sélectionné
+          for (const itemId of Array.from(selectedItems)) {
+            try {
+              const item = queueItems.find(q => q.id.toString() === itemId.toString());
+              if (item) {
+                if (item.is_local) {
+                  await convertLocalToBackend(item);
+                } else {
+                  logService.debug('Redémarrage d\'analyse existante', 'QueueIAAdvanced', {
+                    itemId,
+                    fileName: item.file_info?.name,
+                    timestamp: new Date().toISOString()
                   });
-                  errorCount++;
-                  continue;
                 }
-                
-                console.log(`✅ Validation OK - Début de l'appel API`);
-                
-                const result = await queueService.duplicateAnalysis(
-                  parseInt(itemId), 
-                  duplicateProvider, 
-                  duplicatePrompt
-                );
-                
-                console.log(`✅ Résultat de duplication:`, result);
-                
-                logService.info('Analyse dupliquée avec succès', 'QueueIAAdvanced', { 
-                  itemId, 
-                  itemName, 
-                  newItemId: result.new_item_id,
-                  newAnalysisId: result.new_analysis_id,
-                  provider: duplicateProvider
+              }
+            } catch (error) {
+              logService.error('Erreur lors du démarrage d\'analyse', 'QueueIAAdvanced', {
+                itemId,
+                error: error.message,
+                timestamp: new Date().toISOString()
+              });
+            }
+          }
+          
+          // Démarrer le traitement de la queue
+          await queueService.startQueueProcessing();
+          logService.info('Démarrage d\'analyses terminé', 'QueueIAAdvanced', {
+            count: selectedItems.size,
+            timestamp: new Date().toISOString()
+          });
+          break;
+
+        case 'view_multiple':
+          logService.info('Visualisation multiple de PDFs', 'QueueIAAdvanced', {
+            count: selectedItems.size,
+            selectedItems: Array.from(selectedItems),
+            timestamp: new Date().toISOString()
+          });
+          
+          // Vérifier qu'au moins un PDF est disponible avant d'ouvrir la visualisation
+          const itemsWithPDFs = await Promise.all(
+            Array.from(selectedItems).map(async (itemId) => {
+              try {
+                const hasPDF = await pdfService.hasPDF(parseInt(itemId));
+                return { itemId, hasPDF };
+              } catch (error) {
+                return { itemId, hasPDF: false };
+              }
+            })
+          );
+          
+          const availablePDFs = itemsWithPDFs.filter(item => item.hasPDF);
+          
+          if (availablePDFs.length === 0) {
+            logService.warning('Aucun PDF disponible pour la visualisation', 'QueueIAAdvanced', { 
+              selectedItems: Array.from(selectedItems),
+              timestamp: new Date().toISOString()
+            });
+            return;
+          }
+          
+          logService.info('Ouverture de la visualisation multiple', 'QueueIAAdvanced', {
+            availablePDFs: availablePDFs.map(item => item.itemId),
+            count: availablePDFs.length,
+            timestamp: new Date().toISOString()
+          });
+          
+          // Ouvrir la visualisation multiple dans l'onglet Visualiseur
+          setActivePanel('viewer');
+          window.dispatchEvent(new CustomEvent('openMultiplePDFsInViewer', {
+            detail: { 
+              selectedItems: availablePDFs.map(item => item.itemId),
+              queueItems: queueItems,
+              isComparison: false
+            }
+          }));
+          break;
+
+        case 'duplicate_selected':
+          logService.info('Début de la duplication multiple', 'QueueIAAdvanced', { 
+            selectedItems: Array.from(selectedItems), 
+            count: selectedItems.size,
+            queueItemsCount: queueItems.length,
+            timestamp: new Date().toISOString()
+          });
+          
+          let successCount = 0;
+          let errorCount = 0;
+          
+          // Traiter chaque duplication comme un ajout simple
+          for (const itemId of Array.from(selectedItems)) {
+            let item: any = null;
+            try {
+              item = queueItems.find(q => q.id.toString() === itemId.toString());
+              
+              if (item) {
+                logService.debug('Duplication d\'élément', 'QueueIAAdvanced', {
+                  itemId,
+                  fileName: item.file_info?.name,
+                  timestamp: new Date().toISOString()
                 });
                 
+                await queueService.duplicateQueueItem(item.id);
                 successCount++;
                 
                 // Pas besoin de rafraîchir - SSE s'en charge
                 console.log(`✅ Élément dupliqué`);
                 
-                             } catch (error) {
-                 console.error(`❌ Erreur lors de la duplication de ${itemId}:`, error);
-                 const itemName = item?.file_info?.name || `ID: ${itemId}`;
-                 logService.error('Erreur lors de la duplication', 'QueueIAAdvanced', { 
-                   itemId, 
-                   itemName,
-                   error: error.message,
-                   errorStack: error.stack
-                 });
-                 errorCount++;
-               }
-            }
-            
-            // setIsDuplicating(false); // This state is no longer needed
-            
-            const summary = {
-              total: selectedItems.size,
-              success: successCount,
-              error: errorCount
-            };
-            
-            console.log(`📊 Résumé de la duplication multiple:`, summary);
-            logService.info('Duplication multiple terminée', 'QueueIAAdvanced', summary);
-            
-            // Afficher un message à l'utilisateur
-            if (successCount > 0) {
-              console.log(`✅ ${successCount} analyse(s) dupliquée(s) avec succès`);
-            }
-            if (errorCount > 0) {
-              console.log(`❌ ${errorCount} erreur(s) lors de la duplication`);
-            }
-            
-            break;
-                   case 'delete_selected':
-            // Supprimer toutes les analyses sélectionnées
-            for (const itemId of Array.from(selectedItems)) {
-              try {
-                await queueService.deleteQueueItem(parseInt(itemId));
-                logService.info('Analyse supprimée', 'QueueIAAdvanced', { itemId });
-              } catch (error) {
-                logService.error('Erreur lors de la suppression', 'QueueIAAdvanced', { itemId, error: error.message });
+              } else {
+                logService.warning('Élément non trouvé pour duplication', 'QueueIAAdvanced', {
+                  itemId,
+                  timestamp: new Date().toISOString()
+                });
+                errorCount++;
               }
+            } catch (error) {
+              logService.error('Erreur lors de la duplication', 'QueueIAAdvanced', { 
+                itemId, 
+                fileName: item?.file_info?.name,
+                error: error.message,
+                timestamp: new Date().toISOString()
+              });
+              errorCount++;
             }
-            // Pas besoin de rafraîchir - SSE s'en charge
-            break;
-                     case 'compare_selected':
-             if (selectedItems.size < 2) {
-               logService.warning('Comparaison impossible - moins de 2 éléments sélectionnés', 'QueueIAAdvanced', { selectedItems: Array.from(selectedItems) });
-               return;
-             }
-             
-             // Vérifier qu'au moins un PDF est disponible pour la comparaison
-             const itemsWithPDFsForCompare = await Promise.all(
-               Array.from(selectedItems).map(async (itemId) => {
-                 try {
-                   const hasPDF = await pdfService.hasPDF(parseInt(itemId));
-                   return { itemId, hasPDF };
-                 } catch (error) {
-                   return { itemId, hasPDF: false };
-                 }
-               })
-             );
-             
-             const availablePDFsForCompare = itemsWithPDFsForCompare.filter(item => item.hasPDF);
-             
-             if (availablePDFsForCompare.length === 0) {
-               logService.warning('Aucun PDF disponible pour la comparaison', 'QueueIAAdvanced', { selectedItems: Array.from(selectedItems) });
-               return;
-             }
-             
-             logService.info('Comparaison des analyses sélectionnées', 'QueueIAAdvanced', { selectedItems: Array.from(selectedItems) });
-             
-             try {
-               // Ouvrir la visualisation multiple pour la comparaison dans l'onglet Visualiseur
-               setActivePanel('viewer');
-               window.dispatchEvent(new CustomEvent('openMultiplePDFsInViewer', {
-                 detail: { 
-                   selectedItems: availablePDFsForCompare.map(item => item.itemId),
-                   queueItems: queueItems,
-                   isComparison: true
-                 }
-               }));
-               
-               logService.info('Ouverture de la comparaison multiple dans l\'onglet Visualiseur', 'QueueIAAdvanced', { 
-                 selectedItems: availablePDFsForCompare.map(item => item.itemId),
-                 count: availablePDFsForCompare.length 
-               });
-               
-             } catch (error) {
-               logService.error('Erreur lors de la comparaison', 'QueueIAAdvanced', { selectedItems: Array.from(selectedItems), error: error.message });
-             }
-             break;
-         case 'clear_completed':
-           simpleAction(
-             'supprimer toutes les analyses terminées',
-             'les analyses terminées',
-             async () => {
-               await queueService.clearQueue();
-               logService.info('Analyses terminées supprimées', 'QueueIAAdvanced');
-               setSelectedItems(new Set());
-             },
-             undefined,
-             'danger'
-           );
-           return;
-         default:
-           logService.warning('Action bulk non implémentée', 'QueueIAAdvanced', { action });
-           console.log('Action bulk non implémentée:', action);
-       }
-       if (action !== 'clear_completed') {
-         setSelectedItems(new Set());
-       }
-     } catch (error) {
-       logService.error(`Erreur lors de l'action bulk ${action}`, 'QueueIAAdvanced', { action, error: error.message });
-       console.error('Erreur lors de l\'action bulk:', error);
-       // Réinitialiser l'état de duplication en cas d'erreur
-       // if (action === 'duplicate_selected') { // This state is no longer needed
-       //   setIsDuplicating(false);
-       // }
-     }
-   };
+          }
+          
+          const summary = {
+            total: selectedItems.size,
+            success: successCount,
+            error: errorCount
+          };
+          
+          logService.info('Duplication multiple terminée', 'QueueIAAdvanced', {
+            ...summary,
+            timestamp: new Date().toISOString()
+          });
+          
+          // Afficher un message à l'utilisateur
+          if (successCount > 0) {
+            console.log(`✅ ${successCount} analyse(s) dupliquée(s) avec succès`);
+          }
+          if (errorCount > 0) {
+            console.log(`❌ ${errorCount} erreur(s) lors de la duplication`);
+          }
+          break;
+
+        case 'delete_selected':
+          logService.info('Suppression multiple d\'éléments', 'QueueIAAdvanced', {
+            count: selectedItems.size,
+            selectedItems: Array.from(selectedItems),
+            timestamp: new Date().toISOString()
+          });
+          
+          // Supprimer toutes les analyses sélectionnées
+          for (const itemId of Array.from(selectedItems)) {
+            try {
+              await queueService.deleteQueueItem(parseInt(itemId));
+              logService.debug('Analyse supprimée', 'QueueIAAdvanced', { 
+                itemId,
+                timestamp: new Date().toISOString()
+              });
+            } catch (error) {
+              logService.error('Erreur lors de la suppression', 'QueueIAAdvanced', { 
+                itemId, 
+                error: error.message,
+                timestamp: new Date().toISOString()
+              });
+            }
+          }
+          // Pas besoin de rafraîchir - SSE s'en charge
+          break;
+
+        case 'compare_selected':
+          if (selectedItems.size < 2) {
+            logService.warning('Comparaison impossible - moins de 2 éléments sélectionnés', 'QueueIAAdvanced', { 
+              selectedItems: Array.from(selectedItems),
+              timestamp: new Date().toISOString()
+            });
+            return;
+          }
+          
+          logService.info('Comparaison d\'analyses sélectionnées', 'QueueIAAdvanced', { 
+            selectedItems: Array.from(selectedItems),
+            timestamp: new Date().toISOString()
+          });
+          
+          // Vérifier qu'au moins un PDF est disponible pour la comparaison
+          const itemsWithPDFsForCompare = await Promise.all(
+            Array.from(selectedItems).map(async (itemId) => {
+              try {
+                const hasPDF = await pdfService.hasPDF(parseInt(itemId));
+                return { itemId, hasPDF };
+              } catch (error) {
+                return { itemId, hasPDF: false };
+              }
+            })
+          );
+          
+          const availablePDFsForCompare = itemsWithPDFsForCompare.filter(item => item.hasPDF);
+          
+          if (availablePDFsForCompare.length === 0) {
+            logService.warning('Aucun PDF disponible pour la comparaison', 'QueueIAAdvanced', { 
+              selectedItems: Array.from(selectedItems),
+              timestamp: new Date().toISOString()
+            });
+            return;
+          }
+          
+          logService.info('Comparaison des analyses sélectionnées', 'QueueIAAdvanced', { 
+            selectedItems: Array.from(selectedItems),
+            timestamp: new Date().toISOString()
+          });
+          
+          try {
+            // Ouvrir la visualisation multiple pour la comparaison dans l'onglet Visualiseur
+            setActivePanel('viewer');
+            window.dispatchEvent(new CustomEvent('openMultiplePDFsInViewer', {
+              detail: { 
+                selectedItems: availablePDFsForCompare.map(item => item.itemId),
+                queueItems: queueItems,
+                isComparison: true
+              }
+            }));
+            
+            logService.info('Ouverture de la comparaison multiple dans l\'onglet Visualiseur', 'QueueIAAdvanced', { 
+              selectedItems: availablePDFsForCompare.map(item => item.itemId),
+              count: availablePDFsForCompare.length,
+              timestamp: new Date().toISOString()
+            });
+            
+          } catch (error) {
+            logService.error('Erreur lors de la comparaison', 'QueueIAAdvanced', { 
+              selectedItems: Array.from(selectedItems), 
+              error: error.message,
+              timestamp: new Date().toISOString()
+            });
+          }
+          break;
+
+        case 'clear_completed':
+          logService.info('Nettoyage des analyses terminées', 'QueueIAAdvanced', {
+            timestamp: new Date().toISOString()
+          });
+          
+          await simpleAction(
+            'supprimer toutes les analyses terminées',
+            'les analyses terminées',
+            async () => {
+              try {
+                await queueService.clearQueue();
+                logService.info('Analyses terminées supprimées', 'QueueIAAdvanced', {
+                  timestamp: new Date().toISOString()
+                });
+                setSelectedItems(new Set());
+              } catch (error) {
+                logService.error('Erreur lors du nettoyage', 'QueueIAAdvanced', {
+                  error: error.message,
+                  timestamp: new Date().toISOString()
+                });
+              }
+            },
+            undefined,
+            'danger'
+          );
+          break;
+
+        default:
+          logService.warning('Action en lot non reconnue', 'QueueIAAdvanced', {
+            action,
+            timestamp: new Date().toISOString()
+          });
+          console.warn(`Action en lot non reconnue: ${action}`);
+      }
+      
+      if (action !== 'clear_completed') {
+        setSelectedItems(new Set());
+      }
+      
+      logService.info('Action en lot terminée', 'QueueIAAdvanced', {
+        action,
+        success: true,
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (error) {
+      logService.error('Erreur lors de l\'action en lot', 'QueueIAAdvanced', { 
+        action, 
+        error: error.message,
+        timestamp: new Date().toISOString()
+      });
+      console.error('Erreur lors de l\'action bulk:', error);
+    }
+  };
   
   return (
     <div className="h-full flex flex-col p-4 overflow-hidden" style={{ backgroundColor: colors.background }}>
