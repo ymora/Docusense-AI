@@ -1333,7 +1333,7 @@ export const QueueIAAdvanced: React.FC = () => {
               }
               
               // Ouvrir la comparaison dans l'onglet Visualiseur
-              setActivePanel('main');
+              setActivePanel('viewer');
               window.dispatchEvent(new CustomEvent('openMultiplePDFsInViewer', {
                 detail: { 
                   selectedItems: [itemId],
@@ -1397,7 +1397,7 @@ export const QueueIAAdvanced: React.FC = () => {
             }
             
             // Ouvrir la visualisation multiple des PDFs dans l'onglet Visualiseur
-            setActivePanel('main');
+            setActivePanel('viewer');
             window.dispatchEvent(new CustomEvent('openMultiplePDFsInViewer', {
               detail: { 
                 selectedItems: availablePDFs.map(item => item.itemId),
@@ -1569,7 +1569,7 @@ export const QueueIAAdvanced: React.FC = () => {
              
              try {
                // Ouvrir la visualisation multiple pour la comparaison dans l'onglet Visualiseur
-               setActivePanel('main');
+               setActivePanel('viewer');
                window.dispatchEvent(new CustomEvent('openMultiplePDFsInViewer', {
                  detail: { 
                    selectedItems: availablePDFsForCompare.map(item => item.itemId),

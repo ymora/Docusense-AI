@@ -17,37 +17,35 @@ interface TabPanelProps {
 const TabPanel: React.FC<TabPanelProps> = ({ tabs, activeTab, onTabChange }) => {
   const { colors } = useColors();
 
+  console.log('🔍 TabPanel - activeTab:', activeTab);
+  console.log('🔍 TabPanel - tabs:', tabs.map(t => ({ id: t.id, label: t.label })));
+
   return (
     <div className="flex border-b" style={{ borderColor: colors.border }}>
-      {tabs.map((tab) => {
-        const isActive = activeTab === tab.id;
+             {tabs.map((tab) => {
+         const isActive = activeTab === tab.id;
+         console.log(`🔍 TabPanel - Onglet ${tab.id}: isActive = ${isActive}`);
         
         return (
           <button
             key={tab.id}
-            onClick={() => onTabChange(tab.id)}
+            onClick={() => {
+              console.log('🖱️ TabPanel - Clic manuel sur onglet:', tab.id);
+              onTabChange(tab.id);
+            }}
             className={`flex items-center space-x-2 px-4 py-3 text-sm font-medium transition-all duration-300 ease-in-out border-b-2 hover:scale-105 ${
               isActive
-                ? 'border-b-2'
+                ? 'border-b-3'
                 : 'border-transparent hover:border-opacity-50'
             }`}
             style={{
               borderColor: isActive ? colors.primary : 'transparent',
               color: isActive ? colors.primary : colors.textSecondary,
-              backgroundColor: 'transparent'
+              backgroundColor: isActive ? colors.primary + '15' : 'transparent',
+              borderBottomWidth: isActive ? '3px' : '2px'
             }}
-            onMouseEnter={(e) => {
-              if (!isActive) {
-                e.currentTarget.style.color = colors.text;
-                e.currentTarget.style.borderColor = colors.border;
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!isActive) {
-                e.currentTarget.style.color = colors.textSecondary;
-                e.currentTarget.style.borderColor = 'transparent';
-              }
-            }}
+            data-active={isActive}
+
           >
             <div className="transition-transform duration-200">
               {tab.icon}
@@ -59,7 +57,9 @@ const TabPanel: React.FC<TabPanelProps> = ({ tabs, activeTab, onTabChange }) => 
                 style={{
                   backgroundColor: isActive ? colors.primary : colors.surface,
                   borderColor: isActive ? colors.primary : colors.border,
-                  color: isActive ? '#ffffff' : colors.textSecondary
+                  color: isActive ? '#ffffff' : colors.textSecondary,
+                  fontWeight: isActive ? 'bold' : 'normal',
+                  boxShadow: isActive ? `0 0 8px ${colors.primary}40` : 'none'
                 }}
               >
                 {tab.count}

@@ -32,8 +32,8 @@ import UnifiedFileViewer from '../FileManager/UnifiedFileViewer';
 import { useUIStore } from '../../stores/uiStore';
 
 interface MainPanelProps {
-  activePanel: 'main' | 'config' | 'analyses' | 'queue';
-  onSetActivePanel?: (panel: 'main' | 'config' | 'analyses' | 'queue') => void;
+  activePanel: 'viewer' | 'config' | 'analyses' | 'queue';
+  onSetActivePanel?: (panel: 'viewer' | 'config' | 'analyses' | 'queue') => void;
 }
 
 const MainPanel: React.FC<MainPanelProps> = ({ 
@@ -78,6 +78,7 @@ const MainPanel: React.FC<MainPanelProps> = ({
   });
 
   // Définir les onglets
+  console.log('🔍 MainPanel - Définition des onglets avec activePanel:', activePanel);
   const tabs = [
     {
       id: 'config',
@@ -87,19 +88,19 @@ const MainPanel: React.FC<MainPanelProps> = ({
     },
     {
       id: 'queue',
-      label: 'File d\'attente & Analyses',
+      label: 'File d\'attente',
       icon: <QueueListIcon className="h-4 w-4" />,
       count: queueItems?.length || 0,
     },
     {
-      id: 'logs',
-      label: 'Logs',
+      id: 'analyses',
+      label: 'Analyses & Logs',
       icon: <LogsIcon className="h-4 w-4" />,
       count: logsCount,
     },
     {
       id: 'viewer',
-      label: 'Visualiseur',
+      label: 'Visualiseur de fichiers',
       icon: <EyeIcon className="h-4 w-4" />,
     },
   ];
@@ -297,7 +298,7 @@ const MainPanel: React.FC<MainPanelProps> = ({
       case 'config':
         return <ConfigContent />;
 
-      case 'logs':
+      case 'analyses':
         return <LogsPanel />;
 
       case 'viewer':
@@ -474,10 +475,10 @@ const MainPanel: React.FC<MainPanelProps> = ({
               </p>
             </>
           )}
-          {activePanel === 'logs' && (
+          {activePanel === 'analyses' && (
             <>
               <h1 className="text-xl font-bold" style={{ color: colors.text }}>
-                Journal des événements
+                Analyses & Logs
               </h1>
               <p className="text-sm" style={{ color: colors.textSecondary }}>
                 Gestion et consultation des logs système avec filtres et actions
@@ -494,7 +495,7 @@ const MainPanel: React.FC<MainPanelProps> = ({
               </p>
             </>
           )}
-          {activePanel === 'main' && (
+          {activePanel === 'viewer' && (
             <>
               <h1 className="text-xl font-bold" style={{ color: colors.text }}>
                 Visualiseur de fichiers

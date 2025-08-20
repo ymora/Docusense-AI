@@ -64,6 +64,20 @@ const Layout: React.FC = () => {
     }
   }, []);
 
+  // Basculement automatique vers l'onglet visualisation quand un fichier est sélectionné
+  useEffect(() => {
+    console.log('🔍 Layout - selectedFile changed:', selectedFile?.name);
+    console.log('🔍 Layout - activePanel:', activePanel);
+    
+    // Ne basculer que si c'est un nouveau fichier sélectionné
+    const currentFileId = selectedFile?.id || selectedFile?.path;
+    if (selectedFile && currentFileId !== lastSelectedFile && activePanel !== 'viewer') {
+      console.log('🔄 Layout - Basculement automatique vers viewer pour nouveau fichier');
+      setActivePanel('viewer');
+      setLastSelectedFile(currentFileId);
+    }
+  }, [selectedFile, activePanel, setActivePanel, lastSelectedFile]);
+
   // Gestion des actions de fichiers (menu contextuel)
   useEffect(() => {
     const handleFileAction = async (event: CustomEvent) => {
@@ -72,7 +86,7 @@ const Layout: React.FC = () => {
       if (action === 'view' && file) {
         // Sélectionner le fichier pour l'afficher dans le MainPanel
         selectFile(file);
-        setActivePanel('main');
+        setActivePanel('viewer');
       } else if (action === 'download_file' && file) {
         // Télécharger un fichier individuel
         try {
@@ -107,11 +121,11 @@ const Layout: React.FC = () => {
              } else if (action === 'explore_directory' && file) {
          // Explorer le contenu du dossier
          selectFile(file);
-         setActivePanel('main');
+         setActivePanel('viewer');
        } else if (action === 'view_directory_thumbnails' && file) {
          // Visualiser tous les fichiers du dossier en miniatures
          selectFile(file);
-         setActivePanel('main');
+         setActivePanel('viewer');
          // Déclencher l'affichage en mode miniatures
          window.dispatchEvent(new CustomEvent('viewDirectoryThumbnails', {
            detail: { directoryPath: file.path }
@@ -339,7 +353,7 @@ const Layout: React.FC = () => {
         selectFile(file);
         
         // S'assurer que le MainPanel est actif
-        setActivePanel('main');
+        setActivePanel('viewer');
       }
     };
 
@@ -351,8 +365,8 @@ const Layout: React.FC = () => {
   useEffect(() => {
     const handleSetActivePanel = (event: CustomEvent) => {
       const { panel } = event.detail;
-      if (panel && ['main', 'config', 'analyses', 'queue'].includes(panel)) {
-        setActivePanel(panel as 'main' | 'config' | 'analyses' | 'queue');
+      if (panel && ['viewer', 'config', 'analyses', 'queue'].includes(panel)) {
+        setActivePanel(panel as 'viewer' | 'config' | 'analyses' | 'queue');
       }
     };
 

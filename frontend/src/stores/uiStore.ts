@@ -7,14 +7,14 @@ interface UIState {
   theme: 'light' | 'dark';
   language: 'fr' | 'en';
   autoRefreshInterval: number;
-  activePanel: 'main' | 'config' | 'queue' | 'analyses';
+  activePanel: 'viewer' | 'config' | 'queue' | 'analyses';
 
   // Actions
   setSidebarWidth: (width: number) => void;
   setTheme: (theme: 'light' | 'dark') => void;
   setLanguage: (language: 'fr' | 'en') => void;
   setAutoRefreshInterval: (interval: number) => void;
-  setActivePanel: (panel: 'main' | 'config' | 'queue' | 'analyses') => void;
+  setActivePanel: (panel: 'viewer' | 'config' | 'queue' | 'analyses') => void;
 }
 
 export const useUIStore = create<UIState>()(
@@ -25,7 +25,7 @@ export const useUIStore = create<UIState>()(
       theme: 'dark',
       language: 'fr',
       autoRefreshInterval: 10,
-      activePanel: 'main',
+      activePanel: 'viewer',
 
       // Actions
       setSidebarWidth: (width) => set({ sidebarWidth: width }),

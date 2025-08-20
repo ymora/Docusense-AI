@@ -531,6 +531,31 @@ input[type="range"]::-moz-range-thumb:active {
   border: 2px solid #ffffff;
 }
 
+/* Styles pour les onglets actifs */
+@layer components {
+  [data-active="true"] {
+    border-color: #3b82f6 !important;
+    color: #3b82f6 !important;
+    background-color: rgba(59, 130, 246, 0.1) !important;
+    border-bottom-width: 3px !important;
+  }
+  
+  [data-active="true"] span[class*="rounded-full"] {
+    background-color: #3b82f6 !important;
+    border-color: #3b82f6 !important;
+    color: #ffffff !important;
+    font-weight: bold !important;
+    box-shadow: 0 0 8px rgba(59, 130, 246, 0.25) !important;
+  }
+  
+  /* Styles pour les onglets inactifs au survol */
+  button[data-active="false"]:hover {
+    color: #f1f5f9 !important;
+    border-color: #475569 !important;
+    background-color: #1e293b !important;
+  }
+}
+
 /* Styles personnalisés pour les scrollbars */
 @layer utilities {
   /* Scrollbar personnalisée pour les emails */

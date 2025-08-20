@@ -25,12 +25,8 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ file, onClose, onError }) => 
 
   // URL de streaming avec fallback intelligent
   const getStreamingUrl = () => {
-    // Si on utilise le fallback ou si ce n'est pas audio/vidéo, utiliser l'ancien système
-    if (useFallback || (!isVideo && !isAudio)) {
-      return `/api/files/stream-by-path/${encodeURIComponent(file.path)}?native=true${needsHls ? '&hls=true' : ''}&t=${Date.now()}`;
-    }
-    // Essayer le streaming en temps réel pour audio/vidéo
-    return `http://localhost:8000/api/files/stream-realtime/${encodeURIComponent(file.path)}?quality=medium&t=${Date.now()}`;
+    // Utiliser le streaming sécurisé qui fonctionne même si l'upload n'est pas fini
+    return `/api/secure-streaming/view/${encodeURIComponent(file.path)}?t=${Date.now()}`;
   };
 
   const mediaUrl = getStreamingUrl();
@@ -45,7 +41,7 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ file, onClose, onError }) => 
 
   // URL de téléchargement
   const getDownloadUrl = () => {
-    return `http://localhost:8000/api/files/download-by-path/${encodeURIComponent(file.path)}`;
+    return `/api/secure-streaming/download/${encodeURIComponent(file.path)}`;
   };
 
   const handleDownload = () => {
@@ -197,16 +193,7 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ file, onClose, onError }) => 
                 onError={(error) => {
                   console.error('❌ Erreur ReactPlayer:', error);
                   
-                  // Si c'est un fichier audio/vidéo et qu'on n'utilise pas encore le fallback, essayer le fallback
-                  if ((isVideo || isAudio) && !useFallback) {
-
-                    setUseFallback(true);
-                    setHasError(false);
-                    setIsLoading(true);
-                    return;
-                  }
-                  
-                  // Sinon, afficher l'erreur
+                  // Afficher l'erreur
                   setHasError(true);
                   setIsReady(false);
                   setIsLoading(false);
