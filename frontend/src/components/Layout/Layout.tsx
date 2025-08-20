@@ -10,6 +10,7 @@ import { useFileStore } from '../../stores/fileStore';
 import { useColors } from '../../hooks/useColors';
 import { useStartupInitialization } from '../../hooks/useStartupInitialization';
 import { analysisService } from '../../services/analysisService';
+import useAuthStore from '../../stores/authStore';
 
 import { promptService } from '../../services/promptService';
 import { fileService } from '../../services/fileService';
@@ -22,6 +23,7 @@ const Layout: React.FC = () => {
   const { isInitialized, isLoading, initializationStep } = useStartupInitialization();
   const { sidebarWidth, setSidebarWidth, activePanel, setActivePanel } = useUIStore();
   const { colors } = useColors();
+  const { isAuthenticated } = useAuthStore();
   const [isResizing, setIsResizing] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [resizeStartWidth, setResizeStartWidth] = useState<number | null>(null);
@@ -557,6 +559,115 @@ const Layout: React.FC = () => {
             </div>
           </>
         </>
+        
+        {/* Overlay de floutage avec interface de connexion professionnelle */}
+        {!isAuthenticated && (
+          <div 
+            className="fixed inset-0 z-40 pointer-events-none"
+            style={{
+              backdropFilter: 'blur(3px)',
+              backgroundColor: 'rgba(0, 0, 0, 0.15)',
+            }}
+          >
+            {/* Interface de connexion centrée */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-auto">
+              <div 
+                className="px-10 py-8 rounded-xl shadow-2xl text-center max-w-lg w-full mx-6"
+                style={{
+                  backgroundColor: colors.surface,
+                  border: `1px solid ${colors.border}`,
+                  boxShadow: `0 25px 50px -12px rgba(0, 0, 0, 0.25)`,
+                }}
+              >
+                {/* Logo et titre */}
+                <div className="mb-8">
+                  <div className="text-3xl mb-3" style={{ color: colors.primary }}>
+                    🔐
+                  </div>
+                  <h1 className="text-2xl font-bold mb-2" style={{ color: colors.text }}>
+                    DocuSense AI
+                  </h1>
+                  <p className="text-sm font-medium" style={{ color: colors.textSecondary }}>
+                    Accédez à votre espace de travail
+                  </p>
+                </div>
+                
+                {/* Boutons de connexion */}
+                <div className="space-y-4">
+                  {/* Connexion utilisateur - Bouton principal */}
+                  <button
+                    onClick={() => {
+                      window.dispatchEvent(new CustomEvent('openLoginModal'));
+                    }}
+                    className="w-full flex items-center justify-center space-x-3 px-6 py-4 rounded-lg transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] font-semibold text-base"
+                    style={{
+                      backgroundColor: colors.primary,
+                      color: 'white',
+                      boxShadow: `0 4px 14px 0 ${colors.primary}40`,
+                    }}
+                  >
+                    <span className="text-lg">👤</span>
+                    <span>Se connecter</span>
+                  </button>
+                  
+                  {/* Connexion invité - Bouton secondaire */}
+                  <button
+                    onClick={async () => {
+                      try {
+                        await useAuthStore.getState().loginAsGuest();
+                      } catch (error) {
+                        console.error('Erreur de connexion invité:', error);
+                      }
+                    }}
+                    className="w-full flex items-center justify-center space-x-3 px-6 py-4 rounded-lg transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] font-medium text-base"
+                    style={{
+                      backgroundColor: 'transparent',
+                      border: `2px solid ${colors.border}`,
+                      color: colors.text,
+                    }}
+                  >
+                    <span className="text-lg">👁️</span>
+                    <span>Mode invité</span>
+                  </button>
+                  
+                  {/* Séparateur */}
+                  <div className="relative my-6">
+                    <div className="absolute inset-0 flex items-center">
+                      <div className="w-full border-t" style={{ borderColor: colors.border }}></div>
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="px-2" style={{ backgroundColor: colors.surface, color: colors.textSecondary }}>
+                        ou
+                      </span>
+                    </div>
+                  </div>
+                  
+                  {/* Inscription - Bouton tertiaire */}
+                  <button
+                    onClick={() => {
+                      window.dispatchEvent(new CustomEvent('openRegisterModal'));
+                    }}
+                    className="w-full flex items-center justify-center space-x-3 px-6 py-3 rounded-lg transition-all duration-300 hover:bg-opacity-80 font-medium text-sm"
+                    style={{
+                      backgroundColor: 'transparent',
+                      color: colors.textSecondary,
+                    }}
+                  >
+                    <span className="text-base">➕</span>
+                    <span>Créer un compte</span>
+                  </button>
+                </div>
+                
+                {/* Footer */}
+                <div className="mt-8 pt-6 border-t" style={{ borderColor: colors.border }}>
+                  <p className="text-xs" style={{ color: colors.textSecondary }}>
+                    Sécurisé et optimisé pour votre productivité
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
     </div>
     </>
   );

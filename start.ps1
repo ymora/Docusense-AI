@@ -20,13 +20,30 @@ if (-not $Quiet) {
 
 # Obtenir le chemin absolu du projet
 $projectPath = Get-Location
+Write-Host "Repertoire de travail: $projectPath" -ForegroundColor Gray
+
+# Détecter si on est déjà dans le dossier backend
+$currentFolder = Split-Path $projectPath -Leaf
+if ($currentFolder -eq "backend") {
+    # On est dans le dossier backend, remonter d'un niveau
+    $projectPath = Split-Path $projectPath -Parent
+    Write-Host "Detection: execution depuis le dossier backend, remonte au parent" -ForegroundColor Yellow
+    Write-Host "Nouveau repertoire de travail: $projectPath" -ForegroundColor Gray
+}
+
 $backendPath = Join-Path $projectPath "backend"
 $frontendPath = Join-Path $projectPath "frontend"
 $databaseManagerPath = Join-Path $backendPath "database_manager"
 
+Write-Host "Chemin backend: $backendPath" -ForegroundColor Gray
+Write-Host "Chemin frontend: $frontendPath" -ForegroundColor Gray
+
 # Vérifier que les dossiers existent
 if (-not (Test-Path $backendPath)) {
     Write-Host "Erreur: Dossier backend introuvable" -ForegroundColor $ErrorColor
+    Write-Host "Chemin teste: $backendPath" -ForegroundColor Red
+    Write-Host "Contenu du repertoire actuel:" -ForegroundColor Red
+    Get-ChildItem | ForEach-Object { Write-Host "  - $($_.Name)" -ForegroundColor Red }
     exit 1
 }
 
@@ -124,9 +141,13 @@ function Start-Services-Integrated {
             Write-Host "Erreur import application: $($_.Exception.Message)" -ForegroundColor Red
         }
         
-        # Lancement du backend
-        Write-Host "Lancement du backend..." -ForegroundColor Yellow
+        # Lancement du backend avec logs détaillés
+        Write-Host "Lancement du backend avec logs detailles..." -ForegroundColor Yellow
         Write-Host "Appuyez sur Ctrl+C pour arreter" -ForegroundColor Yellow
+        Write-Host "================================================" -ForegroundColor Gray
+        
+        # Définir le niveau de log pour voir tous les détails
+        $env:LOG_LEVEL = "INFO"
         .\venv\Scripts\python.exe main.py
     } else {
         Write-Host "Environnement virtuel introuvable" -ForegroundColor Red
@@ -154,8 +175,10 @@ function Start-Services-External {
     $backendCmd = @"
 `$host.ui.RawUI.WindowTitle = '$backendTitle'
 cd '$backendPath'
-Write-Host 'Backend demarre' -ForegroundColor Green
+Write-Host 'DocuSense Backend - Demarrage...' -ForegroundColor Green
 Write-Host 'http://localhost:8000' -ForegroundColor Cyan
+Write-Host '================================================' -ForegroundColor Gray
+`$env:LOG_LEVEL = 'INFO'
 .\venv\Scripts\python.exe main.py
 "@
     Start-Process powershell -ArgumentList "-NoExit", "-Command", $backendCmd

@@ -16,6 +16,7 @@
 - [🛠️ Installation](#️-installation)
 - [🎯 Utilisation](#-utilisation)
 - [🔧 Configuration](#-configuration)
+- [🔐 Sécurité et Permissions](#-sécurité-et-permissions)
 - [🐛 Dépannage](#-dépannage)
 - [📞 Support](#-support)
 
@@ -63,24 +64,39 @@ cd DocuSense-AI
 - **Bouton Métadonnées** : Accès aux détails via le panneau haut
 - **Navigation fluide** : Bouton retour unique pour les emails
 
-### 📁 Support Multi-Formats
+### 📁 Support Multi-Formats Complet
 
 #### **Documents** 📄
 - **PDF, DOCX, PPTX, XLSX** - Visualisation native
-- **TXT, RTF** - Affichage texte
+- **TXT, RTF, MD, CSV** - Affichage texte
+- **ODT, ODS, ODP** - Formats OpenDocument
 
-#### **Images** 🖼️
+#### **Images** 🖼️ (43 formats)
 - **JPG, PNG, GIF, WebP, HEIC, SVG, TIFF, BMP, ICO**
+- **Formats RAW** : CR2, CR3, NEF, ARW, RAF, ORF, PEF, SRW, RW2, DCR, KDC, K25, MRW, X3F, 3FR, FFF, IIQ, MOS
+- **Formats professionnels** : PSD, DNG
 - **Boutons flottants** : Zoom, télécharger, plein écran en overlay
 - **Contrôles intelligents** : Apparition au survol, indicateur de zoom
 
-#### **Vidéos** 🎬
-- **MP4, AVI, MOV, WMV, FLV, WebM, MKV** et **39 formats** supportés
+#### **Vidéos** 🎬 (39 formats)
+- **MP4, AVI, MOV, WMV, FLV, WebM, MKV, M4V, 3GP, OGV**
+- **Formats transport stream** : TS, MTS, M2TS
+- **Formats conteneurs** : ASF, RM, RMVB, NUT, F4V, F4P, F4A, F4B
+- **Formats codec** : DIVX, XVID, H264, H265, VP8, VP9
+- **Formats MPEG** : MPEG, MPG, MPE, M1V, M2V, MPV, MP2, M2P, PS
+- **Formats autres** : EVO, OGM, OGX, MXF
+- **Formats streaming** : HLS, M3U8
 - **Streaming natif** : Lecture directe sans téléchargement
 - **Analyse complète** : Métadonnées, codecs, durée, résolution
 
-#### **Audio** 🎵
-- **MP3, WAV, FLAC, AAC, OGG, WMA, M4A** et **21 formats** supportés
+#### **Audio** 🎵 (37 formats)
+- **MP3, WAV, FLAC, AAC, OGG, WMA, M4A, M4B, M4P, M4R**
+- **Formats haute qualité** : OPUS, AIFF, ALAC, AMR, AWB
+- **Formats anciens/legacy** : AU, SND, RA, RAM, WV, APE, AC3, DTS
+- **Formats conteneurs** : MKA, TTA, MID, MIDI, CAF
+- **Formats mobiles** : 3GA, 3GP, 3GPP, 3G2
+- **Formats Windows** : WAX, WVX
+- **Formats playlist** : PLS, SD2
 - **Lecteur intégré** avec contrôles simples
 - **Analyse spectrale** : Tempo, fréquences, spectrogrammes
 
@@ -107,6 +123,14 @@ cd DocuSense-AI
 - **Juridique** : Analyses juridiques
 - **Technique** : Analyses techniques
 - **Administratif** : Analyses administratives
+- **Multiple IA** : Analyse par plusieurs providers simultanément
+
+#### **Providers IA Supportés**
+- **OpenAI** : GPT-4, GPT-4-Turbo, GPT-3.5-turbo
+- **Claude** : Claude-3-Sonnet, Claude-3-Haiku, Claude-3-Opus
+- **Mistral** : Mistral-Large, Mistral-Medium, Mistral-Small
+- **Ollama** : Modèles locaux (Llama2, CodeLlama, Mistral)
+- **Gemini** : Gemini-Pro, Gemini-Pro-Vision
 
 ### 📋 File d'Attente Intégrée
 
@@ -161,7 +185,7 @@ cd backend
 venv\Scripts\pip.exe install ffmpeg-python av pytube yt-dlp
 ```
 
-> **✅ IMPLÉMENTÉ** - Support multimédia complet avec 39 formats vidéo et 21 formats audio
+> **✅ IMPLÉMENTÉ** - Support multimédia complet avec 39 formats vidéo et 37 formats audio
 
 ---
 
@@ -204,7 +228,7 @@ venv\Scripts\pip.exe install ffmpeg-python av pytube yt-dlp
 #### **Analyse Multiple par IA** ✅ IMPLÉMENTÉ
 1. **Sélectionnez un ou plusieurs fichiers**
 2. **Cliquez sur "Analyse Multiple par IA"**
-3. **Sélectionnez les providers actifs** (OpenAI, Claude, Mistral, etc.)
+3. **Sélectionnez les providers actifs** (OpenAI, Claude, Mistral, Ollama, Gemini)
 4. **Choisissez un prompt** d'analyse
 5. **Lancez l'analyse** → Chaque IA analyse le même fichier
 6. **Comparaison automatique** → Résultats de toutes les IA côte à côte
@@ -225,7 +249,7 @@ venv\Scripts\pip.exe install ffmpeg-python av pytube yt-dlp
 
 #### **Accès à la Configuration**
 - **Bouton ⚙️** : Premier clic ouvre la config, deuxième clic ferme
-- **4 providers** : OpenAI, Claude, Mistral, Ollama (local)
+- **5 providers** : OpenAI, Claude, Mistral, Ollama (local), Gemini
 - **Configuration simple** : Ajoutez vos clés API
 
 #### **Liste des Analyses IA**
@@ -249,6 +273,8 @@ ENVIRONMENT=production
 OPENAI_API_KEY=your_openai_key
 ANTHROPIC_API_KEY=your_anthropic_key
 MISTRAL_API_KEY=your_mistral_key
+GOOGLE_API_KEY=your_gemini_key
+ADMIN_PASSWORD=your_admin_password
 ```
 
 #### **Frontend (.env)**
@@ -260,15 +286,134 @@ VITE_APP_NAME=DocuSense AI
 ### 🤖 Configuration IA
 
 #### **Providers Supportés**
-- **OpenAI** : GPT-4, GPT-3.5-turbo
-- **Claude** : Claude-3, Claude-2
-- **Mistral** : Mistral-7B, Mixtral-8x7B
-- **Ollama** : Modèles locaux
+- **OpenAI** : GPT-4, GPT-4-Turbo, GPT-3.5-turbo
+- **Claude** : Claude-3-Sonnet, Claude-3-Haiku, Claude-3-Opus
+- **Mistral** : Mistral-Large, Mistral-Medium, Mistral-Small
+- **Ollama** : Modèles locaux (Llama2, CodeLlama, Mistral)
+- **Gemini** : Gemini-Pro, Gemini-Pro-Vision
 
 #### **Configuration des Clés**
 1. **Ouvrez la configuration** (bouton ⚙️)
 2. **Ajoutez vos clés API** dans les champs correspondants
 3. **Sauvegardez** → Configuration active immédiatement
+
+---
+
+## 🔐 Sécurité et Permissions
+
+### 👥 **Système de Rôles Complet**
+
+#### **3 Rôles Utilisateurs**
+
+| Rôle | 👁️ Invité | 👤 Utilisateur | 🛡️ Admin |
+|------|------------|----------------|----------|
+| **Limitation** | 5 essais/24h | Illimité | Illimité |
+| **Accès** | Lecture seule | Création + Gestion | Administration |
+
+### 👁️ **Invité (GUEST) - 5 essais/24h**
+```
+✅ Navigation fichiers (5x/24h)
+✅ Visualisation fichiers (5x/24h)
+✅ Consultation analyses (5x/24h)
+✅ Visualisation multimédia (5x/24h)
+✅ Création d'analyses (5x/24h)
+✅ Téléchargement fichiers (5x/24h)
+❌ Gestion configuration
+❌ Administration
+```
+
+### 👤 **Utilisateur (USER) - Illimité**
+```
+✅ Toutes les fonctionnalités de base
+✅ Création d'analyses
+✅ Téléchargement fichiers
+✅ Gestion de ses analyses
+✅ Configuration personnelle
+❌ Administration système
+```
+
+### 🛡️ **Admin (ADMIN) - Illimité**
+```
+✅ Toutes les fonctionnalités
+✅ Gestion utilisateurs
+✅ Configuration système
+✅ Monitoring et logs
+✅ Base de données
+✅ Migrations
+```
+
+### 🔒 **Sécurisation Avancée**
+
+#### **Empreinte Multi-Facteurs**
+- **Données de Base** : User-Agent, IP, Headers HTTP, Résolution, Fuseau horaire
+- **Empreintes Avancées** : Canvas Fingerprint, WebGL, Audio, Fonts, Plugins
+- **Données Système** : CPU, Mémoire, Plateforme
+
+#### **Détection d'Activités Suspectes**
+- **VPN/Proxy Détection** : Plages d'IP privées, Datacenters connus
+- **Sessions Multiples** : Plus de 3 sessions par plage d'IP
+- **Bots/Automatisation** : User-Agents suspects, Headers anormaux
+
+#### **Score de Risque**
+```python
+risk_score = 0
+
+# VPN détecté
+if is_suspicious_ip(ip):
+    risk_score += 40
+
+# Sessions multiples
+if sessions_count > 3:
+    risk_score += 30
+
+# User-Agent suspect
+if is_suspicious_user_agent(ua):
+    risk_score += 20
+
+# Blocage si score >= 70
+if risk_score >= 70:
+    block_access()
+```
+
+### 📊 **Endpoints API Sécurisés**
+
+#### **Avec Permissions**
+- `POST /api/analysis/*` → `create_analyses`
+- `DELETE /api/analysis/*` → `delete_own_analyses`
+- `GET /api/download/*` → `download_files`
+- `PUT /api/config/*` → `manage_own_config`
+- `GET /api/monitoring/*` → `manage_system`
+- `GET /api/logs/*` → `view_logs`
+
+#### **Avec Limitations (Invités)**
+- `GET /api/files/*` → `browse_files` (5x/24h)
+- `GET /api/files/stream-by-path/*` → `view_pdfs` (5x/24h)
+- `GET /api/analysis/list` → `read_analyses` (5x/24h)
+- `GET /api/multimedia/*` → `view_multimedia` (5x/24h)
+
+### 🔄 **Système de Limitations**
+
+#### **Renouvellement Automatique**
+- **Période** : 24 heures
+- **Nettoyage** : Suppression anciennes entrées
+- **Calcul** : Timestamps ISO format
+- **Persistance** : Base de données SQLite
+
+#### **Métriques d'Usage**
+```json
+{
+  "file_browsing": {
+    "used": 2,
+    "remaining": 3,
+    "limit": 5
+  },
+  "file_viewing": {
+    "used": 1,
+    "remaining": 4,
+    "limit": 5
+  }
+}
+```
 
 ---
 
