@@ -411,6 +411,8 @@ class AIService(BaseService):
                 return await self._test_mistral_api(config)
             elif provider_name == "ollama":
                 return await self._test_ollama_api(config)
+            elif provider_name == "gemini":
+                return await self._test_gemini_api(config)
             else:
                 self.logger.warning(f"Unknown provider {name}")
                 return False
@@ -536,6 +538,32 @@ class AIService(BaseService):
             self.logger.error(f"[OLLAMA] Unexpected error during test: {str(e)}")
             return False
 
+    async def _test_gemini_api(self, config: dict[str, any]) -> bool:
+        """Test Gemini using Google AI SDK"""
+        try:
+            import google.generativeai as genai
+            
+            self.logger.info(f"[GEMINI] Testing with Google AI SDK")
+            
+            # Configure the API key
+            genai.configure(api_key=config["api_key"])
+            
+            # Get the model
+            model = genai.GenerativeModel(config.get("default_model", "gemini-pro"))
+            
+            # Test with a simple prompt
+            response = await model.generate_content_async("Test")
+            
+            self.logger.info(f"[GEMINI] SDK test successful - model: {config.get('default_model', 'gemini-pro')}")
+            return bool(response.text)
+            
+        except ImportError as e:
+            self.logger.error(f"[GEMINI] Missing dependency: {str(e)}")
+            return False
+        except Exception as e:
+            self.logger.error(f"[GEMINI] SDK test failed: {str(e)}")
+            return False
+
     async def analyze_text(
         self,
         text: str,
@@ -589,6 +617,8 @@ class AIService(BaseService):
             return await self._call_mistral(prompt, model, config)
         elif provider == "ollama":
             return await self._call_ollama(prompt, model, config)
+        elif provider == "gemini":
+            return await self._call_gemini(prompt, model, config)
         else:
             raise ValueError(f"Unsupported provider: {provider}")
 
@@ -706,6 +736,30 @@ class AIService(BaseService):
         
         return response.json()["response"]
 
+    async def _call_gemini(self, prompt: str, model: str, config: dict[str, any]) -> str:
+        """Call Gemini API using Google AI SDK"""
+        try:
+            import google.generativeai as genai
+            
+            # Configure the API key
+            genai.configure(api_key=config["api_key"])
+            
+            # Get the model
+            model_instance = genai.GenerativeModel(model)
+            
+            # Generate content
+            response = await model_instance.generate_content_async(prompt)
+            
+            if not response.text:
+                raise Exception("No response text from Gemini API")
+            
+            return response.text
+            
+        except ImportError as e:
+            raise Exception(f"Missing Google AI SDK dependency: {str(e)}")
+        except Exception as e:
+            raise Exception(f"Gemini API error: {str(e)}")
+
     def _estimate_tokens(self, prompt: str, result: str) -> int:
         """Estimate token usage"""
         # Rough estimation: 1 token ≈ 4 characters
@@ -720,7 +774,8 @@ class AIService(BaseService):
             "openai": {"gpt-4": 0.03, "gpt-3.5-turbo": 0.002},
             "claude": {"claude-3-sonnet-20240229": 0.015, "claude-3-haiku-20240307": 0.00025},
             "mistral": {"mistral-large-latest": 0.007, "mistral-medium-latest": 0.0024},
-            "ollama": {"llama2": 0.0, "codellama": 0.0, "mistral": 0.0}
+            "ollama": {"llama2": 0.0, "codellama": 0.0, "mistral": 0.0},
+            "gemini": {"gemini-pro": 0.0005, "gemini-pro-vision": 0.0005}
         }
         
         provider_costs = costs.get(provider, {})

@@ -28,12 +28,12 @@ def migrate_api_keys():
         config_service = ConfigService(db)
         
         # Mapping des providers
-        provider_mapping = {
-            'openai': 'openai_api_key',
-            'claude': 'anthropic_api_key',
-            'anthropic': 'anthropic_api_key',
-            'mistral': 'mistral_api_key'
-        }
+            provider_mapping = {
+        'openai': 'openai_api_key',
+        'claude': 'anthropic_api_key',
+        'mistral': 'mistral_api_key',
+        'gemini': 'gemini_api_key'
+    }
         
         migrated_count = 0
         
@@ -47,7 +47,7 @@ def migrate_api_keys():
             # Vérifier si la clé existe dans la base de données
             db_value = config_service.get_ai_provider_key(provider)
             
-            print(f"\n🔍 {provider.upper()}:")
+            print(f"\n{provider.upper()}:")
             print(f"   Settings: {'*' * (len(setting_value) - 8) + setting_value[-8:] if setting_value else 'Aucune'}")
             print(f"   Base de données: {'*' * (len(db_value) - 8) + db_value[-8:] if db_value else 'Aucune'}")
             
@@ -89,7 +89,7 @@ def migrate_api_keys():
             print(f"   Toutes les clés API sont déjà synchronisées.")
         
         # Vérification finale
-        print(f"\n🔍 Vérification finale:")
+        print(f"\nVérification finale:")
         config_service.load_api_keys_from_database()
         
         for provider, setting_attr in provider_mapping.items():

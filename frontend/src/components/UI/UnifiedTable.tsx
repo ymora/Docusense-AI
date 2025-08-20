@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowsUpDownIcon } from '@heroicons/react/24/outline';
+import { ChevronDownIcon } from '@heroicons/react/24/outline';
 import { useColors } from '../../hooks/useColors';
 
 export interface TableColumn<T> {
@@ -104,7 +104,12 @@ export function UnifiedTable<T>({
                 ) : (
                   <div className="flex items-center gap-1">
                     {column.label}
-                    {column.sortable && <ArrowsUpDownIcon className="w-4 h-4" />}
+                    {column.sortable && (
+                      <ChevronDownIcon 
+                        className={`w-3 h-3 transition-transform ${sortConfig?.key === column.key ? (sortConfig.direction === 'asc' ? '' : 'rotate-180') : 'opacity-30'}`} 
+                        style={{ color: colors.textSecondary }} 
+                      />
+                    )}
                   </div>
                 )}
               </th>

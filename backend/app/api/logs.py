@@ -57,14 +57,22 @@ async def stream_backend_logs():
         try:
             log_with_context(logger, "info", "Début du streaming des logs backend")
             
-            # Queue pour les logs à envoyer
-            log_queue = asyncio.Queue()
+            # OPTIMISATION: Queue plus petite et timeout plus court
+            log_queue = asyncio.Queue(maxsize=50)  # Réduit de 100 à 50
             
-            # Callback pour envoyer les logs au frontend
+            # OPTIMISATION: Callback optimisé avec gestion d'erreur améliorée
             def send_log_to_frontend(log_entry: Dict[str, Any]):
                 try:
-                    # Ajouter à la queue de manière asynchrone
-                    asyncio.create_task(log_queue.put(log_entry))
+                    # Ajouter directement à la queue sans créer de tâche asynchrone
+                    if not log_queue.full():
+                        log_queue.put_nowait(log_entry)
+                    else:
+                        # Si la queue est pleine, supprimer le plus ancien et ajouter le nouveau
+                        try:
+                            log_queue.get_nowait()
+                            log_queue.put_nowait(log_entry)
+                        except:
+                            pass
                 except Exception as e:
                     logger.error(f"Erreur ajout log à queue: {e}")
             
@@ -72,21 +80,21 @@ async def stream_backend_logs():
             from ..core.logging import register_frontend_logger
             register_frontend_logger(send_log_to_frontend)
             
-            # Envoyer un heartbeat toutes les 30 secondes
+            # OPTIMISATION: Heartbeat plus fréquent (10s au lieu de 15s) pour une meilleure réactivité
             heartbeat_count = 0
             while True:
                 try:
-                    # Attendre soit un log soit un timeout pour heartbeat
+                    # OPTIMISATION: Timeout encore plus court pour une réponse plus rapide
                     try:
-                        log_entry = await asyncio.wait_for(log_queue.get(), timeout=30.0)
+                        log_entry = await asyncio.wait_for(log_queue.get(), timeout=10.0)
                         
-                        # Formater pour SSE
+                        # OPTIMISATION: Formatage JSON optimisé avec séparateurs compacts
                         data = {
                             "type": "backend_log",
                             "timestamp": datetime.now().isoformat(),
                             "log": log_entry
                         }
-                        yield f"data: {json.dumps(data)}\n\n"
+                        yield f"data: {json.dumps(data, separators=(',', ':'))}\n\n"
                         
                     except asyncio.TimeoutError:
                         # Envoyer heartbeat
@@ -96,11 +104,11 @@ async def stream_backend_logs():
                             "timestamp": datetime.now().isoformat(),
                             "count": heartbeat_count
                         }
-                        yield f"data: {json.dumps(heartbeat_data)}\n\n"
+                        yield f"data: {json.dumps(heartbeat_data, separators=(',', ':'))}\n\n"
                         
                 except Exception as e:
                     logger.error(f"Erreur dans la boucle SSE: {e}")
-                    await asyncio.sleep(1)
+                    await asyncio.sleep(0.1)  # OPTIMISATION: Délai très court
                 
         except asyncio.CancelledError:
             # Connexion fermée par le client
@@ -115,7 +123,7 @@ async def stream_backend_logs():
                 "timestamp": datetime.now().isoformat(),
                 "error": str(e)
             }
-            yield f"data: {json.dumps(error_data)}\n\n"
+            yield f"data: {json.dumps(error_data, separators=(',', ':'))}\n\n"
     
     return StreamingResponse(
         event_stream(),
@@ -125,6 +133,9 @@ async def stream_backend_logs():
             "Connection": "keep-alive",
             "Access-Control-Allow-Origin": "*",
             "Access-Control-Allow-Headers": "*",
+            # OPTIMISATION: Headers pour améliorer les performances SSE
+            "X-Accel-Buffering": "no",  # Désactiver le buffering nginx
+            "X-Content-Type-Options": "nosniff",
         }
     )
 

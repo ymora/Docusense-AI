@@ -160,7 +160,7 @@ class DatabaseMigrationManager:
             
             if orphaned_count > 0:
                 self.db.commit()
-                logger.warning(f"🗑️  Marqué {orphaned_count} fichiers comme orphelins")
+                logger.warning(f"Marqué {orphaned_count} fichiers comme orphelins")
                 results['warnings'].append(f"Marqué {orphaned_count} fichiers comme orphelins")
         
         except Exception as e:

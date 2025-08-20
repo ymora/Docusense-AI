@@ -187,6 +187,9 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
 
   // Gérer le changement de clé API
   const handleApiKeyChange = (providerName: string, value: string) => {
+    console.log(`🔧 [FRONTEND] Changement clé API pour ${providerName}`);
+    console.log(`🔧 [FRONTEND] Nouvelle valeur (masquée): ${'*'.repeat(Math.min(value.length - 8, 20)) + value.slice(-8)}`);
+    
     setProviders(prev => prev.map(p =>
       p.name === providerName
         ? {
@@ -215,25 +218,12 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
       } else {
         // Test avec la clé API fournie
         console.log(`🧪 Test de ${providerName} avec clé API: ${provider.apiKey ? 'PRÉSENTE' : 'ABSENTE'}`);
-        if (!provider.apiKey) {
-          console.warn(`⚠️ Pas de clé API pour ${providerName}, tentative de récupération...`);
-          // Récupérer la clé API si elle n'est pas présente
-          try {
-            const keyResponse = await ConfigService.getAPIKey(providerName);
-            if (keyResponse.success && keyResponse.data) {
-              const apiKey = keyResponse.data.key;
-              console.log(`🔑 Clé API récupérée pour test: ${apiKey ? 'OUI' : 'NON'}`);
-              result = await ConfigService.testProvider(providerName, apiKey);
-            } else {
-              result = await ConfigService.testProvider(providerName, provider.apiKey);
-            }
-          } catch (error) {
-            console.warn(`Erreur récupération clé pour test:`, error);
-            result = await ConfigService.testProvider(providerName, provider.apiKey);
-          }
-        } else {
-          result = await ConfigService.testProvider(providerName, provider.apiKey);
+        if (!provider.apiKey || provider.apiKey.trim() === '') {
+          setError(`Veuillez saisir une clé API pour ${getProviderDisplayName(providerName)}`);
+          return;
         }
+        
+        result = await ConfigService.testProvider(providerName, provider.apiKey);
       }
 
       if (result.success) {
@@ -586,48 +576,51 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                                
                                                                {/* Colonne Actions */}
                                 <td className="p-3">
-                                  <button
-                                    onClick={() => {
-                                      if (isTesting) return;
-                                      if (provider.status === 'active') {
-                                        handleToggleProvider(provider.name);
-                                      } else if (provider.status === 'configured' || provider.status === 'functional') {
-                                        handleToggleProvider(provider.name);
-                                      } else {
-                                        handleTestProvider(provider.name);
-                                      }
-                                    }}
-                                    disabled={isTesting || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty')}
-                                    className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
-                                      isTesting || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty') ? 'opacity-50 cursor-not-allowed' : ''
-                                    }`}
-                                    style={{
-                                      backgroundColor: 'transparent',
-                                      border: `1px solid ${(() => {
-                                        if (isTesting) return getActionColor('primary');
-                                        if (provider.status === 'active') return getActionColor('delete');
-                                        if (provider.status === 'configured' || provider.status === 'functional') return getActionColor('start');
-                                        if (provider.status === 'pending') return getActionColor('pause');
-                                        return getActionColor('primary');
-                                      })()}`,
-                                      color: (() => {
-                                        if (isTesting) return getActionColor('primary');
-                                        if (provider.status === 'active') return getActionColor('delete');
-                                        if (provider.status === 'configured' || provider.status === 'functional') return getActionColor('start');
-                                        if (provider.status === 'pending') return getActionColor('pause');
-                                        return getActionColor('primary');
-                                      })()
-                                    }}
-                                  >
-                                   {(() => {
-                                     if (isTesting) return 'Test...';
-                                     if (provider.status === 'active') return 'Désactiver';
-                                     if (provider.status === 'configured' || provider.status === 'functional') return 'Activer';
-                                     if (provider.status === 'pending') return 'Tester';
-                                     if (provider.status === 'empty') return 'Configurer';
-                                     return 'Tester';
-                                   })()}
-                                 </button>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      onClick={() => {
+                                        if (isTesting) return;
+                                        if (provider.status === 'active') {
+                                          handleToggleProvider(provider.name);
+                                        } else if (provider.status === 'configured' || provider.status === 'functional') {
+                                          handleToggleProvider(provider.name);
+                                        } else {
+                                          handleTestProvider(provider.name);
+                                        }
+                                      }}
+                                      disabled={isTesting || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty')}
+                                      className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
+                                        isTesting || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty') ? 'opacity-50 cursor-not-allowed' : ''
+                                      }`}
+                                      style={{
+                                        backgroundColor: 'transparent',
+                                        border: `1px solid ${(() => {
+                                          if (isTesting) return getActionColor('primary');
+                                          if (provider.status === 'active') return getActionColor('delete');
+                                          if (provider.status === 'configured' || provider.status === 'functional') return getActionColor('start');
+                                          if (provider.status === 'pending') return getActionColor('pause');
+                                          return getActionColor('primary');
+                                        })()}`,
+                                        color: (() => {
+                                          if (isTesting) return getActionColor('primary');
+                                          if (provider.status === 'active') return getActionColor('delete');
+                                          if (provider.status === 'configured' || provider.status === 'functional') return getActionColor('start');
+                                          if (provider.status === 'pending') return getActionColor('pause');
+                                          return getActionColor('primary');
+                                        })()
+                                      }}
+                                    >
+                                     {(() => {
+                                       if (isTesting) return 'Test...';
+                                       if (provider.status === 'active') return 'Désactiver';
+                                       if (provider.status === 'configured' || provider.status === 'functional') return 'Activer';
+                                       if (provider.status === 'pending') return 'Tester';
+                                       if (provider.status === 'empty') return 'Configurer';
+                                       return 'Tester';
+                                     })()}
+                                   </button>
+                                   
+                                 </div>
                                </td>
                                
                                {/* Colonne Priorité */}
@@ -756,49 +749,52 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                                
                                                                {/* Colonne Actions */}
                                 <td className="p-3">
-                                  <button
-                                    onClick={() => {
-                                      if (isTesting) return;
-                                      
-                                      if (provider.status === 'active') {
-                                        handleToggleProvider(provider.name);
-                                      } else if (provider.status === 'configured' || provider.status === 'functional') {
-                                        handleToggleProvider(provider.name);
-                                      } else {
-                                        handleTestProvider(provider.name);
-                                      }
-                                    }}
-                                    disabled={isTesting || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty')}
-                                    className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
-                                      isTesting || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty') ? 'opacity-50 cursor-not-allowed' : ''
-                                    }`}
-                                    style={{
-                                      backgroundColor: 'transparent',
-                                      border: `1px solid ${(() => {
-                                        if (isTesting) return getActionColor('primary');
-                                        if (provider.status === 'active') return getActionColor('delete');
-                                        if (provider.status === 'configured' || provider.status === 'functional') return getActionColor('start');
-                                        if (provider.status === 'pending') return getActionColor('pause');
-                                        return getActionColor('primary');
-                                      })()}`,
-                                      color: (() => {
-                                        if (isTesting) return getActionColor('primary');
-                                        if (provider.status === 'active') return getActionColor('delete');
-                                        if (provider.status === 'configured' || provider.status === 'functional') return getActionColor('start');
-                                        if (provider.status === 'pending') return getActionColor('pause');
-                                        return getActionColor('primary');
-                                      })()
-                                    }}
-                                  >
-                                   {(() => {
-                                     if (isTesting) return 'Test...';
-                                     if (provider.status === 'active') return 'Désactiver';
-                                     if (provider.status === 'configured' || provider.status === 'functional') return 'Activer';
-                                     if (provider.status === 'pending') return 'Tester';
-                                     if (provider.status === 'empty') return 'Configurer';
-                                     return 'Tester';
-                                   })()}
-                                 </button>
+                                  <div className="flex items-center gap-2">
+                                    <button
+                                      onClick={() => {
+                                        if (isTesting) return;
+                                        
+                                        if (provider.status === 'active') {
+                                          handleToggleProvider(provider.name);
+                                        } else if (provider.status === 'configured' || provider.status === 'functional') {
+                                          handleToggleProvider(provider.name);
+                                        } else {
+                                          handleTestProvider(provider.name);
+                                        }
+                                      }}
+                                      disabled={isTesting || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty')}
+                                      className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
+                                        isTesting || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty') ? 'opacity-50 cursor-not-allowed' : ''
+                                      }`}
+                                      style={{
+                                        backgroundColor: 'transparent',
+                                        border: `1px solid ${(() => {
+                                          if (isTesting) return getActionColor('primary');
+                                          if (provider.status === 'active') return getActionColor('delete');
+                                          if (provider.status === 'configured' || provider.status === 'functional') return getActionColor('start');
+                                          if (provider.status === 'pending') return getActionColor('pause');
+                                          return getActionColor('primary');
+                                        })()}`,
+                                        color: (() => {
+                                          if (isTesting) return getActionColor('primary');
+                                          if (provider.status === 'active') return getActionColor('delete');
+                                          if (provider.status === 'configured' || provider.status === 'functional') return getActionColor('start');
+                                          if (provider.status === 'pending') return getActionColor('pause');
+                                          return getActionColor('primary');
+                                        })()
+                                      }}
+                                    >
+                                     {(() => {
+                                       if (isTesting) return 'Test...';
+                                       if (provider.status === 'active') return 'Désactiver';
+                                       if (provider.status === 'configured' || provider.status === 'functional') return 'Activer';
+                                       if (provider.status === 'pending') return 'Tester';
+                                       if (provider.status === 'empty') return 'Configurer';
+                                       return 'Tester';
+                                     })()}
+                                   </button>
+                                   
+                                 </div>
                                </td>
                                
                                {/* Colonne Priorité */}

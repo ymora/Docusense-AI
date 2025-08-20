@@ -10,6 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 from .config import settings
+import time
 
 # Variables globales pour éviter les logs répétitifs
 _logging_initialized = False
@@ -21,10 +22,16 @@ class FrontendLogHandler(logging.Handler):
     def __init__(self):
         super().__init__()
         self.log_buffer: List[Dict[str, Any]] = []
-        self.max_buffer_size = 1000
+        self.max_buffer_size = 500  # OPTIMISATION: Réduit de 1000 à 500
+        self._last_notification = 0
+        self._notification_threshold = 0.1  # Notifier au plus toutes les 100ms
     
     def emit(self, record):
         try:
+            # OPTIMISATION: Vérifier si on doit notifier maintenant
+            current_time = time.time()
+            should_notify = (current_time - self._last_notification) >= self._notification_threshold
+            
             # Formater le log pour le frontend
             log_entry = {
                 "id": f"backend_{datetime.now().timestamp()}_{id(record)}",
@@ -55,24 +62,31 @@ class FrontendLogHandler(logging.Handler):
             # Ajouter au buffer
             self.log_buffer.append(log_entry)
             
-            # Limiter la taille du buffer
+            # OPTIMISATION: Limiter la taille du buffer de manière plus efficace
             if len(self.log_buffer) > self.max_buffer_size:
                 self.log_buffer = self.log_buffer[-self.max_buffer_size:]
             
-            # Notifier les listeners frontend
-            self._notify_frontend(log_entry)
+            # OPTIMISATION: Notifier seulement si nécessaire
+            if should_notify:
+                self._notify_frontend(log_entry)
+                self._last_notification = current_time
             
         except Exception as e:
             # Éviter les boucles infinies de logging
             sys.stderr.write(f"Erreur dans FrontendLogHandler: {e}\n")
     
     def _notify_frontend(self, log_entry: Dict[str, Any]):
-        """Notifier les listeners frontend"""
-        for callback in _frontend_loggers:
+        """Notifier les listeners frontend de manière optimisée"""
+        # OPTIMISATION: Copier la liste pour éviter les modifications pendant l'itération
+        callbacks = _frontend_loggers.copy()
+        for callback in callbacks:
             try:
                 callback(log_entry)
             except Exception as e:
-                sys.stderr.write(f"Erreur callback frontend: {e}\n")
+                # OPTIMISATION: Supprimer les callbacks défaillants
+                if callback in _frontend_loggers:
+                    _frontend_loggers.remove(callback)
+                sys.stderr.write(f"Erreur callback frontend supprimé: {e}\n")
     
     def get_recent_logs(self, limit: int = 100) -> List[Dict[str, Any]]:
         """Récupérer les logs récents"""

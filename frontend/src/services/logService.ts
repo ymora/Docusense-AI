@@ -61,6 +61,11 @@ class LogService {
 
   private startBackendLogStream() {
     try {
+      // OPTIMISATION: Fermer la connexion existante avant d'en créer une nouvelle
+      if (this.backendSSE) {
+        this.backendSSE.close();
+      }
+      
       this.backendSSE = new EventSource('/api/logs/backend/stream');
       
       this.backendSSE.onopen = () => {
@@ -71,6 +76,7 @@ class LogService {
         try {
           const data = JSON.parse(event.data);
           
+          // OPTIMISATION: Traitement optimisé des différents types de messages
           if (data.type === 'backend_log' && data.log) {
             const backendLog: LogEntry = {
               ...data.log,
@@ -80,12 +86,15 @@ class LogService {
             
             this.backendLogs.push(backendLog);
             
-            // Limiter la taille du buffer backend
+            // OPTIMISATION: Limiter la taille du buffer backend de manière plus efficace
             if (this.backendLogs.length > this.maxLogs) {
               this.backendLogs = this.backendLogs.slice(-this.maxLogs);
             }
             
             this.notifyListeners();
+          } else if (data.type === 'heartbeat') {
+            // OPTIMISATION: Traitement des heartbeats pour maintenir la connexion
+            console.debug('💓 Heartbeat SSE reçu:', data.count);
           }
         } catch (error) {
           console.error('Erreur parsing SSE logs backend:', error);
@@ -94,13 +103,13 @@ class LogService {
 
       this.backendSSE.onerror = (error) => {
         console.error('Erreur SSE logs backend:', error);
-        // Tentative de reconnexion après 5 secondes
-        setTimeout(() => {
-          if (this.backendSSE) {
-            this.backendSSE.close();
+        // OPTIMISATION: Tentative de reconnexion plus intelligente
+        if (this.backendSSE && this.backendSSE.readyState === EventSource.CLOSED) {
+          setTimeout(() => {
+            console.log('🔄 Tentative de reconnexion SSE...');
             this.startBackendLogStream();
-          }
-        }, 5000);
+          }, 3000); // Réduit de 5s à 3s
+        }
       };
     } catch (error) {
       console.error('Erreur connexion SSE logs backend:', error);

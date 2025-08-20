@@ -236,10 +236,15 @@ async def save_ai_provider_key(
     db: Session = Depends(get_db)
 ) -> Dict[str, Any]:
     """Save AI provider API key"""
+    print(f"[API] Sauvegarde clé API reçue pour {provider}")
+    print(f"[API] Clé (masquée): {'*' * min(len(api_key) - 8, 20) + api_key[-8:] if api_key else 'VIDE'}")
+    
     config_service = ConfigService(db)
     
     # Save the key directly
     success = config_service.set_ai_provider_key(provider, api_key)
+    
+    print(f"[API] Résultat sauvegarde pour {provider}: {'SUCCÈS' if success else 'ÉCHEC'}")
     
     if success:
         return ResponseFormatter.success_response(
@@ -260,8 +265,14 @@ async def get_ai_provider_key(
     db: Session = Depends(get_db)
 ) -> Dict[str, Any]:
     """Get AI provider API key"""
+    print(f"[API] Récupération clé API demandée pour {provider}")
+    
     config_service = ConfigService(db)
     api_key = config_service.get_ai_provider_key(provider)
+
+    print(f"[API] Résultat récupération pour {provider}: {'TROUVÉE' if api_key else 'NON TROUVÉE'}")
+    if api_key:
+        print(f"[API] Clé (masquée): {'*' * min(len(api_key) - 8, 20) + api_key[-8:]}")
 
     if api_key:
         return ResponseFormatter.success_response(
@@ -275,6 +286,31 @@ async def get_ai_provider_key(
         return ResponseFormatter.error_response(
             message="No API key found for this provider",
             error_code="key_not_found"
+        )
+
+
+@router.delete("/key/{provider}")
+@APIUtils.handle_errors
+async def delete_ai_provider_key(
+    provider: str,
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """Delete AI provider API key"""
+    print(f"[API] Suppression clé API demandée pour {provider}")
+    config_service = ConfigService(db)
+    success = config_service.delete_ai_provider_key(provider)
+
+    if success:
+        print(f"[API] Suppression réussie pour {provider}")
+        return ResponseFormatter.success_response(
+            data={"provider": provider},
+            message=f"API key deleted for {provider}"
+        )
+    else:
+        print(f"[API] Échec suppression pour {provider}")
+        return ResponseFormatter.error_response(
+            message=f"Failed to delete API key for {provider}",
+            error_code="delete_failed"
         )
 
 

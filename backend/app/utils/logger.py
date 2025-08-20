@@ -20,5 +20,5 @@ def get_logger(name: str) -> logging.Logger:
 def debug(obj, label: str = '') -> None:
     """Debug function with formatted output"""
     logger = get_logger('debug')
-    output = f"🧪 DEBUG {label}:\n{obj}"
+            output = f"DEBUG {label}:\n{obj}"
     logger.debug(output) 

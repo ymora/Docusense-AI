@@ -62,29 +62,29 @@ export class ConfigService {
   // Récupérer une clé API
   static async getAPIKey(provider: string): Promise<{ success: boolean; data?: { key: string; provider: string }; message?: string }> {
     try {
-      console.log(`🔑 ConfigService: Récupération clé API pour ${provider}...`);
+      console.log(`🔍 [FRONTEND] Récupération clé API pour ${provider}...`);
       const response = await apiRequest(`/api/config/ai/key/${encodeURIComponent(provider)}`, {
         method: 'GET'
       });
 
-      console.log(`🔑 ConfigService: Réponse brute pour ${provider}:`, response);
+      console.log(`🔍 [FRONTEND] Réponse brute pour ${provider}:`, response);
 
       if (response.success) {
         logService.info(`Clé API récupérée pour ${provider}`, 'ConfigService', { provider });
-        console.log(`🔑 ConfigService: Succès pour ${provider}, data:`, response.data);
+        console.log(`✅ [FRONTEND] Succès pour ${provider}, clé (masquée): ${'*'.repeat(Math.min(response.data.key.length - 8, 20)) + response.data.key.slice(-8)}`);
       } else {
         logService.warning(`Échec de la récupération de la clé API pour ${provider}`, 'ConfigService', { 
           provider, 
           message: response.message 
         });
-        console.log(`🔑 ConfigService: Échec pour ${provider}:`, response.message);
+        console.log(`❌ [FRONTEND] Échec pour ${provider}:`, response.message);
       }
 
       return response;
     } catch (error) {
       const errorMessage = `Erreur lors de la récupération de la clé API pour ${provider}: ${handleApiError(error)}`;
       logService.error(errorMessage, 'ConfigService', { provider, error: error.message });
-      console.error(`Erreur lors de la récupération de la clé API pour ${provider}:`, error);
+      console.error(`❌ [FRONTEND] Erreur pour ${provider}:`, error);
       return {
         success: false,
         message: `Erreur lors de la récupération: ${handleApiError(error)}`
@@ -92,22 +92,65 @@ export class ConfigService {
     }
   }
 
+  // Supprimer une clé API
+  static async deleteAPIKey(provider: string): Promise<{ success: boolean; message: string }> {
+    try {
+      console.log(`🗑️ [FRONTEND] Suppression clé API pour ${provider}...`);
+      const response = await apiRequest(`/api/config/ai/key/${encodeURIComponent(provider)}`, {
+        method: 'DELETE'
+      });
+
+      console.log(`🗑️ [FRONTEND] Réponse suppression pour ${provider}:`, response);
+
+      if (response.success) {
+        logService.info(`Clé API supprimée pour ${provider}`, 'ConfigService', { provider });
+        console.log(`✅ [FRONTEND] Suppression réussie pour ${provider}`);
+      } else {
+        logService.warning(`Échec de la suppression de la clé API pour ${provider}`, 'ConfigService', { 
+          provider, 
+          message: response.message 
+        });
+        console.log(`❌ [FRONTEND] Échec suppression pour ${provider}:`, response.message);
+      }
+
+      return {
+        success: response.success,
+        message: response.message || 'Clé API supprimée'
+      };
+    } catch (error) {
+      const errorMessage = `Erreur lors de la suppression de la clé API pour ${provider}: ${handleApiError(error)}`;
+      logService.error(errorMessage, 'ConfigService', { provider, error: error.message });
+      console.error(`❌ [FRONTEND] Erreur lors de la suppression de la clé API pour ${provider}:`, error);
+      return {
+        success: false,
+        message: `Erreur lors de la suppression: ${handleApiError(error)}`
+      };
+    }
+  }
+
   // Sauvegarder une clé API
   static async saveAPIKey(provider: string, apiKey: string): Promise<{ success: boolean; message: string }> {
     try {
+      console.log(`🔑 [FRONTEND] Sauvegarde clé API pour ${provider}`);
+              console.log(`🔑 [FRONTEND] Clé (masquée): ${'*'.repeat(Math.min(apiKey.length - 8, 20)) + apiKey.slice(-8)}`);
+      
       const response = await apiRequest(`/api/config/ai/key?provider=${encodeURIComponent(provider)}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ api_key: apiKey })
       });
 
+      console.log(`🔑 [FRONTEND] Réponse sauvegarde pour ${provider}:`, response);
+
       if (response.success) {
         logService.info(`Clé API sauvegardée pour ${provider}`, 'ConfigService', { provider });
+        console.log(`✅ [FRONTEND] Succès sauvegarde pour ${provider}`);
       } else {
         logService.warning(`Échec de la sauvegarde de la clé API pour ${provider}`, 'ConfigService', { 
           provider, 
           message: response.message 
         });
+        console.log(`❌ [FRONTEND] Échec sauvegarde pour ${provider}:`, response.message);
       }
 
       return {
@@ -117,7 +160,7 @@ export class ConfigService {
     } catch (error) {
       const errorMessage = `Erreur lors de la sauvegarde de la clé API pour ${provider}: ${handleApiError(error)}`;
       logService.error(errorMessage, 'ConfigService', { provider, error: error.message });
-      console.error(`Erreur lors de la sauvegarde de la clé API pour ${provider}:`, error);
+      console.error(`❌ [FRONTEND] Erreur lors de la sauvegarde de la clé API pour ${provider}:`, error);
       return {
         success: false,
         message: `Erreur lors de la sauvegarde: ${handleApiError(error)}`

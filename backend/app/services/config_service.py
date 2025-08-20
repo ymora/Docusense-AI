@@ -490,12 +490,25 @@ class ConfigService(BaseService):
                 "is_active": True
             }
 
+            # Gemini configuration
+            gemini_config = {
+                "api_key": "",
+                "base_url": "https://generativelanguage.googleapis.com",
+                "models": [
+                    {"name": "gemini-pro", "display_name": "Gemini Pro", "max_tokens": 32768},
+                    {"name": "gemini-pro-vision", "display_name": "Gemini Pro Vision", "max_tokens": 32768}
+                ],
+                "default_model": "gemini-pro",
+                "is_active": True
+            }
+
             # Set provider configurations if they don't exist
             providers = {
                 "openai": openai_config,
                 "claude": claude_config,
                 "mistral": mistral_config,
-                "ollama": ollama_config
+                "ollama": ollama_config,
+                "gemini": gemini_config
             }
 
             for provider, config in providers.items():
@@ -1342,6 +1355,10 @@ class ConfigService(BaseService):
         """Logic for setting API key"""
         try:
             key_name = f"{provider}_api_key"
+            print(f"[BACKEND] Sauvegarde clé API pour {provider}")
+            print(f"[BACKEND] Nom de la clé: {key_name}")
+            print(f"[BACKEND] Clé (masquée): {'*' * min(len(api_key) - 8, 20) + api_key[-8:] if api_key else 'VIDE'}")
+            
             self.set_config(
                 key=key_name,
                 value=api_key,
@@ -1354,9 +1371,11 @@ class ConfigService(BaseService):
             self._save_api_key_to_settings(provider, api_key)
             
             self.logger.info(f"Set API key for {provider}")
+            print(f"SUCCES [BACKEND] Clé API sauvegardée avec succès pour {provider}")
             return True
         except Exception as e:
             self.logger.error(f"Error setting API key for {provider}: {str(e)}")
+            print(f"ERREUR [BACKEND] Erreur sauvegarde clé API pour {provider}: {str(e)}")
             return False
 
     def _save_api_key_to_settings(self, provider: str, api_key: str):
@@ -1366,21 +1385,33 @@ class ConfigService(BaseService):
         try:
             from ..core.config import settings
             
+            print(f"[BACKEND] Sauvegarde clé API dans settings pour {provider}")
+            
             # Mapper les noms de providers vers les attributs settings
             provider_mapping = {
                 'openai': 'openai_api_key',
-                'claude': 'anthropic_api_key', 
-                'anthropic': 'anthropic_api_key',
-                'mistral': 'mistral_api_key'
+                'claude': 'anthropic_api_key',
+                'mistral': 'mistral_api_key',
+                'gemini': 'gemini_api_key'
             }
+            
+            print(f"[BACKEND] Mapping trouvé: {provider} -> {provider_mapping.get(provider, 'NON TROUVÉ')}")
             
             if provider in provider_mapping:
                 attr_name = provider_mapping[provider]
                 setattr(settings, attr_name, api_key)
                 self.logger.info(f"API key saved to settings for {provider}")
+                print(f"SUCCES [BACKEND] Clé API sauvegardée dans settings: {attr_name}")
+                
+                # Vérification
+                current_value = getattr(settings, attr_name, None)
+                print(f"[BACKEND] Vérification settings.{attr_name}: {'*' * (len(current_value) - 8) + current_value[-8:] if current_value else 'VIDE'}")
+            else:
+                print(f"ERREUR [BACKEND] Provider {provider} non trouvé dans le mapping")
                 
         except Exception as e:
             self.logger.error(f"Error saving API key to settings for {provider}: {str(e)}")
+            print(f"ERREUR [BACKEND] Erreur sauvegarde dans settings pour {provider}: {str(e)}")
 
     @log_service_operation("load_api_keys_from_database")
     def load_api_keys_from_database(self):
@@ -1395,12 +1426,12 @@ class ConfigService(BaseService):
         try:
             from ..core.config import settings
             
-            providers = ['openai', 'claude', 'anthropic', 'mistral']
+            providers = ['openai', 'claude', 'mistral', 'gemini']
             provider_mapping = {
                 'openai': 'openai_api_key',
-                'claude': 'anthropic_api_key',
-                'anthropic': 'anthropic_api_key', 
-                'mistral': 'mistral_api_key'
+                'claude': 'anthropic_api_key', 
+                'mistral': 'mistral_api_key',
+                'gemini': 'gemini_api_key'
             }
             
             for provider in providers:
@@ -1425,10 +1456,67 @@ class ConfigService(BaseService):
         """Logic for getting API key"""
         try:
             key_name = f"{provider}_api_key"
-            return self.get_config(key_name)
+            print(f"[BACKEND] Récupération clé API pour {provider}")
+            print(f"[BACKEND] Nom de la clé: {key_name}")
+            
+            result = self.get_config(key_name)
+            print(f"[BACKEND] Résultat pour {provider}: {'*' * (len(result) - 8) + result[-8:] if result else 'VIDE'}")
+            
+            return result
         except Exception as e:
             self.logger.error(f"Error getting API key for {provider}: {str(e)}")
             return None
+
+    @log_service_operation("delete_ai_provider_key")
+    def delete_ai_provider_key(self, provider: str) -> bool:
+        """
+        Delete AI provider API key
+        """
+        return self.safe_execute("delete_ai_provider_key", self._delete_ai_provider_key_logic, provider)
+
+    def _delete_ai_provider_key_logic(self, provider: str) -> bool:
+        """Logic for deleting API key"""
+        try:
+            key_name = f"{provider}_api_key"
+            print(f"[BACKEND] Suppression clé API pour {provider}")
+            print(f"[BACKEND] Nom de la clé: {key_name}")
+            
+            # Supprimer de la base de données
+            success = self.delete_config(key_name)
+            print(f"[BACKEND] Suppression base de données: {'SUCCÈS' if success else 'ÉCHEC'}")
+            
+            # Supprimer aussi des settings
+            self._delete_api_key_from_settings(provider)
+            
+            self.logger.info(f"Deleted API key for {provider}")
+            return success
+        except Exception as e:
+            self.logger.error(f"Error deleting API key for {provider}: {str(e)}")
+            return False
+
+    def _delete_api_key_from_settings(self, provider: str):
+        """
+        Supprime la clé API des settings pour la persistance
+        """
+        try:
+            from ..core.config import settings
+            
+            # Mapper les noms de providers vers les attributs settings
+            provider_mapping = {
+                'openai': 'openai_api_key',
+                'claude': 'anthropic_api_key', 
+                'anthropic': 'anthropic_api_key',
+                'mistral': 'mistral_api_key',
+                'openapi': 'openai_api_key'  # Ajout du mapping pour OpenAPI
+            }
+            
+            if provider in provider_mapping:
+                attr_name = provider_mapping[provider]
+                setattr(settings, attr_name, None)
+                print(f"[BACKEND] Clé supprimée des settings pour {provider}")
+                
+        except Exception as e:
+            print(f"[BACKEND] Erreur suppression settings pour {provider}: {str(e)}")
 
     @log_service_operation("set_ai_provider_model")
     def set_ai_provider_model(self, provider: str, model: str) -> bool:

@@ -49,17 +49,25 @@ const MainPanel: React.FC<MainPanelProps> = ({
   const [showFileDetails, setShowFileDetails] = useState(false);
   const [viewMode, setViewMode] = useState<'single' | 'thumbnails'>('single');
   const [logsCount, setLogsCount] = useState(0);
+  const [errorCount, setErrorCount] = useState(0);
+  const [warningCount, setWarningCount] = useState(0);
   const [activeTab, setActiveTab] = useState('config');
 
   // OPTIMISATION: Chargement des providers une seule fois
   const allProviders = getActiveProviders();
   const activeProviders = allProviders.filter(provider => provider.is_active === true);
   
-  // Charger le nombre de logs
+  // Charger le nombre de logs et calculer les erreurs/warnings
   useEffect(() => {
     const updateLogsCount = () => {
       const logs = logService.getLogs();
       setLogsCount(logs.length);
+      
+      // Calculer le nombre d'erreurs et de warnings
+      const errors = logs.filter(log => log.level === 'error').length;
+      const warnings = logs.filter(log => log.level === 'warning').length;
+      setErrorCount(errors);
+      setWarningCount(warnings);
     };
     
     // Charger le nombre initial
@@ -95,6 +103,8 @@ const MainPanel: React.FC<MainPanelProps> = ({
       label: 'Analyses & Logs',
       icon: <LogsIcon className="h-4 w-4" />,
       count: logsCount,
+      errorCount: errorCount,
+      warningCount: warningCount,
     },
     {
       id: 'viewer',

@@ -6,6 +6,8 @@ interface Tab {
   label: string;
   icon: React.ReactNode;
   count?: number;
+  errorCount?: number;
+  warningCount?: number;
 }
 
 interface TabPanelProps {
@@ -46,7 +48,38 @@ const TabPanel: React.FC<TabPanelProps> = ({ tabs, activeTab, onTabChange }) => 
               {tab.icon}
             </div>
             <span>{tab.label}</span>
-            {tab.count !== undefined && tab.count > 0 && (
+            {tab.id === 'analyses' && (tab.errorCount !== undefined || tab.warningCount !== undefined) ? (
+              <div className="flex items-center gap-1">
+                {tab.errorCount !== undefined && tab.errorCount > 0 && (
+                  <span 
+                    className="text-xs px-1.5 py-0.5 rounded-full transition-all duration-300 ease-in-out hover:scale-110"
+                    style={{
+                      backgroundColor: 'transparent',
+                      color: '#ef4444',
+                      fontWeight: 'bold',
+                      fontSize: '10px'
+                    }}
+                    title={`${tab.errorCount} erreur${tab.errorCount > 1 ? 's' : ''}`}
+                  >
+                    🔴 {tab.errorCount}
+                  </span>
+                )}
+                {tab.warningCount !== undefined && tab.warningCount > 0 && (
+                  <span 
+                    className="text-xs px-1.5 py-0.5 rounded-full transition-all duration-300 ease-in-out hover:scale-110"
+                    style={{
+                      backgroundColor: 'transparent',
+                      color: '#f59e0b',
+                      fontWeight: 'bold',
+                      fontSize: '10px'
+                    }}
+                    title={`${tab.warningCount} warning${tab.warningCount > 1 ? 's' : ''}`}
+                  >
+                    🟠 {tab.warningCount}
+                  </span>
+                )}
+              </div>
+            ) : tab.count !== undefined && tab.count > 0 && (
               <span 
                 className="text-xs px-2 py-1 rounded-full border transition-all duration-300 ease-in-out hover:scale-110"
                 style={{

@@ -22,6 +22,7 @@ from app.api import (
     analysis_router, auth_router, config_router, download_router, emails_router, files_router, health_router, 
     monitoring_router, multimedia_router, prompts_router, queue_router, video_converter_router, secure_streaming_router, pdf_files_router, logs_router
 )
+from app.api.database import router as database_router
 
 # Setup logging
 setup_logging()
@@ -63,7 +64,8 @@ async def lifespan(app: FastAPI):
             'openai': 'openai_api_key',
             'claude': 'anthropic_api_key',
             'anthropic': 'anthropic_api_key',
-            'mistral': 'mistral_api_key'
+            'mistral': 'mistral_api_key',
+            'openapi': 'openai_api_key'  # Ajout du mapping pour OpenAPI
         }
         
         # Vérifier et migrer chaque provider
@@ -151,6 +153,7 @@ app.include_router(prompts_router, prefix="/api/prompts", tags=["Prompts"])
 app.include_router(secure_streaming_router, prefix="/api/secure-streaming", tags=["Secure Streaming"])
 app.include_router(pdf_files_router, prefix="/api/pdf-files", tags=["PDF Files"])
 app.include_router(logs_router, prefix="/api/logs", tags=["Logs"])
+app.include_router(database_router)
 
 
 @app.get("/")

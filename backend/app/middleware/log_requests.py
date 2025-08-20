@@ -23,9 +23,14 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             # OPTIMISATION: Log seulement les erreurs et les requêtes importantes
             process_time = time.time() - start_time
             
-            # Log seulement si c'est une erreur ou une requête lente (> 1s)
-            if response.status_code >= 400 or process_time > 1.0:
-                logger.warning(f"SLOW/ERROR REQUEST - {request.method} {request.url.path} - Status: {response.status_code} - Time: {process_time:.3f}s")
+            # OPTIMISATION: Seuil réduit pour détecter les requêtes lentes plus tôt
+            # Log seulement si c'est une erreur ou une requête lente (> 0.5s au lieu de 1s)
+            if response.status_code >= 400 or process_time > 0.5:
+                # OPTIMISATION: Log plus détaillé pour les requêtes lentes
+                if process_time > 0.5:
+                    logger.warning(f"SLOW REQUEST - {request.method} {request.url.path} - Status: {response.status_code} - Time: {process_time:.3f}s")
+                else:
+                    logger.error(f"ERROR REQUEST - {request.method} {request.url.path} - Status: {response.status_code} - Time: {process_time:.3f}s")
             
             return response
             

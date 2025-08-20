@@ -64,6 +64,7 @@ class Settings(BaseSettings):
     anthropic_api_key: Optional[str] = Field(
         default=None, env="ANTHROPIC_API_KEY")
     mistral_api_key: Optional[str] = Field(default=None, env="MISTRAL_API_KEY")
+    gemini_api_key: Optional[str] = Field(default=None, env="GEMINI_API_KEY")
     ollama_base_url: str = Field(
         default="http://localhost:11434",
         env="OLLAMA_BASE_URL"
@@ -158,6 +159,7 @@ def load_api_keys_from_database():
                 'openai_api_key': db.query(Config).filter(Config.key == 'openai_api_key').first(),
                 'anthropic_api_key': db.query(Config).filter(Config.key == 'anthropic_api_key').first(),
                 'mistral_api_key': db.query(Config).filter(Config.key == 'mistral_api_key').first(),
+                'gemini_api_key': db.query(Config).filter(Config.key == 'gemini_api_key').first(),
             }
             
             # Mettre à jour les settings avec les clés de la base de données

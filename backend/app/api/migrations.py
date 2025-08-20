@@ -42,7 +42,7 @@ async def check_consistency(db: Session = Depends(get_db)) -> Dict[str, Any]:
     Vérifie la cohérence de la base de données
     """
     try:
-        logger.info("🔍 Vérification de la cohérence de la base de données")
+        logger.info("Vérification de la cohérence de la base de données")
         report = check_database_consistency(db)
         
         return {
