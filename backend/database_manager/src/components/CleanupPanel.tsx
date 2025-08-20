@@ -28,9 +28,9 @@ export const CleanupPanel: React.FC<CleanupPanelProps> = ({ onStatusUpdate }) =>
   const cleanupActions = [
     {
       id: 'orphaned-files',
-      title: 'Nettoyer Fichiers Orphelins',
-      description: 'Supprime les fichiers introuvables sur le disque',
-      icon: <Trash2 size={20} />,
+      title: '⚠️ Nettoyer Fichiers Orphelins',
+      description: '⚠️ ATTENTION : Supprime les entrées DB des fichiers introuvables (fichiers originaux préservés)',
+      icon: <AlertTriangle size={20} />,
       color: 'bg-red-500 hover:bg-red-600',
       action: () => DatabaseAPI.cleanupOrphanedFiles()
     },
@@ -68,10 +68,10 @@ export const CleanupPanel: React.FC<CleanupPanelProps> = ({ onStatusUpdate }) =>
     },
     {
       id: 'full-cleanup',
-      title: 'Nettoyage Complet',
-      description: 'Exécute toutes les opérations de nettoyage',
-      icon: <AlertTriangle size={20} />,
-      color: 'bg-purple-500 hover:bg-purple-600',
+      title: '🛡️ Nettoyage Complet (SAFE)',
+      description: 'Exécute toutes les opérations de nettoyage SÛRES (fichiers originaux préservés)',
+      icon: <CheckCircle size={20} />,
+      color: 'bg-green-500 hover:bg-green-600',
       action: () => DatabaseAPI.fullCleanup()
     }
   ];

@@ -9,9 +9,12 @@ from typing import Dict, Any
 from ..core.database import get_db
 from ..core.database_migration import run_automatic_migrations, check_database_consistency
 from ..utils.api_utils import APIUtils
-from ..utils.logger import get_logger
+from ..core.logging import setup_logging
+import logging
 
-logger = get_logger(__name__)
+# Setup logging
+setup_logging()
+logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/migrations", tags=["migrations"])
 
 

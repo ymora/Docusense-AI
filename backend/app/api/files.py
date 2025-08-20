@@ -2,7 +2,7 @@
 File management endpoints for DocuSense AI
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, Header, UploadFile, Form
+from fastapi import APIRouter, Depends, HTTPException, Query, Response, Header, UploadFile, Form, status
 from fastapi.responses import FileResponse, JSONResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
@@ -21,9 +21,11 @@ from ..services.file_service import FileService
 from ..services.download_service import download_service
 from ..core.file_validation import FileValidator
 from ..models.file import FileStatus
+from ..models.user import User
 from ..schemas.file import FileListResponse, FileStatusUpdate
 from ..utils.response_formatter import ResponseFormatter
 from ..utils.api_utils import APIUtils
+from ..api.auth import get_current_user
 
 
 logger = logging.getLogger(__name__)
@@ -683,11 +685,19 @@ async def stream_file_by_path(
     hls: bool = Query(False, description="Stream HLS pour vidéos"),
     direct: bool = Query(False, description="Téléchargement direct"),
     html: bool = Query(False, description="Conversion en HTML pour Office"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Stream un fichier par son chemin complet
     """
+    # Vérifier les permissions de visualisation
+    if not current_user.has_permission("view_pdfs"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Permission de visualisation requise"
+        )
+    
     try:
         from urllib.parse import unquote
         
@@ -1062,15 +1072,17 @@ async def analyze_directory(
                 file_ids.append(file_info['id'])
         
         if file_ids:
-            # Ajouter à la queue d'analyse
-            from ..services.queue_service import QueueService
-            queue_service = QueueService(db)
+            # Créer des analyses directement
+            from ..services.analysis_service import AnalysisService
+            analysis_service = AnalysisService(db)
             
             for file_id in file_ids:
-                queue_service.add_item(
+                analysis_service.create_analysis(
                     file_id=file_id,
-                    analysis_type="analysis",
-                    prompt_id="default"
+                    analysis_type="general",
+                    provider="openai",
+                    model="gpt-4",
+                    start_processing=True
                 )
         
         return {
@@ -1165,15 +1177,17 @@ async def analyze_directory_supported(
                 "total_files": len(files)
             }
         
-        # Ajouter les fichiers supportés à la queue d'analyse
-        from ..services.queue_service import QueueService
-        queue_service = QueueService(db)
+        # Créer des analyses directement pour les fichiers supportés
+        from ..services.analysis_service import AnalysisService
+        analysis_service = AnalysisService(db)
         
         for file_id in supported_file_ids:
-            queue_service.add_item(
+            analysis_service.create_analysis(
                 file_id=file_id,
-                analysis_type="analysis",
-                prompt_id="default"
+                analysis_type="general",
+                provider="openai",
+                model="gpt-4",
+                start_processing=True
             )
         
         return {

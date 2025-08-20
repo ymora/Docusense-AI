@@ -9,9 +9,12 @@ import logging
 from sqlalchemy import desc, asc
 
 from ...core.database import get_db
+from ...core.permissions import require_permission, Permissions, Features
 from ...services.analysis_service import AnalysisService
 from ...models.analysis import Analysis, AnalysisStatus
 from ...models.file import File
+from ...models.user import User
+from ...api.auth import get_current_user
 from ...utils.api_utils import APIUtils, ResponseFormatter
 
 logger = logging.getLogger(__name__)
@@ -21,8 +24,10 @@ router = APIRouter(tags=["analysis-management"])
 
 @router.get("/list")
 @APIUtils.handle_errors
+@require_permission(Permissions.READ_ANALYSES, Features.ANALYSIS_VIEWING)
 async def get_analyses_list(
     db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
     sort_by: str = Query("created_at", description="Sort by field"),
     sort_order: str = Query("desc", description="Sort order (asc/desc)"),
     status_filter: str = Query(None, description="Filter by status"),

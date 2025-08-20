@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { apiRequest } from '../utils/apiUtils';
 
 export interface BackendStatus {
   isOnline: boolean;
@@ -6,6 +7,7 @@ export interface BackendStatus {
   errorMessage: string | null;
   responseTime: number | null;
   isInactive: boolean; // Nouveau: indique si le frontend est inactif
+  consecutiveFailures: number; // Nombre d'échecs consécutifs
 }
 
 export const useBackendStatus = (checkInterval: number = 60000) => { // OPTIMISATION: Augmenté à 60s pour réduire les logs
@@ -15,6 +17,7 @@ export const useBackendStatus = (checkInterval: number = 60000) => { // OPTIMISA
     errorMessage: null,
     responseTime: null,
     isInactive: false, // Nouveau: commence actif
+    consecutiveFailures: 0, // Commence avec 0 échec
   });
 
   const [isMonitoring, setIsMonitoring] = useState(true);
@@ -28,35 +31,22 @@ export const useBackendStatus = (checkInterval: number = 60000) => { // OPTIMISA
     const startTime = Date.now();
 
     try {
-      const response = await fetch('/api/health', {
+      const response = await apiRequest('/api/health', {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        // Timeout court pour détecter rapidement les problèmes
-        signal: AbortSignal.timeout(5000),
-      });
+      }, 5000); // Timeout de 5 secondes
 
       const endTime = Date.now();
       const responseTime = endTime - startTime;
 
-      if (response.ok) {
-        setStatus({
-          isOnline: true,
-          lastCheck: new Date(),
-          errorMessage: null,
-          responseTime,
-          isInactive: false, // Réactiver quand la connexion est rétablie
-        });
-      } else {
-        setStatus({
-          isOnline: false,
-          lastCheck: new Date(),
-          errorMessage: `Erreur HTTP: ${response.status} ${response.statusText}`,
-          responseTime,
-          isInactive: status.isInactive, // Conserver l'état d'inactivité
-        });
-      }
+      // Si on arrive ici, la requête a réussi
+      setStatus({
+        isOnline: true,
+        lastCheck: new Date(),
+        errorMessage: null,
+        responseTime,
+        isInactive: false, // Réactiver quand la connexion est rétablie
+        consecutiveFailures: 0, // Réinitialiser les échecs consécutifs
+      });
     } catch (error) {
       const endTime = Date.now();
       const responseTime = endTime - startTime;
@@ -79,6 +69,7 @@ export const useBackendStatus = (checkInterval: number = 60000) => { // OPTIMISA
         errorMessage,
         responseTime,
         isInactive: status.isInactive, // Conserver l'état d'inactivité
+        consecutiveFailures: status.consecutiveFailures + 1, // Incrémenter les échecs
       });
     }
   };

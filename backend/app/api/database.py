@@ -14,7 +14,7 @@ from pathlib import Path
 from ..core.database import get_db
 from ..models.file import File, FileStatus
 from ..models.analysis import Analysis
-from ..models.queue import QueueItem, QueueStatus
+
 from ..core.database_migration import DatabaseMigrationManager, check_database_consistency
 from ..schemas.database import (
     DatabaseStatusResponse,
@@ -22,8 +22,7 @@ from ..schemas.database import (
     BackupResponse,
     BackupListResponse,
     FileListResponse,
-    AnalysisListResponse,
-    QueueListResponse
+    AnalysisListResponse
 )
 
 router = APIRouter(prefix="/api/database", tags=["database"])
@@ -44,13 +43,12 @@ async def get_database_status(db: Session = Depends(get_db)):
         # Compter les analyses
         total_analyses = db.query(Analysis).count()
         
-        # Compter les tâches de queue par statut
-        total_queue_items = db.query(QueueItem).count()
-        queue_by_status = {}
-        for status in QueueStatus:
-            count = db.query(QueueItem).filter(QueueItem.status == status).count()
+        # Compter les analyses par statut
+        analyses_by_status = {}
+        for status in ['pending', 'processing', 'completed', 'failed']:
+            count = db.query(Analysis).filter(Analysis.status == status).count()
             if count > 0:
-                queue_by_status[status.value] = count
+                analyses_by_status[status] = count
         
         # Vérifier la cohérence
         consistency_report = check_database_consistency(db)
@@ -59,8 +57,7 @@ async def get_database_status(db: Session = Depends(get_db)):
             total_files=total_files,
             files_by_status=files_by_status,
             total_analyses=total_analyses,
-            total_queue_items=total_queue_items,
-            queue_by_status=queue_by_status,
+            analyses_by_status=analyses_by_status,
             consistency_report=consistency_report
         )
     
@@ -70,13 +67,17 @@ async def get_database_status(db: Session = Depends(get_db)):
 
 @router.post("/cleanup/orphaned-files", response_model=CleanupResponse)
 async def cleanup_orphaned_files(db: Session = Depends(get_db)):
-    """Nettoie les fichiers orphelins"""
+    """⚠️ ATTENTION : Nettoie les entrées de fichiers orphelins dans la base de données"""
     try:
         files = db.query(File).all()
         orphaned_count = 0
         
         for file in files:
+            # Vérifier si le fichier existe physiquement
             if not Path(file.path).exists():
+                # ⚠️ ATTENTION : Cette action supprime l'entrée de la base de données
+                # mais NE TOUCHE PAS au fichier original s'il existe ailleurs
+                # Seulement les références "orphelines" sont supprimées
                 db.delete(file)
                 orphaned_count += 1
         
@@ -85,7 +86,7 @@ async def cleanup_orphaned_files(db: Session = Depends(get_db)):
         
         return CleanupResponse(
             success=True,
-            message=f"{orphaned_count} fichiers orphelins supprimés",
+            message=f"⚠️ {orphaned_count} entrées de fichiers orphelins supprimées de la base de données (fichiers originaux préservés)",
             details={"files_deleted": orphaned_count}
         )
     
@@ -118,41 +119,7 @@ async def cleanup_failed_analyses(db: Session = Depends(get_db)):
         raise HTTPException(status_code=500, detail=f"Erreur lors du nettoyage: {str(e)}")
 
 
-@router.post("/cleanup/old-queue-items", response_model=CleanupResponse)
-async def cleanup_old_queue_items(hours: int = 24, db: Session = Depends(get_db)):
-    """Nettoie les tâches de queue anciennes"""
-    try:
-        cutoff_time = datetime.now() - timedelta(hours=hours)
-        
-        # Supprimer les tâches terminées anciennes
-        old_completed = db.query(QueueItem).filter(
-            QueueItem.status == QueueStatus.COMPLETED,
-            QueueItem.completed_at < cutoff_time
-        ).all()
-        
-        # Supprimer les tâches échouées anciennes
-        old_failed = db.query(QueueItem).filter(
-            QueueItem.status == QueueStatus.FAILED,
-            QueueItem.updated_at < cutoff_time
-        ).all()
-        
-        deleted_count = len(old_completed) + len(old_failed)
-        
-        for item in old_completed + old_failed:
-            db.delete(item)
-        
-        if deleted_count > 0:
-            db.commit()
-        
-        return CleanupResponse(
-            success=True,
-            message=f"{deleted_count} tâches anciennes supprimées",
-            details={"queue_items_deleted": deleted_count}
-        )
-    
-    except Exception as e:
-        db.rollback()
-        raise HTTPException(status_code=500, detail=f"Erreur lors du nettoyage: {str(e)}")
+
 
 
 @router.post("/cleanup/temp-files", response_model=CleanupResponse)
@@ -202,31 +169,27 @@ async def fix_invalid_statuses(db: Session = Depends(get_db)):
 
 @router.post("/full-cleanup", response_model=CleanupResponse)
 async def full_cleanup(db: Session = Depends(get_db)):
-    """Effectue un nettoyage complet"""
+    """Effectue un nettoyage complet (SAFE - ne touche pas aux fichiers originaux)"""
     try:
-        # Exécuter toutes les opérations de nettoyage
-        orphaned_result = await cleanup_orphaned_files(db)
-        failed_result = await cleanup_failed_analyses(db)
-        queue_result = await cleanup_old_queue_items(24, db)
-        temp_result = await cleanup_temp_files(db)
-        status_result = await fix_invalid_statuses(db)
+        # Exécuter toutes les opérations de nettoyage SÛRES
+        # ⚠️ EXCLU : cleanup_orphaned_files (risque pour les fichiers originaux)
+        failed_result = cleanup_failed_analyses(db)
+        temp_result = cleanup_temp_files(db)
+        status_result = fix_invalid_statuses(db)
         
         total_deleted = (
-            orphaned_result.details.get("files_deleted", 0) +
             failed_result.details.get("analyses_deleted", 0) +
-            queue_result.details.get("queue_items_deleted", 0) +
             temp_result.details.get("temp_files_cleaned", 0) +
             status_result.details.get("invalid_statuses_fixed", 0)
         )
         
         return CleanupResponse(
             success=True,
-            message=f"Nettoyage complet terminé: {total_deleted} éléments traités",
+            message=f"Nettoyage complet terminé: {total_deleted} éléments traités (fichiers originaux préservés)",
             details={
-                "files_deleted": orphaned_result.details.get("files_deleted", 0),
-                "analyses_deleted": failed_result.details.get("analyses_deleted", 0),
-                "queue_items_deleted": queue_result.details.get("queue_items_deleted", 0),
-                "temp_files_cleaned": temp_result.details.get("temp_files_cleaned", 0),
+                "files_deleted": 0,  # Toujours 0 pour la sécurité
+                            "analyses_deleted": failed_result.details.get("analyses_deleted", 0),
+            "temp_files_cleaned": temp_result.details.get("temp_files_cleaned", 0),
                 "invalid_statuses_fixed": status_result.details.get("invalid_statuses_fixed", 0)
             }
         )
@@ -342,6 +305,7 @@ async def get_files(
 @router.get("/analyses", response_model=AnalysisListResponse)
 async def get_analyses(
     status: Optional[str] = None,
+    file_id: Optional[int] = None,
     limit: int = 50,
     db: Session = Depends(get_db)
 ):
@@ -352,14 +316,33 @@ async def get_analyses(
         if status:
             query = query.filter(Analysis.status == status)
         
+        if file_id:
+            query = query.filter(Analysis.file_id == file_id)
+        
         analyses = query.limit(limit).all()
+        
+        # Récupérer les informations des fichiers associés
+        file_ids = [analysis.file_id for analysis in analyses if analysis.file_id]
+        files_dict = {}
+        if file_ids:
+            files = db.query(File).filter(File.id.in_(file_ids)).all()
+            files_dict = {file.id: file for file in files}
         
         return AnalysisListResponse(analyses=[
             {
                 "id": analysis.id,
                 "file_id": analysis.file_id or 0,  # Gérer les valeurs None
+                "file_name": files_dict.get(analysis.file_id, {}).name if analysis.file_id and analysis.file_id in files_dict else "Fichier introuvable",
+                "file_path": files_dict.get(analysis.file_id, {}).path if analysis.file_id and analysis.file_id in files_dict else "",
                 "status": analysis.status,
+                "analysis_type": analysis.analysis_type,
+                "provider": analysis.provider,
+                "model": analysis.model,
+                "progress": analysis.progress or 0.0,
+                "current_step": analysis.current_step,
+                "total_steps": analysis.total_steps or 1,
                 "created_at": analysis.created_at.isoformat() if analysis.created_at else "",
+                "started_at": analysis.started_at.isoformat() if analysis.started_at else None,
                 "completed_at": analysis.completed_at.isoformat() if analysis.completed_at else None,
                 "error_message": analysis.error_message
             }
@@ -370,33 +353,126 @@ async def get_analyses(
         raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération des analyses: {str(e)}")
 
 
-@router.get("/queue-items", response_model=QueueListResponse)
-async def get_queue_items(
+@router.get("/files/{file_id}/analyses", response_model=AnalysisListResponse)
+async def get_file_analyses(
+    file_id: int,
     status: Optional[str] = None,
     limit: int = 50,
     db: Session = Depends(get_db)
 ):
-    """Récupère la liste des tâches de queue"""
+    """Récupère les analyses d'un fichier spécifique"""
     try:
-        query = db.query(QueueItem)
+        # Vérifier que le fichier existe
+        file = db.query(File).filter(File.id == file_id).first()
+        if not file:
+            raise HTTPException(status_code=404, detail="Fichier introuvable")
+        
+        query = db.query(Analysis).filter(Analysis.file_id == file_id)
         
         if status:
-            query = query.filter(QueueItem.status == status)
+            query = query.filter(Analysis.status == status)
         
-        items = query.limit(limit).all()
+        analyses = query.limit(limit).all()
         
-        return QueueListResponse(queue_items=[
+        return AnalysisListResponse(analyses=[
             {
-                "id": item.id,
-                "analysis_id": item.analysis_id,
-                "status": item.status,
-                "created_at": item.created_at.isoformat() if item.created_at else "",
-                "started_at": item.started_at.isoformat() if item.started_at else None,
-                "completed_at": item.completed_at.isoformat() if item.completed_at else None,
-                "error_message": item.error_message
+                "id": analysis.id,
+                "file_id": analysis.file_id or 0,
+                "file_name": file.name,
+                "file_path": file.path,
+                "status": analysis.status,
+                "analysis_type": analysis.analysis_type,
+                "provider": analysis.provider,
+                "model": analysis.model,
+                "progress": analysis.progress or 0.0,
+                "current_step": analysis.current_step,
+                "total_steps": analysis.total_steps or 1,
+                "created_at": analysis.created_at.isoformat() if analysis.created_at else "",
+                "started_at": analysis.started_at.isoformat() if analysis.started_at else None,
+                "completed_at": analysis.completed_at.isoformat() if analysis.completed_at else None,
+                "error_message": analysis.error_message
             }
-            for item in items
-        ], total=len(items), limit=limit, offset=0)
+            for analysis in analyses
+        ], total=len(analyses), limit=limit, offset=0)
     
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération des tâches de queue: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la récupération des analyses: {str(e)}")
+
+
+@router.post("/analyses/{analysis_id}/retry")
+async def retry_analysis(analysis_id: int, db: Session = Depends(get_db)):
+    """Relance une analyse échouée"""
+    try:
+        analysis = db.query(Analysis).filter(Analysis.id == analysis_id).first()
+        if not analysis:
+            raise HTTPException(status_code=404, detail="Analyse introuvable")
+        
+        if analysis.status != 'failed':
+            raise HTTPException(status_code=400, detail="Seules les analyses échouées peuvent être relancées")
+        
+        # Réinitialiser l'analyse pour la relancer
+        analysis.status = 'pending'
+        analysis.progress = 0.0
+        analysis.current_step = None
+        analysis.error_message = None
+        analysis.started_at = None
+        analysis.completed_at = None
+        
+        db.commit()
+        
+        return {"success": True, "message": f"Analyse {analysis_id} relancée avec succès"}
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Erreur lors du relancement: {str(e)}")
+
+
+@router.delete("/analyses/{analysis_id}")
+async def delete_analysis(analysis_id: int, db: Session = Depends(get_db)):
+    """Supprime une analyse"""
+    try:
+        analysis = db.query(Analysis).filter(Analysis.id == analysis_id).first()
+        if not analysis:
+            raise HTTPException(status_code=404, detail="Analyse introuvable")
+        
+        db.delete(analysis)
+        db.commit()
+        
+        return {"success": True, "message": f"Analyse {analysis_id} supprimée avec succès"}
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la suppression: {str(e)}")
+
+
+from pydantic import BaseModel
+
+class BulkDeleteRequest(BaseModel):
+    analysis_ids: List[int]
+
+@router.post("/analyses/bulk-delete")
+async def delete_multiple_analyses(request: BulkDeleteRequest, db: Session = Depends(get_db)):
+    """Supprime plusieurs analyses en lot"""
+    try:
+        analyses = db.query(Analysis).filter(Analysis.id.in_(request.analysis_ids)).all()
+        if not analyses:
+            raise HTTPException(status_code=404, detail="Aucune analyse trouvée")
+        
+        for analysis in analyses:
+            db.delete(analysis)
+        
+        db.commit()
+        
+        return {"success": True, "message": f"{len(analyses)} analyses supprimées avec succès"}
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=f"Erreur lors de la suppression en lot: {str(e)}")

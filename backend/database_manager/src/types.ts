@@ -2,8 +2,7 @@ export interface DatabaseStatus {
   total_files: number;
   files_by_status: Record<string, number>;
   total_analyses: number;
-  total_queue_items: number;
-  queue_by_status: Record<string, number>;
+  analyses_by_status: Record<string, number>;
   consistency_report: {
     valid_files: number;
     invalid_statuses: number;
@@ -23,7 +22,6 @@ export interface CleanupResult {
   details?: {
     files_deleted?: number;
     analyses_deleted?: number;
-    queue_items_deleted?: number;
     temp_files_cleaned?: number;
     invalid_statuses_fixed?: number;
   };
@@ -49,16 +47,15 @@ export interface FileInfo {
 export interface AnalysisInfo {
   id: number;
   file_id: number;
+  file_name: string;
+  file_path: string;
   status: string;
-  created_at: string;
-  completed_at?: string;
-  error_message?: string;
-}
-
-export interface QueueItemInfo {
-  id: number;
-  analysis_id: number;
-  status: string;
+  analysis_type: string;
+  provider: string;
+  model: string;
+  progress: number;
+  current_step?: string;
+  total_steps: number;
   created_at: string;
   started_at?: string;
   completed_at?: string;

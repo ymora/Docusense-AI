@@ -20,7 +20,7 @@ from app.core.logging import setup_logging
 from app.middleware.log_requests import LoggingMiddleware
 from app.api import (
     analysis_router, auth_router, config_router, download_router, emails_router, files_router, health_router, 
-    monitoring_router, multimedia_router, prompts_router, queue_router, video_converter_router, secure_streaming_router, pdf_files_router, logs_router
+    monitoring_router, multimedia_router, prompts_router, video_converter_router, secure_streaming_router, pdf_files_router, logs_router
 )
 from app.api.database import router as database_router
 
@@ -64,8 +64,7 @@ async def lifespan(app: FastAPI):
             'openai': 'openai_api_key',
             'claude': 'anthropic_api_key',
             'anthropic': 'anthropic_api_key',
-            'mistral': 'mistral_api_key',
-            'openapi': 'openai_api_key'  # Ajout du mapping pour OpenAPI
+            'mistral': 'mistral_api_key'
         }
         
         # Vérifier et migrer chaque provider
@@ -142,7 +141,7 @@ app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(files_router, prefix="/api/files", tags=["Files"])
 app.include_router(analysis_router, prefix="/api/analysis", tags=["Analysis"])
 app.include_router(config_router, prefix="/api/config", tags=["Configuration"])
-app.include_router(queue_router, prefix="/api/queue", tags=["Queue"])
+
 app.include_router(health_router, prefix="/api/health", tags=["Health"])
 app.include_router(monitoring_router, prefix="/api/monitoring", tags=["Monitoring"])
 app.include_router(download_router, prefix="/api/download", tags=["Download"])

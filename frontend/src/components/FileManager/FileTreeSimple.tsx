@@ -3,7 +3,7 @@ import { FolderIcon, DocumentIcon, ChevronRightIcon, ChevronDownIcon, ArrowRight
 import { useColors } from '../../hooks/useColors';
 import { isSupportedFormat } from '../../utils/mediaFormats';
 import { useUIStore } from '../../stores/uiStore';
-import { useQueueStore } from '../../stores/queueStore';
+import { useAnalysisStore } from '../../stores/analysisStore';
 import { logService } from '../../services/logService';
 
 interface FileTreeSimpleProps {
@@ -21,7 +21,7 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
 }) => {
   const { colors } = useColors();
   const { setActivePanel } = useUIStore();
-  const { addLocalToQueue } = useQueueStore();
+  const { createAnalysis } = useAnalysisStore();
   const [directoryData, setDirectoryData] = useState<any>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [folderData, setFolderData] = useState<Record<string, any>>({}); // Stockage global des données des dossiers
@@ -172,45 +172,35 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
       // Attendre un peu pour s'assurer que l'onglet se met à jour
       await new Promise(resolve => setTimeout(resolve, 100));
       
-      // Ajouter directement à la queue locale (pas de backend pour l'instant)
-      const queueItem = {
-        id: `local_${Date.now()}_${Math.random()}`, // ID temporaire local
-        file_info: {
-          name: file.name,
-          path: file.path,
-          size: file.size,
-          mime_type: file.mime_type
-        },
-        status: 'pending',
+      // Créer une analyse directement via le backend
+      console.log('📝 Création d\'analyse pour:', file.name);
+      
+      // Créer l'analyse via le service
+      await createAnalysis({
+        file_id: file.id,
         analysis_type: 'general',
-        analysis_provider: 'ollama', // Ollama par défaut
-        prompt: 'auto', // Sera configuré par l'utilisateur
-        created_at: new Date().toISOString(),
-        is_local: true // Marqueur pour indiquer que c'est local
-      };
+        provider: 'ollama',
+        model: 'llama2',
+        start_processing: true
+      });
       
-      console.log('📝 Ajout à la queue locale:', queueItem);
-      
-      // Ajouter à la queue locale
-      addLocalToQueue(queueItem);
-      
-      logService.info('Fichier ajouté à la queue avec succès', 'FileTreeSimple', {
+      logService.info('Analyse créée avec succès', 'FileTreeSimple', {
         fileName: file.name,
-        queueItemId: queueItem.id,
+        fileId: file.id,
         timestamp: new Date().toISOString()
       });
       
-      console.log('✅ Fichier ajouté à la queue avec succès');
+      console.log('✅ Analyse créée avec succès');
       
     } catch (error) {
-      logService.error('Erreur lors de l\'ajout à la queue locale', 'FileTreeSimple', {
+      logService.error('Erreur lors de la création d\'analyse', 'FileTreeSimple', {
         fileName: file.name,
         error: error.message,
         timestamp: new Date().toISOString()
       });
-      console.error('❌ Erreur lors de l\'ajout à la queue locale:', error);
+      console.error('❌ Erreur lors de la création d\'analyse:', error);
     }
-  }, [setActivePanel, addLocalToQueue]);
+  }, [setActivePanel, createAnalysis]);
 
   // Visualiser un fichier
   const handleViewFile = useCallback((file: any, e: React.MouseEvent) => {

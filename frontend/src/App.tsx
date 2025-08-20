@@ -3,6 +3,7 @@ import Layout from './components/Layout/Layout';
 import { GlobalConfirmation } from './components/UI/GlobalConfirmation';
 import { ConfirmationProvider } from './contexts/ConfirmationContext';
 import { useViewportHeight } from './hooks/useViewportHeight';
+import { useThemeSync } from './hooks/useThemeSync';
 import './App.css';
 
 const router = createBrowserRouter([
@@ -15,6 +16,9 @@ const router = createBrowserRouter([
 function App() {
   // Initialiser la gestion de la hauteur d'écran
   useViewportHeight();
+  
+  // Synchroniser le thème avec le DOM
+  useThemeSync();
   
   return (
     <ConfirmationProvider>

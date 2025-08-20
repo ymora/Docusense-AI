@@ -4,6 +4,7 @@ import {
   CpuChipIcon, ChatBubbleLeftRightIcon, SparklesIcon, CommandLineIcon, BeakerIcon
 } from '@heroicons/react/24/outline';
 import { useColors } from '../../hooks/useColors';
+import { useBackendStatus } from '../../hooks/useBackendStatus';
 import ConfigService from '../../services/configService';
 import { logService } from '../../services/logService';
 import { useConfigStore } from '../../stores/configStore';
@@ -40,6 +41,7 @@ interface ProviderState {
 // Composant de contenu simplifié pour utilisation dans MainPanel
 export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimize, isStandalone = false }) => {
   const { colors } = useColors();
+  const { isOnline } = useBackendStatus();
   const { aiProviders, loadAIProviders, refreshAIProviders, isInitialized } = useConfigStore();
   const [loading, setLoading] = useState(false);
   const [providers, setProviders] = useState<ProviderState[]>([]);
@@ -350,6 +352,15 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
 
      // Obtenir le statut visuel d'un provider
    const getProviderStatusInfo = (provider: ProviderState) => {
+     // Si le backend est déconnecté, afficher "Attente connexion" pour tous les providers
+     if (!isOnline) {
+       return { 
+         text: 'Attente connexion', 
+         color: '#f97316', // Orange
+         description: 'Backend déconnecté - impossible de vérifier le statut'
+       };
+     }
+
      switch (provider.status) {
        case 'empty':
          return { 
@@ -432,6 +443,17 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
       <div className="flex-1 overflow-hidden">
         <div className="h-full overflow-y-auto p-4">
           <div className="space-y-6">
+            
+            {!isOnline && (
+              <div className="p-3 rounded-lg border" style={{ backgroundColor: '#fef3c7', borderColor: '#f97316' }}>
+                <div className="flex items-center space-x-2">
+                  <span style={{ color: '#f97316' }}>⚠️</span>
+                  <span className="text-sm" style={{ color: '#92400e' }}>
+                    Backend déconnecté - Les statuts des providers IA ne peuvent pas être vérifiés
+                  </span>
+                </div>
+              </div>
+            )}
             
             {error && (
               <div className="p-3 rounded-lg border bg-red-50 border-red-200">
@@ -588,9 +610,9 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                                           handleTestProvider(provider.name);
                                         }
                                       }}
-                                      disabled={isTesting || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty')}
+                                      disabled={isTesting || !isOnline || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty')}
                                       className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
-                                        isTesting || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty') ? 'opacity-50 cursor-not-allowed' : ''
+                                        isTesting || !isOnline || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty') ? 'opacity-50 cursor-not-allowed' : ''
                                       }`}
                                       style={{
                                         backgroundColor: 'transparent',
@@ -762,9 +784,9 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                                           handleTestProvider(provider.name);
                                         }
                                       }}
-                                      disabled={isTesting || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty')}
+                                      disabled={isTesting || !isOnline || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty')}
                                       className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
-                                        isTesting || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty') ? 'opacity-50 cursor-not-allowed' : ''
+                                        isTesting || !isOnline || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty') ? 'opacity-50 cursor-not-allowed' : ''
                                       }`}
                                       style={{
                                         backgroundColor: 'transparent',
@@ -859,6 +881,7 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
 
 const ConfigWindow: React.FC<ConfigWindowProps> = ({ onClose, onMinimize }) => {
   const { colors } = useColors();
+  const { isOnline } = useBackendStatus();
   const { getActiveProviders, isInitialized } = useConfigStore();
   
   // Obtenir les providers actifs pour l'indicateur
@@ -893,15 +916,18 @@ const ConfigWindow: React.FC<ConfigWindowProps> = ({ onClose, onMinimize }) => {
                  Validation des clés et gestion des priorités
                </p>
              </div>
-             {isInitialized && (
-               <div 
-                 className="flex items-center justify-center w-6 h-6 rounded-full text-xs font-bold text-white"
-                 style={{ backgroundColor: activeProviders.length > 0 ? colors.primary : '#6b7280' }}
-                 title={`${activeProviders.length} IA(s) active(s)`}
-               >
-                 {activeProviders.length}
-               </div>
-             )}
+                           {isInitialized && (
+                <span 
+                  className="text-xs font-bold"
+                  style={{ 
+                    color: activeProviders.length > 0 ? '#10b981' : '#6b7280',
+                    fontSize: '11px'
+                  }}
+                  title={`${activeProviders.length} IA(s) active(s)`}
+                >
+                  {activeProviders.length}
+                </span>
+              )}
            </div>
          </div>
         <div className="flex items-center space-x-2">

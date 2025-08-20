@@ -3,15 +3,14 @@ import LeftPanel from './LeftPanel';
 import MainPanel from './MainPanel';
 
 import { StartupLoader } from '../UI/StartupLoader';
-import AuthModal from '../UI/AuthModal';
-import { authService } from '../../services/authService';
+import { UserIcon } from '../UI/UserIcon';
 import { useUIStore } from '../../stores/uiStore';
-import { useQueueStore } from '../../stores/queueStore';
+import { useAnalysisStore } from '../../stores/analysisStore';
 import { useFileStore } from '../../stores/fileStore';
 import { useColors } from '../../hooks/useColors';
 import { useStartupInitialization } from '../../hooks/useStartupInitialization';
 import { analysisService } from '../../services/analysisService';
-import { queueService } from '../../services/queueService';
+
 import { promptService } from '../../services/promptService';
 import { fileService } from '../../services/fileService';
 import { logService } from '../../services/logService';
@@ -19,7 +18,7 @@ import { logService } from '../../services/logService';
 
 const Layout: React.FC = () => {
   const { selectedFile, selectedFiles, selectFile, markFileAsViewed, files } = useFileStore();
-  const { queueItems } = useQueueStore(); // OPTIMISATION: Plus besoin de loadQueueItems
+  const { analyses } = useAnalysisStore();
   const { isInitialized, isLoading, initializationStep } = useStartupInitialization();
   const { sidebarWidth, setSidebarWidth, activePanel, setActivePanel } = useUIStore();
   const { colors } = useColors();
@@ -27,9 +26,7 @@ const Layout: React.FC = () => {
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [resizeStartWidth, setResizeStartWidth] = useState<number | null>(null);
   
-  // États pour l'authentification
-  const [showAuthModal, setShowAuthModal] = useState(false);
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  // États pour l'authentification (maintenant géré par le store)
   
   // États pour les actions de fichiers
 
@@ -38,31 +35,7 @@ const Layout: React.FC = () => {
 
   // L'application est maintenant initialisée automatiquement via le hook useStartupInitialization
 
-  // Gestion de l'authentification
-  useEffect(() => {
-    // Vérifier si l'utilisateur est local
-    const isLocal = authService.isLocalUser();
-    
-    if (isLocal) {
-      // Utilisateur local - pas besoin d'authentification
-      setIsAuthenticated(true);
-    } else {
-      // Utilisateur distant - vérifier l'authentification
-      const restored = authService.restoreAuth();
-      if (restored) {
-        // Vérifier si le token est encore valide
-        authService.validateToken().then(isValid => {
-          if (isValid) {
-            setIsAuthenticated(true);
-          } else {
-            setShowAuthModal(true);
-          }
-        });
-      } else {
-        setShowAuthModal(true);
-      }
-    }
-  }, []);
+  // L'authentification est maintenant gérée par le store useAuthStore
 
   // Basculement automatique vers l'onglet visualisation quand un fichier est sélectionné
   useEffect(() => {
@@ -280,10 +253,7 @@ const Layout: React.FC = () => {
             custom_prompt: ''
           });
           
-          // Ajouter à la queue
-          if (analysisResponse && analysisResponse.analysis_id) {
-            await queueService.addToQueue(analysisResponse.analysis_id, 'normal');
-          }
+          // L'analyse est maintenant créée directement avec le statut approprié
           
           return analysisResponse;
         } catch (error) {
@@ -498,19 +468,7 @@ const Layout: React.FC = () => {
         isInitialized={isInitialized}
       />
       
-      {/* Modal d'authentification */}
-      <AuthModal
-        isOpen={showAuthModal && !isAuthenticated}
-        onClose={() => {
-          // Ne pas permettre de fermer la modal si pas authentifié
-          if (!isAuthenticated) return;
-          setShowAuthModal(false);
-        }}
-        onSuccess={() => {
-          setIsAuthenticated(true);
-          setShowAuthModal(false);
-        }}
-      />
+      {/* L'authentification est maintenant gérée par le composant UserIcon */}
       
 
       
@@ -518,8 +476,8 @@ const Layout: React.FC = () => {
         className="flex h-screen overflow-hidden"
         style={{ backgroundColor: colors.background }}
       >
-        {/* Afficher le contenu seulement si authentifié ou utilisateur local */}
-        {isAuthenticated ? (
+        {/* Contenu principal - l'authentification est gérée par le store */}
+        <>
           <>
             {/* Panneau de gauche */}
             <div
@@ -579,6 +537,16 @@ const Layout: React.FC = () => {
             {/* Panneau principal */}
             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
               
+              {/* En-tête avec icône utilisateur */}
+              <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: colors.border }}>
+                <div className="flex items-center space-x-4">
+                  <h1 className="text-xl font-bold" style={{ color: colors.text }}>
+                    DocuSense AI
+                  </h1>
+                </div>
+                <UserIcon />
+              </div>
+              
               {/* Contenu principal */}
               <div className="flex-1 min-w-0 overflow-hidden">
                 <MainPanel 
@@ -588,20 +556,7 @@ const Layout: React.FC = () => {
               </div>
             </div>
           </>
-        ) : (
-          // Écran de chargement pendant l'authentification
-          <div className="flex items-center justify-center h-screen overflow-hidden" style={{ backgroundColor: colors.background }}>
-            <div className="text-center">
-              <div className="text-4xl mb-4">🔐</div>
-              <h2 className="text-xl font-semibold mb-2" style={{ color: colors.text }}>
-                Authentification requise
-              </h2>
-              <p className="text-sm" style={{ color: colors.textSecondary }}>
-                Veuillez vous connecter pour accéder à l'application
-              </p>
-            </div>
-          </div>
-        )}
+        </>
     </div>
     </>
   );

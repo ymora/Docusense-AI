@@ -17,8 +17,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from sqlalchemy.orm import Session
 from app.core.database import SessionLocal, engine
 from app.models.file import File, FileStatus
-from app.models.analysis import Analysis
-from app.models.queue import QueueItem, QueueStatus
+from app.models.analysis import Analysis, AnalysisStatus
 from app.core.database_migration import DatabaseMigrationManager, check_database_consistency
 
 
@@ -30,7 +29,6 @@ class DatabaseCleaner:
         self.cleanup_stats = {
             'files_deleted': 0,
             'analyses_deleted': 0,
-            'queue_items_deleted': 0,
             'orphaned_files_marked': 0,
             'invalid_statuses_fixed': 0,
             'temp_files_cleaned': 0
@@ -48,7 +46,7 @@ class DatabaseCleaner:
         print("1. 🔍 Afficher l'état actuel de la base de données")
         print("2. 🗑️  Nettoyer les fichiers orphelins (fichiers introuvables)")
         print("3. 🧪 Nettoyer les analyses échouées")
-        print("4. ⏰ Nettoyer les tâches de queue anciennes")
+        print("4. ⏰ Nettoyer les analyses anciennes")
         print("5. 📁 Nettoyer les fichiers temporaires")
         print("6. 🔧 Corriger les statuts invalides")
         print("7. 🚀 Nettoyage complet (toutes les opérations)")
@@ -85,21 +83,20 @@ class DatabaseCleaner:
         # Compter les analyses
         total_analyses = self.db.query(Analysis).count()
         
-        # Compter les tâches de queue
-        total_queue_items = self.db.query(QueueItem).count()
-        queue_by_status = {}
-        for status in QueueStatus:
-            count = self.db.query(QueueItem).filter(QueueItem.status == status).count()
+        # Compter les analyses (qui remplacent les tâches de queue)
+        total_analyses = self.db.query(Analysis).count()
+        analyses_by_status = {}
+        for status in AnalysisStatus:
+            count = self.db.query(Analysis).filter(Analysis.status == status).count()
             if count > 0:
-                queue_by_status[status.value] = count
+                analyses_by_status[status.value] = count
         
         print(f"📁 Fichiers: {total_files}")
         for status, count in files_by_status.items():
             print(f"   - {status}: {count}")
         
         print(f"📋 Analyses: {total_analyses}")
-        print(f"⏳ Tâches de queue: {total_queue_items}")
-        for status, count in queue_by_status.items():
+        for status, count in analyses_by_status.items():
             print(f"   - {status}: {count}")
         
         # Vérifier la cohérence
@@ -138,7 +135,7 @@ class DatabaseCleaner:
         
         # Supprimer les analyses échouées
         failed_analyses = self.db.query(Analysis).filter(
-            Analysis.status == "failed"
+            Analysis.status == AnalysisStatus.FAILED
         ).all()
         
         failed_count = 0
@@ -154,37 +151,37 @@ class DatabaseCleaner:
         else:
             print("✅ Aucune analyse échouée trouvée")
     
-    def cleanup_old_queue_items(self, max_age_hours: int = 24):
-        """Nettoie les tâches de queue anciennes"""
-        print(f"\n⏰ NETTOYAGE DES TÂCHES DE QUEUE (plus de {max_age_hours}h)")
+    def cleanup_old_analyses(self, max_age_hours: int = 24):
+        """Nettoie les analyses anciennes"""
+        print(f"\n⏰ NETTOYAGE DES ANALYSES ANCIENNES (plus de {max_age_hours}h)")
         print("-" * 40)
         
         cutoff_time = datetime.now() - timedelta(hours=max_age_hours)
         
-        # Supprimer les tâches terminées anciennes
-        old_completed = self.db.query(QueueItem).filter(
-            QueueItem.status == QueueStatus.COMPLETED,
-            QueueItem.completed_at < cutoff_time
+        # Supprimer les analyses terminées anciennes
+        old_completed = self.db.query(Analysis).filter(
+            Analysis.status == AnalysisStatus.COMPLETED,
+            Analysis.completed_at < cutoff_time
         ).all()
         
-        # Supprimer les tâches échouées anciennes
-        old_failed = self.db.query(QueueItem).filter(
-            QueueItem.status == QueueStatus.FAILED,
-            QueueItem.updated_at < cutoff_time
+        # Supprimer les analyses échouées anciennes
+        old_failed = self.db.query(Analysis).filter(
+            Analysis.status == AnalysisStatus.FAILED,
+            Analysis.completed_at < cutoff_time
         ).all()
         
         deleted_count = 0
-        for item in old_completed + old_failed:
-            print(f"   ⏰ Tâche ancienne supprimée: {item.id}")
-            self.db.delete(item)
+        for analysis in old_completed + old_failed:
+            print(f"   ⏰ Analyse ancienne supprimée: {analysis.id}")
+            self.db.delete(analysis)
             deleted_count += 1
         
         if deleted_count > 0:
             self.db.commit()
-            self.cleanup_stats['queue_items_deleted'] += deleted_count
-            print(f"✅ {deleted_count} tâches anciennes supprimées")
+            self.cleanup_stats['analyses_deleted'] += deleted_count
+            print(f"✅ {deleted_count} analyses anciennes supprimées")
         else:
-            print("✅ Aucune tâche ancienne trouvée")
+            print("✅ Aucune analyse ancienne trouvée")
     
     def cleanup_temp_files(self):
         """Nettoie les fichiers temporaires"""
@@ -234,7 +231,7 @@ class DatabaseCleaner:
         
         self.cleanup_orphaned_files()
         self.cleanup_failed_analyses()
-        self.cleanup_old_queue_items()
+        self.cleanup_old_analyses()
         self.cleanup_temp_files()
         self.fix_invalid_statuses()
         
@@ -317,10 +314,10 @@ class DatabaseCleaner:
                 hours = input("Âge maximum en heures (défaut: 24): ")
                 try:
                     hours = int(hours) if hours.strip() else 24
-                    self.cleanup_old_queue_items(hours)
+                    self.cleanup_old_analyses(hours)
                 except ValueError:
                     print("❌ Valeur invalide, utilisation de 24h par défaut")
-                    self.cleanup_old_queue_items()
+                    self.cleanup_old_analyses()
             elif choice == 5:
                 self.cleanup_temp_files()
             elif choice == 6:

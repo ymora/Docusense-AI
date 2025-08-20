@@ -662,5 +662,21 @@ input[type="range"]::-moz-range-thumb:active {
   background: #1e293b; /* slate-800 */
 }
 
+/* Classe pour forcer la couleur verte du compteur de providers */
+.provider-count-green {
+  color: #10b981 !important;
+  font-weight: bold !important;
+  font-size: 11px !important;
+}
+
+/* Classe spécifique pour le compteur de providers dans les onglets */
+.tab-provider-count {
+  color: #10b981 !important;
+  font-weight: bold !important;
+  font-size: 11px !important;
+  background: transparent !important;
+  border: none !important;
+  outline: none !important;
+}
 
  

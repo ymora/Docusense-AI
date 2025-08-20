@@ -18,8 +18,7 @@ class DatabaseStatusResponse(BaseModel):
     total_files: int
     files_by_status: Dict[str, int]
     total_analyses: int
-    total_queue_items: int
-    queue_by_status: Dict[str, int]
+    analyses_by_status: Dict[str, int]
     consistency_report: ConsistencyReport
 
 
@@ -66,8 +65,17 @@ class FileListResponse(BaseModel):
 class AnalysisInfo(BaseModel):
     id: int
     file_id: int
+    file_name: str
+    file_path: str
     status: str
+    analysis_type: str
+    provider: str
+    model: str
+    progress: float
+    current_step: Optional[str] = None
+    total_steps: int
     created_at: str
+    started_at: Optional[str] = None
     completed_at: Optional[str] = None
     error_message: Optional[str] = None
 
@@ -79,18 +87,4 @@ class AnalysisListResponse(BaseModel):
     offset: int
 
 
-class QueueItemInfo(BaseModel):
-    id: int
-    analysis_id: int
-    status: str
-    created_at: str
-    started_at: Optional[str] = None
-    completed_at: Optional[str] = None
-    error_message: Optional[str] = None
 
-
-class QueueListResponse(BaseModel):
-    queue_items: List[QueueItemInfo]
-    total: int
-    limit: int
-    offset: int

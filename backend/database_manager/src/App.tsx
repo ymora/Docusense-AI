@@ -11,6 +11,8 @@ function App() {
   const [status, setStatus] = useState<DatabaseStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedFileId, setSelectedFileId] = useState<number | null>(null);
+  const [selectedFileName, setSelectedFileName] = useState<string>('');
 
   const loadStatus = async () => {
     try {
@@ -29,11 +31,22 @@ function App() {
     loadStatus();
   }, []);
 
+  const handleFileClick = (fileId: number, fileName: string) => {
+    setSelectedFileId(fileId);
+    setSelectedFileName(fileName);
+    setActiveTab('analyses');
+  };
+
+  const handleBackToFiles = () => {
+    setSelectedFileId(null);
+    setSelectedFileName('');
+    setActiveTab('files');
+  };
+
   const tabs = [
     { id: 'overview', label: 'Vue d\'ensemble', icon: <Database size={20} /> },
     { id: 'files', label: 'Fichiers', icon: <FileText size={20} /> },
     { id: 'analyses', label: 'Analyses', icon: <FileText size={20} /> },
-    { id: 'queue', label: 'Queue', icon: <Clock size={20} /> },
     { id: 'cleanup', label: 'Nettoyage', icon: <Settings size={20} /> }
   ];
 
@@ -157,27 +170,39 @@ function App() {
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
               Fichiers en base de données
             </h2>
-            <DataTable type="files" />
+            <DataTable 
+              type="files" 
+              onFileClick={(fileId, fileName) => {
+                handleFileClick(fileId, fileName);
+              }}
+            />
           </div>
         )}
 
         {activeTab === 'analyses' && (
           <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Analyses
-            </h2>
-            <DataTable type="analyses" />
+            <div className="flex items-center justify-between">
+              <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
+                {selectedFileId ? `Analyses du fichier: ${selectedFileName}` : 'Toutes les analyses'}
+              </h2>
+              {selectedFileId && (
+                <button
+                  onClick={handleBackToFiles}
+                  className="bg-gray-500 hover:bg-gray-600 text-white px-3 py-2 rounded-md text-sm"
+                >
+                  ← Retour aux fichiers
+                </button>
+              )}
+            </div>
+            <DataTable 
+              type="analyses" 
+              title={selectedFileId ? `Analyses du fichier #${selectedFileId}` : 'Toutes les analyses'}
+              selectedFileId={selectedFileId}
+            />
           </div>
         )}
 
-        {activeTab === 'queue' && (
-          <div className="space-y-6">
-            <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Tâches de queue
-            </h2>
-            <DataTable type="queue" />
-          </div>
-        )}
+
 
         {activeTab === 'cleanup' && (
           <div className="space-y-6">

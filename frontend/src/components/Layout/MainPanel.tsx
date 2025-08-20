@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useFileStore } from '../../stores/fileStore';
-import { useQueueStore } from '../../stores/queueStore';
+import { useAnalysisStore } from '../../stores/analysisStore';
 import { useConfigStore } from '../../stores/configStore';
 import { logService } from '../../services/logService';
 import { useColors } from '../../hooks/useColors';
@@ -21,7 +21,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { ConfigContent } from '../Config/ConfigWindow';
 
-import QueueIAAdvanced from '../Queue/QueueIAAdvanced';
+import { QueueIAAdvanced } from '../Queue/QueueIAAdvanced';
 import LogsPanel from '../Logs/LogsPanel';
 import TabPanel from '../UI/TabPanel';
 import SecureFileViewer from '../FileManager/SecureFileViewer';
@@ -43,7 +43,7 @@ const MainPanel: React.FC<MainPanelProps> = ({
 }) => {
   const { selectedFile, selectedFiles, files, selectFile } = useFileStore();
   const { colors } = useColors();
-  const { queueItems } = useQueueStore(); // OPTIMISATION: Plus besoin de loadQueueItems
+  const { getAnalysesCount, analyses } = useAnalysisStore();
   const { getActiveProviders } = useConfigStore();
   const { isInitialized, isLoading, initializationStep } = useStartupInitialization();
   const [showFileDetails, setShowFileDetails] = useState(false);
@@ -96,7 +96,7 @@ const MainPanel: React.FC<MainPanelProps> = ({
       id: 'queue',
       label: 'File d\'attente',
       icon: <QueueListIcon className="h-4 w-4" />,
-      count: queueItems?.length || 0,
+      count: getAnalysesCount(),
     },
     {
       id: 'analyses',
@@ -123,7 +123,7 @@ const MainPanel: React.FC<MainPanelProps> = ({
       to: tabId,
       timestamp: new Date().toISOString(),
       context: {
-        queueItemsCount: queueItems?.length || 0,
+        analysesCount: analyses?.length || 0,
         logsCount,
         activeProvidersCount: activeProviders.length,
         selectedFilesCount: selectedFiles?.length || 0
@@ -155,11 +155,11 @@ const MainPanel: React.FC<MainPanelProps> = ({
       logService.info('Application initialisée', 'MainPanel', {
         initializationStep,
         activeProvidersCount: activeProviders.length,
-        queueItemsCount: queueItems?.length || 0,
+        analysesCount: analyses?.length || 0,
         timestamp: new Date().toISOString()
       });
     }
-  }, [isInitialized, initializationStep, activeProviders.length, queueItems?.length]);
+  }, [isInitialized, initializationStep, activeProviders.length, analyses?.length]);
 
   // Log des changements de sélection de fichiers
   useEffect(() => {
@@ -172,18 +172,18 @@ const MainPanel: React.FC<MainPanelProps> = ({
     }
   }, [selectedFiles]);
 
-  // Log des changements de queue
+  // Log des changements d'analyses
   useEffect(() => {
-    if (queueItems && queueItems.length > 0) {
-      logService.debug('Queue mise à jour', 'MainPanel', {
-        queueItemsCount: queueItems.length,
-        pendingCount: queueItems.filter(item => item.status === 'pending').length,
-        processingCount: queueItems.filter(item => item.status === 'processing').length,
-        completedCount: queueItems.filter(item => item.status === 'completed').length,
+    if (analyses && analyses.length > 0) {
+      logService.debug('Analyses mises à jour', 'MainPanel', {
+        analysesCount: analyses.length,
+        pendingCount: analyses.filter(item => item.status === 'pending').length,
+        processingCount: analyses.filter(item => item.status === 'processing').length,
+        completedCount: analyses.filter(item => item.status === 'completed').length,
         timestamp: new Date().toISOString()
       });
     }
-  }, [queueItems]);
+  }, [analyses]);
 
   // Écouter l'événement d'affichage des miniatures de dossier
   useEffect(() => {

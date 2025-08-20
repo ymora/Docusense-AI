@@ -48,6 +48,12 @@ export const useStartupStore = create<StartupState>()(
               const { useConfigStore } = await import('../stores/configStore');
               const configStore = useConfigStore.getState();
               await configStore.loadAIProviders();
+              set({ initializationStep: 'queue' });
+
+              // Initialiser les analyses
+              const { useAnalysisStore } = await import('../stores/analysisStore');
+              const analysisStore = useAnalysisStore.getState();
+              await analysisStore.loadAnalyses();
               set({ initializationStep: 'files' });
 
               // Initialiser le fileStore (reset seulement)

@@ -1,4 +1,4 @@
-import { DatabaseStatus, CleanupResult, BackupInfo, FileInfo, AnalysisInfo, QueueItemInfo } from './types';
+import { DatabaseStatus, CleanupResult, BackupInfo, FileInfo, AnalysisInfo } from './types';
 
 const API_BASE = 'http://localhost:8000/api/database';
 
@@ -31,19 +31,7 @@ export class DatabaseAPI {
     return response.json();
   }
 
-  static async cleanupOldQueueItems(hours: number = 24): Promise<CleanupResult> {
-    const response = await fetch(`${API_BASE}/cleanup/old-queue-items`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ hours })
-    });
-    if (!response.ok) {
-      throw new Error('Erreur lors du nettoyage des tâches anciennes');
-    }
-    return response.json();
-  }
+
 
   static async cleanupTempFiles(): Promise<CleanupResult> {
     const response = await fetch(`${API_BASE}/cleanup/temp-files`, {
@@ -120,9 +108,10 @@ export class DatabaseAPI {
     return data.files || [];
   }
 
-  static async getAnalyses(status?: string, limit: number = 50): Promise<AnalysisInfo[]> {
+  static async getAnalyses(status?: string, fileId?: number, limit: number = 50): Promise<AnalysisInfo[]> {
     const params = new URLSearchParams();
     if (status) params.append('status', status);
+    if (fileId) params.append('file_id', fileId.toString());
     params.append('limit', limit.toString());
     
     const response = await fetch(`${API_BASE}/analyses?${params}`);
@@ -133,16 +122,48 @@ export class DatabaseAPI {
     return data.analyses || [];
   }
 
-  static async getQueueItems(status?: string, limit: number = 50): Promise<QueueItemInfo[]> {
+  static async getFileAnalyses(fileId: number, status?: string, limit: number = 50): Promise<AnalysisInfo[]> {
     const params = new URLSearchParams();
     if (status) params.append('status', status);
     params.append('limit', limit.toString());
     
-    const response = await fetch(`${API_BASE}/queue-items?${params}`);
+    const response = await fetch(`${API_BASE}/files/${fileId}/analyses?${params}`);
     if (!response.ok) {
-      throw new Error('Erreur lors de la récupération des tâches de queue');
+      throw new Error('Erreur lors de la récupération des analyses du fichier');
     }
     const data = await response.json();
-    return data.queue_items || [];
+    return data.analyses || [];
   }
+
+  static async retryAnalysis(analysisId: number): Promise<void> {
+    const response = await fetch(`${API_BASE}/analyses/${analysisId}/retry`, {
+      method: 'POST'
+    });
+    if (!response.ok) {
+      throw new Error('Erreur lors du relancement de l\'analyse');
+    }
+  }
+
+  static async deleteAnalysis(analysisId: number): Promise<void> {
+    const response = await fetch(`${API_BASE}/analyses/${analysisId}`, {
+      method: 'DELETE'
+    });
+    if (!response.ok) {
+      throw new Error('Erreur lors de la suppression de l\'analyse');
+    }
+  }
+
+  static async deleteMultipleAnalyses(analysisIds: number[]): Promise<void> {
+    const response = await fetch(`${API_BASE}/analyses/bulk-delete`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ analysis_ids: analysisIds })
+    });
+    if (!response.ok) {
+      throw new Error('Erreur lors de la suppression en lot des analyses');
+    }
+  }
+
 }

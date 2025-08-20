@@ -8,9 +8,12 @@ from typing import Dict, Any
 import logging
 
 from ...core.database import get_db
+from ...core.permissions import require_permission, Permissions, Features
 from ...services.analysis_service import AnalysisService
 from ...services.ai_service import get_ai_service
 from ...models.analysis import AnalysisType
+from ...models.user import User
+from ...api.auth import get_current_user
 from ...utils.api_utils import APIUtils, ResponseFormatter
 
 logger = logging.getLogger(__name__)
@@ -20,9 +23,11 @@ router = APIRouter(tags=["analysis-creation"])
 
 @router.post("/compare")
 @APIUtils.handle_errors
+@require_permission(Permissions.CREATE_ANALYSES, Features.ANALYSIS_CREATION)
 async def compare_documents(
     request: Dict[str, Any],
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """Compare multiple documents using AI analysis"""
     file_ids = request.get("file_ids", [])
@@ -70,9 +75,11 @@ async def compare_documents(
 
 @router.post("/batch")
 @APIUtils.handle_errors
+@require_permission(Permissions.CREATE_ANALYSES, Features.ANALYSIS_CREATION)
 async def analyze_batch(
     request: Dict[str, Any],
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """Analyze multiple documents in batch"""
     file_ids = request.get("file_ids", [])

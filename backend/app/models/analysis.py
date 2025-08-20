@@ -2,7 +2,7 @@
 Analysis model and schemas for DocuSense AI
 """
 
-from sqlalchemy import Column, Integer, String, DateTime, Text, JSON, ForeignKey, Enum as SQLEnum
+from sqlalchemy import Column, Integer, String, DateTime, Text, JSON, ForeignKey, Enum as SQLEnum, Float
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from pydantic import BaseModel
@@ -65,17 +65,23 @@ class Analysis(Base):
     started_at = Column(DateTime(timezone=True), nullable=True)
     completed_at = Column(DateTime(timezone=True), nullable=True)
 
+    # Queue management (anciennement dans QueueItem)
+    progress = Column(Float, default=0.0)  # 0.0 to 1.0
+    current_step = Column(String(100), nullable=True)
+    total_steps = Column(Integer, default=1)
+    estimated_completion = Column(DateTime(timezone=True), nullable=True)
+    max_retries = Column(Integer, default=3)
+
     # Error handling
     error_message = Column(Text, nullable=True)
     retry_count = Column(Integer, default=0)
 
-    # Relationships - CORRECTION: Ajout des relations manquantes
+    # User relationship
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    
+    # Relationships
     file = relationship("File", back_populates="analyses", lazy="joined")
-    queue_items = relationship(
-        "QueueItem",
-        back_populates="analysis",
-        lazy="dynamic",
-        cascade="all, delete-orphan")
+    user = relationship("User", back_populates="analyses")
 
     def __repr__(self):
         return f"<Analysis(id={

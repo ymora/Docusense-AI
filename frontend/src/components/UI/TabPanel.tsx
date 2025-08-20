@@ -52,43 +52,41 @@ const TabPanel: React.FC<TabPanelProps> = ({ tabs, activeTab, onTabChange }) => 
               <div className="flex items-center gap-1">
                 {tab.errorCount !== undefined && tab.errorCount > 0 && (
                   <span 
-                    className="text-xs px-1.5 py-0.5 rounded-full transition-all duration-300 ease-in-out hover:scale-110"
+                    className="text-xs font-bold transition-all duration-300 ease-in-out hover:scale-110"
                     style={{
-                      backgroundColor: 'transparent',
                       color: '#ef4444',
-                      fontWeight: 'bold',
-                      fontSize: '10px'
+                      fontSize: '11px'
                     }}
                     title={`${tab.errorCount} erreur${tab.errorCount > 1 ? 's' : ''}`}
                   >
-                    🔴 {tab.errorCount}
+                    {tab.errorCount}
                   </span>
                 )}
                 {tab.warningCount !== undefined && tab.warningCount > 0 && (
                   <span 
-                    className="text-xs px-1.5 py-0.5 rounded-full transition-all duration-300 ease-in-out hover:scale-110"
+                    className="text-xs font-bold transition-all duration-300 ease-in-out hover:scale-110"
                     style={{
-                      backgroundColor: 'transparent',
                       color: '#f59e0b',
-                      fontWeight: 'bold',
-                      fontSize: '10px'
+                      fontSize: '11px'
                     }}
                     title={`${tab.warningCount} warning${tab.warningCount > 1 ? 's' : ''}`}
                   >
-                    🟠 {tab.warningCount}
+                    {tab.warningCount}
                   </span>
                 )}
               </div>
             ) : tab.count !== undefined && tab.count > 0 && (
               <span 
-                className="text-xs px-2 py-1 rounded-full border transition-all duration-300 ease-in-out hover:scale-110"
+                className="text-xs font-bold transition-all duration-300 ease-in-out hover:scale-110"
                 style={{
-                  backgroundColor: isActive ? colors.primary : colors.surface,
-                  borderColor: isActive ? colors.primary : colors.border,
-                  color: isActive ? '#ffffff' : colors.textSecondary,
-                  fontWeight: isActive ? 'bold' : 'normal',
-                  boxShadow: isActive ? `0 0 8px ${colors.primary}40` : 'none'
+                  color: tab.id === 'config' ? '#10b981' : 
+                         tab.id === 'queue' ? '#f59e0b' : 
+                         (isActive ? colors.primary : colors.textSecondary),
+                  fontSize: '11px'
                 }}
+                title={tab.id === 'config' ? `${tab.count} IA(s) active(s)` : 
+                       tab.id === 'queue' ? `${tab.count} analyse(s) en attente` : 
+                       `${tab.count} élément(s)`}
               >
                 {tab.count}
               </span>

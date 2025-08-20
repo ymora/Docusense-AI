@@ -24,6 +24,10 @@ export const StartupLoader: React.FC<StartupLoaderProps> = ({
         return 'Chargement des prompts...';
       case 'config':
         return 'Chargement des configurations...';
+      case 'queue':
+        return 'Chargement de la file d\'attente...';
+      case 'files':
+        return 'Initialisation des fichiers...';
       case 'complete':
         return 'Initialisation terminée';
       case 'error':
@@ -39,6 +43,10 @@ export const StartupLoader: React.FC<StartupLoaderProps> = ({
         return '📋';
       case 'config':
         return '🔑';
+      case 'queue':
+        return '📋';
+      case 'files':
+        return '📁';
       case 'complete':
         return '✅';
       case 'error':

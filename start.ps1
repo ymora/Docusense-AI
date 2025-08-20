@@ -13,7 +13,7 @@ $SuccessColor = "Green"
 $WarningColor = "Yellow"
 $ErrorColor = "Red"
 
-Write-Host "🚀 DocuSense AI - Gestionnaire de Services" -ForegroundColor $SuccessColor
+Write-Host "DocuSense AI - Gestionnaire de Services" -ForegroundColor $SuccessColor
 if (-not $Quiet) {
     Write-Host "================================================" -ForegroundColor Gray
 }
@@ -26,24 +26,24 @@ $databaseManagerPath = Join-Path $backendPath "database_manager"
 
 # Vérifier que les dossiers existent
 if (-not (Test-Path $backendPath)) {
-    Write-Host "❌ Erreur: Dossier backend introuvable" -ForegroundColor $ErrorColor
+    Write-Host "Erreur: Dossier backend introuvable" -ForegroundColor $ErrorColor
     exit 1
 }
 
 if (-not (Test-Path $frontendPath)) {
-    Write-Host "❌ Erreur: Dossier frontend introuvable" -ForegroundColor $ErrorColor
+    Write-Host "Erreur: Dossier frontend introuvable" -ForegroundColor $ErrorColor
     exit 1
 }
 
 $hasDatabaseManager = Test-Path $databaseManagerPath
 if (-not $hasDatabaseManager -and -not $Quiet) {
-    Write-Host "⚠️ Interface de gestion de base de données non trouvée" -ForegroundColor $WarningColor
+    Write-Host "Interface de gestion de base de données non trouvée" -ForegroundColor $WarningColor
 }
 
 # Fonction pour arrêter les services
 function Stop-Services {
     if (-not $Quiet) {
-        Write-Host "🔄 Arrêt des services..." -ForegroundColor $WarningColor
+        Write-Host "Arret des services..." -ForegroundColor $WarningColor
     }
     
     # Arrêter les processus par port (plus efficace)
@@ -54,7 +54,7 @@ function Stop-Services {
             if ($connection) {
                 Stop-Process -Id $connection.OwningProcess -Force -ErrorAction SilentlyContinue
                 if (-not $Quiet) {
-                    Write-Host "✅ Port $port libéré" -ForegroundColor $SuccessColor
+                    Write-Host "Port $port libere" -ForegroundColor $SuccessColor
                 }
             }
         } catch {}
@@ -65,7 +65,7 @@ function Stop-Services {
     
     Start-Sleep -Seconds 1
     if (-not $Quiet) {
-        Write-Host "✅ Services arrêtés" -ForegroundColor $SuccessColor
+        Write-Host "Services arretes" -ForegroundColor $SuccessColor
     }
 }
 
@@ -74,7 +74,7 @@ function Test-VirtualEnvironment {
     $venvPath = Join-Path $backendPath "venv"
     if (-not (Test-Path $venvPath)) {
         if (-not $Quiet) {
-            Write-Host "🐍 Création de l'environnement virtuel..." -ForegroundColor $InfoColor
+            Write-Host "Creation de l'environnement virtuel..." -ForegroundColor $InfoColor
         }
         Set-Location $backendPath
         python -m venv venv | Out-Null
@@ -85,7 +85,7 @@ function Test-VirtualEnvironment {
 # Fonction pour démarrer les services en mode intégré
 function Start-Services-Integrated {
     if (-not $Quiet) {
-        Write-Host "🔧 Mode INTÉGRÉ" -ForegroundColor $InfoColor
+        Write-Host "Mode INTEGRE" -ForegroundColor $InfoColor
     }
     
     # Vérifier l'environnement virtuel
@@ -93,110 +93,54 @@ function Start-Services-Integrated {
     
     # Démarrer le backend
     if (-not $Quiet) {
-        Write-Host "📊 Démarrage du Backend..." -ForegroundColor $InfoColor
+        Write-Host "Demarrage du Backend..." -ForegroundColor $InfoColor
     }
     Set-Location $backendPath
-    $backendJob = Start-Job -ScriptBlock {
-        param($backendPath)
-        Set-Location $backendPath
-        .\venv\Scripts\python.exe main.py
-    } -ArgumentList $backendPath
     
-    Set-Location $projectPath
+    # Mode debug : lancer directement pour voir les erreurs
+    Write-Host "Test du backend en mode debug..." -ForegroundColor Yellow
+    Write-Host "Repertoire: $(Get-Location)" -ForegroundColor Gray
+    Write-Host "Verification de l'environnement virtuel..." -ForegroundColor Gray
     
-    # Attendre et vérifier le backend
-    Start-Sleep -Seconds 6
-    $backendReady = $false
-    for ($i = 0; $i -lt 5; $i++) {
-        try {
-            $response = Invoke-WebRequest -Uri "http://localhost:8000/api/health" -TimeoutSec 3 -ErrorAction Stop
-            if ($response.StatusCode -eq 200) {
-                $backendReady = $true
-                break
-            }
-        } catch {}
-        Start-Sleep -Seconds 2
-    }
-    
-    if ($backendReady -and -not $Quiet) {
-        Write-Host "✅ Backend opérationnel" -ForegroundColor $SuccessColor
-    }
-    
-    # Démarrer le frontend
-    if (-not $Quiet) {
-        Write-Host "🎨 Démarrage du Frontend..." -ForegroundColor $InfoColor
-    }
-    Set-Location $frontendPath
-    $frontendJob = Start-Job -ScriptBlock {
-        param($frontendPath)
-        Set-Location $frontendPath
-        npm run dev
-    } -ArgumentList $frontendPath
-    
-    Set-Location $projectPath
-    Start-Sleep -Seconds 3
-    
-    # Démarrer l'interface de gestion de base de données
-    $databaseManagerJob = $null
-    if ($hasDatabaseManager) {
-        if (-not $Quiet) {
-            Write-Host "🗄️ Démarrage de l'interface DB..." -ForegroundColor $InfoColor
-        }
+    if (Test-Path "venv\Scripts\python.exe") {
+        Write-Host "Environnement virtuel trouve" -ForegroundColor Green
+        Write-Host "Version Python: $(.\venv\Scripts\python.exe --version)" -ForegroundColor Gray
         
-        # Vérifier Node.js
+        # Test d'import des modules
+        Write-Host "Test d'import des modules..." -ForegroundColor Gray
         try {
-            node --version | Out-Null
+            $testResult = .\venv\Scripts\python.exe -c "import fastapi; import uvicorn; print('Modules principaux OK')"
+            Write-Host $testResult -ForegroundColor Green
         } catch {
-            if (-not $Quiet) {
-                Write-Host "❌ Node.js non trouvé, interface DB ignorée" -ForegroundColor $ErrorColor
-            }
+            Write-Host "Erreur import modules: $($_.Exception.Message)" -ForegroundColor Red
         }
         
-        if ($?) {
-            Set-Location $databaseManagerPath
-            
-            # Installer les dépendances si nécessaire
-            if (-not (Test-Path "node_modules")) {
-                if (-not $Quiet) {
-                    Write-Host "📦 Installation des dépendances..." -ForegroundColor $WarningColor
-                }
-                npm install | Out-Null
-            }
-            
-            $databaseManagerJob = Start-Job -ScriptBlock {
-                param($databaseManagerPath)
-                Set-Location $databaseManagerPath
-                npm run dev
-            } -ArgumentList $databaseManagerPath
-            
-            Set-Location $projectPath
+        # Test d'import de l'application
+        Write-Host "Test d'import de l'application..." -ForegroundColor Gray
+        try {
+            $appResult = .\venv\Scripts\python.exe -c "import sys; sys.path.append('.'); from main import app; print('Application FastAPI OK')"
+            Write-Host $appResult -ForegroundColor Green
+        } catch {
+            Write-Host "Erreur import application: $($_.Exception.Message)" -ForegroundColor Red
         }
+        
+        # Lancement du backend
+        Write-Host "Lancement du backend..." -ForegroundColor Yellow
+        Write-Host "Appuyez sur Ctrl+C pour arreter" -ForegroundColor Yellow
+        .\venv\Scripts\python.exe main.py
+    } else {
+        Write-Host "Environnement virtuel introuvable" -ForegroundColor Red
+        Write-Host "Contenu du repertoire:" -ForegroundColor Gray
+        Get-ChildItem | ForEach-Object { Write-Host "  - $($_.Name)" -ForegroundColor Gray }
     }
     
-    # Affichage des URLs
-    Write-Host "✅ Services démarrés!" -ForegroundColor $SuccessColor
-    Write-Host "Backend: http://localhost:8000" -ForegroundColor $InfoColor
-    Write-Host "Frontend: http://localhost:3000" -ForegroundColor $InfoColor
-    if ($databaseManagerJob) {
-        Write-Host "🗄️ Interface DB: http://localhost:3001" -ForegroundColor $InfoColor
-    }
-    
-    if (-not $Quiet) {
-        Write-Host "💡 Utilisez 'Get-Job' pour voir les jobs, 'Stop-Job' pour les arrêter" -ForegroundColor $WarningColor
-        Write-Host "💡 Ou relancez ce script avec -KillOnly pour tout arrêter" -ForegroundColor $WarningColor
-    }
-    
-    return @{
-        BackendJob = $backendJob
-        FrontendJob = $frontendJob
-        DatabaseManagerJob = $databaseManagerJob
-    }
+    Set-Location $projectPath
 }
 
 # Fonction pour démarrer les services en mode externe
 function Start-Services-External {
     if (-not $Quiet) {
-        Write-Host "🔧 Mode EXTERNE" -ForegroundColor $InfoColor
+        Write-Host "Mode EXTERNE" -ForegroundColor $InfoColor
     }
     
     # Vérifier l'environnement virtuel
@@ -204,14 +148,14 @@ function Start-Services-External {
     
     # Démarrer le backend
     if (-not $Quiet) {
-        Write-Host "📊 Démarrage du Backend..." -ForegroundColor $InfoColor
+        Write-Host "Demarrage du Backend..." -ForegroundColor $InfoColor
     }
     $backendTitle = "DocuSense Backend"
     $backendCmd = @"
 `$host.ui.RawUI.WindowTitle = '$backendTitle'
 cd '$backendPath'
-Write-Host '🐍 Backend démarré' -ForegroundColor Green
-Write-Host '🌐 http://localhost:8000' -ForegroundColor Cyan
+Write-Host 'Backend demarre' -ForegroundColor Green
+Write-Host 'http://localhost:8000' -ForegroundColor Cyan
 .\venv\Scripts\python.exe main.py
 "@
     Start-Process powershell -ArgumentList "-NoExit", "-Command", $backendCmd
@@ -220,14 +164,14 @@ Write-Host '🌐 http://localhost:8000' -ForegroundColor Cyan
     
     # Démarrer le frontend
     if (-not $Quiet) {
-        Write-Host "🎨 Démarrage du Frontend..." -ForegroundColor $InfoColor
+        Write-Host "Demarrage du Frontend..." -ForegroundColor $InfoColor
     }
     $frontendTitle = "DocuSense Frontend"
     $frontendCmd = @"
 `$host.ui.RawUI.WindowTitle = '$frontendTitle'
 cd '$frontendPath'
-Write-Host '⚛️ Frontend démarré' -ForegroundColor Green
-Write-Host '🌐 http://localhost:3000' -ForegroundColor Cyan
+Write-Host 'Frontend demarre' -ForegroundColor Green
+Write-Host 'http://localhost:3000' -ForegroundColor Cyan
 npm run dev
 "@
     Start-Process powershell -ArgumentList "-NoExit", "-Command", $frontendCmd
@@ -235,7 +179,7 @@ npm run dev
     # Démarrer l'interface de gestion de base de données
     if ($hasDatabaseManager) {
         if (-not $Quiet) {
-            Write-Host "🗄️ Démarrage de l'interface DB..." -ForegroundColor $InfoColor
+            Write-Host "Demarrage de l'interface DB..." -ForegroundColor $InfoColor
         }
         
         try {
@@ -245,11 +189,11 @@ npm run dev
                 $databaseCmd = @"
 `$host.ui.RawUI.WindowTitle = '$databaseTitle'
 cd '$databaseManagerPath'
-Write-Host '🗄️ Interface DB démarrée' -ForegroundColor Green
-Write-Host '🌐 http://localhost:3001' -ForegroundColor Cyan
+Write-Host 'Interface DB demarree' -ForegroundColor Green
+Write-Host 'http://localhost:3001' -ForegroundColor Cyan
 
 if (-not (Test-Path "node_modules")) {
-    Write-Host "📦 Installation des dépendances..." -ForegroundColor Yellow
+    Write-Host "Installation des dependances..." -ForegroundColor Yellow
     npm install
 }
 
@@ -259,17 +203,17 @@ npm run dev
             }
         } catch {
             if (-not $Quiet) {
-                Write-Host "❌ Node.js non trouvé, interface DB ignorée" -ForegroundColor $ErrorColor
+                Write-Host "Node.js non trouve, interface DB ignoree" -ForegroundColor $ErrorColor
             }
         }
     }
     
     # Affichage des URLs
-    Write-Host "✅ Services démarrés!" -ForegroundColor $SuccessColor
+    Write-Host "Services demarres!" -ForegroundColor $SuccessColor
     Write-Host "Backend: http://localhost:8000" -ForegroundColor $InfoColor
     Write-Host "Frontend: http://localhost:3000" -ForegroundColor $InfoColor
     if ($hasDatabaseManager) {
-        Write-Host "🗄️ Interface DB: http://localhost:3001" -ForegroundColor $InfoColor
+        Write-Host "Interface DB: http://localhost:3001" -ForegroundColor $InfoColor
     }
 }
 
@@ -289,4 +233,4 @@ if ($External) {
     Start-Services-Integrated
 }
 
-Write-Host "🎉 DocuSense AI prêt!" -ForegroundColor $SuccessColor
+Write-Host "DocuSense AI pret!" -ForegroundColor $SuccessColor

@@ -11,9 +11,7 @@ from sqlalchemy import func, desc
 from ..core.database import get_db
 from ..models.analysis import Analysis, AnalysisType, AnalysisStatus, AnalysisUpdate
 from ..models.file import File, FileStatus
-from ..models.queue import QueueItem, QueueStatus
 from .ai_service import get_ai_service
-from .queue_service import QueueService
 from .prompt_service import PromptService
 from .pdf_generator_service import PDFGeneratorService
 from .base_service import BaseService, log_service_operation
@@ -26,7 +24,6 @@ class AnalysisService(BaseService):
     def __init__(self, db: Session):
         super().__init__(db)
         self.ai_service = get_ai_service(db)
-        self.queue_service = QueueService(db)
         self.prompt_service = PromptService()
         self.pdf_generator = PDFGeneratorService(db)
 
@@ -38,14 +35,15 @@ class AnalysisService(BaseService):
         provider: str,
         model: str,
         custom_prompt: Optional[str] = None,
-        add_to_queue: bool = True
+        start_processing: bool = True,
+        user_id: int = None
     ) -> Analysis:
         """
         Create a new analysis
         """
-        return self.safe_execute("create_analysis", self._create_analysis_logic, file_id, analysis_type, provider, model, custom_prompt, add_to_queue)
+        return self.safe_execute("create_analysis", self._create_analysis_logic, file_id, analysis_type, provider, model, custom_prompt, start_processing, user_id)
 
-    def _create_analysis_logic(self, file_id: int, analysis_type: AnalysisType, provider: str, model: str, custom_prompt: Optional[str], add_to_queue: bool) -> Analysis:
+    def _create_analysis_logic(self, file_id: int, analysis_type: AnalysisType, provider: str, model: str, custom_prompt: Optional[str], start_processing: bool, user_id: int = None) -> Analysis:
         """Logic for creating analysis"""
         # Check if file exists
         file = self.db.query(File).filter(File.id == file_id).first()
@@ -61,6 +59,9 @@ class AnalysisService(BaseService):
                 # Fallback to general prompt if specific one not found
                 prompt = self.prompt_service.get_default_prompt("GENERAL")
 
+        # Set initial status
+        initial_status = AnalysisStatus.PROCESSING if start_processing else AnalysisStatus.PENDING
+
         # Create analysis
         analysis = Analysis(
             file_id=file_id,
@@ -68,7 +69,10 @@ class AnalysisService(BaseService):
             provider=provider,
             model=model,
             prompt=prompt,
-            status=AnalysisStatus.PENDING
+            status=initial_status,
+            progress=0.0,
+            total_steps=1,
+            user_id=user_id
         )
 
         self.db.add(analysis)
@@ -79,12 +83,57 @@ class AnalysisService(BaseService):
         file.status = FileStatus.PROCESSING
         self.db.commit()
 
-        # Add to queue if requested
-        if add_to_queue:
-            self.queue_service.add_to_queue(analysis.id)
+        # Start processing if requested
+        if start_processing:
+            # Start processing in background
+            self._start_processing(analysis.id)
 
         self.logger.info(f"Created analysis {analysis.id} for file {file_id}")
         return analysis
+
+    def _start_processing(self, analysis_id: int) -> None:
+        """Start processing an analysis"""
+        try:
+            # Update status to processing
+            analysis = self.db.query(Analysis).filter(Analysis.id == analysis_id).first()
+            if analysis:
+                analysis.status = AnalysisStatus.PROCESSING
+                analysis.started_at = datetime.now()
+                self.db.commit()
+                
+                # Start background processing
+                self._process_analysis_async(analysis_id)
+        except Exception as e:
+            self.logger.error(f"Error starting processing for analysis {analysis_id}: {str(e)}")
+
+    def _process_analysis_async(self, analysis_id: int) -> None:
+        """Process analysis asynchronously"""
+        # This would be implemented with a proper task queue (Celery, RQ, etc.)
+        # For now, we'll just simulate processing
+        import threading
+        import time
+        
+        def process():
+            try:
+                time.sleep(2)  # Simulate processing time
+                analysis = self.db.query(Analysis).filter(Analysis.id == analysis_id).first()
+                if analysis:
+                    analysis.status = AnalysisStatus.COMPLETED
+                    analysis.progress = 1.0
+                    analysis.completed_at = datetime.now()
+                    analysis.result = f"Analysis completed for file {analysis.file_id}"
+                    self.db.commit()
+            except Exception as e:
+                self.logger.error(f"Error processing analysis {analysis_id}: {str(e)}")
+                analysis = self.db.query(Analysis).filter(Analysis.id == analysis_id).first()
+                if analysis:
+                    analysis.status = AnalysisStatus.FAILED
+                    analysis.error_message = str(e)
+                    self.db.commit()
+        
+        thread = threading.Thread(target=process)
+        thread.daemon = True
+        thread.start()
 
     @log_service_operation("get_analysis")
     def get_analysis(self, analysis_id: int) -> Optional[Analysis]:
@@ -168,13 +217,6 @@ class AnalysisService(BaseService):
         if not analysis:
             return False
 
-        # Remove from queue if exists
-        queue_item = self.db.query(QueueItem).filter(
-            QueueItem.analysis_id == analysis_id
-        ).first()
-        if queue_item:
-            self.db.delete(queue_item)
-
         # Delete analysis
         self.db.delete(analysis)
         self.db.commit()
@@ -208,13 +250,9 @@ class AnalysisService(BaseService):
                 provider=provider,
                 model=model,
                 custom_prompt=custom_prompt,
-                add_to_queue=False  # We'll add to queue manually with priority
+                start_processing=True
             )
             analyses.append(analysis)
-
-        # Add all to queue (ordre chronologique)
-        for analysis in analyses:
-            self.queue_service.add_to_queue(analysis.id)
 
         self.logger.info(f"Created {len(analyses)} bulk analyses")
         return analyses
@@ -285,6 +323,8 @@ class AnalysisService(BaseService):
         analysis.status = AnalysisStatus.PENDING
         analysis.error_message = None
         analysis.retry_count += 1
+        analysis.progress = 0.0
+        analysis.current_step = None
 
         # Update file status
         file = self.db.query(File).filter(File.id == analysis.file_id).first()
@@ -294,8 +334,8 @@ class AnalysisService(BaseService):
 
         self.db.commit()
 
-        # Add to queue
-        self.queue_service.add_to_queue(analysis.id)
+        # Start processing
+        self._start_processing(analysis_id)
 
         self.logger.info(f"Retried failed analysis {analysis_id}")
         return analysis
@@ -321,14 +361,6 @@ class AnalysisService(BaseService):
         file = self.db.query(File).filter(File.id == analysis.file_id).first()
         if file and file.status == FileStatus.PROCESSING:
             file.status = FileStatus.PENDING
-
-        # Remove from queue if exists
-        queue_item = self.db.query(QueueItem).filter(
-            QueueItem.analysis_id == analysis_id
-        ).first()
-        if queue_item:
-            queue_item.status = QueueStatus.FAILED
-            queue_item.error_message = "Analysis cancelled by user"
 
         self.db.commit()
 

@@ -167,10 +167,13 @@ export const analysisService = {
   // Supprimer une analyse
   async deleteAnalysis(analysisId: number): Promise<void> {
     try {
-      await apiRequest(`/api/analysis/${analysisId}`, {
+      console.log(`🔍 Tentative de suppression de l'analyse ${analysisId}`);
+      const response = await apiRequest(`/api/analysis/${analysisId}`, {
         method: 'DELETE'
       }, DEFAULT_TIMEOUT);
+      console.log(`✅ Analyse ${analysisId} supprimée avec succès`);
     } catch (error) {
+      console.error(`❌ Erreur lors de la suppression de l'analyse ${analysisId}:`, error);
       throw new Error(`Erreur lors de la suppression de l'analyse: ${handleApiError(error)}`);
     }
   },

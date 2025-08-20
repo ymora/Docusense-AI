@@ -3,6 +3,7 @@ import { useFileStore } from '../../stores/fileStore';
 import { useColors } from '../../hooks/useColors';
 import { useBackendStatus } from '../../hooks/useBackendStatus';
 import { useUIStore } from '../../stores/uiStore';
+import useAuthStore from '../../stores/authStore';
 import { addInterfaceLog } from '../../utils/interfaceLogger';
 import DiskSelector from '../FileManager/DiskSelector';
 import FileTreeSimple from '../FileManager/FileTreeSimple';
@@ -15,16 +16,20 @@ const LeftPanel: React.FC = () => {
   const { selectedFiles, selectFile, toggleFileSelection } = useFileStore();
   const { isOnline, consecutiveFailures } = useBackendStatus();
   const { activePanel, setActivePanel } = useUIStore();
+  const { isAuthenticated } = useAuthStore();
   const { colors } = useColors();
   
   const [currentDisk, setCurrentDisk] = useState<string>('');
 
-  // Déterminer la couleur du titre selon l'état du backend
+  // Déterminer la couleur du titre selon l'état du backend et l'authentification
   const getTitleColor = () => {
     if (!isOnline || consecutiveFailures >= 3) {
       return '#ff0000'; // Rouge vif flashy quand le backend ne répond pas
     }
-    return colors.text; // Couleur normale
+    if (isAuthenticated) {
+      return '#22c55e'; // Vert quand l'utilisateur est connecté
+    }
+    return colors.text; // Couleur normale quand pas connecté
   };
 
   // Déterminer le tooltip du titre
@@ -32,7 +37,10 @@ const LeftPanel: React.FC = () => {
     if (!isOnline || consecutiveFailures >= 3) {
       return `🚨 Backend déconnecté (${consecutiveFailures} échecs consécutifs)`;
     }
-    return '✅ Backend connecté';
+    if (isAuthenticated) {
+      return '✅ Utilisateur connecté - Backend opérationnel';
+    }
+    return '🔗 Backend connecté - Utilisateur non connecté';
   };
 
   const toggleTheme = () => {

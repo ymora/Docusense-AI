@@ -4,9 +4,9 @@
   "description": "Interface de gestion de la base de données DocuSense AI",
   "type": "module",
   "scripts": {
-    "dev": "vite --port 3001",
+    "dev": "vite --port 3002",
     "build": "tsc && vite build",
-    "preview": "vite preview --port 3001"
+    "preview": "vite preview --port 3002"
   },
   "dependencies": {
     "react": "^18.2.0",

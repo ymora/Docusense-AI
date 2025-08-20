@@ -1355,9 +1355,6 @@ class ConfigService(BaseService):
         """Logic for setting API key"""
         try:
             key_name = f"{provider}_api_key"
-            print(f"[BACKEND] Sauvegarde clé API pour {provider}")
-            print(f"[BACKEND] Nom de la clé: {key_name}")
-            print(f"[BACKEND] Clé (masquée): {'*' * min(len(api_key) - 8, 20) + api_key[-8:] if api_key else 'VIDE'}")
             
             self.set_config(
                 key=key_name,
@@ -1371,11 +1368,9 @@ class ConfigService(BaseService):
             self._save_api_key_to_settings(provider, api_key)
             
             self.logger.info(f"Set API key for {provider}")
-            print(f"SUCCES [BACKEND] Clé API sauvegardée avec succès pour {provider}")
             return True
         except Exception as e:
             self.logger.error(f"Error setting API key for {provider}: {str(e)}")
-            print(f"ERREUR [BACKEND] Erreur sauvegarde clé API pour {provider}: {str(e)}")
             return False
 
     def _save_api_key_to_settings(self, provider: str, api_key: str):
@@ -1385,8 +1380,6 @@ class ConfigService(BaseService):
         try:
             from ..core.config import settings
             
-            print(f"[BACKEND] Sauvegarde clé API dans settings pour {provider}")
-            
             # Mapper les noms de providers vers les attributs settings
             provider_mapping = {
                 'openai': 'openai_api_key',
@@ -1395,23 +1388,15 @@ class ConfigService(BaseService):
                 'gemini': 'gemini_api_key'
             }
             
-            print(f"[BACKEND] Mapping trouvé: {provider} -> {provider_mapping.get(provider, 'NON TROUVÉ')}")
-            
             if provider in provider_mapping:
                 attr_name = provider_mapping[provider]
                 setattr(settings, attr_name, api_key)
                 self.logger.info(f"API key saved to settings for {provider}")
-                print(f"SUCCES [BACKEND] Clé API sauvegardée dans settings: {attr_name}")
-                
-                # Vérification
-                current_value = getattr(settings, attr_name, None)
-                print(f"[BACKEND] Vérification settings.{attr_name}: {'*' * (len(current_value) - 8) + current_value[-8:] if current_value else 'VIDE'}")
             else:
-                print(f"ERREUR [BACKEND] Provider {provider} non trouvé dans le mapping")
+                self.logger.error(f"Provider {provider} not found in mapping")
                 
         except Exception as e:
             self.logger.error(f"Error saving API key to settings for {provider}: {str(e)}")
-            print(f"ERREUR [BACKEND] Erreur sauvegarde dans settings pour {provider}: {str(e)}")
 
     @log_service_operation("load_api_keys_from_database")
     def load_api_keys_from_database(self):
@@ -1456,12 +1441,7 @@ class ConfigService(BaseService):
         """Logic for getting API key"""
         try:
             key_name = f"{provider}_api_key"
-            print(f"[BACKEND] Récupération clé API pour {provider}")
-            print(f"[BACKEND] Nom de la clé: {key_name}")
-            
             result = self.get_config(key_name)
-            print(f"[BACKEND] Résultat pour {provider}: {'*' * (len(result) - 8) + result[-8:] if result else 'VIDE'}")
-            
             return result
         except Exception as e:
             self.logger.error(f"Error getting API key for {provider}: {str(e)}")
@@ -1478,12 +1458,9 @@ class ConfigService(BaseService):
         """Logic for deleting API key"""
         try:
             key_name = f"{provider}_api_key"
-            print(f"[BACKEND] Suppression clé API pour {provider}")
-            print(f"[BACKEND] Nom de la clé: {key_name}")
             
             # Supprimer de la base de données
             success = self.delete_config(key_name)
-            print(f"[BACKEND] Suppression base de données: {'SUCCÈS' if success else 'ÉCHEC'}")
             
             # Supprimer aussi des settings
             self._delete_api_key_from_settings(provider)

@@ -202,7 +202,8 @@ class PDFService {
       const pdfs = await this.listAnalysisPDFs({ limit: 1000 });
       return pdfs.pdfs.some(pdf => pdf.analysis_id === analysisId && pdf.pdf_exists);
     } catch (error) {
-      console.error('Erreur lors de la vérification du PDF:', error);
+      // Gérer gracieusement les erreurs d'authentification ou autres erreurs
+      console.warn(`Impossible de vérifier l'existence du PDF pour l'analyse ${analysisId}:`, error);
       return false;
     }
   }
