@@ -1,12 +1,11 @@
 import { create } from 'zustand';
-import { queueService } from '../services/queueService';
+import { queueService, queueSSEService } from '../services/queueService';
 import { createLoadingActions, createCallGuard, createOptimizedUpdater } from '../utils/storeUtils';
 
 export interface QueueItem {
   id: number;
   analysis_id: number;
   status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled' | 'paused';
-  priority: 'low' | 'normal' | 'high' | 'urgent';
   progress: number;
   current_step?: string;
   total_steps: number;
@@ -28,39 +27,41 @@ export interface QueueItem {
     size: number;
     mime_type: string;
   };
+  // OPTIMISATION: Marqueur pour éléments locaux temporaires
+  is_local?: boolean;
 }
-
-
 
 interface QueueState {
   queueItems: QueueItem[];
-
   loading: boolean;
   error: string | null;
-  isInactive: boolean; // Nouveau: indique si le frontend est inactif
+  isRealtimeConnected: boolean;
 
-  // Actions
+  // Actions optimisées
   loadQueueItems: () => Promise<void>;
-
+  startRealtimeUpdates: () => void;
+  stopRealtimeUpdates: () => void;
+  
+  // Actions de queue
   pauseQueue: () => Promise<void>;
   resumeQueue: () => Promise<void>;
   clearQueue: () => Promise<void>;
   retryFailedItems: () => Promise<void>;
   addToQueue: (analysisId: number, priority?: string) => Promise<void>;
   addLocalToQueue: (queueItem: any) => void;
-
-  // Nouveau: gestion de l'inactivité
-  setInactive: (inactive: boolean) => void;
-  forceRefresh: () => Promise<void>;
+  removeLocalItem: (localId: string) => void;
+  
+  // OPTIMISATION: Mise à jour directe via SSE
+  updateQueueFromSSE: (data: any) => void;
 }
 
 export const useQueueStore = create<QueueState>((set, get) => ({
   queueItems: [],
-
   loading: false,
   error: null,
-  isInactive: false, // Nouveau: commence actif
+  isRealtimeConnected: false,
 
+  // OPTIMISATION: Chargement initial uniquement
   loadQueueItems: (() => {
     const callGuard = createCallGuard();
     return callGuard(async () => {
@@ -82,26 +83,67 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     });
   })(),
 
-
-
-  // Mise à jour en temps réel de la queue
-  startRealTimeUpdates: () => {
-    const interval = setInterval(async () => {
-      const { loadQueueItems, isInactive } = get();
-      
-      // Ne pas faire de requêtes si le frontend est inactif
-      if (isInactive) {
-
-        return;
-      }
-      
-      await loadQueueItems();
-      
-    }, 3000); // Mise à jour toutes les 3 secondes
-
-    return () => clearInterval(interval);
+  // NOUVEAU: Gestion SSE optimisée
+  startRealtimeUpdates: () => {
+    const { updateQueueFromSSE } = get();
+    
+    // Démarrer la connexion SSE
+    queueService.startRealtimeUpdates();
+    
+    // S'abonner aux mises à jour
+    const unsubscribe = queueService.subscribeToUpdates(updateQueueFromSSE);
+    
+    set({ isRealtimeConnected: true });
+    
+    // Retourner la fonction de nettoyage
+    return unsubscribe;
   },
 
+  stopRealtimeUpdates: () => {
+    queueService.stopRealtimeUpdates();
+    set({ isRealtimeConnected: false });
+  },
+
+  // OPTIMISATION: Mise à jour directe sans rechargement complet
+  updateQueueFromSSE: (data: any) => {
+    if (data.error) {
+      console.error('❌ Erreur SSE:', data.error);
+      return;
+    }
+
+    set((state) => {
+      const updatedItems = state.queueItems.map(item => {
+        const sseItem = data.items.find((sse: any) => sse.id === item.id);
+        if (sseItem) {
+          return {
+            ...item,
+            status: sseItem.status,
+            progress: sseItem.progress,
+            current_step: sseItem.current_step,
+            error_message: sseItem.error_message,
+            completed_at: sseItem.completed_at
+          };
+        }
+        return item;
+      });
+
+      // Supprimer les éléments locaux qui ont été convertis en backend
+      const filteredItems = updatedItems.filter(item => {
+        if (item.is_local) {
+          // Vérifier si un élément backend correspondant existe
+          const hasBackendEquivalent = data.items.some((sse: any) => 
+            sse.file_info?.name === item.file_info?.name
+          );
+          return !hasBackendEquivalent;
+        }
+        return true;
+      });
+
+      return { queueItems: filteredItems };
+    });
+  },
+
+  // OPTIMISATION: Actions simplifiées sans rechargement automatique
   pauseQueue: async () => {
     set({ loading: true, error: null });
     try {
@@ -128,7 +170,6 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       await queueService.clearQueue();
-      await get().loadQueueItems();
       set({ loading: false });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors du nettoyage de la queue';
@@ -140,7 +181,6 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       await queueService.retryFailedItems();
-      await get().loadQueueItems();
       set({ loading: false });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la nouvelle tentative';
@@ -152,7 +192,6 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     set({ loading: true, error: null });
     try {
       await queueService.addToQueue(analysisId, priority);
-      await get().loadQueueItems();
       set({ loading: false });
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erreur lors de l\'ajout à la queue';
@@ -160,7 +199,7 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     }
   },
 
-  // Nouveau: Ajouter un élément local à la queue (sans backend)
+  // OPTIMISATION: Gestion des éléments locaux
   addLocalToQueue: (queueItem: any) => {
     set((state) => ({
       queueItems: [...state.queueItems, queueItem],
@@ -169,15 +208,9 @@ export const useQueueStore = create<QueueState>((set, get) => ({
     }));
   },
 
-  // Nouveau: définir l'état d'inactivité
-  setInactive: (inactive: boolean) => {
-    set({ isInactive: inactive });
-  },
-
-  // Nouveau: forcer un rafraîchissement (pour la reconnexion manuelle)
-  forceRefresh: async () => {
-    const { loadQueueItems } = get();
-    set({ isInactive: false }); // Réactiver
-    await loadQueueItems();
+  removeLocalItem: (localId: string) => {
+    set((state) => ({
+      queueItems: state.queueItems.filter(item => item.id !== localId)
+    }));
   },
 }));

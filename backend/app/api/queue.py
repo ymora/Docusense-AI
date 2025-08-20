@@ -2,14 +2,18 @@
 Queue management endpoints for DocuSense AI
 """
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, BackgroundTasks
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List, Optional, Dict, Any
 import logging
+import asyncio
+import json
+from datetime import datetime
 
 from ..core.database import get_db
 from ..services.queue_service import QueueService
-from ..models.queue import QueueStatus, QueuePriority, QueueControlRequest
+from ..models.queue import QueueStatus, QueueControlRequest
 from ..utils.api_utils import APIUtils, ResponseFormatter
 
 logger = logging.getLogger(__name__)
@@ -17,10 +21,44 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["queue"])
 
 
+@router.post("/add")
+@APIUtils.handle_errors
+async def add_to_queue(
+    request: Dict[str, Any],
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    Add an analysis to the queue
+    """
+    logger.info(f"Received add_to_queue request: {request}")
+    
+    analysis_id = request.get("analysis_id")
+    
+    logger.info(f"Extracted analysis_id: {analysis_id}")
+    
+    if not analysis_id:
+        logger.error("Missing analysis_id in request")
+        raise HTTPException(
+            status_code=400,
+            detail="analysis_id est requis"
+        )
+    
+    queue_service = QueueService(db)
+    queue_item = queue_service.add_to_queue(analysis_id)
+    
+    return ResponseFormatter.success_response(
+        data={
+            "queue_item_id": queue_item.id,
+            "analysis_id": queue_item.analysis_id,
+            "status": queue_item.status.value
+        },
+        message=f"Analyse {analysis_id} ajoutée à la queue"
+    )
+
+
 @router.get("/items")
 def get_queue_items(
     status: Optional[QueueStatus] = Query(None, description="Filter by status"),
-    priority: Optional[QueuePriority] = Query(None, description="Filter by priority"),
     limit: int = Query(100, ge=1, le=1000, description="Number of items to return"),
     offset: int = Query(0, ge=0, description="Number of items to skip"),
     db: Session = Depends(get_db)
@@ -34,7 +72,6 @@ def get_queue_items(
     queue_service = QueueService(db)
     items = queue_service.get_queue_items(
         status=status,
-        priority=priority,
         limit=limit,
         offset=offset
     )
@@ -50,7 +87,6 @@ def get_queue_items(
                 "id": item.id,
                 "analysis_id": item.analysis_id,
                 "status": item.status.value,
-                "priority": item.priority.value,
                 "progress": item.progress,
                 "current_step": item.current_step,
                 "total_steps": item.total_steps,
@@ -266,3 +302,61 @@ async def duplicate_queue_item(
             status_code=404,
             detail="Élément de queue non trouvé ou impossible à dupliquer"
         )
+
+
+@router.get("/stream")
+async def stream_queue_updates():
+    """
+    Stream temps réel des mises à jour de la queue via Server-Sent Events
+    """
+    async def event_stream():
+        try:
+            while True:
+                # Récupérer l'état actuel de la queue
+                db = next(get_db())
+                queue_service = QueueService(db)
+                items = queue_service.get_queue_items()
+                
+                # Formater les données pour SSE
+                data = {
+                    "timestamp": datetime.now().isoformat(),
+                    "items": [
+                        {
+                            "id": item.id,
+                            "status": item.status,
+                            "progress": item.progress,
+                            "current_step": item.current_step,
+                            "error_message": item.error_message,
+                            "completed_at": item.completed_at.isoformat() if item.completed_at else None
+                        }
+                        for item in items
+                    ]
+                }
+                
+                # Envoyer les données au format SSE
+                yield f"data: {json.dumps(data)}\n\n"
+                
+                # Attendre avant la prochaine mise à jour
+                await asyncio.sleep(2)  # Mise à jour toutes les 2s
+                
+        except asyncio.CancelledError:
+            # Connexion fermée par le client
+            pass
+        except Exception as e:
+            # En cas d'erreur, envoyer un message d'erreur
+            error_data = {
+                "timestamp": datetime.now().isoformat(),
+                "error": str(e)
+            }
+            yield f"data: {json.dumps(error_data)}\n\n"
+    
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/plain",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "*",
+        }
+    )

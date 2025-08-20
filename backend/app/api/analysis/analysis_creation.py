@@ -224,14 +224,23 @@ async def create_pending_analysis(
     analysis_service = AnalysisService(db)
     ai_service = get_ai_service(db)
     
-    # Try to get the best available provider, but don't fail if none are available
-    try:
-        provider, model = await ai_service.select_best_provider()
-    except Exception as e:
-        logger.warning(f"No functional AI providers available: {str(e)}")
-        # Use fallback values for pending analysis
-        provider = "unknown"
-        model = "unknown"
+    # Use the provider specified in the request, or get the best available if not specified
+    provider = request.get("provider")
+    model = request.get("model")
+    
+    if not provider or not model:
+        try:
+            # Get the best available provider if not specified
+            provider, model = await ai_service.select_best_provider()
+            logger.info(f"Using best available provider: {provider}/{model}")
+        except Exception as e:
+            logger.warning(f"No functional AI providers available: {str(e)}")
+            # Use Ollama as fallback for local analysis
+            provider = "ollama"
+            model = "llama2"
+            logger.info(f"Using Ollama fallback: {provider}/{model}")
+    else:
+        logger.info(f"Using specified provider: {provider}/{model}")
     
     # Get the prompt text if prompt_id is provided
     if prompt_id and prompt_id != "default":
@@ -278,18 +287,10 @@ async def create_pending_analysis(
     )
     
     # Store prompt information in metadata
-    if provider == "unknown":
-        analysis.analysis_metadata = {
-            "prompt_id": prompt_id,
-            "analysis_type": analysis_type,
-            "provider_status": "no_functional_providers",
-            "warning": "Aucun provider IA fonctionnel disponible. Configurez un provider dans les paramètres."
-        }
-    else:
-        analysis.analysis_metadata = {
-            "prompt_id": prompt_id,
-            "analysis_type": analysis_type
-        }
+    analysis.analysis_metadata = {
+        "prompt_id": prompt_id,
+        "analysis_type": analysis_type
+    }
     db.commit()
     
     logger.info(f"Created pending analysis {analysis.id} for file {actual_file_id}")
@@ -325,13 +326,22 @@ async def create_pending_analyses_batch(
     analysis_service = AnalysisService(db)
     ai_service = get_ai_service(db)
     
-    # Try to get the best available provider
-    try:
-        provider, model = await ai_service.select_best_provider()
-    except Exception as e:
-        logger.warning(f"No functional AI providers available: {str(e)}")
-        provider = "unknown"
-        model = "unknown"
+    # Use the provider specified in the request, or get the best available if not specified
+    provider = request.get("provider")
+    model = request.get("model")
+    
+    if not provider or not model:
+        try:
+            # Get the best available provider if not specified
+            provider, model = await ai_service.select_best_provider()
+            logger.info(f"Using best available provider for batch: {provider}/{model}")
+        except Exception as e:
+            logger.warning(f"No functional AI providers available: {str(e)}")
+            provider = "ollama"
+            model = "llama2"
+            logger.info(f"Using Ollama fallback for batch: {provider}/{model}")
+    else:
+        logger.info(f"Using specified provider for batch: {provider}/{model}")
     
     created_analyses = []
     
@@ -448,11 +458,19 @@ async def analyze_file(
     analysis_service = AnalysisService(db)
     ai_service = get_ai_service(db)
     
-    # Get the best available provider based on priority
-    if provider_priority:
-        provider, model = await ai_service.select_best_provider_from_priority(provider_priority)
+    # Use the provider specified in the request, or get the best available if not specified
+    provider = request.get("provider")
+    model = request.get("model")
+    
+    if not provider or not model:
+        # Get the best available provider based on priority
+        if provider_priority:
+            provider, model = await ai_service.select_best_provider_from_priority(provider_priority)
+        else:
+            provider, model = await ai_service.select_best_provider()
+        logger.info(f"Using best available provider: {provider}/{model}")
     else:
-        provider, model = await ai_service.select_best_provider()
+        logger.info(f"Using specified provider: {provider}/{model}")
     
     # Get the prompt text
     from ...services.prompt_service import PromptService

@@ -114,7 +114,6 @@ CacheEntry = Tuple[CacheValue, float]  # (value, timestamp)
 
 # Queue types
 QueueStatus = str
-QueuePriority = int
 QueueItemStatus = str
 
 

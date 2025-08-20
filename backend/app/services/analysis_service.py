@@ -11,7 +11,7 @@ from sqlalchemy import func, desc
 from ..core.database import get_db
 from ..models.analysis import Analysis, AnalysisType, AnalysisStatus, AnalysisUpdate
 from ..models.file import File, FileStatus
-from ..models.queue import QueueItem, QueueStatus, QueuePriority
+from ..models.queue import QueueItem, QueueStatus
 from .ai_service import get_ai_service
 from .queue_service import QueueService
 from .prompt_service import PromptService
@@ -190,14 +190,14 @@ class AnalysisService(BaseService):
         provider: str,
         model: str,
         custom_prompt: Optional[str] = None,
-        priority: QueuePriority = QueuePriority.NORMAL
+        # Priorité supprimée - ordre chronologique uniquement
     ) -> List[Analysis]:
         """
         Create multiple analyses for multiple files
         """
-        return self.safe_execute("create_bulk_analyses", self._create_bulk_analyses_logic, file_ids, analysis_type, provider, model, custom_prompt, priority)
+        return self.safe_execute("create_bulk_analyses", self._create_bulk_analyses_logic, file_ids, analysis_type, provider, model, custom_prompt)
 
-    def _create_bulk_analyses_logic(self, file_ids: List[int], analysis_type: AnalysisType, provider: str, model: str, custom_prompt: Optional[str], priority: QueuePriority) -> List[Analysis]:
+    def _create_bulk_analyses_logic(self, file_ids: List[int], analysis_type: AnalysisType, provider: str, model: str, custom_prompt: Optional[str]) -> List[Analysis]:
         """Logic for creating bulk analyses"""
         analyses = []
 
@@ -212,9 +212,9 @@ class AnalysisService(BaseService):
             )
             analyses.append(analysis)
 
-        # Add all to queue with specified priority
+        # Add all to queue (ordre chronologique)
         for analysis in analyses:
-            self.queue_service.add_to_queue(analysis.id, priority)
+            self.queue_service.add_to_queue(analysis.id)
 
         self.logger.info(f"Created {len(analyses)} bulk analyses")
         return analyses

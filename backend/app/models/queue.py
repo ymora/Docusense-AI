@@ -22,11 +22,7 @@ class QueueStatus(str, PyEnum):
     PAUSED = "paused"
 
 
-class QueuePriority(str, PyEnum):
-    """Queue priority enumeration"""
-    LOW = "low"
-    NORMAL = "normal"
-    HIGH = "high"
+# Suppression de QueuePriority - on utilise l'ordre chronologique
     URGENT = "urgent"
 
 
@@ -41,10 +37,7 @@ class QueueItem(Base):
         Enum(QueueStatus),
         default=QueueStatus.PENDING,
         nullable=False)
-    priority = Column(
-        Enum(QueuePriority),
-        default=QueuePriority.NORMAL,
-        nullable=False)
+    # Suppression de la colonne priority - ordre chronologique uniquement
 
     # Progress tracking
     progress = Column(Float, default=0.0)  # 0.0 to 1.0
@@ -82,9 +75,6 @@ class QueueItem(Base):
 class QueueItemBase(BaseModel):
     """Base queue item schema"""
     analysis_id: int = Field(..., description="Analysis ID")
-    priority: QueuePriority = Field(
-        QueuePriority.NORMAL,
-        description="Queue priority")
 
 
 class QueueItemCreate(QueueItemBase):

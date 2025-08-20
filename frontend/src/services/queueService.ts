@@ -1,39 +1,85 @@
 import { apiRequest, handleApiError, DEFAULT_TIMEOUT } from '../utils/apiUtils';
+import { QueueItem, QueueStatus } from '../stores/queueStore';
 
-export interface QueueItem {
-  id: number;
-  analysis_id: number;
-  status: 'pending' | 'processing' | 'completed' | 'failed' | 'cancelled' | 'paused';
-  priority: 'low' | 'normal' | 'high' | 'urgent';
-  progress: number;
-  current_step?: string;
-  total_steps: number;
-  created_at: string;
-  started_at?: string;
-  completed_at?: string;
-  estimated_completion?: string;
-  error_message?: string;
-  retry_count: number;
-  max_retries: number;
-  analysis_metadata?: any;
-  // Informations sur l'analyse
-  analysis_type?: string;
-  analysis_provider?: string;
-  analysis_model?: string;
-  analysis_prompt?: string;
-  // Valeurs sélectionnées par l'utilisateur (pour les modifications)
-  selected_provider_id?: string;
-  selected_prompt_id?: string;
-  file_info?: {
-    id: number;
-    name: string;
-    path: string;
-    size: number;
-    mime_type: string;
-  };
+// NOUVEAU: Service SSE pour les mises à jour temps réel
+class QueueSSEService {
+  private eventSource: EventSource | null = null;
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 5;
+  private reconnectDelay = 1000;
+  private listeners: Set<(data: any) => void> = new Set();
+
+  connect() {
+    if (this.eventSource) {
+      this.disconnect();
+    }
+
+    try {
+      this.eventSource = new EventSource('/api/queue/stream');
+      
+      this.eventSource.onopen = () => {
+        console.log('🔗 SSE connecté pour la queue');
+        this.reconnectAttempts = 0;
+      };
+
+      this.eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          this.notifyListeners(data);
+        } catch (error) {
+          console.error('❌ Erreur parsing SSE:', error);
+        }
+      };
+
+      this.eventSource.onerror = (error) => {
+        console.error('❌ Erreur SSE:', error);
+        this.handleReconnect();
+      };
+
+    } catch (error) {
+      console.error('❌ Erreur connexion SSE:', error);
+      this.handleReconnect();
+    }
+  }
+
+  private handleReconnect() {
+    if (this.reconnectAttempts < this.maxReconnectAttempts) {
+      this.reconnectAttempts++;
+      console.log(`🔄 Tentative de reconnexion SSE ${this.reconnectAttempts}/${this.maxReconnectAttempts}`);
+      
+      setTimeout(() => {
+        this.connect();
+      }, this.reconnectDelay * this.reconnectAttempts);
+    } else {
+      console.error('❌ Échec reconnexion SSE après', this.maxReconnectAttempts, 'tentatives');
+    }
+  }
+
+  disconnect() {
+    if (this.eventSource) {
+      this.eventSource.close();
+      this.eventSource = null;
+    }
+  }
+
+  subscribe(callback: (data: any) => void) {
+    this.listeners.add(callback);
+    return () => this.listeners.delete(callback);
+  }
+
+  private notifyListeners(data: any) {
+    this.listeners.forEach(callback => {
+      try {
+        callback(data);
+      } catch (error) {
+        console.error('❌ Erreur callback SSE:', error);
+      }
+    });
+  }
 }
 
-
+// Instance globale du service SSE
+export const queueSSEService = new QueueSSEService();
 
 export const queueService = {
   // Récupérer les éléments de la queue
@@ -67,18 +113,29 @@ export const queueService = {
   },
 
   // Ajouter un élément à la queue
-  async addToQueue(analysisId: number, priority: string = 'normal'): Promise<void> {
+  async addToQueue(analysisId: number): Promise<void> {
     try {
       await apiRequest('/api/queue/add', {
         method: 'POST',
         body: JSON.stringify({
-          analysis_id: analysisId,
-          priority: priority
+          analysis_id: analysisId
         })
       }, DEFAULT_TIMEOUT);
     } catch (error) {
       console.error('❌ QueueService: Erreur lors de l\'ajout à la queue:', error);
       throw new Error(`Erreur lors de l'ajout à la queue: ${handleApiError(error)}`);
+    }
+  },
+
+  // Démarrer le traitement de la queue
+  async startQueueProcessing(): Promise<void> {
+    try {
+      await apiRequest('/api/queue/start', {
+        method: 'POST'
+      }, DEFAULT_TIMEOUT);
+    } catch (error) {
+      console.error('❌ QueueService: Erreur lors du démarrage du traitement:', error);
+      throw new Error(`Erreur lors du démarrage du traitement: ${handleApiError(error)}`);
     }
   },
 
@@ -222,5 +279,46 @@ export const queueService = {
       console.error('❌ QueueService: Erreur lors de la duplication de l\'analyse:', error);
       throw new Error(`Erreur lors de la duplication: ${handleApiError(error)}`);
     }
-  }
+  },
+
+  // NOUVEAU: Méthodes optimisées
+  startRealtimeUpdates: () => {
+    queueSSEService.connect();
+  },
+
+  stopRealtimeUpdates: () => {
+    queueSSEService.disconnect();
+  },
+
+  subscribeToUpdates: (callback: (data: any) => void) => {
+    return queueSSEService.subscribe(callback);
+  },
+
+  // OPTIMISATION: Chargement initial uniquement
+  getQueueItems: async (): Promise<QueueItem[]> => {
+    try {
+      const response = await apiRequest('/api/queue/items', {}, DEFAULT_TIMEOUT);
+      return response.data || [];
+    } catch (error) {
+      console.error('❌ QueueService: Erreur lors de la récupération des éléments de queue:', error);
+      throw new Error(`Erreur lors de la récupération de la queue: ${handleApiError(error)}`);
+    }
+  },
+
+  // OPTIMISATION: Pas de rechargement automatique après actions
+  addToQueue: async (analysisId: number, priority?: string): Promise<void> => {
+    try {
+      await apiRequest('/api/queue/add', {
+        method: 'POST',
+        body: JSON.stringify({
+          analysis_id: analysisId,
+          priority: priority || 'normal'
+        })
+      }, DEFAULT_TIMEOUT);
+      // Pas de rechargement - SSE s'en charge
+    } catch (error) {
+      console.error('❌ QueueService: Erreur lors de l\'ajout à la queue:', error);
+      throw new Error(`Erreur lors de l'ajout à la queue: ${handleApiError(error)}`);
+    }
+  },
 };

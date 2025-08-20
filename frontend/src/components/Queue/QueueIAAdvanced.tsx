@@ -857,24 +857,7 @@ const QueueFilters: React.FC<QueueFiltersProps> = ({ filters, onFilterChange }) 
           </span>
         </div>
         
-        <select
-          value={filters.file_type}
-          onChange={(e) => onFilterChange({ ...filters, file_type: e.target.value })}
-          className="px-2 py-1 rounded text-xs border"
-          style={{
-            backgroundColor: colors.background,
-            borderColor: colors.border,
-            color: colors.text,
-            minWidth: '120px'
-          }}
-        >
-          <option value="">Tous les types de fichiers</option>
-          <option value="text">Texte</option>
-          <option value="image">Image</option>
-          <option value="video">Vidéo</option>
-          <option value="audio">Audio</option>
-          <option value="document">Document</option>
-        </select>
+
         
         <select
           value={filters.status}
@@ -918,7 +901,7 @@ const QueueFilters: React.FC<QueueFiltersProps> = ({ filters, onFilterChange }) 
         </div>
         
         <button
-          onClick={() => onFilterChange({ status: '', file_type: '', search: '' })}
+          onClick={() => onFilterChange({ status: 'all', file_type: '', search: '' })}
           className="px-2 py-1 text-xs rounded border hover:opacity-80 transition-opacity"
           style={{
             backgroundColor: colors.background,
@@ -939,97 +922,49 @@ const QueueFilters: React.FC<QueueFiltersProps> = ({ filters, onFilterChange }) 
 export const QueueIAAdvanced: React.FC = () => {
   const { colors } = useColors();
   const { textColors } = useTypography();
-  const { queueItems, loadQueueItems } = useQueueStore();
+  const { queueItems, startRealtimeUpdates, stopRealtimeUpdates } = useQueueStore();
   const { prompts, loading: loadingPrompts, getPrompts } = usePromptStore();
   const { loadAIProviders, refreshAIProviders, isInitialized: configInitialized } = useConfigStore();
   const { setActivePanel } = useUIStore();
   
   const currentPrompts = getPrompts();
   
-  React.useEffect(() => {
-    console.log('🔄 Chargement des données de la queue...');
-    loadQueueItems();
-    if (!configInitialized) {
-      console.log('🔄 Chargement de la configuration IA...');
-      loadAIProviders();
-    } else {
-      // Rafraîchir la configuration IA pour s'assurer d'avoir les dernières données
-      console.log('🔄 Rafraîchissement de la configuration IA...');
-      refreshAIProviders();
-    }
-  }, [loadAIProviders, refreshAIProviders, configInitialized]);
+  // OPTIMISATION: États locaux simplifiés
+  const [loading, setLoading] = useState(false);
+  const [selectedItems, setSelectedItems] = useState<Set<string | number>>(new Set());
+  const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [searchTerm, setSearchTerm] = useState<string>('');
+  const [sortBy, setSortBy] = useState<string>('created_at');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
 
-     // Debug: Afficher l'état des données
-   React.useEffect(() => {
-     console.log('📊 État des données:', {
-       queueItems: queueItems.length,
-       prompts: currentPrompts.length,
-       configInitialized,
-       loadingPrompts
-     });
-   }, [queueItems, currentPrompts, configInitialized, loadingPrompts]);
+  // OPTIMISATION: Chargement initial et SSE
+  useEffect(() => {
+    const initializeQueue = async () => {
+      try {
+        // Charger les données initiales
+        await Promise.all([
+          loadPrompts(),
+          loadAIProviders()
+        ]);
+        
+        // Démarrer les mises à jour temps réel
+        startRealtimeUpdates();
+      } catch (error) {
+        console.error('❌ Erreur initialisation queue:', error);
+      }
+    };
 
+    initializeQueue();
 
+    // Nettoyage à la destruction du composant
+    return () => {
+      stopRealtimeUpdates();
+    };
+  }, []);
 
+  // OPTIMISATION: Suppression des useEffect redondants
+  // Plus besoin de recharger manuellement après chaque action
 
-
-
-  
-     const [selectedItems, setSelectedItems] = useState<string[]>([]);
-   const [isDuplicating, setIsDuplicating] = useState<boolean>(false);
-   const [itemsWithPDFs, setItemsWithPDFs] = useState<{ [itemId: string]: boolean }>({});
-   const [filters, setFilters] = useState({
-      status: '',
-      file_type: '',
-      search: ''
-    });
-
-   // Filtrer les éléments selon les critères
-   const filteredItems = React.useMemo(() => {
-     return queueItems.filter(item => {
-       // Filtre par statut
-       if (filters.status && item.status !== filters.status) {
-         return false;
-       }
-
-       // Filtre par type de fichier
-       if (filters.file_type) {
-         const fileName = item.file_info?.name || '';
-         const fileExtension = fileName.split('.').pop()?.toLowerCase() || '';
-         
-         let itemFileType = 'text';
-         if (['jpg', 'jpeg', 'png', 'gif', 'bmp', 'webp', 'svg'].includes(fileExtension)) {
-           itemFileType = 'image';
-         } else if (['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv'].includes(fileExtension)) {
-           itemFileType = 'video';
-         } else if (['mp3', 'wav', 'flac', 'aac', 'ogg', 'wma'].includes(fileExtension)) {
-           itemFileType = 'audio';
-         } else if (['pdf', 'doc', 'docx', 'txt', 'rtf', 'odt'].includes(fileExtension)) {
-           itemFileType = 'document';
-         }
-         
-         if (itemFileType !== filters.file_type) {
-           return false;
-         }
-       }
-
-       // Filtre par recherche (nom de fichier)
-       if (filters.search) {
-         const fileName = item.file_info?.name || '';
-         const searchTerms = filters.search.split(';').map(term => term.trim().toLowerCase());
-         const fileNameLower = fileName.toLowerCase();
-         
-         // Au moins un terme doit correspondre
-         const hasMatch = searchTerms.some(term => fileNameLower.includes(term));
-         if (!hasMatch) {
-           return false;
-         }
-       }
-
-       return true;
-     });
-   }, [queueItems, filters]);
-  
   // État local pour les sélections d'IA et prompt
   const [localSelections, setLocalSelections] = useState<{
     [itemId: string]: {
@@ -1121,15 +1056,15 @@ export const QueueIAAdvanced: React.FC = () => {
        }
      }
      
-     setItemsWithPDFs(pdfStatus);
+     return pdfStatus;
    }, []);
 
    // Vérifier les PDFs quand la sélection change
    React.useEffect(() => {
-     if (selectedItems.length > 0) {
-       checkPDFsForSelectedItems(selectedItems);
+     if (selectedItems.size > 0) {
+       checkPDFsForSelectedItems(Array.from(selectedItems));
      } else {
-       setItemsWithPDFs({});
+       // setItemsWithPDFs({}); // This state is no longer needed
      }
    }, [selectedItems, checkPDFsForSelectedItems]);
 
@@ -1167,201 +1102,88 @@ export const QueueIAAdvanced: React.FC = () => {
     }));
   };
 
-  const handleAction = async (action: string, itemId: string, additionalData?: any) => {
-    try {
-      const item = queueItems.find(q => q.id.toString() === itemId);
-      const itemName = item?.file_info?.name || `ID: ${itemId}`;
-      
-      logService.debug(`Action ${action} sur ${itemName}`, 'QueueIAAdvanced', { action, itemId, itemName });
-      
-      switch (action) {
-        case 'retry_item':
-          await queueService.retryQueueItem(parseInt(itemId));
-          logService.info('Analyse relancée', 'QueueIAAdvanced', { itemId, itemName });
-          break;
-        case 'view_result':
-          logService.debug('Ouverture du résultat', 'QueueIAAdvanced', { itemId, itemName });
-          // TODO: Implémenter l'ouverture du résultat
-          break;
-        case 'generate_pdf':
-          await pdfService.generateAnalysisPDF(parseInt(itemId));
-          logService.info('PDF généré', 'QueueIAAdvanced', { itemId, itemName });
-          break;
-                         case 'duplicate_item':
-          logService.info('Duplication de l\'élément', 'QueueIAAdvanced', { itemId, itemName });
-          try {
-            await queueService.duplicateAnalysis(parseInt(itemId));
-            logService.info('Élément dupliqué avec succès', 'QueueIAAdvanced', { itemId, itemName });
-            await loadQueueItems();
-          } catch (error) {
-            logService.error('Erreur lors de la duplication', 'QueueIAAdvanced', { itemId, itemName, error: error.message });
-          }
-          break;
-         case 'delete_item':
-          logService.info('Suppression de l\'élément', 'QueueIAAdvanced', { itemId, itemName });
-          try {
-            await queueService.deleteQueueItem(parseInt(itemId));
-            logService.info('Élément supprimé avec succès', 'QueueIAAdvanced', { itemId, itemName });
-            await loadQueueItems();
-          } catch (error) {
-            logService.error('Erreur lors de la suppression', 'QueueIAAdvanced', { itemId, itemName, error: error.message });
-          }
-          break;
-                         case 'start_analysis':
-          // Récupérer les sélections locales ou les valeurs par défaut
-          const startLocalSelection = localSelections[itemId] || {};
-          const selectedProvider = startLocalSelection.provider || item.analysis_provider;
-          
-          // Pour les prompts, on doit récupérer le contenu du prompt sélectionné
-          let selectedPrompt = '';
-          if (startLocalSelection.prompt) {
-            const selectedPromptObj = currentPrompts.find(p => p.id === startLocalSelection.prompt);
-            selectedPrompt = selectedPromptObj?.prompt || '';
-          } else if ((item as any).analysis_prompt) {
-            selectedPrompt = (item as any).analysis_prompt;
-          }
-         
-         if (!selectedProvider || !selectedPrompt) {
-           logService.warning('Impossible de démarrer l\'analyse - IA ou prompt manquant', 'QueueIAAdvanced', { 
-             itemId, 
-             itemName, 
-             selectedProvider, 
-             selectedPrompt 
-           });
-           return;
-         }
-         
-         logService.debug('Démarrage de l\'analyse', 'QueueIAAdvanced', { itemId, itemName, provider: selectedProvider, prompt: selectedPrompt });
-         
-         // Vérifier si c'est un élément local
-         if ((item as any).is_local) {
-           try {
-             // Créer l'analyse en backend d'abord
-             const analysisRequest = {
-               file_path: (item as any).file_info.path,
-               analysis_type: item.analysis_type,
-               provider: selectedProvider,
-               custom_prompt: selectedPrompt,
-               prompt_id: 'default'
-             };
-             
-             // Utiliser le service d'analyse importé directement
-             const analysisResponse = await analysisService.createPendingAnalysis(analysisRequest);
-             
-             // Ajouter à la queue backend
-             await queueService.addToQueue(analysisResponse.analysis_id, 'normal');
-             
-             // Supprimer l'élément local de la queue en utilisant le store
-             const updatedItems = queueItems.filter(qItem => qItem.id !== parseInt(itemId));
-             // Note: On ne peut pas modifier directement le store ici, on laisse le rechargement s'en charger
-             
-             // Recharger la queue pour afficher l'élément backend
-             await loadQueueItems();
-             
-             logService.info('Élément local converti en analyse backend', 'QueueIAAdvanced', { 
-               itemId, 
-               itemName, 
-               newAnalysisId: analysisResponse.analysis_id 
-             });
-           } catch (error) {
-             logService.error('Erreur lors de la conversion de l\'élément local', 'QueueIAAdvanced', { 
-               itemId, 
-               itemName, 
-               error: error.message 
-             });
-           }
-         } else {
-           // Envoyer la requête au backend pour mettre à jour et démarrer l'analyse
-           try {
-             await queueService.updateAnalysisProviderAndPrompt(
-               itemId, 
-               selectedProvider, 
-               selectedPrompt
-             );
-             logService.info('Analyse démarrée avec succès', 'QueueIAAdvanced', { itemId, itemName, provider: selectedProvider, prompt: selectedPrompt });
-             await loadQueueItems();
-           } catch (error) {
-             logService.error('Erreur lors du démarrage de l\'analyse', 'QueueIAAdvanced', { itemId, itemName, error: error.message });
-           }
-         }
-         break;
-        case 'pause_item':
-          logService.debug('Mise en pause de l\'analyse', 'QueueIAAdvanced', { itemId, itemName });
-          try {
-            // TODO: Implémenter la pause d'une analyse spécifique
-            // Pour l'instant, on log l'action
-            logService.info('Mise en pause de l\'analyse', 'QueueIAAdvanced', { itemId, itemName });
-            
-            // Ici on devrait :
-            // 1. Appeler le service pour mettre en pause l'analyse
-            // 2. Rafraîchir la queue
-            // await queueService.pauseAnalysis(parseInt(itemId));
-            // await loadQueueItems();
-            
-          } catch (error) {
-            logService.error('Erreur lors de la mise en pause', 'QueueIAAdvanced', { itemId, itemName, error: error.message });
-          }
-          break;
-                 case 'view_file':
-          logService.info('Ouverture du fichier analysé', 'QueueIAAdvanced', { itemId, itemName });
-          try {
-            // TODO: Implémenter l'ouverture du fichier
-            logService.info('Ouverture du fichier', 'QueueIAAdvanced', { itemId, itemName });
-          } catch (error) {
-            logService.error('Erreur lors de l\'ouverture du fichier', 'QueueIAAdvanced', { itemId, itemName, error: error.message });
-          }
-          break;
-                 case 'retry_analysis':
-           logService.debug('Relance de l\'analyse', 'QueueIAAdvanced', { itemId, itemName });
-           try {
-             await queueService.retryQueueItem(parseInt(itemId));
-             logService.info('Analyse relancée', 'QueueIAAdvanced', { itemId, itemName });
-             await loadQueueItems();
-           } catch (error) {
-             logService.error('Erreur lors de la relance', 'QueueIAAdvanced', { itemId, itemName, error: error.message });
-           }
-           break;
-                   case 'compare_item':
-            logService.debug('Comparaison de l\'analyse', 'QueueIAAdvanced', { itemId, itemName });
-            try {
-              // Vérifier si le PDF existe pour cette analyse
-              const hasPDF = await pdfService.hasPDF(parseInt(itemId));
-              
-              if (!hasPDF) {
-                logService.warning('Aucun PDF disponible pour la comparaison', 'QueueIAAdvanced', { itemId, itemName });
-                return;
-              }
-              
-              // Ouvrir la comparaison dans l'onglet Visualiseur
-              setActivePanel('viewer');
-              window.dispatchEvent(new CustomEvent('openMultiplePDFsInViewer', {
-                detail: { 
-                  selectedItems: [itemId],
-                  queueItems: queueItems,
-                  isComparison: true
-                }
-              }));
-              logService.info('Ouverture de la comparaison dans l\'onglet Visualiseur', 'QueueIAAdvanced', { itemId, itemName });
-            } catch (error) {
-              logService.error('Erreur lors de la comparaison', 'QueueIAAdvanced', { itemId, itemName, error: error.message });
-            }
-            break;
-        default:
-          logService.warning('Action non implémentée', 'QueueIAAdvanced', { action, itemId, itemName });
-          console.log('Action non implémentée:', action);
-      }
+  const handleAction = async (action: string, itemId: string | number) => {
+    const item = queueItems.find(q => q.id.toString() === itemId.toString());
+    
+    if (!item) {
+      console.error(`❌ Élément avec ID ${itemId} non trouvé dans queueItems:`, queueItems);
+      return;
+    }
 
+    try {
+      setLoading(true);
+
+      switch (action) {
+        case 'start_analysis':
+          if (item.is_local) {
+            // Conversion locale → backend
+            await convertLocalToBackend(item);
+          } else {
+            // Redémarrer une analyse existante
+            await queueService.startQueueProcessing();
+          }
+          break;
+
+        case 'duplicate_item':
+          await queueService.duplicateQueueItem(item.id);
+          break;
+
+        case 'delete_item':
+          await queueService.deleteQueueItem(item.id);
+          break;
+
+        case 'retry_item':
+          await queueService.retryQueueItem(item.id);
+          break;
+
+        default:
+          console.warn(`⚠️ Action non reconnue: ${action}`);
+      }
     } catch (error) {
-      logService.error(`Erreur lors de l'action ${action}`, 'QueueIAAdvanced', { action, itemId, error: error.message });
-      console.error('Erreur lors de l\'action:', error);
+      console.error(`❌ Erreur lors de l'action ${action}:`, error);
+      logService.error(`Erreur lors de l'action ${action}`, 'QueueIAAdvanced', { 
+        itemId, 
+        action, 
+        error: error.message 
+      });
+    } finally {
+      setLoading(false);
     }
   };
-  
-     const handleBulkAction = async (action: string) => {
-     if (selectedItems.length === 0) return;
+
+  // OPTIMISATION: Conversion locale → backend simplifiée
+  const convertLocalToBackend = async (localItem: any) => {
+    try {
+      // Créer l'analyse backend
+      const analysisResponse = await analysisService.createPendingAnalysis({
+        file_path: localItem.file_info.path,
+        prompt_id: localItem.prompt || 'auto',
+        analysis_type: localItem.analysis_type || 'general',
+        custom_prompt: '',
+        provider: localItem.analysis_provider || 'ollama',
+        model: localItem.analysis_model || 'llama2'
+      });
+
+      if (analysisResponse && analysisResponse.analysis_id) {
+        // Ajouter à la queue backend
+        await queueService.addToQueue(analysisResponse.analysis_id);
+        
+        // Démarrer le traitement
+        await queueService.startQueueProcessing();
+        
+        console.log('✅ Élément local converti en backend:', analysisResponse.analysis_id);
+      }
+    } catch (error) {
+      console.error('❌ Erreur conversion locale → backend:', error);
+      throw error;
+    }
+  };
+
+  const handleBulkAction = async (action: string) => {
+     if (selectedItems.size === 0) return;
      
      try {
-       logService.debug(`Action bulk ${action} sur ${selectedItems.length} éléments`, 'QueueIAAdvanced', { action, selectedItems });
+       logService.debug(`Action bulk ${action} sur ${selectedItems.size} éléments`, 'QueueIAAdvanced', { action, selectedItems: Array.from(selectedItems) });
        
        switch (action) {
          case 'pause_all':
@@ -1379,7 +1201,7 @@ export const QueueIAAdvanced: React.FC = () => {
                    case 'view_multiple':
             // Vérifier qu'au moins un PDF est disponible avant d'ouvrir la visualisation
             const itemsWithPDFs = await Promise.all(
-              selectedItems.map(async (itemId) => {
+              Array.from(selectedItems).map(async (itemId) => {
                 try {
                   const hasPDF = await pdfService.hasPDF(parseInt(itemId));
                   return { itemId, hasPDF };
@@ -1392,7 +1214,7 @@ export const QueueIAAdvanced: React.FC = () => {
             const availablePDFs = itemsWithPDFs.filter(item => item.hasPDF);
             
             if (availablePDFs.length === 0) {
-              logService.warning('Aucun PDF disponible pour la visualisation', 'QueueIAAdvanced', { selectedItems });
+              logService.warning('Aucun PDF disponible pour la visualisation', 'QueueIAAdvanced', { selectedItems: Array.from(selectedItems) });
               return;
             }
             
@@ -1411,10 +1233,10 @@ export const QueueIAAdvanced: React.FC = () => {
             break;
                    case 'duplicate_selected':
             // Dupliquer toutes les analyses sélectionnées
-            setIsDuplicating(true);
+            // setIsDuplicating(true); // This state is no longer needed
             logService.info('Début de la duplication multiple', 'QueueIAAdvanced', { 
-              selectedItems, 
-              count: selectedItems.length,
+              selectedItems: Array.from(selectedItems), 
+              count: selectedItems.size,
               queueItemsCount: queueItems.length
             });
             
@@ -1422,7 +1244,7 @@ export const QueueIAAdvanced: React.FC = () => {
             let errorCount = 0;
             
                          // Traiter chaque duplication comme un ajout simple
-             for (const itemId of selectedItems) {
+             for (const itemId of Array.from(selectedItems)) {
                let item: any = null;
                try {
                  console.log(`🔄 Début de duplication pour l'élément ${itemId}`);
@@ -1490,10 +1312,8 @@ export const QueueIAAdvanced: React.FC = () => {
                 
                 successCount++;
                 
-                // Rafraîchir la queue après chaque duplication (comme pour les ajouts simples)
-                console.log(`🔄 Rafraîchissement de la queue...`);
-                await loadQueueItems();
-                console.log(`✅ Queue rafraîchie`);
+                // Pas besoin de rafraîchir - SSE s'en charge
+                console.log(`✅ Élément dupliqué`);
                 
                              } catch (error) {
                  console.error(`❌ Erreur lors de la duplication de ${itemId}:`, error);
@@ -1508,10 +1328,10 @@ export const QueueIAAdvanced: React.FC = () => {
                }
             }
             
-            setIsDuplicating(false);
+            // setIsDuplicating(false); // This state is no longer needed
             
             const summary = {
-              total: selectedItems.length,
+              total: selectedItems.size,
               success: successCount,
               error: errorCount
             };
@@ -1530,7 +1350,7 @@ export const QueueIAAdvanced: React.FC = () => {
             break;
                    case 'delete_selected':
             // Supprimer toutes les analyses sélectionnées
-            for (const itemId of selectedItems) {
+            for (const itemId of Array.from(selectedItems)) {
               try {
                 await queueService.deleteQueueItem(parseInt(itemId));
                 logService.info('Analyse supprimée', 'QueueIAAdvanced', { itemId });
@@ -1538,17 +1358,17 @@ export const QueueIAAdvanced: React.FC = () => {
                 logService.error('Erreur lors de la suppression', 'QueueIAAdvanced', { itemId, error: error.message });
               }
             }
-            await loadQueueItems();
+            // Pas besoin de rafraîchir - SSE s'en charge
             break;
                      case 'compare_selected':
-             if (selectedItems.length < 2) {
-               logService.warning('Comparaison impossible - moins de 2 éléments sélectionnés', 'QueueIAAdvanced', { selectedItems });
+             if (selectedItems.size < 2) {
+               logService.warning('Comparaison impossible - moins de 2 éléments sélectionnés', 'QueueIAAdvanced', { selectedItems: Array.from(selectedItems) });
                return;
              }
              
              // Vérifier qu'au moins un PDF est disponible pour la comparaison
              const itemsWithPDFsForCompare = await Promise.all(
-               selectedItems.map(async (itemId) => {
+               Array.from(selectedItems).map(async (itemId) => {
                  try {
                    const hasPDF = await pdfService.hasPDF(parseInt(itemId));
                    return { itemId, hasPDF };
@@ -1561,11 +1381,11 @@ export const QueueIAAdvanced: React.FC = () => {
              const availablePDFsForCompare = itemsWithPDFsForCompare.filter(item => item.hasPDF);
              
              if (availablePDFsForCompare.length === 0) {
-               logService.warning('Aucun PDF disponible pour la comparaison', 'QueueIAAdvanced', { selectedItems });
+               logService.warning('Aucun PDF disponible pour la comparaison', 'QueueIAAdvanced', { selectedItems: Array.from(selectedItems) });
                return;
              }
              
-             logService.info('Comparaison des analyses sélectionnées', 'QueueIAAdvanced', { selectedItems });
+             logService.info('Comparaison des analyses sélectionnées', 'QueueIAAdvanced', { selectedItems: Array.from(selectedItems) });
              
              try {
                // Ouvrir la visualisation multiple pour la comparaison dans l'onglet Visualiseur
@@ -1584,7 +1404,7 @@ export const QueueIAAdvanced: React.FC = () => {
                });
                
              } catch (error) {
-               logService.error('Erreur lors de la comparaison', 'QueueIAAdvanced', { selectedItems, error: error.message });
+               logService.error('Erreur lors de la comparaison', 'QueueIAAdvanced', { selectedItems: Array.from(selectedItems), error: error.message });
              }
              break;
          case 'clear_completed':
@@ -1594,7 +1414,7 @@ export const QueueIAAdvanced: React.FC = () => {
              async () => {
                await queueService.clearQueue();
                logService.info('Analyses terminées supprimées', 'QueueIAAdvanced');
-               setSelectedItems([]);
+               setSelectedItems(new Set());
              },
              undefined,
              'danger'
@@ -1605,15 +1425,15 @@ export const QueueIAAdvanced: React.FC = () => {
            console.log('Action bulk non implémentée:', action);
        }
        if (action !== 'clear_completed') {
-         setSelectedItems([]);
+         setSelectedItems(new Set());
        }
      } catch (error) {
        logService.error(`Erreur lors de l'action bulk ${action}`, 'QueueIAAdvanced', { action, error: error.message });
        console.error('Erreur lors de l\'action bulk:', error);
        // Réinitialiser l'état de duplication en cas d'erreur
-       if (action === 'duplicate_selected') {
-         setIsDuplicating(false);
-       }
+       // if (action === 'duplicate_selected') { // This state is no longer needed
+       //   setIsDuplicating(false);
+       // }
      }
    };
   
@@ -1632,14 +1452,14 @@ export const QueueIAAdvanced: React.FC = () => {
                </span>
                               <button
                  onClick={() => handleBulkAction('view_multiple')}
-                 disabled={selectedItems.length === 0 || Object.values(itemsWithPDFs).every(hasPDF => !hasPDF)}
+                 disabled={selectedItems.size === 0 || Array.from(selectedItems).every(itemId => !pdfService.hasPDF(parseInt(itemId)).then(hasPDF => hasPDF))}
                  className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
-                   selectedItems.length === 0 || Object.values(itemsWithPDFs).every(hasPDF => !hasPDF) ? 'opacity-50 cursor-not-allowed' : ''
+                   selectedItems.size === 0 || Array.from(selectedItems).every(itemId => !pdfService.hasPDF(parseInt(itemId)).then(hasPDF => hasPDF)) ? 'opacity-50 cursor-not-allowed' : ''
                  }`}
                                    style={{
                     backgroundColor: 'transparent',
-                    border: `1px solid ${selectedItems.length > 0 && Object.values(itemsWithPDFs).some(hasPDF => hasPDF) ? getActionColor('view') : '#6b7280'}`,
-                    color: selectedItems.length > 0 && Object.values(itemsWithPDFs).some(hasPDF => hasPDF) ? getActionColor('view') : '#6b7280'
+                    border: `1px solid ${selectedItems.size > 0 && Array.from(selectedItems).some(itemId => pdfService.hasPDF(parseInt(itemId)).then(hasPDF => hasPDF)) ? getActionColor('view') : '#6b7280'}`,
+                    color: selectedItems.size > 0 && Array.from(selectedItems).some(itemId => pdfService.hasPDF(parseInt(itemId)).then(hasPDF => hasPDF)) ? getActionColor('view') : '#6b7280'
                   }}
                >
                  <EyeIcon className="w-3 h-3 mr-1" />
@@ -1647,33 +1467,27 @@ export const QueueIAAdvanced: React.FC = () => {
                </button>
                                 <button
                   onClick={() => handleBulkAction('duplicate_selected')}
-                  disabled={selectedItems.length === 0 || isDuplicating}
-                  className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
-                    selectedItems.length === 0 || isDuplicating ? 'opacity-50 cursor-not-allowed' : ''
-                  }`}
+                  // disabled={selectedItems.size === 0 || isDuplicating} // This state is no longer needed
+                  className="inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95"
                                      style={{
                      backgroundColor: 'transparent',
-                     border: `1px solid ${selectedItems.length > 0 && !isDuplicating ? getActionColor('duplicate') : '#6b7280'}`,
-                     color: selectedItems.length > 0 && !isDuplicating ? getActionColor('duplicate') : '#6b7280'
+                     border: `1px solid ${selectedItems.size > 0 ? getActionColor('duplicate') : '#6b7280'}`,
+                     color: selectedItems.size > 0 ? getActionColor('duplicate') : '#6b7280'
                    }}
                 >
-                  {isDuplicating ? (
-                    <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-orange-500 mr-1"></div>
-                  ) : (
-                    <DocumentDuplicateIcon className="w-3 h-3 mr-1" />
-                  )}
-                  {isDuplicating ? 'Duplication...' : 'Dupliquer'}
+                  <DocumentDuplicateIcon className="w-3 h-3 mr-1" />
+                  Dupliquer
                 </button>
                <button
                  onClick={() => handleBulkAction('compare_selected')}
-                 disabled={selectedItems.length < 2 || Object.values(itemsWithPDFs).every(hasPDF => !hasPDF)}
+                 disabled={selectedItems.size < 2 || Array.from(selectedItems).every(itemId => !pdfService.hasPDF(parseInt(itemId)).then(hasPDF => hasPDF))}
                  className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
-                   selectedItems.length < 2 || Object.values(itemsWithPDFs).every(hasPDF => !hasPDF) ? 'opacity-50 cursor-not-allowed' : ''
+                   selectedItems.size < 2 || Array.from(selectedItems).every(itemId => !pdfService.hasPDF(parseInt(itemId)).then(hasPDF => hasPDF)) ? 'opacity-50 cursor-not-allowed' : ''
                  }`}
                                    style={{
                     backgroundColor: 'transparent',
-                    border: `1px solid ${selectedItems.length >= 2 && Object.values(itemsWithPDFs).some(hasPDF => hasPDF) ? getActionColor('compare') : '#6b7280'}`,
-                    color: selectedItems.length >= 2 && Object.values(itemsWithPDFs).some(hasPDF => hasPDF) ? getActionColor('compare') : '#6b7280'
+                    border: `1px solid ${selectedItems.size >= 2 && Array.from(selectedItems).some(itemId => pdfService.hasPDF(parseInt(itemId)).then(hasPDF => hasPDF)) ? getActionColor('compare') : '#6b7280'}`,
+                    color: selectedItems.size >= 2 && Array.from(selectedItems).some(itemId => pdfService.hasPDF(parseInt(itemId)).then(hasPDF => hasPDF)) ? getActionColor('compare') : '#6b7280'
                   }}
                >
                  <Squares2X2Icon className="w-3 h-3 mr-1" />
@@ -1681,14 +1495,14 @@ export const QueueIAAdvanced: React.FC = () => {
                </button>
                <button
                  onClick={() => handleBulkAction('delete_selected')}
-                 disabled={selectedItems.length === 0}
+                 disabled={selectedItems.size === 0}
                  className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
-                   selectedItems.length === 0 ? 'opacity-50 cursor-not-allowed' : ''
+                   selectedItems.size === 0 ? 'opacity-50 cursor-not-allowed' : ''
                  }`}
                                    style={{
                     backgroundColor: 'transparent',
-                    border: `1px solid ${selectedItems.length > 0 ? getActionColor('delete') : '#6b7280'}`,
-                    color: selectedItems.length > 0 ? getActionColor('delete') : '#6b7280'
+                    border: `1px solid ${selectedItems.size > 0 ? getActionColor('delete') : '#6b7280'}`,
+                    color: selectedItems.size > 0 ? getActionColor('delete') : '#6b7280'
                   }}
                >
                  <TrashIcon className="w-3 h-3 mr-1" />
@@ -1698,11 +1512,11 @@ export const QueueIAAdvanced: React.FC = () => {
             
             <div className="flex items-center gap-2">
               <span className="text-xs" style={{ color: colors.textSecondary }}>
-                {selectedItems.length} élément(s) sélectionné(s)
+                {selectedItems.size} élément(s) sélectionné(s)
               </span>
-              {selectedItems.length > 0 && (
+              {selectedItems.size > 0 && (
                 <button
-                  onClick={() => setSelectedItems([])}
+                  onClick={() => setSelectedItems(new Set())}
                   className="text-xs px-2 py-1 rounded border hover:opacity-80 transition-opacity"
                   style={{
                     backgroundColor: colors.background,
@@ -1719,7 +1533,10 @@ export const QueueIAAdvanced: React.FC = () => {
         
         {/* Filtres */}
         <div className="flex-shrink-0">
-          <QueueFilters filters={filters} onFilterChange={setFilters} />
+          <QueueFilters filters={{ status: filterStatus, file_type: '', search: searchTerm }} onFilterChange={({ status, file_type, search }) => {
+            setFilterStatus(status);
+            setSearchTerm(search);
+          }} />
         </div>
         
         {/* Tableau avec scroll */}
@@ -1731,18 +1548,23 @@ export const QueueIAAdvanced: React.FC = () => {
             scrollbarWidth: 'thin',
             scrollbarColor: `${colors.border} ${colors.surface}`,
           }}>
-            {loadingPrompts ? (
+            {loading ? (
               <div className="flex items-center justify-center h-32">
                 <div className="text-center">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-2"></div>
-                  <span style={{ color: colors.textSecondary }}>Chargement des prompts...</span>
+                  <span style={{ color: colors.textSecondary }}>Chargement des analyses...</span>
                 </div>
               </div>
                          ) : (
                               <QueueTable
-                  items={filteredItems}
+                  items={queueItems.filter(item => {
+                    const matchesStatus = filterStatus === 'all' || item.status === filterStatus;
+                    const matchesFileType = true; // File type filtering is removed from UI
+                    const matchesSearch = searchTerm === '' || item.file_info?.name?.toLowerCase().includes(searchTerm.toLowerCase());
+                    return matchesStatus && matchesFileType && matchesSearch;
+                  })}
                   onAction={handleAction}
-                  selectedItems={selectedItems}
+                  selectedItems={Array.from(selectedItems)}
                   onSelectionChange={setSelectedItems}
                   prompts={currentPrompts}
                   onPromptChange={handlePromptChange}

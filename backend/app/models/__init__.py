@@ -5,7 +5,7 @@ Contains all database models (SQLAlchemy)
 
 from app.core.database import Base, engine, get_db
 from .file import File, FileStatus, DirectoryStructure
-from .queue import QueueItem, QueueStatus, QueuePriority
+from .queue import QueueItem, QueueStatus
 from .config import Config
 from .analysis import Analysis, AnalysisStatus, AnalysisType
 
@@ -21,6 +21,6 @@ __all__ = [
     "AnalysisType",
     "QueueItem",
     "QueueStatus",
-    "QueuePriority",
+    # "QueuePriority",  # Supprimé - ordre chronologique uniquement
     "Config"
 ]

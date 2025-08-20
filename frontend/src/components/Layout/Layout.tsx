@@ -19,7 +19,7 @@ import { logService } from '../../services/logService';
 
 const Layout: React.FC = () => {
   const { selectedFile, selectedFiles, selectFile, markFileAsViewed, files } = useFileStore();
-  const { queueItems, loadQueueItems } = useQueueStore();
+  const { queueItems } = useQueueStore(); // OPTIMISATION: Plus besoin de loadQueueItems
   const { isInitialized, isLoading, initializationStep } = useStartupInitialization();
   const { sidebarWidth, setSidebarWidth, activePanel, setActivePanel } = useUIStore();
   const { colors } = useColors();
@@ -287,23 +287,28 @@ const Layout: React.FC = () => {
           
           return analysisResponse;
         } catch (error) {
-          logService.error('Erreur pour le fichier', 'Layout', { fileId, error: error.message });
+          logService.error('Erreur lors de l\'ajout à la queue', 'Layout', { fileId, error: error.message });
           return null;
         }
       });
-      
+
+      // Attendre que tous les fichiers soient ajoutés
       const results = await Promise.all(queuePromises);
-      const successCount = results.filter(result => result !== null).length;
+      const successCount = results.filter(r => r !== null).length;
       
       if (successCount > 0) {
-        await loadQueueItems();
-
-        setActivePanel('analyses');
+        logService.info(`${successCount} fichier(s) ajouté(s) à la queue`, 'Layout', { 
+          totalFiles: fileIds.length, 
+          successCount 
+        });
+        
+        // Basculer vers l'onglet queue pour voir les résultats
+        setActivePanel('queue');
       }
       
-            } catch (error) {
-          logService.error('Erreur lors de l\'ajout à la queue', 'Layout', { error: error.message });
-        }
+    } catch (error) {
+      logService.error('Erreur lors de l\'ajout en lot à la queue', 'Layout', { error: error.message });
+    }
   };
 
 
@@ -324,15 +329,12 @@ const Layout: React.FC = () => {
   // Charger le statut de la queue au montage et démarrer les mises à jour en temps réel
   useEffect(() => {
     // Charger les données initiales seulement au montage
-    loadQueueItems();
-    
-    // Démarrer les mises à jour en temps réel
-    // Gestion des mises à jour en temps réel
+    // La queue est maintenant gérée par SSE dans QueueIAAdvanced
     
     return () => {
       // Nettoyage des mises à jour en temps réel
     };
-  }, [loadQueueItems]);
+  }, []);
 
 
 

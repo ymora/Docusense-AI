@@ -10,7 +10,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import and_, desc
 
 from ..core.database import get_db
-from ..models.queue import QueueItem, QueueStatus, QueuePriority
+from ..models.queue import QueueItem, QueueStatus
 from ..models.analysis import Analysis, AnalysisStatus, AnalysisType
 from ..models.file import File, FileStatus
 from .ai_service import get_ai_service
@@ -32,13 +32,12 @@ class QueueService(BaseService):
     @log_service_operation("add_to_queue")
     def add_to_queue(
         self,
-        analysis_id: int,
-        priority: QueuePriority = QueuePriority.NORMAL
+        analysis_id: int
     ) -> QueueItem:
         """Add analysis to queue"""
-        return self.safe_execute("add_to_queue", self._add_to_queue_logic, analysis_id, priority)
+        return self.safe_execute("add_to_queue", self._add_to_queue_logic, analysis_id)
 
-    def _add_to_queue_logic(self, analysis_id: int, priority: QueuePriority) -> QueueItem:
+    def _add_to_queue_logic(self, analysis_id: int) -> QueueItem:
         """Logic for adding to queue"""
         # Validate analysis exists
         self._validate_analysis_exists(analysis_id)
@@ -47,12 +46,12 @@ class QueueService(BaseService):
         self._check_duplicate_queue_item(analysis_id)
         
         # Create queue item
-        queue_item = self._create_queue_item(analysis_id, priority)
+        queue_item = self._create_queue_item(analysis_id)
         
         # Save to database
         self._save_queue_item(queue_item)
         
-        self.logger.info(f"Added analysis {analysis_id} to queue with priority {priority}")
+        self.logger.info(f"Added analysis {analysis_id} to queue")
         return queue_item
 
     def _validate_analysis_exists(self, analysis_id: int) -> None:
@@ -71,11 +70,10 @@ class QueueService(BaseService):
         if existing:
             raise ValueError(f"Analysis {analysis_id} already in queue")
 
-    def _create_queue_item(self, analysis_id: int, priority: QueuePriority) -> QueueItem:
+    def _create_queue_item(self, analysis_id: int) -> QueueItem:
         """Create new queue item"""
         return QueueItem(
             analysis_id=analysis_id,
-            priority=priority,
             status=QueueStatus.PENDING,
             created_at=datetime.now()
         )
@@ -90,36 +88,32 @@ class QueueService(BaseService):
     def get_queue_items(
         self,
         status: Optional[QueueStatus] = None,
-        priority: Optional[QueuePriority] = None,
         limit: int = 100,
         offset: int = 0
     ) -> List[QueueItem]:
         """Get queue items with optional filtering"""
-        return self.safe_execute("get_queue_items", self._get_queue_items_logic, status, priority, limit, offset)
+        return self.safe_execute("get_queue_items", self._get_queue_items_logic, status, limit, offset)
 
-    def _get_queue_items_logic(self, status: Optional[QueueStatus], priority: Optional[QueuePriority], limit: int, offset: int) -> List[QueueItem]:
+    def _get_queue_items_logic(self, status: Optional[QueueStatus], limit: int, offset: int) -> List[QueueItem]:
         """Logic for getting queue items"""
         query = self.db.query(QueueItem)
         
         # Apply filters
-        query = self._apply_queue_filters(query, status, priority)
+        query = self._apply_queue_filters(query, status)
         
         # Join with analysis (left join to include analyses without files)
         query = query.outerjoin(QueueItem.analysis)
         
-        # Apply pagination
-        query = query.order_by(QueueItem.created_at.desc())
+        # Apply pagination - ordre chronologique (plus ancien en premier)
+        query = query.order_by(QueueItem.created_at.asc())
         query = query.offset(offset).limit(limit)
         
         return query.all()
 
-    def _apply_queue_filters(self, query, status: Optional[QueueStatus], 
-                           priority: Optional[QueuePriority]):
+    def _apply_queue_filters(self, query, status: Optional[QueueStatus]):
         """Apply filters to queue query"""
         if status:
             query = query.filter(QueueItem.status == status)
-        if priority:
-            query = query.filter(QueueItem.priority == priority)
         return query
 
 
@@ -617,7 +611,7 @@ class QueueService(BaseService):
         # Créer un nouvel élément de queue pour la nouvelle analyse
         new_queue_item = QueueItem(
             analysis_id=new_analysis.id,
-            priority=QueuePriority.NORMAL,
+            # Priorité supprimée - ordre chronologique uniquement
             status=QueueStatus.PENDING,
             created_at=datetime.now()
         )

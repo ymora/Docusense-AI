@@ -30,6 +30,7 @@ import ThumbnailGrid from '../FileManager/ThumbnailGrid';
 import UnifiedFileViewer from '../FileManager/UnifiedFileViewer';
 
 import { useUIStore } from '../../stores/uiStore';
+import { useStartupInitialization } from '../../hooks/useStartupInitialization';
 
 interface MainPanelProps {
   activePanel: 'viewer' | 'config' | 'analyses' | 'queue';
@@ -42,13 +43,15 @@ const MainPanel: React.FC<MainPanelProps> = ({
 }) => {
   const { selectedFile, selectedFiles, files, selectFile } = useFileStore();
   const { colors } = useColors();
-  const { queueItems, loadQueueItems } = useQueueStore();
+  const { queueItems } = useQueueStore(); // OPTIMISATION: Plus besoin de loadQueueItems
   const { getActiveProviders } = useConfigStore();
+  const { isInitialized, isLoading, initializationStep } = useStartupInitialization();
   const [showFileDetails, setShowFileDetails] = useState(false);
   const [viewMode, setViewMode] = useState<'single' | 'thumbnails'>('single');
   const [logsCount, setLogsCount] = useState(0);
+  const [activeTab, setActiveTab] = useState('config');
 
-  // Obtenir les providers actifs pour l'indicateur
+  // OPTIMISATION: Chargement des providers une seule fois
   const allProviders = getActiveProviders();
   const activeProviders = allProviders.filter(provider => provider.is_active === true);
   
@@ -70,6 +73,9 @@ const MainPanel: React.FC<MainPanelProps> = ({
     return unsubscribe;
   }, []);
   
+  // OPTIMISATION: Suppression du useEffect redondant pour loadQueueItems
+  // La queue est maintenant gérée par SSE dans QueueIAAdvanced
+
   // Définir les onglets
   const tabs = [
     {
@@ -96,12 +102,6 @@ const MainPanel: React.FC<MainPanelProps> = ({
       icon: <EyeIcon className="h-4 w-4" />,
     },
   ];
-
-  // Chargement des données de queue
-  useEffect(() => {
-    // Charger les données initiales seulement au montage
-    loadQueueItems();
-  }, [loadQueueItems]);
 
   // Écouter l'événement d'affichage des détails de fichier
   useEffect(() => {

@@ -107,7 +107,7 @@ export const analysisService = {
         provider: request.provider
       });
   
-      const data = await apiRequest('/api/analysis/create-pending', {
+      const response = await apiRequest('/api/analysis/create-pending', {
         method: 'POST',
         body: JSON.stringify({
           ...request,
@@ -116,11 +116,11 @@ export const analysisService = {
       }, DEFAULT_TIMEOUT);
       
       logService.info('Analyse en attente créée avec succès', 'AnalysisService', { 
-        analysisId: data.analysis_id,
+        analysisId: response.data.analysis_id,
         filePath: request.file_path
       });
       
-      return data as CreateAnalysisResponse;
+      return response.data as CreateAnalysisResponse;
     } catch (error) {
       logService.error('Erreur lors de la création de l\'analyse en attente', 'AnalysisService', { 
         filePath: request.file_path,
