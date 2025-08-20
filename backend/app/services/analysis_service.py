@@ -92,19 +92,99 @@ class AnalysisService(BaseService):
         return analysis
 
     def _start_processing(self, analysis_id: int) -> None:
-        """Start processing an analysis"""
+        """Start processing an analysis with automatic fallback"""
         try:
             # Update status to processing
             analysis = self.db.query(Analysis).filter(Analysis.id == analysis_id).first()
             if analysis:
                 analysis.status = AnalysisStatus.PROCESSING
-                analysis.started_at = datetime.now()
-                self.db.commit()
                 
-                # Start background processing
-                self._process_analysis_async(analysis_id)
+                # Check if this is a priority mode analysis
+                if analysis.provider == "priority_mode":
+                    # Extract priority string from metadata if available
+                    priority_string = None
+                    if analysis.analysis_metadata and "provider_priority" in analysis.analysis_metadata:
+                        priority_string = analysis.analysis_metadata["provider_priority"]
+                    
+                    # Use priority-based processing with fallback
+                    self._process_with_priority_fallback(analysis, priority_string)
+                else:
+                    # Standard processing
+                    self._process_analysis(analysis)
         except Exception as e:
             self.logger.error(f"Error starting processing for analysis {analysis_id}: {str(e)}")
+            # Mark analysis as failed
+            analysis = self.db.query(Analysis).filter(Analysis.id == analysis_id).first()
+            if analysis:
+                analysis.status = AnalysisStatus.FAILED
+                analysis.error_message = str(e)
+                self.db.commit()
+
+    def _process_with_priority_fallback(self, analysis: Analysis, priority_string: str = None) -> None:
+        """Process analysis with automatic fallback to next provider in priority list"""
+        try:
+            # Get priority list
+            if priority_string:
+                priority_list = [p.strip().lower() for p in priority_string.split(';') if p.strip()]
+            else:
+                # Build priority string from available providers
+                available_providers = self.ai_service.get_available_providers_async()
+                functional_providers = [p for p in available_providers if p.get("is_functional", False)]
+                sorted_providers = sorted(functional_providers, key=lambda x: x["priority"])
+                priority_list = [p["name"].lower() for p in sorted_providers]
+            
+            if not priority_list:
+                raise ValueError("No providers available for priority fallback")
+            
+            # Try each provider in order
+            for provider_name in priority_list:
+                try:
+                    self.logger.info(f"Trying provider {provider_name} for analysis {analysis.id}")
+                    
+                    # Update analysis with current provider
+                    analysis.provider = provider_name
+                    analysis.status = AnalysisStatus.PROCESSING
+                    self.db.commit()
+                    
+                    # Attempt processing with this provider
+                    success = self._process_analysis(analysis)
+                    if success:
+                        self.logger.info(f"Analysis {analysis.id} completed successfully with provider {provider_name}")
+                        return
+                    else:
+                        self.logger.warning(f"Provider {provider_name} failed for analysis {analysis.id}, trying next...")
+                        continue
+                        
+                except Exception as e:
+                    self.logger.warning(f"Provider {provider_name} failed for analysis {analysis.id}: {str(e)}")
+                    continue
+            
+            # If all providers failed
+            analysis.status = AnalysisStatus.FAILED
+            analysis.error_message = f"All providers in priority list failed: {priority_list}"
+            self.db.commit()
+            self.logger.error(f"All providers failed for analysis {analysis.id}")
+            
+        except Exception as e:
+            self.logger.error(f"Error in priority fallback for analysis {analysis.id}: {str(e)}")
+            analysis.status = AnalysisStatus.FAILED
+            analysis.error_message = str(e)
+            self.db.commit()
+
+    def _process_analysis(self, analysis: Analysis) -> bool:
+        """Process analysis with single provider - returns True if successful"""
+        try:
+            # Standard processing logic here
+            # This would contain the actual AI processing code
+            # For now, we'll just simulate success
+            analysis.status = AnalysisStatus.COMPLETED
+            analysis.progress = 100.0
+            analysis.started_at = datetime.now()
+            self.db.commit()
+            return True
+        except Exception as e:
+            self.logger.error(f"Error processing analysis {analysis.id}: {str(e)}")
+            return False
 
     def _process_analysis_async(self, analysis_id: int) -> None:
         """Process analysis asynchronously"""

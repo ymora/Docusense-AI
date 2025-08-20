@@ -18,18 +18,27 @@ if (-not $Quiet) {
     Write-Host "================================================" -ForegroundColor Gray
 }
 
-# Obtenir le chemin absolu du projet
-$projectPath = Get-Location
-Write-Host "Repertoire de travail: $projectPath" -ForegroundColor Gray
+# Obtenir le chemin absolu du script
+$scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
+Write-Host "Chemin du script: $scriptPath" -ForegroundColor Gray
 
-# Détecter si on est déjà dans le dossier backend
+# Déterminer le chemin du projet
+$projectPath = $scriptPath
 $currentFolder = Split-Path $projectPath -Leaf
+
+# Si on est dans le dossier backend, remonter d'un niveau
 if ($currentFolder -eq "backend") {
-    # On est dans le dossier backend, remonter d'un niveau
     $projectPath = Split-Path $projectPath -Parent
     Write-Host "Detection: execution depuis le dossier backend, remonte au parent" -ForegroundColor Yellow
-    Write-Host "Nouveau repertoire de travail: $projectPath" -ForegroundColor Gray
 }
+
+# Si on est dans le dossier frontend, remonter d'un niveau
+if ($currentFolder -eq "frontend") {
+    $projectPath = Split-Path $projectPath -Parent
+    Write-Host "Detection: execution depuis le dossier frontend, remonte au parent" -ForegroundColor Yellow
+}
+
+Write-Host "Repertoire de travail: $projectPath" -ForegroundColor Gray
 
 $backendPath = Join-Path $projectPath "backend"
 $frontendPath = Join-Path $projectPath "frontend"
@@ -63,6 +72,15 @@ function Stop-Services {
         Write-Host "Arret des services..." -ForegroundColor $WarningColor
     }
     
+    # Arrêter les jobs PowerShell existants (pour le mode intégré)
+    $jobs = Get-Job -ErrorAction SilentlyContinue
+    if ($jobs) {
+        $jobs | Stop-Job -ErrorAction SilentlyContinue | Remove-Job -ErrorAction SilentlyContinue
+        if (-not $Quiet) {
+            Write-Host "Jobs PowerShell arretes" -ForegroundColor $SuccessColor
+        }
+    }
+    
     # Arrêter les processus par port (plus efficace)
     $ports = @(3000, 3001, 8000)
     foreach ($port in $ports) {
@@ -77,8 +95,12 @@ function Stop-Services {
         } catch {}
     }
     
-    # Arrêter les jobs PowerShell existants
-    Get-Job -ErrorAction SilentlyContinue | Stop-Job -ErrorAction SilentlyContinue | Remove-Job -ErrorAction SilentlyContinue
+    # Arrêter les processus Node.js et Python spécifiques
+    try {
+        Get-Process -Name "node" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+        Get-Process -Name "python" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+        Get-Process -Name "python.exe" -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    } catch {}
     
     Start-Sleep -Seconds 1
     if (-not $Quiet) {
@@ -93,9 +115,10 @@ function Test-VirtualEnvironment {
         if (-not $Quiet) {
             Write-Host "Creation de l'environnement virtuel..." -ForegroundColor $InfoColor
         }
+        $originalLocation = Get-Location
         Set-Location $backendPath
         python -m venv venv | Out-Null
-        Set-Location $projectPath
+        Set-Location $originalLocation
     }
 }
 
@@ -108,25 +131,20 @@ function Start-Services-Integrated {
     # Vérifier l'environnement virtuel
     Test-VirtualEnvironment
     
-    # Démarrer le backend
+    # Démarrer le backend en arrière-plan
     if (-not $Quiet) {
         Write-Host "Demarrage du Backend..." -ForegroundColor $InfoColor
     }
-    Set-Location $backendPath
     
-    # Mode debug : lancer directement pour voir les erreurs
-    Write-Host "Test du backend en mode debug..." -ForegroundColor Yellow
-    Write-Host "Repertoire: $(Get-Location)" -ForegroundColor Gray
-    Write-Host "Verification de l'environnement virtuel..." -ForegroundColor Gray
-    
-    if (Test-Path "venv\Scripts\python.exe") {
+    $venvPythonPath = Join-Path $backendPath "venv\Scripts\python.exe"
+    if (Test-Path $venvPythonPath) {
         Write-Host "Environnement virtuel trouve" -ForegroundColor Green
-        Write-Host "Version Python: $(.\venv\Scripts\python.exe --version)" -ForegroundColor Gray
+        Write-Host "Version Python: $(& $venvPythonPath --version)" -ForegroundColor Gray
         
         # Test d'import des modules
         Write-Host "Test d'import des modules..." -ForegroundColor Gray
         try {
-            $testResult = .\venv\Scripts\python.exe -c "import fastapi; import uvicorn; print('Modules principaux OK')"
+            $testResult = & $venvPythonPath -c "import fastapi; import uvicorn; print('Modules principaux OK')"
             Write-Host $testResult -ForegroundColor Green
         } catch {
             Write-Host "Erreur import modules: $($_.Exception.Message)" -ForegroundColor Red
@@ -135,27 +153,56 @@ function Start-Services-Integrated {
         # Test d'import de l'application
         Write-Host "Test d'import de l'application..." -ForegroundColor Gray
         try {
-            $appResult = .\venv\Scripts\python.exe -c "import sys; sys.path.append('.'); from main import app; print('Application FastAPI OK')"
+            $backendPathEscaped = $backendPath.Replace('\', '\\')
+            $appResult = & $venvPythonPath -c "import sys; sys.path.append(r'$backendPathEscaped'); from main import app; print('Application FastAPI OK')"
             Write-Host $appResult -ForegroundColor Green
         } catch {
             Write-Host "Erreur import application: $($_.Exception.Message)" -ForegroundColor Red
         }
         
-        # Lancement du backend avec logs détaillés
-        Write-Host "Lancement du backend avec logs detailles..." -ForegroundColor Yellow
+        # Démarrer le backend en arrière-plan
+        Write-Host "Lancement du backend en arriere-plan..." -ForegroundColor Yellow
+        $env:LOG_LEVEL = "INFO"
+        $backendJob = Start-Job -ScriptBlock {
+            param($backendPath, $venvPythonPath)
+            Set-Location $backendPath
+            & $venvPythonPath main.py
+        } -ArgumentList $backendPath, $venvPythonPath
+        
+        # Attendre que le backend démarre
+        Start-Sleep -Seconds 3
+        
+        # Vérifier que le backend fonctionne
+        try {
+            $response = Invoke-WebRequest -Uri "http://localhost:8000/health" -TimeoutSec 5 -ErrorAction Stop
+            if ($response.StatusCode -eq 200) {
+                Write-Host "Backend demarre avec succes sur http://localhost:8000" -ForegroundColor Green
+            }
+        } catch {
+            Write-Host "Backend en cours de demarrage..." -ForegroundColor Yellow
+        }
+        
+        # Démarrer le frontend
+        if (-not $Quiet) {
+            Write-Host "Demarrage du Frontend..." -ForegroundColor $InfoColor
+        }
+        
+        Write-Host "Lancement du frontend..." -ForegroundColor Yellow
+        Write-Host "Frontend: http://localhost:3000" -ForegroundColor Cyan
+        Write-Host "Backend: http://localhost:8000" -ForegroundColor Cyan
         Write-Host "Appuyez sur Ctrl+C pour arreter" -ForegroundColor Yellow
         Write-Host "================================================" -ForegroundColor Gray
         
-        # Définir le niveau de log pour voir tous les détails
-        $env:LOG_LEVEL = "INFO"
-        .\venv\Scripts\python.exe main.py
+        # Démarrer le frontend dans le terminal principal
+        Set-Location $frontendPath
+        npm run dev
+        
     } else {
         Write-Host "Environnement virtuel introuvable" -ForegroundColor Red
-        Write-Host "Contenu du repertoire:" -ForegroundColor Gray
-        Get-ChildItem | ForEach-Object { Write-Host "  - $($_.Name)" -ForegroundColor Gray }
+        Write-Host "Chemin teste: $venvPythonPath" -ForegroundColor Gray
+        Write-Host "Contenu du repertoire backend:" -ForegroundColor Gray
+        Get-ChildItem $backendPath | ForEach-Object { Write-Host "  - $($_.Name)" -ForegroundColor Gray }
     }
-    
-    Set-Location $projectPath
 }
 
 # Fonction pour démarrer les services en mode externe
@@ -179,7 +226,8 @@ Write-Host 'DocuSense Backend - Demarrage...' -ForegroundColor Green
 Write-Host 'http://localhost:8000' -ForegroundColor Cyan
 Write-Host '================================================' -ForegroundColor Gray
 `$env:LOG_LEVEL = 'INFO'
-.\venv\Scripts\python.exe main.py
+`$venvPythonPath = Join-Path '$backendPath' 'venv\Scripts\python.exe'
+& `$venvPythonPath main.py
 "@
     Start-Process powershell -ArgumentList "-NoExit", "-Command", $backendCmd
     

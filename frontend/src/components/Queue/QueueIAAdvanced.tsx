@@ -95,7 +95,7 @@ const ConfigurationCompact: React.FC<{
       <div className="flex items-center space-x-2">
         <span className="text-xs" style={{ color: colors.textSecondary }}>IA:</span>
         <select
-          value={localSelection.provider || item.provider || ''}
+          value={localSelection.provider || item.provider || 'priority_mode'}
           onChange={(e) => onProviderChange(item.id, e.target.value)}
           className="text-xs border rounded px-1 py-0.5"
           style={{
@@ -104,6 +104,15 @@ const ConfigurationCompact: React.FC<{
             color: colors.text
           }}
         >
+          {/* Option Mode Priorité par défaut */}
+          <option value="priority_mode" style={{ fontWeight: 'bold' }}>
+            🔄 Mode Priorité (Recommandé)
+          </option>
+          
+          {/* Séparateur */}
+          <option disabled>──────────</option>
+          
+          {/* Providers individuels */}
           {aiProviders.filter(p => p.is_active).map(provider => (
             <option key={provider.name} value={provider.name}>
               {provider.name}

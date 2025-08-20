@@ -293,11 +293,11 @@ h1, h2, h3, h4, h5, h6 {
 @keyframes flash {
   0%, 50%, 100% { 
     color: #ff0000;
-    text-shadow: 0 0 10px #ff0000, 0 0 20px #ff0000;
+    text-shadow: 0 0 5px #ff0000;
   }
   25%, 75% { 
-    color: #ff6666;
-    text-shadow: 0 0 5px #ff6666, 0 0 10px #ff6666;
+    color: #ff4444;
+    text-shadow: 0 0 3px #ff4444;
   }
 }
 

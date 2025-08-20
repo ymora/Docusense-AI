@@ -23,20 +23,50 @@ export const apiRequest = async (url: string, options?: RequestInit, timeout: nu
   // Construire l'URL complète avec la base URL
   const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
 
+  // Récupérer le token d'authentification depuis le localStorage
+  const authStore = JSON.parse(localStorage.getItem('auth-store') || '{}');
+  const accessToken = authStore.state?.accessToken;
+
+  // Debug: Afficher les informations d'authentification
+  console.log('[apiRequest] URL:', fullUrl);
+  console.log('[apiRequest] Token présent:', !!accessToken);
+  console.log('[apiRequest] Auth store:', authStore);
+
   try {
+    const headers = {
+      'Content-Type': 'application/json',
+      ...options?.headers,
+    };
+
+    // Ajouter le token d'authentification s'il existe
+    if (accessToken) {
+      headers['Authorization'] = `Bearer ${accessToken}`;
+    }
+
     const response = await fetch(fullUrl, {
       ...options,
       signal: controller.signal,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options?.headers,
-      },
+      headers,
     });
 
     clearTimeout(timeoutId);
 
     if (!response.ok) {
-      throw new Error(`Erreur HTTP: ${response.status} - ${response.statusText}`);
+      // Debug: Afficher plus d'informations sur l'erreur
+      console.error('[apiRequest] Erreur HTTP:', response.status, response.statusText);
+      console.error('[apiRequest] URL:', fullUrl);
+      console.error('[apiRequest] Headers envoyés:', headers);
+      
+      // Essayer de récupérer le détail de l'erreur
+      let errorDetail = response.statusText;
+      try {
+        const errorData = await response.json();
+        errorDetail = errorData.detail || errorData.message || response.statusText;
+      } catch {
+        // Si on ne peut pas parser la réponse, utiliser le status text
+      }
+      
+      throw new Error(`Erreur HTTP: ${response.status} - ${errorDetail}`);
     }
 
     return await response.json();

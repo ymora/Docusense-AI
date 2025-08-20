@@ -10,7 +10,7 @@ from datetime import timedelta, datetime
 
 from ..core.database import get_db
 from ..services.auth_service import AuthService
-from ..models.user import UserRole
+from ..models.user import User, UserRole
 from ..schemas.auth import (
     LoginRequest, 
     RegisterRequest, 
@@ -249,12 +249,11 @@ async def refresh_token(
         )
     )
 
-@router.get("/me", response_model=UserInfo)
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security),
     db: Session = Depends(get_db)
-):
-    """Récupérer les informations de l'utilisateur connecté"""
+) -> User:
+    """Récupérer l'utilisateur connecté (fonction utilitaire)"""
     auth_service = AuthService(db)
     
     # Vérifier le token
@@ -274,12 +273,19 @@ async def get_current_user(
             detail="Utilisateur non trouvé ou désactivé"
         )
     
+    return user
+
+@router.get("/me", response_model=UserInfo)
+async def get_current_user_info(
+    current_user: User = Depends(get_current_user)
+):
+    """Récupérer les informations de l'utilisateur connecté"""
     return UserInfo(
-        id=user.id,
-        username=user.username,
-        email=user.email,
-        role=user.role.value,
-        is_active=user.is_active
+        id=current_user.id,
+        username=current_user.username,
+        email=current_user.email,
+        role=current_user.role.value,
+        is_active=current_user.is_active
     )
 
 @router.post("/logout")
@@ -314,4 +320,60 @@ async def get_guest_usage_stats(
         }
     except Exception as e:
         logger.error(f"Erreur lors de la récupération des statistiques: {str(e)}")
-        raise HTTPException(status_code=500, detail="Erreur lors de la récupération des statistiques") 
+        raise HTTPException(status_code=500, detail="Erreur lors de la récupération des statistiques")
+
+
+@router.get("/test-auth")
+async def test_authentication(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """Endpoint de test pour diagnostiquer l'authentification"""
+    try:
+        # Vérifier les en-têtes
+        auth_header = request.headers.get("authorization")
+        user_agent = request.headers.get("user-agent", "")
+        
+        # Essayer de récupérer l'utilisateur connecté
+        current_user = None
+        auth_error = None
+        
+        try:
+            if auth_header and auth_header.startswith("Bearer "):
+                token = auth_header.split(" ")[1]
+                auth_service = AuthService(db)
+                payload = auth_service.verify_token(token)
+                
+                if payload and payload.get("type") == "access":
+                    user_id = int(payload.get("sub"))
+                    current_user = auth_service.get_user_by_id(user_id)
+                else:
+                    auth_error = "Token invalide ou expiré"
+            else:
+                auth_error = "En-tête Authorization manquant ou invalide"
+        except Exception as e:
+            auth_error = f"Erreur lors de la vérification du token: {str(e)}"
+        
+        return {
+            "success": True,
+            "auth_header_present": bool(auth_header),
+            "auth_header_value": auth_header[:50] + "..." if auth_header and len(auth_header) > 50 else auth_header,
+            "user_agent": user_agent,
+            "current_user": {
+                "id": current_user.id,
+                "username": current_user.username,
+                "role": current_user.role.value,
+                "is_active": current_user.is_active
+            } if current_user else None,
+            "auth_error": auth_error,
+            "permissions": {
+                "read_analyses": current_user.has_permission("read_analyses") if current_user else False,
+                "create_analyses": current_user.has_permission("create_analyses") if current_user else False,
+            } if current_user else None
+        }
+    except Exception as e:
+        logger.error(f"Erreur lors du test d'authentification: {str(e)}")
+        return {
+            "success": False,
+            "error": str(e)
+        } 

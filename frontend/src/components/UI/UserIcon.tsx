@@ -160,19 +160,19 @@ export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
     setShowMenu(false);
   };
 
-  // Icône selon le rôle
+  // Icône selon le rôle - TOUS en vert quand connecté
   const getRoleIcon = () => {
-    if (isAdmin()) return <ShieldCheckIcon className="w-5 h-5" style={{ color: '#10b981' }} />;
-    if (isUser()) return <UserIconHero className="w-5 h-5" style={{ color: '#3b82f6' }} />;
+    if (isAdmin()) return <ShieldCheckIcon className="w-5 h-5" style={{ color: '#22c55e' }} />;
+    if (isUser()) return <UserIconHero className="w-5 h-5" style={{ color: '#22c55e' }} />;
     if (isGuest()) return <EyeIcon className="w-5 h-5" style={{ color: '#22c55e' }} />;
     return <UserCircleIcon className="w-5 h-5" style={{ color: colors.textSecondary }} />;
   };
 
-  // Couleur de fond selon le rôle
+  // Couleur de fond selon le rôle - Transparent pour tous les utilisateurs connectés
   const getRoleColor = () => {
-    if (isAdmin()) return '#10b98120';
-    if (isUser()) return '#3b82f620';
-    if (isGuest()) return '#6b728020';
+    if (isAdmin()) return 'transparent';
+    if (isUser()) return 'transparent';
+    if (isGuest()) return 'transparent';
     return colors.surface;
   };
 
@@ -246,17 +246,17 @@ export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
                  </button>
                )}
 
-               {/* Actions spécifiques au rôle */}
-               {isAdmin() && (
-                 <button
-                   onClick={() => setShowMenu(false)}
-                   className="w-full flex items-center space-x-2 px-3 py-2 text-sm rounded hover:bg-opacity-80 transition-colors"
-                   style={{ backgroundColor: colors.background }}
-                 >
-                   <ShieldCheckIcon className="w-4 h-4" style={{ color: '#10b981' }} />
-                   <span style={{ color: colors.text }}>Administration</span>
-                 </button>
-               )}
+                               {/* Actions spécifiques au rôle */}
+                {isAdmin() && (
+                  <button
+                    onClick={() => setShowMenu(false)}
+                    className="w-full flex items-center space-x-2 px-3 py-2 text-sm rounded hover:bg-opacity-80 transition-colors"
+                    style={{ backgroundColor: colors.background }}
+                  >
+                    <ShieldCheckIcon className="w-4 h-4" style={{ color: '#22c55e' }} />
+                    <span style={{ color: colors.text }}>Administration</span>
+                  </button>
+                )}
 
                {/* Déconnexion */}
                <button

@@ -374,6 +374,45 @@ class AIService(BaseService):
             else:
                 raise ValueError("No functional providers available")
 
+    async def select_best_provider_from_priority(self, provider_priority: str) -> tuple[str, str]:
+        """
+        Select provider based on priority string (e.g., "openai;claude;ollama")
+        Falls back to next provider if current one fails
+        """
+        try:
+            if not provider_priority:
+                # Si pas de priorité spécifiée, utiliser la méthode standard
+                return await self.select_best_provider()
+            
+            # Parser la chaîne de priorité (séparée par ;)
+            priority_list = [p.strip().lower() for p in provider_priority.split(';') if p.strip()]
+            
+            if not priority_list:
+                self.logger.warning("Empty provider priority string, using standard selection")
+                return await self.select_best_provider()
+            
+            # Obtenir tous les providers fonctionnels
+            available_providers = await self.get_available_providers_async()
+            functional_providers = {p["name"].lower(): p for p in available_providers if p.get("is_functional", False)}
+            
+            # Essayer chaque provider dans l'ordre de priorité
+            for provider_name in priority_list:
+                if provider_name in functional_providers:
+                    provider_config = functional_providers[provider_name]
+                    model = self._select_model_for_provider(provider_config, None)
+                    
+                    self.logger.info(f"Selected provider from priority list: {provider_name} with model {model}")
+                    return provider_name, model
+            
+            # Si aucun provider de la liste n'est fonctionnel, utiliser le meilleur disponible
+            self.logger.warning(f"None of the specified providers {priority_list} are functional, falling back to best available")
+            return await self.select_best_provider()
+            
+        except Exception as e:
+            self.logger.error(f"Error selecting provider from priority: {str(e)}")
+            # Fallback vers la sélection standard
+            return await self.select_best_provider()
+
 
 
     async def _test_provider(self, name: str, config: dict[str, any]) -> bool:

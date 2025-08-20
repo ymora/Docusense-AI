@@ -21,15 +21,12 @@ const LeftPanel: React.FC = () => {
   
   const [currentDisk, setCurrentDisk] = useState<string>('');
 
-  // Déterminer la couleur du titre selon l'état du backend et l'authentification
+  // Déterminer la couleur du titre selon l'état du backend
   const getTitleColor = () => {
     if (!isOnline || consecutiveFailures >= 3) {
       return '#ff0000'; // Rouge vif flashy quand le backend ne répond pas
     }
-    if (isAuthenticated) {
-      return '#22c55e'; // Vert quand l'utilisateur est connecté
-    }
-    return colors.text; // Couleur normale quand pas connecté
+    return colors.text; // Couleur normale
   };
 
   // Déterminer le tooltip du titre
@@ -37,10 +34,7 @@ const LeftPanel: React.FC = () => {
     if (!isOnline || consecutiveFailures >= 3) {
       return `🚨 Backend déconnecté (${consecutiveFailures} échecs consécutifs)`;
     }
-    if (isAuthenticated) {
-      return '✅ Utilisateur connecté - Backend opérationnel';
-    }
-    return '🔗 Backend connecté - Utilisateur non connecté';
+    return '🔗 Backend connecté';
   };
 
   const toggleTheme = () => {
@@ -74,7 +68,7 @@ const LeftPanel: React.FC = () => {
     >
       {/* Header avec titre et contrôles */}
       <div
-        className="flex items-center justify-between p-4 border-b"
+        className="flex items-center p-4 border-b"
         style={{ borderBottomColor: colors.border }}
       >
         <div className="flex items-center space-x-3">
@@ -82,32 +76,32 @@ const LeftPanel: React.FC = () => {
             className="text-lg font-semibold transition-colors duration-300"
             style={{ 
               color: getTitleColor(),
-              animation: (!isOnline || consecutiveFailures >= 3) ? 'flash 1s infinite' : 'none',
-              textShadow: (!isOnline || consecutiveFailures >= 3) ? '0 0 10px #ff0000, 0 0 20px #ff0000' : 'none'
+              animation: (!isOnline || consecutiveFailures >= 3) ? 'flash 0.8s infinite' : 'none',
+              textShadow: (!isOnline || consecutiveFailures >= 3) ? '0 0 5px #ff0000' : 'none'
             }}
             title={getTitleTooltip()}
           >
             DocuSense IA
           </span>
+          
+          {/* Bouton thème jour/nuit */}
+          <button
+            onClick={toggleTheme}
+            className="p-1 transition-colors hover:scale-110"
+            style={{
+              color: colors.textSecondary,
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.color = colors.text;
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.color = colors.textSecondary;
+            }}
+            title="Basculer le thème"
+          >
+            {document.body.getAttribute('data-theme') === 'light' ? '🌙' : '☀️'}
+          </button>
         </div>
-        
-        {/* Bouton thème jour/nuit */}
-        <button
-          onClick={toggleTheme}
-          className="p-2 transition-colors"
-          style={{
-            color: colors.textSecondary,
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.color = colors.text;
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.color = colors.textSecondary;
-          }}
-          title="Basculer le thème"
-        >
-          {document.body.getAttribute('data-theme') === 'light' ? '🌙' : '☀️'}
-        </button>
       </div>
 
       {/* Sélecteur de disque */}
@@ -152,6 +146,10 @@ const LeftPanel: React.FC = () => {
           <div className="flex items-center space-x-2">
             <DocumentIcon className="h-3 w-3" style={{ color: colors.success }} />
             <span style={{ color: colors.textSecondary }}>Analysable par IA</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <DocumentIcon className="h-3 w-3" style={{ color: colors.warning }} />
+            <span style={{ color: colors.textSecondary }}>Attente connexion backend</span>
           </div>
           <div className="flex items-center space-x-2">
             <DocumentIcon className="h-3 w-3" style={{ color: colors.textSecondary }} />

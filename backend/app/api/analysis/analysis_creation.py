@@ -235,7 +235,29 @@ async def create_pending_analysis(
     provider = request.get("provider")
     model = request.get("model")
     
-    if not provider or not model:
+    # Handle priority mode
+    if provider == "priority_mode":
+        try:
+            # Get all functional providers and build priority string
+            available_providers = await ai_service.get_available_providers_async()
+            functional_providers = [p for p in available_providers if p.get("is_functional", False)]
+            
+            if functional_providers:
+                # Sort by priority and build priority string
+                sorted_providers = sorted(functional_providers, key=lambda x: x["priority"])
+                priority_string = ";".join([p["name"] for p in sorted_providers])
+                
+                # Use priority-based selection
+                provider, model = await ai_service.select_best_provider_from_priority(priority_string)
+                logger.info(f"Using priority mode with providers: {priority_string} -> selected: {provider}/{model}")
+            else:
+                # Fallback to standard selection
+                provider, model = await ai_service.select_best_provider()
+                logger.info(f"No functional providers for priority mode, using standard: {provider}/{model}")
+        except Exception as e:
+            logger.warning(f"Error in priority mode: {str(e)}, using standard selection")
+            provider, model = await ai_service.select_best_provider()
+    elif not provider or not model:
         try:
             # Get the best available provider if not specified
             provider, model = await ai_service.select_best_provider()
@@ -337,7 +359,29 @@ async def create_pending_analyses_batch(
     provider = request.get("provider")
     model = request.get("model")
     
-    if not provider or not model:
+    # Handle priority mode
+    if provider == "priority_mode":
+        try:
+            # Get all functional providers and build priority string
+            available_providers = await ai_service.get_available_providers_async()
+            functional_providers = [p for p in available_providers if p.get("is_functional", False)]
+            
+            if functional_providers:
+                # Sort by priority and build priority string
+                sorted_providers = sorted(functional_providers, key=lambda x: x["priority"])
+                priority_string = ";".join([p["name"] for p in sorted_providers])
+                
+                # Use priority-based selection
+                provider, model = await ai_service.select_best_provider_from_priority(priority_string)
+                logger.info(f"Using priority mode for batch with providers: {priority_string} -> selected: {provider}/{model}")
+            else:
+                # Fallback to standard selection
+                provider, model = await ai_service.select_best_provider()
+                logger.info(f"No functional providers for priority mode batch, using standard: {provider}/{model}")
+        except Exception as e:
+            logger.warning(f"Error in priority mode batch: {str(e)}, using standard selection")
+            provider, model = await ai_service.select_best_provider()
+    elif not provider or not model:
         try:
             # Get the best available provider if not specified
             provider, model = await ai_service.select_best_provider()
@@ -469,7 +513,29 @@ async def analyze_file(
     provider = request.get("provider")
     model = request.get("model")
     
-    if not provider or not model:
+    # Handle priority mode
+    if provider == "priority_mode":
+        try:
+            # Get all functional providers and build priority string
+            available_providers = await ai_service.get_available_providers_async()
+            functional_providers = [p for p in available_providers if p.get("is_functional", False)]
+            
+            if functional_providers:
+                # Sort by priority and build priority string
+                sorted_providers = sorted(functional_providers, key=lambda x: x["priority"])
+                priority_string = ";".join([p["name"] for p in sorted_providers])
+                
+                # Use priority-based selection
+                provider, model = await ai_service.select_best_provider_from_priority(priority_string)
+                logger.info(f"Using priority mode with providers: {priority_string} -> selected: {provider}/{model}")
+            else:
+                # Fallback to standard selection
+                provider, model = await ai_service.select_best_provider()
+                logger.info(f"No functional providers for priority mode, using standard: {provider}/{model}")
+        except Exception as e:
+            logger.warning(f"Error in priority mode: {str(e)}, using standard selection")
+            provider, model = await ai_service.select_best_provider()
+    elif not provider or not model:
         # Get the best available provider based on priority
         if provider_priority:
             provider, model = await ai_service.select_best_provider_from_priority(provider_priority)
