@@ -66,17 +66,10 @@ const Layout: React.FC = () => {
 
   // Basculement automatique vers l'onglet visualisation quand un fichier est sélectionné
   useEffect(() => {
-    console.log('🔍 Layout - selectedFile changed:', selectedFile?.name);
-    console.log('🔍 Layout - activePanel:', activePanel);
-    
-    // Ne basculer que si c'est un nouveau fichier sélectionné
-    const currentFileId = selectedFile?.id || selectedFile?.path;
-    if (selectedFile && currentFileId !== lastSelectedFile && activePanel !== 'viewer') {
-      console.log('🔄 Layout - Basculement automatique vers viewer pour nouveau fichier');
+    if (selectedFile && activePanel !== 'viewer') {
       setActivePanel('viewer');
-      setLastSelectedFile(currentFileId);
     }
-  }, [selectedFile, activePanel, setActivePanel, lastSelectedFile]);
+  }, [selectedFile, setActivePanel]);
 
   // Gestion des actions de fichiers (menu contextuel)
   useEffect(() => {

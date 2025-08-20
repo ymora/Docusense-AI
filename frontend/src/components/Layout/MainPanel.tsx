@@ -70,15 +70,7 @@ const MainPanel: React.FC<MainPanelProps> = ({
     return unsubscribe;
   }, []);
   
-  // Debug pour voir les providers
-  console.log('🔍 MainPanel - Providers actifs:', {
-    allProviders: allProviders.map(p => ({ name: p.name, is_active: p.is_active, is_functional: p.is_functional })),
-    activeProviders: activeProviders.map(p => ({ name: p.name, is_active: p.is_active, is_functional: p.is_functional })),
-    count: activeProviders.length
-  });
-
   // Définir les onglets
-  console.log('🔍 MainPanel - Définition des onglets avec activePanel:', activePanel);
   const tabs = [
     {
       id: 'config',

@@ -17,22 +17,17 @@ interface TabPanelProps {
 const TabPanel: React.FC<TabPanelProps> = ({ tabs, activeTab, onTabChange }) => {
   const { colors } = useColors();
 
-  console.log('🔍 TabPanel - activeTab:', activeTab);
-  console.log('🔍 TabPanel - tabs:', tabs.map(t => ({ id: t.id, label: t.label })));
+
 
   return (
     <div className="flex border-b" style={{ borderColor: colors.border }}>
              {tabs.map((tab) => {
          const isActive = activeTab === tab.id;
-         console.log(`🔍 TabPanel - Onglet ${tab.id}: isActive = ${isActive}`);
         
         return (
           <button
             key={tab.id}
-            onClick={() => {
-              console.log('🖱️ TabPanel - Clic manuel sur onglet:', tab.id);
-              onTabChange(tab.id);
-            }}
+            onClick={() => onTabChange(tab.id)}
             className={`flex items-center space-x-2 px-4 py-3 text-sm font-medium transition-all duration-300 ease-in-out border-b-2 hover:scale-105 ${
               isActive
                 ? 'border-b-3'
