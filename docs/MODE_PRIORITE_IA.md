@@ -30,9 +30,9 @@ Dans l'interface utilisateur, le menu de sélection des providers affiche mainte
 ```
 🔄 Mode Priorité (Recommandé)  ← Option par défaut
 ──────────
+ollama
 openai
 claude
-ollama
 mistral
 ```
 

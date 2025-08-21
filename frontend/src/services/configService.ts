@@ -69,18 +69,27 @@ export class ConfigService {
 
       console.log(`🔍 [FRONTEND] Réponse brute pour ${provider}:`, response);
 
-      if (response.success) {
-        logService.info(`Clé API récupérée pour ${provider}`, 'ConfigService', { provider });
-        console.log(`✅ [FRONTEND] Succès pour ${provider}, clé (masquée): ${'*'.repeat(Math.min(response.data.key.length - 8, 20)) + response.data.key.slice(-8)}`);
+      if (response.success && response.data) {
+        // Vérifier que la réponse correspond bien au provider demandé
+        if (response.data.provider === provider) {
+          logService.info(`Clé API récupérée pour ${provider}`, 'ConfigService', { provider });
+          console.log(`✅ [FRONTEND] Succès pour ${provider}, clé (masquée): ${'*'.repeat(Math.min(response.data.key.length - 8, 20)) + response.data.key.slice(-8)}`);
+          return response;
+        } else {
+          console.error(`❌ [FRONTEND] Incohérence de provider: demandé ${provider}, reçu ${response.data.provider}`);
+          return {
+            success: false,
+            message: `Incohérence de provider: demandé ${provider}, reçu ${response.data.provider}`
+          };
+        }
       } else {
         logService.warning(`Échec de la récupération de la clé API pour ${provider}`, 'ConfigService', { 
           provider, 
           message: response.message 
         });
         console.log(`❌ [FRONTEND] Échec pour ${provider}:`, response.message);
+        return response;
       }
-
-      return response;
     } catch (error) {
       const errorMessage = `Erreur lors de la récupération de la clé API pour ${provider}: ${handleApiError(error)}`;
       logService.error(errorMessage, 'ConfigService', { provider, error: error.message });

@@ -93,11 +93,11 @@ const ConfigurationCompact: React.FC<{
     <div className="space-y-2">
       {/* Provider */}
       <div className="flex items-center space-x-2">
-        <span className="text-xs" style={{ color: colors.textSecondary }}>IA:</span>
+        <span className="text-xs w-12" style={{ color: colors.textSecondary }}>IA:</span>
         <select
           value={localSelection.provider || item.provider || 'priority_mode'}
           onChange={(e) => onProviderChange(item.id, e.target.value)}
-          className="text-xs border rounded px-1 py-0.5"
+          className="text-xs border rounded px-1 py-0.5 flex-1"
           style={{
             backgroundColor: colors.background,
             borderColor: colors.border,
@@ -123,11 +123,11 @@ const ConfigurationCompact: React.FC<{
 
       {/* Prompt */}
       <div className="flex items-center space-x-2">
-        <span className="text-xs" style={{ color: colors.textSecondary }}>Prompt:</span>
+        <span className="text-xs w-12" style={{ color: colors.textSecondary }}>Prompt:</span>
         <select
           value={localSelection.prompt || ''}
           onChange={(e) => onPromptChange(item.id, e.target.value)}
-          className="text-xs border rounded px-1 py-0.5"
+          className="text-xs border rounded px-1 py-0.5 flex-1"
           style={{
             backgroundColor: colors.background,
             borderColor: colors.border,

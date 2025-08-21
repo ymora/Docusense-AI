@@ -175,14 +175,19 @@ class AIService(BaseService):
         """Test AI provider connection with a specific API key (NO automatic status update)"""
         try:
             self.logger.info(f"[TEST] Starting connection test for provider: {provider.upper()}")
+            self.logger.warning(f"[TEST] {provider.upper()}: API key provided: {'YES' if api_key else 'NO'}")
+            if api_key:
+                self.logger.warning(f"[TEST] {provider.upper()}: API key length: {len(api_key)}")
+                self.logger.warning(f"[TEST] {provider.upper()}: API key preview: {api_key[:8]}...{api_key[-4:]}")
             
             # Cas spéciaux pour les providers locaux qui n'ont pas besoin de clé API
             if provider.lower() in ["ollama"]:
-                self.logger.info(f"[TEST] {provider.upper()}: Local provider - no API key required")
+                self.logger.warning(f"[TEST] {provider.upper()}: Local provider - no API key required")
                 temp_config = self._create_temp_provider_config(provider, "")
             else:
-                self.logger.info(f"[TEST] {provider.upper()}: Cloud provider - testing with provided API key")
+                self.logger.warning(f"[TEST] {provider.upper()}: Cloud provider - testing with provided API key")
                 temp_config = self._create_temp_provider_config(provider, api_key)
+                self.logger.warning(f"[TEST] {provider.upper()}: Temp config created with API key: {'YES' if temp_config.get('api_key') else 'NO'}")
             
             is_functional = await self._test_provider(provider, temp_config)
             
@@ -441,23 +446,30 @@ class AIService(BaseService):
         """Unified provider testing method"""
         try:
             provider_name = name.lower()
+            self.logger.info(f"[UNIFIED] Starting unified test for provider: {name.upper()}")
+            self.logger.info(f"[UNIFIED] Provider name (lowercase): {provider_name}")
             
             if provider_name == "openai":
+                self.logger.info(f"[UNIFIED] Calling OpenAI SDK test")
                 return await self._test_openai_sdk(config)
             elif provider_name == "claude":
+                self.logger.info(f"[UNIFIED] Calling Claude SDK test")
                 return await self._test_claude_sdk(config)
             elif provider_name == "mistral":
+                self.logger.info(f"[UNIFIED] Calling Mistral API test")
                 return await self._test_mistral_api(config)
             elif provider_name == "ollama":
+                self.logger.info(f"[UNIFIED] Calling Ollama API test")
                 return await self._test_ollama_api(config)
             elif provider_name == "gemini":
+                self.logger.info(f"[UNIFIED] Calling Gemini API test")
                 return await self._test_gemini_api(config)
             else:
-                self.logger.warning(f"Unknown provider {name}")
+                self.logger.warning(f"[UNIFIED] Unknown provider {name}")
                 return False
                 
         except Exception as e:
-            self.logger.error(f"Error in unified test for {name}: {str(e)}")
+            self.logger.error(f"[UNIFIED] Error in unified test for {name}: {str(e)}")
             return False
 
     async def _test_openai_sdk(self, config: dict[str, any]) -> bool:
@@ -466,11 +478,17 @@ class AIService(BaseService):
             import openai
             
             self.logger.info(f"[OPENAI] Testing with SDK at: {config.get('base_url', 'https://api.openai.com/v1')}")
+            self.logger.info(f"[OPENAI] API key in config: {'YES' if config.get('api_key') else 'NO'}")
+            if config.get('api_key'):
+                self.logger.info(f"[OPENAI] API key length: {len(config['api_key'])}")
+                self.logger.info(f"[OPENAI] API key preview: {config['api_key'][:8]}...{config['api_key'][-4:]}")
             
             client = openai.AsyncOpenAI(
                 api_key=config["api_key"],
                 base_url=config.get("base_url", "https://api.openai.com/v1")
             )
+            
+            self.logger.info(f"[OPENAI] Client created successfully")
             
             response = await client.chat.completions.create(
                 model=config.get("default_model", "gpt-4"),
@@ -494,8 +512,14 @@ class AIService(BaseService):
             import anthropic
             
             self.logger.info(f"[CLAUDE] Testing with SDK at: {config.get('base_url', 'https://api.anthropic.com')}")
+            self.logger.info(f"[CLAUDE] API key in config: {'YES' if config.get('api_key') else 'NO'}")
+            if config.get('api_key'):
+                self.logger.info(f"[CLAUDE] API key length: {len(config['api_key'])}")
+                self.logger.info(f"[CLAUDE] API key preview: {config['api_key'][:8]}...{config['api_key'][-4:]}")
             
             client = anthropic.AsyncAnthropic(api_key=config["api_key"])
+            
+            self.logger.info(f"[CLAUDE] Client created successfully")
             
             response = await client.messages.create(
                 model=config.get("default_model", "claude-3-sonnet-20240229"),
@@ -519,10 +543,16 @@ class AIService(BaseService):
             import mistralai
             
             self.logger.info(f"[MISTRAL] Testing with SDK at: {config.get('base_url', 'https://api.mistral.ai')}")
+            self.logger.warning(f"[MISTRAL] API key in config: {'YES' if config.get('api_key') else 'NO'}")
+            if config.get('api_key'):
+                self.logger.warning(f"[MISTRAL] API key length: {len(config['api_key'])}")
+                self.logger.warning(f"[MISTRAL] API key preview: {config['api_key'][:8]}...{config['api_key'][-4:]}")
             
             client = mistralai.Mistral(
                 api_key=config["api_key"]
             )
+            
+            self.logger.warning(f"[MISTRAL] Client created successfully")
             
             response = await client.chat.complete_async(
                 model=config.get("default_model", "mistral-large-latest"),
@@ -583,12 +613,20 @@ class AIService(BaseService):
             import google.generativeai as genai
             
             self.logger.info(f"[GEMINI] Testing with Google AI SDK")
+            self.logger.info(f"[GEMINI] API key in config: {'YES' if config.get('api_key') else 'NO'}")
+            if config.get('api_key'):
+                self.logger.info(f"[GEMINI] API key length: {len(config['api_key'])}")
+                self.logger.info(f"[GEMINI] API key preview: {config['api_key'][:8]}...{config['api_key'][-4:]}")
             
             # Configure the API key
             genai.configure(api_key=config["api_key"])
             
+            self.logger.info(f"[GEMINI] API key configured successfully")
+            
             # Get the model
             model = genai.GenerativeModel(config.get("default_model", "gemini-pro"))
+            
+            self.logger.info(f"[GEMINI] Model created successfully")
             
             # Test with a simple prompt
             response = await model.generate_content_async("Test")

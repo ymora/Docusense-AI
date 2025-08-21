@@ -47,6 +47,7 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
   const [providers, setProviders] = useState<ProviderState[]>([]);
   const [testing, setTesting] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
+  const [priorityMode, setPriorityMode] = useState<'auto' | 'manual'>('auto');
 
   // Charger les providers depuis le store
   useEffect(() => {
@@ -151,20 +152,31 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
         let apiKey = '';
         if (provider.has_api_key && provider.name.toLowerCase() !== 'ollama') {
           try {
-            console.log(`🔑 Tentative de récupération de la clé API pour ${provider.name}...`);
+            console.log(`🔑 [${provider.name}] Tentative de récupération de la clé API...`);
             const keyResponse = await ConfigService.getAPIKey(provider.name);
-            console.log(`🔑 Réponse pour ${provider.name}:`, keyResponse);
-            if (keyResponse.success && keyResponse.data) {
+            console.log(`🔑 [${provider.name}] Réponse complète:`, {
+              success: keyResponse.success,
+              hasData: !!keyResponse.data,
+              providerInData: keyResponse.data?.provider,
+              keyLength: keyResponse.data?.key?.length || 0
+            });
+            
+            if (keyResponse.success && keyResponse.data && keyResponse.data.provider === provider.name) {
               apiKey = keyResponse.data.key || '';
-              console.log(`🔑 Clé API récupérée pour ${provider.name}: ${apiKey ? 'OUI' : 'NON'}`);
+              console.log(`🔑 [${provider.name}] Clé API récupérée: ${apiKey ? 'OUI' : 'NON'}`);
             } else {
-              console.warn(`🔑 Échec de récupération pour ${provider.name}:`, keyResponse.message);
+              console.warn(`🔑 [${provider.name}] Échec de récupération:`, {
+                success: keyResponse.success,
+                message: keyResponse.message,
+                providerInData: keyResponse.data?.provider,
+                expectedProvider: provider.name
+              });
             }
           } catch (error) {
-            console.warn(`Impossible de récupérer la clé API pour ${provider.name}:`, error);
+            console.warn(`🔑 [${provider.name}] Erreur lors de la récupération:`, error);
           }
         } else {
-          console.log(`🔑 Pas de récupération pour ${provider.name}: has_api_key=${provider.has_api_key}, is_ollama=${provider.name.toLowerCase() === 'ollama'}`);
+          console.log(`🔑 [${provider.name}] Pas de récupération: has_api_key=${provider.has_api_key}, is_ollama=${provider.name.toLowerCase() === 'ollama'}`);
         }
 
         return {
@@ -190,14 +202,25 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
   // Gérer le changement de clé API
   const handleApiKeyChange = (providerName: string, value: string) => {
     console.log(`🔧 [FRONTEND] Changement clé API pour ${providerName}`);
-    console.log(`🔧 [FRONTEND] Nouvelle valeur (masquée): ${'*'.repeat(Math.min(value.length - 8, 20)) + value.slice(-8)}`);
+    
+    // Afficher la valeur masquée pour le debug (seulement si elle n'est pas vide)
+    if (value.length > 0) {
+      const maskedLength = Math.max(0, Math.min(value.length - 8, 20));
+      const maskedValue = '*'.repeat(maskedLength) + value.slice(-8);
+      console.log(`🔧 [FRONTEND] Nouvelle valeur (masquée): ${maskedValue}`);
+    } else {
+      console.log(`🔧 [FRONTEND] Nouvelle valeur: (vide)`);
+    }
+    
+    // Nettoyer la valeur (supprimer les espaces en début/fin)
+    const cleanedValue = value.trim();
     
     setProviders(prev => prev.map(p =>
       p.name === providerName
         ? {
             ...p,
-            apiKey: value,
-            status: value.trim() === '' ? 'empty' : 'pending',
+            apiKey: value, // Garder la valeur originale pour l'affichage
+            status: cleanedValue === '' ? 'empty' : 'pending',
             errorMessage: undefined // Effacer les erreurs précédentes
           }
         : p
@@ -266,16 +289,24 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
       if (provider.status === 'active') {
         // Désactiver le provider
         await ConfigService.setProviderStatus(providerName, 'inactive');
+        
+        if (priorityMode === 'auto') {
+          // En mode auto, recalculer les priorités après désactivation
+          await recalculateAutoPriorities();
+        }
       } else {
-        // Activer le provider - attribution automatique de la priorité
+        // Activer le provider
         await ConfigService.setProviderStatus(providerName, 'valid');
         
-        // Attribuer automatiquement la prochaine priorité disponible
-        const activeProviders = providers.filter(p => p.status === 'active');
-        const nextPriority = activeProviders.length + 1; // +1 car on vient d'ajouter ce provider
-        
-        console.log(`🔄 Attribution automatique priorité ${nextPriority} à ${providerName}`);
-        await ConfigService.setProviderPriority(providerName, nextPriority);
+        if (priorityMode === 'auto') {
+          // En mode auto, recalculer toutes les priorités
+          await recalculateAutoPriorities();
+        } else {
+          // En mode manuel, attribuer la prochaine priorité disponible
+          const activeProviders = providers.filter(p => p.status === 'active');
+          const nextPriority = activeProviders.length + 1;
+          await ConfigService.setProviderPriority(providerName, nextPriority);
+        }
       }
 
       // Recharger les providers
@@ -283,6 +314,29 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
     } catch (error) {
       logService.error(`Erreur toggle provider ${providerName}`, 'ConfigWindow', { error: error.message, provider: providerName });
       setError(`Erreur lors de l'activation/désactivation de ${getProviderDisplayName(providerName)}`);
+    }
+  };
+
+  // Recalculer les priorités automatiques
+  const recalculateAutoPriorities = async () => {
+    try {
+      // Obtenir tous les providers actifs
+      const activeProviders = providers.filter(p => p.status === 'active');
+      const ollamaProvider = activeProviders.find(p => p.name.toLowerCase() === 'ollama');
+      const otherProviders = activeProviders.filter(p => p.name.toLowerCase() !== 'ollama');
+      
+      // Ollama en priorité 1
+      if (ollamaProvider) {
+        await ConfigService.setProviderPriority(ollamaProvider.name, 1);
+      }
+      
+      // Les autres providers en priorité 2, 3, 4...
+      for (let i = 0; i < otherProviders.length; i++) {
+        const priority = ollamaProvider ? i + 2 : i + 1;
+        await ConfigService.setProviderPriority(otherProviders[i].name, priority);
+      }
+    } catch (error) {
+      logService.error('Erreur recalcul priorités auto', 'ConfigWindow', { error: error.message });
     }
   };
 
@@ -435,6 +489,42 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
       .sort((a, b) => a.priority - b.priority);
   };
 
+  // Calculer les priorités automatiques
+  const calculateAutoPriorities = () => {
+    const activeProviders = providers.filter(p => p.status === 'active');
+    const ollamaProvider = activeProviders.find(p => p.name.toLowerCase() === 'ollama');
+    const otherProviders = activeProviders.filter(p => p.name.toLowerCase() !== 'ollama');
+    
+    // Ollama en priorité 1 par défaut
+    if (ollamaProvider) {
+      ollamaProvider.priority = 1;
+    }
+    
+    // Les autres providers en priorité 2, 3, 4...
+    otherProviders.forEach((provider, index) => {
+      provider.priority = ollamaProvider ? index + 2 : index + 1;
+    });
+  };
+
+  // Obtenir la priorité d'affichage pour un provider
+  const getDisplayPriority = (provider: ProviderState) => {
+    if (provider.status !== 'active') {
+      return '--';
+    }
+    
+    if (priorityMode === 'auto') {
+      return provider.priority.toString();
+    } else {
+      return provider.priority.toString();
+    }
+  };
+
+  // Vérifier si un provider doit afficher le menu déroulant en mode manuel
+  const shouldShowPriorityDropdown = (provider: ProviderState) => {
+    if (priorityMode !== 'manual') return false;
+    return provider.status === 'active';
+  };
+
   const { localProviders, webProviders } = getOrganizedProviders();
   const activeProviders = getActiveProviders();
 
@@ -479,11 +569,55 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
               </div>
             ) : (
               <>
-                {/* Tableau des providers */}
-                <div className="space-y-4">
-                  <h4 className="font-medium text-sm" style={{ color: colors.text }}>
-                    🔑 Configuration et test des providers
-                  </h4>
+                                 {/* Tableau des providers */}
+                 <div className="space-y-4">
+                   <div className="flex items-center justify-between">
+                     <h4 className="font-medium text-sm" style={{ color: colors.text }}>
+                       🔑 Configuration et test des providers
+                     </h4>
+                     
+                                           {/* Sélecteur de mode de priorité */}
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs" style={{ color: colors.textSecondary }}>
+                          Mode priorité:
+                        </span>
+                        <div className="flex items-center gap-2">
+                          <label className="flex items-center gap-1 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="priorityMode"
+                              value="auto"
+                              checked={priorityMode === 'auto'}
+                              onChange={async (e) => {
+                                setPriorityMode(e.target.value as 'auto' | 'manual');
+                                if (e.target.value === 'auto') {
+                                  // Recalculer les priorités automatiques quand on passe en mode auto
+                                  await recalculateAutoPriorities();
+                                  await refreshAIProviders();
+                                }
+                              }}
+                              className="w-3 h-3"
+                            />
+                            <span className="text-xs" style={{ color: colors.textSecondary }}>
+                              Auto
+                            </span>
+                          </label>
+                          <label className="flex items-center gap-1 cursor-pointer">
+                            <input
+                              type="radio"
+                              name="priorityMode"
+                              value="manual"
+                              checked={priorityMode === 'manual'}
+                              onChange={(e) => setPriorityMode(e.target.value as 'auto' | 'manual')}
+                              className="w-3 h-3"
+                            />
+                            <span className="text-xs" style={{ color: colors.textSecondary }}>
+                              Manuel
+                            </span>
+                          </label>
+                        </div>
+                      </div>
+                   </div>
                   
                   <div className="overflow-x-auto">
                     <table className="w-full border-collapse" style={{ borderColor: colors.border }}>
@@ -510,37 +644,223 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                          </tr>
                        </thead>
                                              <tbody>
-                                                                            {/* Section IA Locales */}
-                           {localProviders.map((provider) => {
-                             const statusInfo = getProviderStatusInfo(provider);
-                             const isTesting = testing[provider.name];
-                             
-                             return (
-                               <tr key={provider.name} className="border-b" style={{ borderColor: colors.border }}>
-                                 {/* Colonne Provider */}
-                                 <td className="p-3">
-                                   <div className="flex items-center gap-2">
-                                     <div style={{ color: colors.textSecondary }}>
-                                       {getProviderIcon(provider.name)}
-                                     </div>
-                                     <span className="text-sm font-medium" style={{ color: colors.text }}>
-                                       {getProviderDisplayName(provider.name)}
+                                                                                                                                    {/* Section IA Locales */}
+                            {localProviders.map((provider) => {
+                              const statusInfo = getProviderStatusInfo(provider);
+                              const isTesting = testing[provider.name];
+                              
+                              return (
+                                <tr key={provider.name} className="border-b" style={{ borderColor: colors.border }}>
+                                  {/* Colonne Provider */}
+                                  <td className="p-3">
+                                    <div className="flex items-center gap-2">
+                                      <div style={{ color: colors.textSecondary }}>
+                                        {getProviderIcon(provider.name)}
+                                      </div>
+                                      <span className="text-sm font-medium" style={{ color: colors.text }}>
+                                        {getProviderDisplayName(provider.name)}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  
+                                                                   {/* Colonne Type */}
+                                   <td className="p-3">
+                                     <span className="text-xs px-2 py-1 rounded inline-block" style={{ 
+                                       backgroundColor: 'transparent', 
+                                       color: ACTION_COLORS.local,
+                                       border: `1px solid ${ACTION_COLORS.local}`
+                                     }}>
+                                       Local
                                      </span>
+                                   </td>
+                                  
+                                  {/* Colonne Statut */}
+                                 <td className="p-3">
+                                   <div className="flex flex-col space-y-1">
+                                     <span 
+                                       className="text-xs px-2 py-1 rounded inline-block w-fit"
+                                       style={{ 
+                                         backgroundColor: 'transparent',
+                                         color: statusInfo.color,
+                                         border: `1px solid ${statusInfo.color}`
+                                       }}
+                                     >
+                                       {statusInfo.text}
+                                     </span>
+                                     {provider.errorMessage && (
+                                       <span className="text-xs" style={{ color: '#ef4444' }}>
+                                         {provider.errorMessage}
+                                       </span>
+                                     )}
                                    </div>
                                  </td>
                                  
-                                                                  {/* Colonne Type */}
+                                 {/* Colonne Clé API */}
+                                 <td className="p-3">
+                                   {provider.name.toLowerCase() !== 'ollama' ? (
+                                     <div className="relative">
+                                                                              <input
+                                         type={provider.isVisible ? "text" : "password"}
+                                         name={`api-key-${provider.name.toLowerCase()}`}
+                                         id={`api-key-${provider.name.toLowerCase()}`}
+                                         autoComplete={`api-key-${provider.name.toLowerCase()}`}
+                                         data-provider={provider.name.toLowerCase()}
+                                         data-field-type="api-key"
+                                         value={provider.apiKey}
+                                         onChange={(e) => handleApiKeyChange(provider.name, e.target.value)}
+                                         onPaste={(e) => handleApiKeyChange(provider.name, e.clipboardData.getData('text'))}
+                                         onKeyDown={(e) => {
+                                           // Permettre toutes les touches
+                                           if (e.key === 'Enter') {
+                                             e.preventDefault();
+                                             handleTestProvider(provider.name);
+                                           }
+                                         }}
+                                         placeholder={`Clé API ${getProviderDisplayName(provider.name)}`}
+                                         className="w-full px-2 py-1 rounded border text-xs"
+                                         style={{
+                                           backgroundColor: colors.background,
+                                           borderColor: colors.border,
+                                           color: colors.text
+                                         }}
+                                       />
+                                      <button
+                                        onClick={() => toggleApiKeyVisibility(provider.name)}
+                                        className="absolute right-1 top-1/2 transform -translate-y-1/2 p-1 rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95"
+                                        style={{
+                                          backgroundColor: 'transparent',
+                                          color: colors.textSecondary
+                                        }}
+                                        title={provider.isVisible ? "Masquer la clé" : "Afficher la clé"}
+                                      >
+                                        {provider.isVisible ? <EyeSlashIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <span className="text-xs" style={{ color: colors.textSecondary }}>
+                                      Non requis
+                                    </span>
+                                  )}
+                                </td>
+                               
+                                                                 {/* Colonne Actions */}
+                                  <td className="p-3">
+                                    <div className="flex items-center gap-2">
+                                      <button
+                                        onClick={() => {
+                                          if (isTesting) return;
+                                          if (provider.status === 'active') {
+                                            handleToggleProvider(provider.name);
+                                          } else if (provider.status === 'configured' || provider.status === 'functional') {
+                                            handleToggleProvider(provider.name);
+                                          } else {
+                                            handleTestProvider(provider.name);
+                                          }
+                                        }}
+                                        disabled={isTesting || !isOnline || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty')}
+                                        className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
+                                          isTesting || !isOnline || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty') ? 'opacity-50 cursor-not-allowed' : ''
+                                        }`}
+                                        style={{
+                                          backgroundColor: 'transparent',
+                                          border: `1px solid ${(() => {
+                                            if (isTesting) return getActionColor('primary');
+                                            if (provider.status === 'active') return getActionColor('delete');
+                                            if (provider.status === 'configured' || provider.status === 'functional') return getActionColor('start');
+                                            if (provider.status === 'pending') return getActionColor('pause');
+                                            return getActionColor('primary');
+                                          })()}`,
+                                          color: (() => {
+                                            if (isTesting) return getActionColor('primary');
+                                            if (provider.status === 'active') return getActionColor('delete');
+                                            if (provider.status === 'configured' || provider.status === 'functional') return getActionColor('start');
+                                            if (provider.status === 'pending') return getActionColor('pause');
+                                            return getActionColor('primary');
+                                          })()
+                                        }}
+                                      >
+                                       {(() => {
+                                         if (isTesting) return 'Test...';
+                                         if (provider.status === 'active') return 'Désactiver';
+                                         if (provider.status === 'configured' || provider.status === 'functional') return 'Activer';
+                                         if (provider.status === 'pending') return 'Tester';
+                                         if (provider.status === 'empty') return 'Configurer';
+                                         return 'Tester';
+                                       })()}
+                                     </button>
+                                     
+                                   </div>
+                                 </td>
+                                 
+                                 {/* Colonne Priorité */}
+                                 <td className="p-3">
+                                   {shouldShowPriorityDropdown(provider) ? (
+                                     <select
+                                       value={provider.priority || 1}
+                                       onChange={(e) => handlePriorityChange(provider.name, parseInt(e.target.value))}
+                                       className="px-2 py-1 rounded border text-xs"
+                                       style={{
+                                         backgroundColor: colors.background,
+                                         borderColor: colors.border,
+                                         color: colors.text
+                                       }}
+                                     >
+                                       {Array.from({ length: activeProviders.length }, (_, i) => i + 1).map(priority => (
+                                         <option key={priority} value={priority}>
+                                           {priority}
+                                         </option>
+                                       ))}
+                                     </select>
+                                   ) : (
+                                     <span className="text-xs" style={{ color: colors.textSecondary }}>
+                                       {getDisplayPriority(provider)}
+                                     </span>
+                                   )}
+                                 </td>
+                             </tr>
+                           );
+                         })}
+
+                                                   {/* Séparateur IA Locales / IA Web */}
+                          {localProviders.length > 0 && webProviders.length > 0 && (
+                            <tr>
+                              <td colSpan={6} className="p-0">
+                                <div className="border-t" style={{ borderColor: colors.border, opacity: 0.3 }}></div>
+                              </td>
+                            </tr>
+                          )}
+
+                                                   {/* Section IA Web */}
+                          {webProviders.map((provider) => {
+                            const statusInfo = getProviderStatusInfo(provider);
+                            const isTesting = testing[provider.name];
+                            
+                            return (
+                              <tr key={provider.name} className="border-b" style={{ borderColor: colors.border }}>
+                                {/* Colonne Provider */}
+                                <td className="p-3">
+                                  <div className="flex items-center gap-2">
+                                    <div style={{ color: colors.textSecondary }}>
+                                      {getProviderIcon(provider.name)}
+                                    </div>
+                                    <span className="text-sm font-medium" style={{ color: colors.text }}>
+                                      {getProviderDisplayName(provider.name)}
+                                    </span>
+                                  </div>
+                                </td>
+                                
+                                                                 {/* Colonne Type */}
                                   <td className="p-3">
                                     <span className="text-xs px-2 py-1 rounded inline-block" style={{ 
                                       backgroundColor: 'transparent', 
-                                      color: ACTION_COLORS.local,
-                                      border: `1px solid ${ACTION_COLORS.local}`
+                                      color: ACTION_COLORS.web,
+                                      border: `1px solid ${ACTION_COLORS.web}`
                                     }}>
-                                      Local
+                                      Web
                                     </span>
                                   </td>
-                                 
-                                 {/* Colonne Statut */}
+                                
+                                {/* Colonne Statut */}
                                 <td className="p-3">
                                   <div className="flex flex-col space-y-1">
                                     <span 
@@ -561,195 +881,35 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                                   </div>
                                 </td>
                                 
-                                {/* Colonne Clé API */}
-                                <td className="p-3">
-                                  {provider.name.toLowerCase() !== 'ollama' ? (
-                                    <div className="relative">
-                                      <input
-                                        type={provider.isVisible ? "text" : "password"}
-                                        value={provider.apiKey}
-                                        onChange={(e) => handleApiKeyChange(provider.name, e.target.value)}
-                                        placeholder="Clé API"
-                                        className="w-full px-2 py-1 rounded border text-xs"
-                                        style={{
-                                          backgroundColor: colors.background,
-                                          borderColor: colors.border,
-                                          color: colors.text
-                                        }}
-                                      />
-                                      <button
-                                        onClick={() => toggleApiKeyVisibility(provider.name)}
-                                        className="absolute right-1 top-1/2 transform -translate-y-1/2 p-1 rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95"
-                                        style={{
-                                          backgroundColor: 'transparent',
-                                          color: colors.textSecondary
-                                        }}
-                                        title={provider.isVisible ? "Masquer la clé" : "Afficher la clé"}
-                                      >
-                                        {provider.isVisible ? <EyeSlashIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
-                                      </button>
-                                    </div>
-                                  ) : (
-                                    <span className="text-xs" style={{ color: colors.textSecondary }}>
-                                      Non requis
-                                    </span>
-                                  )}
-                                </td>
-                               
-                                                               {/* Colonne Actions */}
-                                <td className="p-3">
-                                  <div className="flex items-center gap-2">
-                                    <button
-                                      onClick={() => {
-                                        if (isTesting) return;
-                                        if (provider.status === 'active') {
-                                          handleToggleProvider(provider.name);
-                                        } else if (provider.status === 'configured' || provider.status === 'functional') {
-                                          handleToggleProvider(provider.name);
-                                        } else {
-                                          handleTestProvider(provider.name);
-                                        }
-                                      }}
-                                      disabled={isTesting || !isOnline || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty')}
-                                      className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
-                                        isTesting || !isOnline || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty') ? 'opacity-50 cursor-not-allowed' : ''
-                                      }`}
-                                      style={{
-                                        backgroundColor: 'transparent',
-                                        border: `1px solid ${(() => {
-                                          if (isTesting) return getActionColor('primary');
-                                          if (provider.status === 'active') return getActionColor('delete');
-                                          if (provider.status === 'configured' || provider.status === 'functional') return getActionColor('start');
-                                          if (provider.status === 'pending') return getActionColor('pause');
-                                          return getActionColor('primary');
-                                        })()}`,
-                                        color: (() => {
-                                          if (isTesting) return getActionColor('primary');
-                                          if (provider.status === 'active') return getActionColor('delete');
-                                          if (provider.status === 'configured' || provider.status === 'functional') return getActionColor('start');
-                                          if (provider.status === 'pending') return getActionColor('pause');
-                                          return getActionColor('primary');
-                                        })()
-                                      }}
-                                    >
-                                     {(() => {
-                                       if (isTesting) return 'Test...';
-                                       if (provider.status === 'active') return 'Désactiver';
-                                       if (provider.status === 'configured' || provider.status === 'functional') return 'Activer';
-                                       if (provider.status === 'pending') return 'Tester';
-                                       if (provider.status === 'empty') return 'Configurer';
-                                       return 'Tester';
-                                     })()}
-                                   </button>
-                                   
-                                 </div>
-                               </td>
-                               
-                               {/* Colonne Priorité */}
-                               <td className="p-3">
-                                 {provider.status === 'active' ? (
-                                   <select
-                                     value={provider.priority}
-                                     onChange={(e) => handlePriorityChange(provider.name, parseInt(e.target.value))}
-                                     className="px-2 py-1 rounded border text-xs"
-                                     style={{
-                                       backgroundColor: colors.background,
-                                       borderColor: colors.border,
-                                       color: colors.text
-                                     }}
-                                   >
-                                     {Array.from({ length: activeProviders.length }, (_, i) => i + 1).map(priority => (
-                                       <option key={priority} value={priority}>
-                                         {priority}
-                                       </option>
-                                     ))}
-                                   </select>
-                                 ) : (
-                                   <span className="text-xs" style={{ color: colors.textSecondary }}>
-                                     -
-                                   </span>
-                                 )}
-                               </td>
-                             </tr>
-                           );
-                         })}
-
-                                                   {/* Séparateur IA Locales / IA Web */}
-                          {localProviders.length > 0 && webProviders.length > 0 && (
-                            <tr>
-                              <td colSpan={6} className="p-0">
-                                <div className="border-t" style={{ borderColor: colors.border, opacity: 0.3 }}></div>
-                              </td>
-                            </tr>
-                          )}
-
-                         {/* Section IA Web */}
-                         {webProviders.map((provider) => {
-                           const statusInfo = getProviderStatusInfo(provider);
-                           const isTesting = testing[provider.name];
-                           
-                           return (
-                             <tr key={provider.name} className="border-b" style={{ borderColor: colors.border }}>
-                               {/* Colonne Provider */}
-                               <td className="p-3">
-                                 <div className="flex items-center gap-2">
-                                   <div style={{ color: colors.textSecondary }}>
-                                     {getProviderIcon(provider.name)}
-                                   </div>
-                                   <span className="text-sm font-medium" style={{ color: colors.text }}>
-                                     {getProviderDisplayName(provider.name)}
-                                   </span>
-                                 </div>
-                               </td>
-                               
-                                                                {/* Colonne Type */}
+                                                                {/* Colonne Clé API */}
                                  <td className="p-3">
-                                   <span className="text-xs px-2 py-1 rounded inline-block" style={{ 
-                                     backgroundColor: 'transparent', 
-                                     color: ACTION_COLORS.web,
-                                     border: `1px solid ${ACTION_COLORS.web}`
-                                   }}>
-                                     Web
-                                   </span>
-                                 </td>
-                               
-                               {/* Colonne Statut */}
-                               <td className="p-3">
-                                 <div className="flex flex-col space-y-1">
-                                   <span 
-                                     className="text-xs px-2 py-1 rounded inline-block w-fit"
-                                     style={{ 
-                                       backgroundColor: 'transparent',
-                                       color: statusInfo.color,
-                                       border: `1px solid ${statusInfo.color}`
-                                     }}
-                                   >
-                                     {statusInfo.text}
-                                   </span>
-                                   {provider.errorMessage && (
-                                     <span className="text-xs" style={{ color: '#ef4444' }}>
-                                       {provider.errorMessage}
-                                     </span>
-                                   )}
-                                 </div>
-                               </td>
-                               
-                                                               {/* Colonne Clé API */}
-                                <td className="p-3">
-                                  {provider.name.toLowerCase() !== 'ollama' ? (
-                                    <div className="relative">
-                                      <input
-                                        type={provider.isVisible ? "text" : "password"}
-                                        value={provider.apiKey}
-                                        onChange={(e) => handleApiKeyChange(provider.name, e.target.value)}
-                                        placeholder="Clé API"
-                                        className="w-full px-2 py-1 rounded border text-xs"
-                                        style={{
-                                          backgroundColor: colors.background,
-                                          borderColor: colors.border,
-                                          color: colors.text
-                                        }}
-                                      />
+                                   {provider.name.toLowerCase() !== 'ollama' ? (
+                                     <div className="relative">
+                                                                              <input
+                                         type={provider.isVisible ? "text" : "password"}
+                                         name={`api-key-${provider.name.toLowerCase()}`}
+                                         id={`api-key-${provider.name.toLowerCase()}`}
+                                         autoComplete={`api-key-${provider.name.toLowerCase()}`}
+                                         data-provider={provider.name.toLowerCase()}
+                                         data-field-type="api-key"
+                                         value={provider.apiKey}
+                                         onChange={(e) => handleApiKeyChange(provider.name, e.target.value)}
+                                         onPaste={(e) => handleApiKeyChange(provider.name, e.clipboardData.getData('text'))}
+                                         onKeyDown={(e) => {
+                                           // Permettre toutes les touches
+                                           if (e.key === 'Enter') {
+                                             e.preventDefault();
+                                             handleTestProvider(provider.name);
+                                           }
+                                         }}
+                                         placeholder={`Clé API ${getProviderDisplayName(provider.name)}`}
+                                         className="w-full px-2 py-1 rounded border text-xs"
+                                         style={{
+                                           backgroundColor: colors.background,
+                                           borderColor: colors.border,
+                                           color: colors.text
+                                         }}
+                                       />
                                       <button
                                         onClick={() => toggleApiKeyVisibility(provider.name)}
                                         className="absolute right-1 top-1/2 transform -translate-y-1/2 p-1 rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95"
@@ -769,81 +929,81 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                                   )}
                                 </td>
                                
-                                                               {/* Colonne Actions */}
+                                                                {/* Colonne Actions */}
+                                 <td className="p-3">
+                                   <div className="flex items-center gap-2">
+                                     <button
+                                       onClick={() => {
+                                         if (isTesting) return;
+                                         
+                                         if (provider.status === 'active') {
+                                           handleToggleProvider(provider.name);
+                                         } else if (provider.status === 'configured' || provider.status === 'functional') {
+                                           handleToggleProvider(provider.name);
+                                         } else {
+                                           handleTestProvider(provider.name);
+                                         }
+                                       }}
+                                       disabled={isTesting || !isOnline || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty')}
+                                       className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
+                                         isTesting || !isOnline || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty') ? 'opacity-50 cursor-not-allowed' : ''
+                                       }`}
+                                       style={{
+                                         backgroundColor: 'transparent',
+                                         border: `1px solid ${(() => {
+                                           if (isTesting) return getActionColor('primary');
+                                           if (provider.status === 'active') return getActionColor('delete');
+                                           if (provider.status === 'configured' || provider.status === 'functional') return getActionColor('start');
+                                           if (provider.status === 'pending') return getActionColor('pause');
+                                           return getActionColor('primary');
+                                         })()}`,
+                                         color: (() => {
+                                           if (isTesting) return getActionColor('primary');
+                                           if (provider.status === 'active') return getActionColor('delete');
+                                           if (provider.status === 'configured' || provider.status === 'functional') return getActionColor('start');
+                                           if (provider.status === 'pending') return getActionColor('pause');
+                                           return getActionColor('primary');
+                                         })()
+                                       }}
+                                     >
+                                      {(() => {
+                                        if (isTesting) return 'Test...';
+                                        if (provider.status === 'active') return 'Désactiver';
+                                        if (provider.status === 'configured' || provider.status === 'functional') return 'Activer';
+                                        if (provider.status === 'pending') return 'Tester';
+                                        if (provider.status === 'empty') return 'Configurer';
+                                        return 'Tester';
+                                      })()}
+                                    </button>
+                                    
+                                  </div>
+                                </td>
+                                
+                                {/* Colonne Priorité */}
                                 <td className="p-3">
-                                  <div className="flex items-center gap-2">
-                                    <button
-                                      onClick={() => {
-                                        if (isTesting) return;
-                                        
-                                        if (provider.status === 'active') {
-                                          handleToggleProvider(provider.name);
-                                        } else if (provider.status === 'configured' || provider.status === 'functional') {
-                                          handleToggleProvider(provider.name);
-                                        } else {
-                                          handleTestProvider(provider.name);
-                                        }
-                                      }}
-                                      disabled={isTesting || !isOnline || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty')}
-                                      className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
-                                        isTesting || !isOnline || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty') ? 'opacity-50 cursor-not-allowed' : ''
-                                      }`}
+                                  {shouldShowPriorityDropdown(provider) ? (
+                                    <select
+                                      value={provider.priority || 1}
+                                      onChange={(e) => handlePriorityChange(provider.name, parseInt(e.target.value))}
+                                      className="px-2 py-1 rounded border text-xs"
                                       style={{
-                                        backgroundColor: 'transparent',
-                                        border: `1px solid ${(() => {
-                                          if (isTesting) return getActionColor('primary');
-                                          if (provider.status === 'active') return getActionColor('delete');
-                                          if (provider.status === 'configured' || provider.status === 'functional') return getActionColor('start');
-                                          if (provider.status === 'pending') return getActionColor('pause');
-                                          return getActionColor('primary');
-                                        })()}`,
-                                        color: (() => {
-                                          if (isTesting) return getActionColor('primary');
-                                          if (provider.status === 'active') return getActionColor('delete');
-                                          if (provider.status === 'configured' || provider.status === 'functional') return getActionColor('start');
-                                          if (provider.status === 'pending') return getActionColor('pause');
-                                          return getActionColor('primary');
-                                        })()
+                                        backgroundColor: colors.background,
+                                        borderColor: colors.border,
+                                        color: colors.text
                                       }}
                                     >
-                                     {(() => {
-                                       if (isTesting) return 'Test...';
-                                       if (provider.status === 'active') return 'Désactiver';
-                                       if (provider.status === 'configured' || provider.status === 'functional') return 'Activer';
-                                       if (provider.status === 'pending') return 'Tester';
-                                       if (provider.status === 'empty') return 'Configurer';
-                                       return 'Tester';
-                                     })()}
-                                   </button>
-                                   
-                                 </div>
-                               </td>
-                               
-                               {/* Colonne Priorité */}
-                               <td className="p-3">
-                                 {provider.status === 'active' ? (
-                                   <select
-                                     value={provider.priority}
-                                     onChange={(e) => handlePriorityChange(provider.name, parseInt(e.target.value))}
-                                     className="px-2 py-1 rounded border text-xs"
-                                     style={{
-                                       backgroundColor: colors.background,
-                                       borderColor: colors.border,
-                                       color: colors.text
-                                     }}
-                                   >
-                                     {Array.from({ length: activeProviders.length }, (_, i) => i + 1).map(priority => (
-                                       <option key={priority} value={priority}>
-                                         {priority}
-                                       </option>
-                                     ))}
-                                   </select>
-                                 ) : (
-                                   <span className="text-xs" style={{ color: colors.textSecondary }}>
-                                     -
-                                   </span>
-                                 )}
-                               </td>
+                                      {Array.from({ length: activeProviders.length }, (_, i) => i + 1).map(priority => (
+                                        <option key={priority} value={priority}>
+                                          {priority}
+                                        </option>
+                                      ))}
+                                    </select>
+                                  ) : (
+                                    <span className="text-xs" style={{ color: colors.textSecondary }}>
+                                      {getDisplayPriority(provider)}
+                                    </span>
+                                  )}
+                                </td>
                              </tr>
                            );
                          })}
@@ -852,22 +1012,23 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                   </div>
                 </div>
 
-                  {/* Note sur les priorités */}
-                  {activeProviders.length > 0 && (
-                    <div className="p-4 rounded-lg border" style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
-                      <div className="text-sm space-y-2" style={{ color: colors.textSecondary }}>
-                        <p className="font-semibold" style={{ color: colors.text }}>
-                          💡 Gestion automatique des priorités :
-                        </p>
-                        <ul className="list-disc list-inside space-y-1 ml-2">
-                          <li>Ollama est priorité 1 par défaut (IA locale)</li>
-                          <li>Les nouveaux providers actifs s'ajoutent automatiquement (2, 3, 4...)</li>
-                          <li>Permutation automatique : Si vous changez une priorité, les autres s'échangent automatiquement</li>
-                          <li>Les priorités sont restaurées au chargement de l'application</li>
-                        </ul>
-                      </div>
-                    </div>
-                  )}
+                                     {/* Note sur les priorités */}
+                   {activeProviders.length > 0 && (
+                     <div className="p-4 rounded-lg border" style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
+                       <div className="text-sm space-y-2" style={{ color: colors.textSecondary }}>
+                         <p className="font-semibold" style={{ color: colors.text }}>
+                           💡 Gestion des priorités :
+                         </p>
+                                                   <ul className="list-disc list-inside space-y-1 ml-2">
+                            <li><strong>Mode Auto :</strong> Ollama priorité 1, autres providers 2, 3, 4... automatiquement</li>
+                            <li><strong>Mode Manuel :</strong> Sélectionnez les priorités via les menus déroulants</li>
+                            <li>En mode manuel, changer une priorité permute automatiquement avec l'autre</li>
+                            <li>Les providers non actifs affichent "--" en priorité</li>
+                            <li>Le recalcul automatique se fait à chaque activation/désactivation en mode auto</li>
+                          </ul>
+                       </div>
+                     </div>
+                   )}
 
                 
               </>
