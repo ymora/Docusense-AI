@@ -9,6 +9,7 @@ from .file import File, FileStatus, DirectoryStructure
 from .config import Config
 from .analysis import Analysis, AnalysisStatus, AnalysisType
 from .user import User, UserRole
+from .system_log import SystemLog, LogLevel
 
 __all__ = [
     "Base",
@@ -23,5 +24,7 @@ __all__ = [
     "User",
     "UserRole",
     # "QueuePriority",  # Supprimé - ordre chronologique uniquement
-    "Config"
+    "Config",
+    "SystemLog",
+    "LogLevel"
 ]

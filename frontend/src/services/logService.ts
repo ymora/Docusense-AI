@@ -47,7 +47,7 @@ class LogService {
       const persistedLogs = localStorage.getItem(this.storageKey);
       if (persistedLogs) {
         this.logs = JSON.parse(persistedLogs);
-        console.log(`📋 ${this.logs.length} logs frontend chargés depuis le localStorage`);
+        // ${this.logs.length} logs frontend chargés depuis le localStorage
       }
     } catch (error) {
       console.error('Erreur lors du chargement des logs persistés:', error);
@@ -96,7 +96,7 @@ class LogService {
       this.backendSSE = new EventSource('/api/logs/backend/stream');
       
       this.backendSSE.onopen = () => {
-        console.log('🔗 SSE connecté pour les logs backend');
+        // SSE connecté pour les logs backend
       };
 
       this.backendSSE.onmessage = (event) => {
@@ -133,7 +133,7 @@ class LogService {
         // OPTIMISATION: Tentative de reconnexion plus intelligente
         if (this.backendSSE && this.backendSSE.readyState === EventSource.CLOSED) {
           setTimeout(() => {
-            console.log('🔄 Tentative de reconnexion SSE...');
+            // Tentative de reconnexion SSE...
             this.startBackendLogStream();
           }, 3000); // Réduit de 5s à 3s
         }

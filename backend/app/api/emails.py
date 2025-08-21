@@ -34,14 +34,12 @@ class EmailContent(BaseModel):
     is_html: bool
     is_text: bool
 
+
 # Utilisation du middleware d'authentification centralisé
-
-
-@router.get("/parse/{file_path:path}", response_model=EmailContent)
 @APIUtils.handle_errors
+@router.get("/parse/{file_path:path}", response_model=EmailContent)
 async def parse_email_file(
-    file_path: str,
-    current_user: Optional[User] = None
+    file_path: str
 ):
     """
     Parse un fichier .eml et retourne son contenu structuré
@@ -102,11 +100,10 @@ async def parse_email_file(
         raise HTTPException(status_code=500, detail=f"Erreur inattendue: {str(e)}")
 
 
-@router.get("/preview/{file_path:path}")
 @APIUtils.handle_errors
+@router.get("/preview/{file_path:path}")
 async def get_email_preview(
-    file_path: str,
-    current_user: User = None
+    file_path: str
 ):
     """
     Retourne un aperçu rapide d'un fichier .eml
@@ -146,12 +143,11 @@ async def get_email_preview(
     
     return ResponseFormatter.success_response(data=preview_data, message="Aperçu de l'email récupéré") 
 
-@router.get("/attachment/{file_path:path}/{attachment_index}")
 @APIUtils.handle_errors
+@router.get("/attachment/{file_path:path}/{attachment_index}")
 async def download_email_attachment(
     file_path: str,
-    attachment_index: int,
-    current_user: Optional[User] = None
+    attachment_index: int
 ):
     """
     Télécharge une pièce jointe d'un email
@@ -204,12 +200,11 @@ async def download_email_attachment(
         }
     )
 
-@router.get("/attachment-preview/{file_path:path}/{attachment_index}")
 @APIUtils.handle_errors
+@router.get("/attachment-preview/{file_path:path}/{attachment_index}")
 async def preview_email_attachment(
     file_path: str,
-    attachment_index: int,
-    current_user: Optional[User] = None
+    attachment_index: int
 ):
     """
     Préviseualise une pièce jointe d'un email (pour consultation directe)

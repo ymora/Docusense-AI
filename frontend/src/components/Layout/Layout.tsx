@@ -395,7 +395,7 @@ const Layout: React.FC = () => {
     e.preventDefault();
     e.stopPropagation();
     
-    console.log('🎯 Début du redimensionnement, largeur actuelle:', sidebarWidth);
+    // Début du redimensionnement, largeur actuelle: ${sidebarWidth}
     setIsResizing(true);
     setResizeStartWidth(sidebarWidth);
     
@@ -420,20 +420,20 @@ const Layout: React.FC = () => {
       
       // Mettre à jour la largeur immédiatement pour une réponse fluide
       if (clampedWidth !== sidebarWidth) {
-        console.log('🔄 Redimensionnement:', { 
-          newWidth, 
-          maxSidebarWidth, 
-          clampedWidth, 
-          currentSidebarWidth: sidebarWidth,
-          windowWidth: window.innerWidth
-        });
+        // Redimensionnement: ${JSON.stringify({ 
+        //   newWidth, 
+        //   maxSidebarWidth, 
+        //   clampedWidth, 
+        //   currentSidebarWidth: sidebarWidth,
+        //   windowWidth: window.innerWidth
+        // })}
         setSidebarWidth(clampedWidth);
       }
     }
   };
 
   const handleResizeEnd = () => {
-    console.log('✅ Fin du redimensionnement, largeur finale:', sidebarWidth);
+    // Fin du redimensionnement, largeur finale: ${sidebarWidth}
     setIsResizing(false);
     setResizeStartWidth(null);
     

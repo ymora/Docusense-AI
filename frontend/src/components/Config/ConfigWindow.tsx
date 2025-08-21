@@ -1038,12 +1038,12 @@ const ConfigWindow: React.FC<ConfigWindowProps> = ({ onClose, onMinimize }) => {
   const activeProviders = getActiveProviders().filter(provider => provider.is_functional);
   
   // Debug pour voir les providers
-  console.log('🔍 ConfigWindow - Providers actifs:', {
-    allProviders: getActiveProviders(),
-    functionalProviders: activeProviders,
-    isInitialized,
-    count: activeProviders.length
-  });
+  // console.log('ConfigWindow - Providers actifs:', {
+  //   allProviders: getActiveProviders(),
+  //   functionalProviders: activeProviders,
+  //   isInitialized,
+  //   count: activeProviders.length
+  // });
 
   return (
     <div className="h-full flex flex-col" style={{ backgroundColor: colors.background }}>

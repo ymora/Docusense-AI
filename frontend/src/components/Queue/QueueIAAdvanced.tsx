@@ -690,7 +690,7 @@ export const QueueIAAdvanced: React.FC = () => {
 
   // Créer le message personnalisé selon l'état de la connexion
   const getEmptyMessage = () => {
-    console.log('🔍 État de connexion:', isOnline, 'Échecs:', consecutiveFailures);
+    // État de connexion: ${isOnline}, Échecs: ${consecutiveFailures}
     
     // Si le backend n'est pas connecté
     if (!isOnline || consecutiveFailures >= 3) {

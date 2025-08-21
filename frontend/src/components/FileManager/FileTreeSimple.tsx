@@ -164,17 +164,17 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
     });
     
     try {
-      console.log('🔄 Ajout d\'analyse pour le fichier:', file.name);
+      // Ajout d'analyse pour le fichier: ${file.name}
       
       // Ouvrir automatiquement l'onglet "File d'attente et analyse"
-      console.log('📋 Basculement vers l\'onglet queue...');
+              // Basculement vers l'onglet queue...
       setActivePanel('queue');
       
       // Attendre un peu pour s'assurer que l'onglet se met à jour
       await new Promise(resolve => setTimeout(resolve, 100));
       
       // Créer une analyse directement via le backend
-      console.log('📝 Création d\'analyse pour:', file.name);
+              // Création d'analyse pour: ${file.name}
       
       // Créer l'analyse via le service avec mode priorité
       await analysisService.createPendingAnalysis({
@@ -190,7 +190,7 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
         timestamp: new Date().toISOString()
       });
       
-      console.log('✅ Analyse créée avec succès');
+              // Analyse créée avec succès
       
     } catch (error) {
       logService.error('Erreur lors de la création d\'analyse', 'FileTreeSimple', {

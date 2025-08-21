@@ -62,7 +62,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
     // 'completed' = déjà analysé, peut être relancé
     const analyzableStatuses = ['none', 'pending', 'failed', 'completed'];
     if (!analyzableStatuses.includes(file.status)) {
-      console.log('File status not analyzable:', file.status, 'for file:', file.name);
+      // File status not analyzable: ${file.status} for file: ${file.name}
       return false;
     }
     
@@ -119,7 +119,7 @@ const ContextMenu: React.FC<ContextMenuProps> = ({
     }
     
     // Log pour déboguer les types non reconnus
-    console.log('File type not supported:', file.mime_type, 'for file:', file.name);
+    // File type not supported: ${file.mime_type} for file: ${file.name}
     return false;
   }
 
