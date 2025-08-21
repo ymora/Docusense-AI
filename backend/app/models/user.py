@@ -34,6 +34,7 @@ class User(Base):
     
     # Relations
     analyses = relationship("Analysis", back_populates="user")
+    system_logs = relationship("SystemLog", back_populates="user")
     
     def __repr__(self):
         return f"<User(id={self.id}, username='{self.username}', role='{self.role.value}')>"

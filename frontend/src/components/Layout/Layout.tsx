@@ -42,6 +42,13 @@ const Layout: React.FC = () => {
   // Basculement automatique vers l'onglet visualisation quand un fichier est sélectionné
   useEffect(() => {
     if (selectedFile && activePanel !== 'viewer') {
+      logService.info('Basculement automatique vers l\'onglet visualisation', 'Layout', {
+        fileName: selectedFile.name,
+        filePath: selectedFile.path,
+        fromPanel: activePanel,
+        toPanel: 'viewer',
+        timestamp: new Date().toISOString()
+      });
       setActivePanel('viewer');
     }
   }, [selectedFile, setActivePanel]);
@@ -51,6 +58,13 @@ const Layout: React.FC = () => {
     const handleFileAction = async (event: CustomEvent) => {
       const { action, file } = event.detail;
       
+      logService.info('Action sur fichier reçue', 'Layout', {
+        action: action,
+        fileName: file?.name,
+        filePath: file?.path,
+        timestamp: new Date().toISOString()
+      });
+      
       if (action === 'view' && file) {
         // Sélectionner le fichier pour l'afficher dans le MainPanel
         selectFile(file);
@@ -58,6 +72,12 @@ const Layout: React.FC = () => {
       } else if (action === 'download_file' && file) {
         // Télécharger un fichier individuel
         try {
+          logService.info('Téléchargement de fichier individuel', 'Layout', {
+            fileName: file.name,
+            filePath: file.path,
+            timestamp: new Date().toISOString()
+          });
+
           let downloadUrl = `/api/files/download-by-path/${encodeURIComponent(file.path)}`;
           
           const link = document.createElement('a');
@@ -70,12 +90,27 @@ const Layout: React.FC = () => {
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
+
+          logService.info('Téléchargement de fichier individuel terminé', 'Layout', {
+            fileName: file.name,
+            timestamp: new Date().toISOString()
+          });
         } catch (error) {
-          logService.error('Erreur lors du téléchargement du fichier', 'Layout', { error: error.message, file: file.name });
+          logService.error('Erreur lors du téléchargement du fichier', 'Layout', { 
+            error: error.message, 
+            file: file.name,
+            timestamp: new Date().toISOString()
+          });
         }
              } else if (action === 'download_directory' && file) {
         // Télécharger le dossier en ZIP
         try {
+          logService.info('Téléchargement de dossier en ZIP', 'Layout', {
+            folderName: file.name,
+            folderPath: file.path,
+            timestamp: new Date().toISOString()
+          });
+
           const downloadUrl = `/api/download/directory/${encodeURIComponent(file.path)}`;
           const link = document.createElement('a');
           link.href = downloadUrl;
@@ -83,8 +118,17 @@ const Layout: React.FC = () => {
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
+
+          logService.info('Téléchargement de dossier en ZIP terminé', 'Layout', {
+            folderName: file.name,
+            timestamp: new Date().toISOString()
+          });
         } catch (error) {
-          logService.error('Erreur lors du téléchargement du dossier', 'Layout', { error: error.message, file: file.name });
+          logService.error('Erreur lors du téléchargement du dossier', 'Layout', { 
+            error: error.message, 
+            file: file.name,
+            timestamp: new Date().toISOString()
+          });
         }
              } else if (action === 'explore_directory' && file) {
          // Explorer le contenu du dossier
@@ -332,9 +376,14 @@ const Layout: React.FC = () => {
   useEffect(() => {
     const handleSetActivePanel = (event: CustomEvent) => {
       const { panel } = event.detail;
-                      if (panel && ['viewer', 'queue', 'logs'].includes(panel)) {
-          setActivePanel(panel as 'viewer' | 'queue' | 'logs');
-        }
+      if (panel && ['viewer', 'queue', 'logs'].includes(panel)) {
+        logService.info('Changement de panel programmatique', 'Layout', {
+          fromPanel: activePanel,
+          toPanel: panel,
+          timestamp: new Date().toISOString()
+        });
+        setActivePanel(panel as 'viewer' | 'queue' | 'logs');
+      }
     };
 
     window.addEventListener('setActivePanel', handleSetActivePanel as EventListener);

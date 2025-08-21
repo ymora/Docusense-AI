@@ -8,7 +8,7 @@ import { useUIStore } from '../../stores/uiStore';
 import { useSimpleConfirm } from '../../hooks/useSimpleConfirm';
 import { logService } from '../../services/logService';
 import { pdfService } from '../../services/pdfService';
-import { analysisService } from '../../services/analysisService';
+import { useAnalysisService } from '../../services/analysisService';
 import { Search, Filter, SortAsc, SortDesc, RefreshCw, Trash2, RotateCcw, Download, Eye } from 'lucide-react';
 import { 
   EyeIcon, 
@@ -23,9 +23,10 @@ import {
 } from '@heroicons/react/24/outline';
 import { UnifiedTable } from '../UI/UnifiedTable';
 import { DeleteConfirmationModal } from '../UI/DeleteConfirmationModal';
+import { ConnectionStatus } from '../UI/ConnectionStatus';
 import { Prompt } from '../../services/promptService';
 import { getStatusIcon, getStatusText } from '../../utils/statusUtils';
-import { useBackendStatus } from '../../hooks/useBackendStatus';
+import { useBackendConnection } from '../../hooks/useBackendConnection';
 
 interface TableColumn<T> {
   key: string;
@@ -572,7 +573,8 @@ export const QueueIAAdvanced: React.FC = () => {
 
   
   // Utiliser le hook centralisé pour la détection du backend
-  const { isOnline, consecutiveFailures } = useBackendStatus();
+  const { isOnline, canMakeRequests } = useBackendConnection();
+  const analysisService = useAnalysisService();
 
   // Chargement initial
   useEffect(() => {
@@ -772,7 +774,10 @@ export const QueueIAAdvanced: React.FC = () => {
           break;
         case 'pause':
           // Mettre en pause l'analyse (à implémenter)
-          console.log('Pause non encore implémentée');
+          logService.info('Action pause non encore implémentée', 'QueueIAAdvanced', {
+            itemId,
+            timestamp: new Date().toISOString()
+          });
           break;
         case 'delete':
           // Préparer la confirmation de suppression
@@ -791,17 +796,18 @@ export const QueueIAAdvanced: React.FC = () => {
           break;
         case 'duplicate':
           // Dupliquer l'analyse (créer une nouvelle analyse en queue)
-          await analysisService.duplicateAnalysis(item.id);
-          logService.info('Analyse dupliquée avec succès', 'QueueIAAdvanced', {
-            originalAnalysisId: item.id,
+          // Note: duplicateAnalysis n'existe plus dans le nouveau service
+          logService.warning('Fonctionnalité de duplication non implémentée', 'QueueIAAdvanced', {
+            itemId: item.id,
             timestamp: new Date().toISOString()
           });
-          // Recharger les analyses pour afficher la nouvelle
-          loadAnalyses();
           break;
         case 'compare':
           // Comparer l'analyse (à implémenter)
-          console.log('Comparaison non encore implémentée');
+          logService.info('Action comparaison non encore implémentée', 'QueueIAAdvanced', {
+            itemId,
+            timestamp: new Date().toISOString()
+          });
           break;
         default:
           logService.warning('Action non reconnue', 'QueueIAAdvanced', {
@@ -809,7 +815,6 @@ export const QueueIAAdvanced: React.FC = () => {
             itemId,
             timestamp: new Date().toISOString()
           });
-          console.warn(`⚠️ Action non reconnue: ${action}`);
       }
     } catch (error) {
       logService.error('Erreur lors de l\'action', 'QueueIAAdvanced', {
@@ -818,7 +823,6 @@ export const QueueIAAdvanced: React.FC = () => {
         error: error.message,
         timestamp: new Date().toISOString()
       });
-      console.error(`❌ Erreur lors de l'action ${action}:`, error);
     } finally {
       setLoading(false);
     }
@@ -890,18 +894,12 @@ export const QueueIAAdvanced: React.FC = () => {
           });
           
           // Dupliquer toutes les analyses sélectionnées
+          logService.warning('Fonctionnalité de duplication multiple non implémentée', 'QueueIAAdvanced', {
+            selectedItems: Array.from(selectedItems),
+            timestamp: new Date().toISOString()
+          });
           const duplicatePromises = Array.from(selectedItems).map(async (itemId) => {
-            try {
-              await analysisService.duplicateAnalysis(Number(itemId));
-              return { itemId, success: true };
-            } catch (error) {
-              logService.error('Erreur lors de la duplication d\'une analyse', 'QueueIAAdvanced', {
-                itemId,
-                error: error.message,
-                timestamp: new Date().toISOString()
-              });
-              return { itemId, success: false, error: error.message };
-            }
+            return { itemId, success: false, error: 'Fonctionnalité non implémentée' };
           });
           
           const duplicateResults = await Promise.all(duplicatePromises);
@@ -1015,7 +1013,6 @@ export const QueueIAAdvanced: React.FC = () => {
             action,
             timestamp: new Date().toISOString()
           });
-          console.warn(`Action en lot non reconnue: ${action}`);
       }
 
       setSelectedItems(new Set());
@@ -1032,7 +1029,6 @@ export const QueueIAAdvanced: React.FC = () => {
         error: error.message,
         timestamp: new Date().toISOString()
       });
-      console.error('Erreur lors de l\'action bulk:', error);
     }
   };
 
@@ -1118,14 +1114,19 @@ export const QueueIAAdvanced: React.FC = () => {
       }}>
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-2">
+            {/* Indicateur de statut de connexion */}
+            <div className="mr-4">
+              <ConnectionStatus />
+            </div>
+            
             <span className="text-sm font-medium" style={{ color: colors.text }}>
               Actions globales:
             </span>
             <button
               onClick={() => handleBulkAction('view_multiple')}
-              disabled={selectedItems.size === 0}
+              disabled={selectedItems.size === 0 || !canMakeRequests}
               className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
-                selectedItems.size === 0 ? 'opacity-50 cursor-not-allowed' : ''
+                selectedItems.size === 0 || !canMakeRequests ? 'opacity-50 cursor-not-allowed' : ''
               }`}
               style={{
                 backgroundColor: 'transparent',
@@ -1138,9 +1139,9 @@ export const QueueIAAdvanced: React.FC = () => {
             </button>
             <button
               onClick={() => handleBulkAction('duplicate_selected')}
-              disabled={selectedItems.size === 0}
+              disabled={selectedItems.size === 0 || !canMakeRequests}
               className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
-                selectedItems.size === 0 ? 'opacity-50 cursor-not-allowed' : ''
+                selectedItems.size === 0 || !canMakeRequests ? 'opacity-50 cursor-not-allowed' : ''
               }`}
               style={{
                 backgroundColor: 'transparent',
@@ -1153,9 +1154,9 @@ export const QueueIAAdvanced: React.FC = () => {
             </button>
             <button
               onClick={() => handleBulkAction('compare_selected')}
-              disabled={selectedItems.size < 2}
+              disabled={selectedItems.size < 2 || !canMakeRequests}
               className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
-                selectedItems.size < 2 ? 'opacity-50 cursor-not-allowed' : ''
+                selectedItems.size < 2 || !canMakeRequests ? 'opacity-50 cursor-not-allowed' : ''
               }`}
               style={{
                 backgroundColor: 'transparent',
@@ -1168,7 +1169,7 @@ export const QueueIAAdvanced: React.FC = () => {
             </button>
             <button
               onClick={() => handleBulkAction('delete')}
-              disabled={selectedItems.size === 0}
+              disabled={selectedItems.size === 0 || !canMakeRequests}
               className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
                 selectedItems.size === 0 ? 'opacity-50 cursor-not-allowed' : ''
               }`}

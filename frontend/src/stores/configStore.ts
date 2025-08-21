@@ -359,14 +359,14 @@ export const useConfigStore = create<ConfigState>()(
               priorities.every((p, i) => p === expectedPriorities[i]);
             
             if (!prioritiesAreValid && activeProviders.length > 0) {
-              console.log('🔄 Correction automatique des priorités...');
+      
               
               // Recharger les providers pour obtenir les priorités corrigées
               await get().refreshAIProviders();
             }
-          } catch (error) {
-            console.warn('⚠️ Erreur lors de la vérification des priorités:', error);
-          }
+                  } catch (error) {
+          // Erreur silencieuse pour la vérification des priorités
+        }
         }
       }),
       {

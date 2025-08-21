@@ -1,4 +1,5 @@
 import { apiRequest, handleApiError } from '../utils/apiUtils';
+import useAuthStore from '../stores/authStore';
 
 export interface LogEntry {
   id: string;
@@ -31,6 +32,10 @@ class LogService {
   private backendLogs: LogEntry[] = [];
   private backendSSE: EventSource | null = null;
   private storageKey = 'docusense-frontend-logs';
+  
+  // NOUVEAU: Configuration pour l'envoi au backend
+  private sendToBackend = true;
+  private criticalLevels = ['error', 'warning']; // Niveaux à envoyer au backend
 
   constructor() {
     this.loadPersistedLogs();
@@ -259,12 +264,60 @@ class LogService {
 
     this.notifyListeners();
 
+    // NOUVEAU: Envoyer les logs critiques au backend
+    if (this.sendToBackend && this.criticalLevels.includes(level)) {
+      this.sendLogToBackend(logEntry);
+    }
+
     // Log dans la console pour le débogage
     const consoleMethod = level === 'error' ? 'error' : 
                          level === 'warning' ? 'warn' : 
                          level === 'debug' ? 'debug' : 'info';
     
     console[consoleMethod](`[${source}] ${message}`, details || '');
+  }
+
+  // NOUVEAU: Envoyer un log au backend pour persistance
+  private async sendLogToBackend(logEntry: LogEntry) {
+    try {
+      // Vérifier si l'utilisateur est connecté
+      const authStore = useAuthStore.getState();
+      if (!authStore.isAuthenticated) {
+        return; // Ne pas envoyer si pas authentifié
+      }
+
+      // Préparer les données pour le backend
+      const backendLogData = {
+        level: logEntry.level === 'warning' ? 'warning' : 'error', // Mapper au format backend
+        source: `frontend_${logEntry.source}`,
+        action: logEntry.message,
+        details: {
+          frontend_log: true,
+          original_level: logEntry.level,
+          original_source: logEntry.source,
+          user_agent: navigator.userAgent,
+          url: window.location.href,
+          timestamp: logEntry.timestamp,
+          ...logEntry.details
+        }
+      };
+
+      // Envoyer au backend (ne pas attendre la réponse pour ne pas bloquer)
+      apiRequest('/api/system-logs/manual-event', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(backendLogData)
+      }).catch(error => {
+        // Erreur silencieuse pour ne pas créer une boucle de logs
+        console.warn('Impossible d\'envoyer le log au backend:', error);
+      });
+
+    } catch (error) {
+      // Erreur silencieuse
+      console.warn('Erreur lors de l\'envoi du log au backend:', error);
+    }
   }
 
   getLogs(): LogEntry[] {

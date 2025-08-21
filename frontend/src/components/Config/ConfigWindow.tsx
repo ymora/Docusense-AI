@@ -4,7 +4,7 @@ import {
   CpuChipIcon, ChatBubbleLeftRightIcon, SparklesIcon, CommandLineIcon, BeakerIcon
 } from '@heroicons/react/24/outline';
 import { useColors } from '../../hooks/useColors';
-import { useBackendStatus } from '../../hooks/useBackendStatus';
+import { useBackendConnection } from '../../hooks/useBackendConnection';
 import ConfigService from '../../services/configService';
 import { logService } from '../../services/logService';
 import { useConfigStore } from '../../stores/configStore';
@@ -41,7 +41,7 @@ interface ProviderState {
 // Composant de contenu simplifié pour utilisation dans MainPanel
 export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimize, isStandalone = false }) => {
   const { colors } = useColors();
-  const { isOnline } = useBackendStatus();
+  const { isOnline, canMakeRequests } = useBackendConnection();
   const { aiProviders, loadAIProviders, refreshAIProviders, isInitialized } = useConfigStore();
   const [loading, setLoading] = useState(false);
   const [providers, setProviders] = useState<ProviderState[]>([]);
@@ -58,7 +58,6 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
 
   // Mettre à jour les providers quand le store change
   useEffect(() => {
-    console.log('🔄 ConfigWindow: aiProviders changé, longueur:', aiProviders.length);
     if (aiProviders.length > 0) {
       updateProviderStates(aiProviders);
     }
@@ -69,30 +68,14 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
       setLoading(true);
       setError(null);
       
-      // Debug: Afficher les données reçues pour Mistral
-      const mistralProvider = aiProviders.find((p: any) => p.name === 'mistral');
-      if (mistralProvider) {
-        console.log('🔍 Mistral dans ConfigWindow (depuis store):', {
-          name: mistralProvider.name,
-          is_active: mistralProvider.is_active,
-          is_functional: mistralProvider.is_functional,
-          status: mistralProvider.status,
-          has_api_key: mistralProvider.has_api_key
-        });
-      }
+
       
       // Récupérer les clés API pour tous les providers qui en ont une
       const providerStates: ProviderState[] = await Promise.all(aiProviders.map(async (provider: any) => {
         let status: ProviderStatus = 'empty';
         let errorMessage: string | undefined;
 
-        // Debug: Log pour chaque provider
-        console.log(`🔍 Provider ${provider.name}:`, {
-          is_functional: provider.is_functional,
-          status: provider.status,
-          has_api_key: provider.has_api_key,
-          api_key: provider.api_key
-        });
+
 
         // Déterminer le statut du provider
         if (provider.name.toLowerCase() === 'ollama') {
@@ -114,37 +97,21 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
           }
         } else {
           // Pour les autres providers, vérifier la clé API
-          console.log(`🔍 Logique pour ${provider.name}:`, {
-            has_api_key: provider.has_api_key,
-            is_functional: provider.is_functional,
-            status: provider.status,
-            condition1: !provider.api_key || provider.api_key.trim() === '',
-            condition2: provider.is_functional && provider.status === 'valid',
-            condition3: provider.is_functional,
-            condition4: provider.has_api_key
-          });
-          
           if (!provider.has_api_key) {
             status = 'empty';
-            console.log(`  → ${provider.name} → empty (pas de clé API)`);
           } else if (provider.is_active) {
             // Si le provider est déjà actif, le garder actif
             status = 'active';
-            console.log(`  → ${provider.name} → active (déjà actif)`);
           } else if (provider.is_functional && provider.status === 'valid') {
             status = 'active';
-            console.log(`  → ${provider.name} → active (fonctionnel + valid)`);
           } else if (provider.is_functional) {
             status = 'functional';
-            console.log(`  → ${provider.name} → functional (fonctionnel)`);
           } else if (provider.has_api_key) {
             // Si une clé API est configurée mais pas testée
             status = 'pending';
-            console.log(`  → ${provider.name} → pending (clé API mais pas testé)`);
           } else {
             status = 'invalid';
             errorMessage = 'Clé API invalide ou service non accessible.';
-            console.log(`  → ${provider.name} → invalid (échec)`);
           }
         }
 
@@ -152,31 +119,18 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
         let apiKey = '';
         if (provider.has_api_key && provider.name.toLowerCase() !== 'ollama') {
           try {
-            console.log(`🔑 [${provider.name}] Tentative de récupération de la clé API...`);
             const keyResponse = await ConfigService.getAPIKey(provider.name);
-            console.log(`🔑 [${provider.name}] Réponse complète:`, {
-              success: keyResponse.success,
-              hasData: !!keyResponse.data,
-              providerInData: keyResponse.data?.provider,
-              keyLength: keyResponse.data?.key?.length || 0
-            });
             
             if (keyResponse.success && keyResponse.data && keyResponse.data.provider === provider.name) {
               apiKey = keyResponse.data.key || '';
-              console.log(`🔑 [${provider.name}] Clé API récupérée: ${apiKey ? 'OUI' : 'NON'}`);
-            } else {
-              console.warn(`🔑 [${provider.name}] Échec de récupération:`, {
-                success: keyResponse.success,
-                message: keyResponse.message,
-                providerInData: keyResponse.data?.provider,
-                expectedProvider: provider.name
-              });
             }
           } catch (error) {
-            console.warn(`🔑 [${provider.name}] Erreur lors de la récupération:`, error);
+            logService.warning(`Erreur récupération clé API ${provider.name}`, 'ConfigWindow', { 
+              error: error.message, 
+              provider: provider.name,
+              timestamp: new Date().toISOString()
+            });
           }
-        } else {
-          console.log(`🔑 [${provider.name}] Pas de récupération: has_api_key=${provider.has_api_key}, is_ollama=${provider.name.toLowerCase() === 'ollama'}`);
         }
 
         return {
@@ -201,16 +155,12 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
 
   // Gérer le changement de clé API
   const handleApiKeyChange = (providerName: string, value: string) => {
-    console.log(`🔧 [FRONTEND] Changement clé API pour ${providerName}`);
-    
-    // Afficher la valeur masquée pour le debug (seulement si elle n'est pas vide)
-    if (value.length > 0) {
-      const maskedLength = Math.max(0, Math.min(value.length - 8, 20));
-      const maskedValue = '*'.repeat(maskedLength) + value.slice(-8);
-      console.log(`🔧 [FRONTEND] Nouvelle valeur (masquée): ${maskedValue}`);
-    } else {
-      console.log(`🔧 [FRONTEND] Nouvelle valeur: (vide)`);
-    }
+    logService.info('Changement de clé API', 'ConfigWindow', {
+      provider: providerName,
+      hasValue: !!value,
+      valueLength: value.length,
+      timestamp: new Date().toISOString()
+    });
     
     // Nettoyer la valeur (supprimer les espaces en début/fin)
     const cleanedValue = value.trim();
@@ -236,14 +186,23 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
       const provider = providers.find(p => p.name === providerName);
       if (!provider) return;
 
+      logService.info('Test de provider démarré', 'ConfigWindow', {
+        provider: providerName,
+        hasApiKey: providerName.toLowerCase() !== 'ollama' ? !!provider.apiKey : 'N/A',
+        timestamp: new Date().toISOString()
+      });
+
       let result;
       if (providerName.toLowerCase() === 'ollama') {
         // Test Ollama sans clé API
         result = await ConfigService.testProvider(providerName);
       } else {
         // Test avec la clé API fournie
-        console.log(`🧪 Test de ${providerName} avec clé API: ${provider.apiKey ? 'PRÉSENTE' : 'ABSENTE'}`);
         if (!provider.apiKey || provider.apiKey.trim() === '') {
+          logService.warning('Test impossible - clé API manquante', 'ConfigWindow', {
+            provider: providerName,
+            timestamp: new Date().toISOString()
+          });
           setError(`Veuillez saisir une clé API pour ${getProviderDisplayName(providerName)}`);
           return;
         }
@@ -252,6 +211,11 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
       }
 
       if (result.success) {
+        logService.info('Test de provider réussi', 'ConfigWindow', {
+          provider: providerName,
+          timestamp: new Date().toISOString()
+        });
+
         // Sauvegarder la clé API si le test réussit
         if (providerName.toLowerCase() !== 'ollama' && provider.apiKey.trim()) {
           await ConfigService.saveAPIKey(providerName, provider.apiKey);
@@ -270,6 +234,11 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
         // Recharger tous les providers pour obtenir les statuts mis à jour
         await refreshAIProviders();
       } else {
+        logService.warning('Test de provider échoué', 'ConfigWindow', {
+          provider: providerName,
+          error: result.message,
+          timestamp: new Date().toISOString()
+        });
         setError(`Test échoué pour ${getProviderDisplayName(providerName)}: ${result.message}`);
       }
     } catch (error) {
@@ -349,11 +318,25 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
       const activeProviders = providers.filter(p => p.status === 'active');
       const currentPriority = provider.priority;
       
+      logService.info('Changement de priorité provider', 'ConfigWindow', {
+        provider: providerName,
+        oldPriority: currentPriority,
+        newPriority: newPriority,
+        timestamp: new Date().toISOString()
+      });
+      
       // Vérifier s'il y a un conflit de priorité
       const existingProvider = activeProviders.find(p => p.name !== providerName && p.priority === newPriority);
       
       if (existingProvider) {
         // Échanger les priorités automatiquement
+        logService.info('Échange automatique de priorités', 'ConfigWindow', {
+          provider1: providerName,
+          provider2: existingProvider.name,
+          priority1: currentPriority,
+          priority2: newPriority,
+          timestamp: new Date().toISOString()
+        });
         await ConfigService.setProviderPriority(existingProvider.name, currentPriority);
         await ConfigService.setProviderPriority(providerName, newPriority);
       } else {
@@ -364,7 +347,13 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
       // Recharger les providers
       await refreshAIProviders();
     } catch (error) {
-      logService.error(`Erreur changement priorité ${providerName}`, 'ConfigWindow', { error: error.message, provider: providerName });
+      logService.error(`Erreur changement priorité ${providerName}`, 'ConfigWindow', { 
+        error: error.message, 
+        provider: providerName,
+        oldPriority: provider?.priority,
+        newPriority: newPriority,
+        timestamp: new Date().toISOString()
+      });
       setError(`Erreur lors du changement de priorité de ${getProviderDisplayName(providerName)}`);
     }
   };
@@ -1042,7 +1031,7 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
 
 const ConfigWindow: React.FC<ConfigWindowProps> = ({ onClose, onMinimize }) => {
   const { colors } = useColors();
-  const { isOnline } = useBackendStatus();
+  const { isOnline, canMakeRequests } = useBackendConnection();
   const { getActiveProviders, isInitialized } = useConfigStore();
   
   // Obtenir les providers actifs pour l'indicateur
@@ -1077,7 +1066,7 @@ const ConfigWindow: React.FC<ConfigWindowProps> = ({ onClose, onMinimize }) => {
                  Validation des clés et gestion des priorités
                </p>
              </div>
-                           {isInitialized && isOnline && activeProviders.length > 0 && (
+                           {isInitialized && canMakeRequests && activeProviders.length > 0 && (
                 <span 
                   className="text-xs font-bold"
                   style={{ 

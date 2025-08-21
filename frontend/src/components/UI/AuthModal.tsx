@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { XMarkIcon, LockClosedIcon } from '@heroicons/react/24/outline';
 import { authService, AuthCredentials } from '../../services/authService';
+import { logService } from '../../services/logService';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -21,16 +22,35 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => 
     setIsLoading(true);
     setError(null);
 
+    logService.info('Tentative d\'authentification', 'AuthModal', {
+      username: credentials.username,
+      timestamp: new Date().toISOString()
+    });
+
     try {
       const response = await authService.authenticate(credentials);
 
       if (response.success) {
+        logService.info('Authentification réussie', 'AuthModal', {
+          username: credentials.username,
+          timestamp: new Date().toISOString()
+        });
         onSuccess();
         onClose();
       } else {
+        logService.warning('Échec de l\'authentification', 'AuthModal', {
+          username: credentials.username,
+          error: response.message,
+          timestamp: new Date().toISOString()
+        });
         setError(response.message || 'Échec de l\'authentification');
       }
     } catch (error) {
+      logService.error('Erreur de connexion lors de l\'authentification', 'AuthModal', {
+        username: credentials.username,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      });
       setError('Erreur de connexion');
     } finally {
       setIsLoading(false);

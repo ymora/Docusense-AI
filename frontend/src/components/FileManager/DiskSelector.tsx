@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { FolderIcon } from '@heroicons/react/24/outline';
 import { useColors } from '../../hooks/useColors';
+import { useFileService } from '../../services/fileService';
+import { logService } from '../../services/logService';
 
 interface DiskSelectorProps {
   onDiskSelect: (disk: string) => void;
@@ -9,6 +11,7 @@ interface DiskSelectorProps {
 
 const DiskSelector: React.FC<DiskSelectorProps> = ({ onDiskSelect, currentDisk }) => {
   const { colors } = useColors();
+  const fileService = useFileService();
   const [isOpen, setIsOpen] = useState(false);
   const [availableDisks, setAvailableDisks] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -19,19 +22,35 @@ const DiskSelector: React.FC<DiskSelectorProps> = ({ onDiskSelect, currentDisk }
     const fetchDisks = async () => {
       try {
         setIsLoading(true);
-        const response = await fetch('/api/files/drives');
-        const data = await response.json();
-        const disks = data.drives || [];
+        logService.info('Chargement des disques disponibles', 'DiskSelector', {
+          timestamp: new Date().toISOString()
+        });
+        
+        const disks = await fileService.getDrives();
         setAvailableDisks(disks);
+        
+        logService.info('Disques chargés avec succès', 'DiskSelector', {
+          availableDisks: disks,
+          count: disks.length,
+          timestamp: new Date().toISOString()
+        });
         
         // Sélection automatique : D si disponible, sinon C
         if (disks.length > 0) {
           const preferredDisk = disks.find(disk => disk === 'D:') || disks.find(disk => disk === 'C:') || disks[0];
           if (preferredDisk && !currentDisk) {
+            logService.info('Sélection automatique du disque', 'DiskSelector', {
+              selectedDisk: preferredDisk,
+              timestamp: new Date().toISOString()
+            });
             onDiskSelect(preferredDisk);
           }
         }
       } catch (error) {
+        logService.error('Erreur lors du chargement des disques', 'DiskSelector', {
+          error: error.message,
+          timestamp: new Date().toISOString()
+        });
         console.error('Erreur lors du chargement des disques:', error);
         setAvailableDisks([]);
       } finally {
@@ -40,7 +59,7 @@ const DiskSelector: React.FC<DiskSelectorProps> = ({ onDiskSelect, currentDisk }
     };
 
     fetchDisks();
-  }, [currentDisk, onDiskSelect]);
+  }, [currentDisk, onDiskSelect, fileService]);
 
   // Fermer le menu si clic à l'extérieur
   useEffect(() => {
@@ -60,6 +79,11 @@ const DiskSelector: React.FC<DiskSelectorProps> = ({ onDiskSelect, currentDisk }
   }, [isOpen]);
 
   const handleDiskSelect = (disk: string) => {
+    logService.info('Sélection manuelle d\'un disque', 'DiskSelector', {
+      selectedDisk: disk,
+      previousDisk: currentDisk,
+      timestamp: new Date().toISOString()
+    });
     onDiskSelect(disk);
     setIsOpen(false);
   };

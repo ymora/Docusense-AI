@@ -1,92 +1,96 @@
-import { apiRequest, handleApiError } from '../utils/apiUtils';
-import { File } from '../stores/fileStore';
+import { useBackendConnection } from '../hooks/useBackendConnection';
+import { logService } from './logService';
 
-export interface FileListResponse {
-  files: File[];
-  total: number;
-  limit: number;
-  offset: number;
-}
-
-export const fileService = {
-  // Récupérer un fichier par ID (depuis la liste du répertoire)
-  async getFileById(fileId: number): Promise<File> {
-    try {
-      // Utiliser directement la liste du répertoire
-      const currentDir = "C:/Users/ymora/Desktop/Docusense AI";
-      const response = await apiRequest(`/api/files/list/${encodeURIComponent(currentDir)}`, {
-        method: 'GET'
-      });
-      
-      const files = response.files || [];
-      const file = files.find((f: any) => f.id === fileId);
-      
-      if (!file) {
-        throw new Error(`Fichier avec l'ID ${fileId} non trouvé`);
-      }
-      
-      return file;
-    } catch (error) {
-      console.error(`Erreur lors de la récupération du fichier ${fileId}:`, error);
-      throw new Error(`Impossible de récupérer le fichier: ${handleApiError(error)}`);
-    }
+// Service de base pour les fichiers
+const baseFileService = {
+  async getDrives() {
+    const response = await fetch('/api/files/drives');
+    const data = await response.json();
+    return data.drives || [];
   },
 
-  // Récupérer la liste des fichiers avec filtres
-  async getFiles(params: {
-    directory?: string;
-    status?: string;
-    selected_only?: boolean;
-    search?: string;
-    limit?: number;
-    offset?: number;
-  } = {}): Promise<FileListResponse> {
-    try {
-      const queryParams = new URLSearchParams();
-      
-      if (params.directory) queryParams.append('directory', params.directory);
-      if (params.status) queryParams.append('status', params.status);
-      if (params.selected_only) queryParams.append('selected_only', 'true');
-      if (params.search) queryParams.append('search', params.search);
-      if (params.limit) queryParams.append('limit', params.limit.toString());
-      if (params.offset) queryParams.append('offset', params.offset.toString());
-      
-      const url = `/api/files/${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
-      const response = await apiRequest(url, {
-        method: 'GET'
-      });
-      
-      return response;
-    } catch (error) {
-      console.error('Erreur lors de la récupération des fichiers:', error);
-      throw new Error(`Impossible de récupérer les fichiers: ${handleApiError(error)}`);
-    }
+  async listDirectory(directory: string) {
+    const encodedDirectory = encodeURIComponent(directory);
+    const response = await fetch(`/api/files/list/${encodedDirectory}`);
+    return await response.json();
   },
 
-  // Rechercher un fichier par chemin
-  async searchFileByPath(filePath: string): Promise<File | null> {
-    try {
-      const response = await this.getFiles({ search: filePath, limit: 1 });
-      return response.files.length > 0 ? response.files[0] : null;
-    } catch (error) {
-      console.error('Erreur lors de la recherche du fichier par chemin:', error);
-      return null;
-    }
+  async analyzeDirectory(directoryPath: string) {
+    const response = await fetch(`/api/files/analyze-directory`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ directory_path: directoryPath })
+    });
+    return await response.json();
   },
 
-  // Récupérer tous les fichiers (pour la recherche par index)
-  async getAllFiles(): Promise<File[]> {
-    try {
-      // Utiliser la liste du répertoire au lieu de la base de données
-      const currentDir = "C:/Users/ymora/Desktop/Docusense AI";
-      const response = await apiRequest(`/api/files/list/${encodeURIComponent(currentDir)}`, {
-        method: 'GET'
-      });
-      
-      return response.files || [];
-    } catch (error) {
-      console.error('Erreur lors de la récupération de tous les fichiers:', error);
-      return [];
-    }
+  async analyzeDirectorySupported(directoryPath: string) {
+    const response = await fetch(`/api/files/analyze-directory-supported`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ directory_path: directoryPath })
+    });
+    return await response.json();
+  },
+
+  async getDirectoryFiles(directoryPath: string) {
+    const response = await fetch(`/api/files/directory-files/${encodeURIComponent(directoryPath)}`);
+    return await response.json();
+  },
+
+  async streamByPath(path: string) {
+    const encodedPath = encodeURIComponent(path);
+    const response = await fetch(`/api/files/stream-by-path/${encodedPath}`);
+    return response;
+  },
+
+  async downloadFile(downloadUrl: string) {
+    const response = await fetch(downloadUrl);
+    return response;
   }
 };
+
+// Hook pour utiliser le service avec guards de connexion
+export const useFileService = () => {
+  const { conditionalRequest } = useBackendConnection();
+
+  return {
+    getDrives: () => conditionalRequest(
+      () => baseFileService.getDrives(),
+      [] // Fallback: liste vide
+    ),
+
+    listDirectory: (directory: string) => conditionalRequest(
+      () => baseFileService.listDirectory(directory),
+      { files: [], directories: [], error: 'Backend déconnecté' }
+    ),
+
+    analyzeDirectory: (directoryPath: string) => conditionalRequest(
+      () => baseFileService.analyzeDirectory(directoryPath),
+      { success: false, error: 'Backend déconnecté' }
+    ),
+
+    analyzeDirectorySupported: (directoryPath: string) => conditionalRequest(
+      () => baseFileService.analyzeDirectorySupported(directoryPath),
+      { success: false, error: 'Backend déconnecté' }
+    ),
+
+    getDirectoryFiles: (directoryPath: string) => conditionalRequest(
+      () => baseFileService.getDirectoryFiles(directoryPath),
+      { files: [], error: 'Backend déconnecté' }
+    ),
+
+    streamByPath: (path: string) => conditionalRequest(
+      () => baseFileService.streamByPath(path),
+      null
+    ),
+
+    downloadFile: (downloadUrl: string) => conditionalRequest(
+      () => baseFileService.downloadFile(downloadUrl),
+      null
+    )
+  };
+};
+
+// Export du service de base pour compatibilité
+export const fileService = baseFileService;

@@ -1,5 +1,6 @@
 
 import { apiRequest } from '../utils/apiUtils';
+import { logService } from './logService';
 
 export interface AuthCredentials {
   username: string;
@@ -38,6 +39,11 @@ class AuthService {
   // Authentifier l'utilisateur
   async authenticate(credentials: AuthCredentials): Promise<AuthResponse> {
     try {
+      logService.info('Tentative d\'authentification', 'AuthService', {
+        username: credentials.username,
+        timestamp: new Date().toISOString()
+      });
+
       const data = await apiRequest('/api/auth/login', {
         method: 'POST',
         body: JSON.stringify({
@@ -53,17 +59,34 @@ class AuthService {
         // Stocker le token dans le localStorage pour la persistance
         localStorage.setItem('session_token', this.token);
 
+        logService.info('Authentification réussie', 'AuthService', {
+          username: credentials.username,
+          timestamp: new Date().toISOString()
+        });
+
         return {
           success: true,
           token: this.token,
         };
       } else {
+        logService.warning('Échec de l\'authentification', 'AuthService', {
+          username: credentials.username,
+          error: data.detail || 'Échec de l\'authentification',
+          timestamp: new Date().toISOString()
+        });
+
         return {
           success: false,
           message: data.detail || 'Échec de l\'authentification',
         };
       }
     } catch (error) {
+      logService.error('Erreur de connexion lors de l\'authentification', 'AuthService', {
+        username: credentials.username,
+        error: error instanceof Error ? error.message : String(error),
+        timestamp: new Date().toISOString()
+      });
+
       return {
         success: false,
         message: 'Erreur de connexion au serveur',

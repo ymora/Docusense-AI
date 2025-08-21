@@ -39,11 +39,7 @@ export const apiRequest = async (url: string, options?: RequestInit, timeout: nu
   const authStore = JSON.parse(localStorage.getItem('auth-storage') || '{}');
   const accessToken = authStore.state?.accessToken;
 
-  // Debug: Afficher les informations d'authentification
-  console.log('[apiRequest] URL:', fullUrl);
-  console.log('[apiRequest] Original URL:', url);
-  console.log('[apiRequest] Token présent:', !!accessToken);
-  console.log('[apiRequest] Auth store:', authStore);
+
 
   try {
     const headers = {
@@ -66,9 +62,6 @@ export const apiRequest = async (url: string, options?: RequestInit, timeout: nu
 
     if (!response.ok) {
       // Debug: Afficher plus d'informations sur l'erreur
-      console.error('[apiRequest] Erreur HTTP:', response.status, response.statusText);
-      console.error('[apiRequest] URL:', fullUrl);
-      console.error('[apiRequest] Headers envoyés:', headers);
       
       // Essayer de récupérer le détail de l'erreur
       let errorDetail = response.statusText;

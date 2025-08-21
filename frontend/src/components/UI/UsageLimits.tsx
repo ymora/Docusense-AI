@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useColors } from '../../hooks/useColors';
 import useAuthStore from '../../stores/authStore';
+import { useAuthUsageService } from '../../services/authUsageService';
 import { 
   ExclamationTriangleIcon,
   ClockIcon,
@@ -23,6 +24,7 @@ interface FeatureUsage {
 export const UsageLimits: React.FC<UsageLimitsProps> = ({ className = '' }) => {
   const { colors } = useColors();
   const { user, isGuest } = useAuthStore();
+  const authUsageService = useAuthUsageService();
 
   // Si ce n'est pas un invité, ne pas afficher
   if (!isGuest()) {
@@ -43,22 +45,19 @@ export const UsageLimits: React.FC<UsageLimitsProps> = ({ className = '' }) => {
   useEffect(() => {
     const fetchUsageStats = async () => {
       try {
-        const response = await fetch('/api/auth/guest-usage');
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success && data.data) {
-            setTotalUsage(data.data.total_usage || 0);
-            setRemainingGlobal(data.data.remaining_global || 25);
-            
-            // Mettre à jour les données par fonctionnalité
-            const features = data.data.features || {};
-            setUsageData({
-              file_browsing: features.file_browsing || { used: 0, remaining: 5, limit: 5 },
-              file_viewing: features.file_viewing || { used: 0, remaining: 5, limit: 5 },
-              analysis_viewing: features.analysis_viewing || { used: 0, remaining: 5, limit: 5 },
-              multimedia_viewing: features.multimedia_viewing || { used: 0, remaining: 5, limit: 5 }
-            });
-          }
+        const data = await authUsageService.getGuestUsage();
+        if (data && data.success && data.data) {
+          setTotalUsage(data.data.total_usage || 0);
+          setRemainingGlobal(data.data.remaining_global || 25);
+          
+          // Mettre à jour les données par fonctionnalité
+          const features = data.data.features || {};
+          setUsageData({
+            file_browsing: features.file_browsing || { used: 0, remaining: 5, limit: 5 },
+            file_viewing: features.file_viewing || { used: 0, remaining: 5, limit: 5 },
+            analysis_viewing: features.analysis_viewing || { used: 0, remaining: 5, limit: 5 },
+            multimedia_viewing: features.multimedia_viewing || { used: 0, remaining: 5, limit: 5 }
+          });
         }
       } catch (error) {
         console.error('Erreur lors du chargement des statistiques:', error);
@@ -68,7 +67,7 @@ export const UsageLimits: React.FC<UsageLimitsProps> = ({ className = '' }) => {
     if (isGuest()) {
       fetchUsageStats();
     }
-  }, [isGuest]);
+  }, [isGuest, authUsageService]);
 
   const getFeatureIcon = (feature: string) => {
     switch (feature) {

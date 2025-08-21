@@ -12,7 +12,6 @@ import urllib.parse
 
 # Suppression de l'import security_manager - utilisation du système JWT
 from ..services.email_parser_service import EmailParserService
-from ..middleware.auth_middleware import AuthMiddleware
 from ..utils.api_utils import APIUtils, ResponseFormatter, FilePathValidator
 from ..models.user import User
 
@@ -42,7 +41,7 @@ class EmailContent(BaseModel):
 @APIUtils.handle_errors
 async def parse_email_file(
     file_path: str,
-    current_user: Optional[User] = Depends(AuthMiddleware.get_current_user_optional)
+    current_user: Optional[User] = None
 ):
     """
     Parse un fichier .eml et retourne son contenu structuré
@@ -107,7 +106,7 @@ async def parse_email_file(
 @APIUtils.handle_errors
 async def get_email_preview(
     file_path: str,
-    current_user: User = Depends(AuthMiddleware.get_current_user_jwt)
+    current_user: User = None
 ):
     """
     Retourne un aperçu rapide d'un fichier .eml
@@ -152,7 +151,7 @@ async def get_email_preview(
 async def download_email_attachment(
     file_path: str,
     attachment_index: int,
-    current_user: Optional[User] = Depends(AuthMiddleware.get_current_user_optional)
+    current_user: Optional[User] = None
 ):
     """
     Télécharge une pièce jointe d'un email
@@ -210,7 +209,7 @@ async def download_email_attachment(
 async def preview_email_attachment(
     file_path: str,
     attachment_index: int,
-    current_user: Optional[User] = Depends(AuthMiddleware.get_current_user_optional)
+    current_user: Optional[User] = None
 ):
     """
     Préviseualise une pièce jointe d'un email (pour consultation directe)

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useColors } from '../../hooks/useColors';
+import { logService } from '../../services/logService';
 import {
   MagnifyingGlassMinusIcon,
   MagnifyingGlassPlusIcon,
@@ -36,6 +37,13 @@ const UnifiedFileViewer: React.FC<UnifiedFileViewerProps> = ({ file, onClose, on
 
   const handleDownload = () => {
     try {
+      logService.info('Téléchargement de fichier démarré', 'UnifiedFileViewer', {
+        fileName: file.name,
+        filePath: file.path,
+        fileType: file.mime_type,
+        timestamp: new Date().toISOString()
+      });
+
       const link = document.createElement('a');
       link.href = `/api/files/download-by-path/${encodeURIComponent(file.path)}`;
       link.download = file.name;
@@ -49,8 +57,18 @@ const UnifiedFileViewer: React.FC<UnifiedFileViewerProps> = ({ file, onClose, on
       link.click();
       document.body.removeChild(link);
       
+      logService.info('Téléchargement de fichier terminé', 'UnifiedFileViewer', {
+        fileName: file.name,
+        timestamp: new Date().toISOString()
+      });
 
     } catch (error) {
+      logService.error('Erreur lors du téléchargement de fichier', 'UnifiedFileViewer', {
+        fileName: file.name,
+        filePath: file.path,
+        error: error.message,
+        timestamp: new Date().toISOString()
+      });
       console.error('❌ Erreur lors du téléchargement:', error);
       setError('Erreur lors du téléchargement du fichier');
     }
@@ -59,14 +77,34 @@ const UnifiedFileViewer: React.FC<UnifiedFileViewerProps> = ({ file, onClose, on
 
 
   const handleZoomIn = () => {
-    setZoom(prev => Math.min(prev + 0.25, 3));
+    const newZoom = Math.min(zoom + 0.25, 3);
+    logService.info('Zoom avant', 'UnifiedFileViewer', {
+      fileName: file.name,
+      oldZoom: zoom,
+      newZoom: newZoom,
+      timestamp: new Date().toISOString()
+    });
+    setZoom(newZoom);
   };
 
   const handleZoomOut = () => {
-    setZoom(prev => Math.max(prev - 0.25, 0.25));
+    const newZoom = Math.max(zoom - 0.25, 0.25);
+    logService.info('Zoom arrière', 'UnifiedFileViewer', {
+      fileName: file.name,
+      oldZoom: zoom,
+      newZoom: newZoom,
+      timestamp: new Date().toISOString()
+    });
+    setZoom(newZoom);
   };
 
   const resetZoom = () => {
+    logService.info('Reset zoom', 'UnifiedFileViewer', {
+      fileName: file.name,
+      oldZoom: zoom,
+      newZoom: 1,
+      timestamp: new Date().toISOString()
+    });
     setZoom(1);
   };
 

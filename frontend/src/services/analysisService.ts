@@ -1,6 +1,7 @@
 
 import { apiRequest, handleApiError } from '../utils/apiUtils';
 import { logService } from './logService';
+import { useBackendConnection } from '../hooks/useBackendConnection';
 
 const DEFAULT_TIMEOUT = 30000; // 30 secondes
 
@@ -61,7 +62,8 @@ export interface CreateAnalysisResponse {
   message: string;
 }
 
-export const analysisService = {
+// Service de base sans vérification de connexion
+const baseAnalysisService = {
   // Récupérer la liste des analyses avec tri et filtrage
   async getAnalysesList(params: AnalysisListParams = {}): Promise<AnalysisListResponse> {
     try {
@@ -79,6 +81,11 @@ export const analysisService = {
   
       const response = await apiRequest(url, {}, DEFAULT_TIMEOUT);
       
+      logService.info('Liste des analyses récupérée', 'AnalysisService', {
+        count: response.data?.length || 0,
+        filters: params,
+        timestamp: new Date().toISOString()
+      });
       
       // Adapter la réponse de l'API au format attendu par le frontend
       const adaptedResponse: AnalysisListResponse = {
@@ -90,159 +97,168 @@ export const analysisService = {
         sort_order: response.sort_order || 'desc'
       };
       
-      
       return adaptedResponse;
     } catch (error) {
-      console.error('❌ AnalysisService: Erreur lors de la récupération des analyses:', error);
+      logService.error('Erreur lors de la récupération des analyses', 'AnalysisService', {
+        error: handleApiError(error),
+        filters: params,
+        timestamp: new Date().toISOString()
+      });
       throw new Error(`Erreur lors de la récupération des analyses: ${handleApiError(error)}`);
     }
   },
 
-  // Créer une analyse en attente
-  async createPendingAnalysis(request: CreateAnalysisRequest): Promise<CreateAnalysisResponse> {
+  // Créer une nouvelle analyse
+  async createAnalysis(request: CreateAnalysisRequest): Promise<CreateAnalysisResponse> {
     try {
-      logService.info('Création d\'une analyse en attente', 'AnalysisService', { 
-        filePath: request.file_path,
-        analysisType: request.analysis_type,
-        provider: request.provider
-      });
-  
-      const response = await apiRequest('/api/analysis/create-pending', {
+      const response = await apiRequest('/api/analysis/create', {
         method: 'POST',
-        body: JSON.stringify({
-          ...request,
-          status: 'pending'
-        })
-      }, DEFAULT_TIMEOUT);
-      
-      logService.info('Analyse en attente créée avec succès', 'AnalysisService', { 
-        analysisId: response.data.analysis_id,
-        filePath: request.file_path
-      });
-      
-      return response.data as CreateAnalysisResponse;
-    } catch (error) {
-      logService.error('Erreur lors de la création de l\'analyse en attente', 'AnalysisService', { 
+        body: JSON.stringify(request),
+      }, DEFAULT_TIMEOUT) as any;
+
+      logService.info('Analyse créée', 'AnalysisService', {
+        analysisId: response.analysis_id,
+        fileId: request.file_id,
         filePath: request.file_path,
-        error: error.message 
+        promptId: request.prompt_id,
+        timestamp: new Date().toISOString()
+      });
+
+      return {
+        analysis_id: response.analysis_id,
+        status: response.status,
+        message: response.message
+      };
+    } catch (error) {
+      logService.error('Erreur lors de la création de l\'analyse', 'AnalysisService', {
+        error: handleApiError(error),
+        request,
+        timestamp: new Date().toISOString()
       });
       throw new Error(`Erreur lors de la création de l'analyse: ${handleApiError(error)}`);
     }
   },
 
-  // Créer plusieurs analyses en attente (batch)
-  async createPendingAnalyses(requests: CreateAnalysisRequest[]): Promise<CreateAnalysisResponse[]> {
+  // Démarrer une analyse
+  async startAnalysis(analysisId: string | number): Promise<void> {
     try {
-      const data = await apiRequest('/api/analysis/create-pending-batch', {
-        method: 'POST',
-        body: JSON.stringify({
-          analyses: requests.map(req => ({ ...req, status: 'pending' }))
-        })
-      }, DEFAULT_TIMEOUT);
-      
-      return data as CreateAnalysisResponse[];
-    } catch (error) {
-      throw new Error(`Erreur lors de la création des analyses: ${handleApiError(error)}`);
-    }
-  },
-
-  // Lancer une analyse en attente
-  async startAnalysis(analysisId: number): Promise<void> {
-    try {
-      logService.info('Démarrage de l\'analyse', 'AnalysisService', { analysisId });
-      
       await apiRequest(`/api/analysis/${analysisId}/start`, {
-        method: 'POST'
+        method: 'POST',
       }, DEFAULT_TIMEOUT);
-      
-      logService.info('Analyse démarrée avec succès', 'AnalysisService', { analysisId });
+
+      logService.info('Analyse démarrée', 'AnalysisService', {
+        analysisId,
+        timestamp: new Date().toISOString()
+      });
     } catch (error) {
-      logService.error('Erreur lors du lancement de l\'analyse', 'AnalysisService', { analysisId, error: error.message });
-      throw new Error(`Erreur lors du lancement de l'analyse: ${handleApiError(error)}`);
+      logService.error('Erreur lors du démarrage de l\'analyse', 'AnalysisService', {
+        error: handleApiError(error),
+        analysisId,
+        timestamp: new Date().toISOString()
+      });
+      throw new Error(`Erreur lors du démarrage de l'analyse: ${handleApiError(error)}`);
     }
   },
-
-
 
   // Supprimer une analyse
-  async deleteAnalysis(analysisId: number): Promise<void> {
+  async deleteAnalysis(analysisId: string | number): Promise<void> {
     try {
-      console.log(`🔍 Tentative de suppression de l'analyse ${analysisId}`);
-      const response = await apiRequest(`/api/analysis/${analysisId}`, {
-        method: 'DELETE'
+      await apiRequest(`/api/analysis/${analysisId}`, {
+        method: 'DELETE',
       }, DEFAULT_TIMEOUT);
-      console.log(`✅ Analyse ${analysisId} supprimée avec succès`);
+
+      logService.info('Analyse supprimée', 'AnalysisService', {
+        analysisId,
+        timestamp: new Date().toISOString()
+      });
     } catch (error) {
-      console.error(`❌ Erreur lors de la suppression de l'analyse ${analysisId}:`, error);
+      logService.error('Erreur lors de la suppression de l\'analyse', 'AnalysisService', {
+        error: handleApiError(error),
+        analysisId,
+        timestamp: new Date().toISOString()
+      });
       throw new Error(`Erreur lors de la suppression de l'analyse: ${handleApiError(error)}`);
     }
   },
 
-  // Relancer une analyse
-  async retryAnalysis(analysisId: number): Promise<void> {
+  // Supprimer plusieurs analyses
+  async deleteMultipleAnalyses(analysisIds: (string | number)[]): Promise<void> {
     try {
-      await apiRequest(`/api/analysis/${analysisId}/retry`, {
-        method: 'POST'
+      await apiRequest('/api/analysis/bulk-delete', {
+        method: 'DELETE',
+        body: JSON.stringify({ analysis_ids: analysisIds }),
       }, DEFAULT_TIMEOUT);
-    } catch (error) {
-      throw new Error(`Erreur lors de la relance de l'analyse: ${handleApiError(error)}`);
-    }
-  },
 
-  // Mettre à jour une analyse
-  async updateAnalysis(analysisId: number, updates: Partial<Analysis>): Promise<void> {
-    try {
-      await apiRequest(`/api/analysis/${analysisId}`, {
-        method: 'PUT',
-        body: JSON.stringify(updates)
-      }, DEFAULT_TIMEOUT);
-    } catch (error) {
-      throw new Error(`Erreur lors de la mise à jour de l'analyse: ${handleApiError(error)}`);
-    }
-  },
-
-  // Dupliquer une analyse (créer une nouvelle analyse en queue avec les mêmes données)
-  async duplicateAnalysis(analysisId: number): Promise<CreateAnalysisResponse> {
-    try {
-      logService.info('Duplication d\'une analyse', 'AnalysisService', { analysisId });
-      
-      // Récupérer d'abord l'analyse à dupliquer
-      const analysis = await this.getAnalysis(analysisId);
-      
-      // Créer une nouvelle analyse avec les mêmes paramètres mais statut "pending"
-      const duplicateRequest: CreateAnalysisRequest = {
-        file_id: analysis.file_info?.id,
-        file_path: analysis.file_info?.path,
-        prompt_id: analysis.prompt,
-        analysis_type: analysis.analysis_type,
-        custom_prompt: analysis.prompt,
-        status: 'pending'
-      };
-      
-      const response = await this.createPendingAnalysis(duplicateRequest);
-      
-      logService.info('Analyse dupliquée avec succès', 'AnalysisService', { 
-        originalAnalysisId: analysisId,
-        newAnalysisId: response.analysis_id
+      logService.info('Analyses supprimées en lot', 'AnalysisService', {
+        count: analysisIds.length,
+        analysisIds,
+        timestamp: new Date().toISOString()
       });
+    } catch (error) {
+      logService.error('Erreur lors de la suppression en lot', 'AnalysisService', {
+        error: handleApiError(error),
+        count: analysisIds.length,
+        analysisIds,
+        timestamp: new Date().toISOString()
+      });
+      throw new Error(`Erreur lors de la suppression en lot: ${handleApiError(error)}`);
+    }
+  },
+
+  // Obtenir les détails d'une analyse
+  async getAnalysisDetails(analysisId: string | number): Promise<Analysis> {
+    try {
+      const response = await apiRequest(`/api/analysis/${analysisId}`, {}, DEFAULT_TIMEOUT) as Analysis;
       
+      logService.info('Détails de l\'analyse récupérés', 'AnalysisService', {
+        analysisId,
+        status: response.status,
+        timestamp: new Date().toISOString()
+      });
+
       return response;
     } catch (error) {
-      logService.error('Erreur lors de la duplication de l\'analyse', 'AnalysisService', { 
-        analysisId, 
-        error: error.message 
+      logService.error('Erreur lors de la récupération des détails', 'AnalysisService', {
+        error: handleApiError(error),
+        analysisId,
+        timestamp: new Date().toISOString()
       });
-      throw new Error(`Erreur lors de la duplication de l'analyse: ${handleApiError(error)}`);
-    }
-  },
-
-  // Récupérer une analyse spécifique
-  async getAnalysis(analysisId: number): Promise<Analysis> {
-    try {
-      const response = await apiRequest(`/api/analysis/${analysisId}`, {}, DEFAULT_TIMEOUT);
-      return response.data as Analysis;
-    } catch (error) {
-      throw new Error(`Erreur lors de la récupération de l'analyse: ${handleApiError(error)}`);
+      throw new Error(`Erreur lors de la récupération des détails: ${handleApiError(error)}`);
     }
   }
-}; 
+};
+
+// Hook pour utiliser le service avec vérification de connexion
+export const useAnalysisService = () => {
+  const { conditionalRequest } = useBackendConnection();
+
+  return {
+    getAnalysesList: (params: AnalysisListParams = {}) => 
+      conditionalRequest(() => baseAnalysisService.getAnalysesList(params), {
+        analyses: [],
+        total: 0,
+        limit: 50,
+        offset: 0,
+        sort_by: 'created_at',
+        sort_order: 'desc'
+      }),
+
+    createAnalysis: (request: CreateAnalysisRequest) => 
+      conditionalRequest(() => baseAnalysisService.createAnalysis(request)),
+
+    startAnalysis: (analysisId: string | number) => 
+      conditionalRequest(() => baseAnalysisService.startAnalysis(analysisId)),
+
+    deleteAnalysis: (analysisId: string | number) => 
+      conditionalRequest(() => baseAnalysisService.deleteAnalysis(analysisId)),
+
+    deleteMultipleAnalyses: (analysisIds: (string | number)[]) => 
+      conditionalRequest(() => baseAnalysisService.deleteMultipleAnalyses(analysisIds)),
+
+    getAnalysisDetails: (analysisId: string | number) => 
+      conditionalRequest(() => baseAnalysisService.getAnalysisDetails(analysisId))
+  };
+};
+
+// Export du service de base pour compatibilité
+export const analysisService = baseAnalysisService; 
