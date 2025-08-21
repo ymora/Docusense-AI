@@ -44,13 +44,10 @@ def require_permission(permission: str, feature: Optional[str] = None):
             
             # Si pas trouvé, utiliser les dépendances FastAPI
             if not current_user:
-                try:
-                    current_user = await get_current_user(db=db)
-                except:
-                    raise HTTPException(
-                        status_code=status.HTTP_401_UNAUTHORIZED,
-                        detail="Authentification requise"
-                    )
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Authentification requise"
+                )
             
             # Vérifier la permission
             if not current_user.has_permission(permission):

@@ -24,7 +24,7 @@ export const apiRequest = async (url: string, options?: RequestInit, timeout: nu
   const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
 
   // Récupérer le token d'authentification depuis le localStorage
-  const authStore = JSON.parse(localStorage.getItem('auth-store') || '{}');
+  const authStore = JSON.parse(localStorage.getItem('auth-storage') || '{}');
   const accessToken = authStore.state?.accessToken;
 
   // Debug: Afficher les informations d'authentification

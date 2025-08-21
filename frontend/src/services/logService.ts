@@ -30,9 +30,31 @@ class LogService {
   private maxLogs = 1000;
   private backendLogs: LogEntry[] = [];
   private backendSSE: EventSource | null = null;
+  private storageKey = 'docusense-frontend-logs';
 
   constructor() {
+    this.loadPersistedLogs();
     this.initializeBackendLogs();
+  }
+
+  private loadPersistedLogs() {
+    try {
+      const persistedLogs = localStorage.getItem(this.storageKey);
+      if (persistedLogs) {
+        this.logs = JSON.parse(persistedLogs);
+        console.log(`📋 ${this.logs.length} logs frontend chargés depuis le localStorage`);
+      }
+    } catch (error) {
+      console.error('Erreur lors du chargement des logs persistés:', error);
+    }
+  }
+
+  private persistLogs() {
+    try {
+      localStorage.setItem(this.storageKey, JSON.stringify(this.logs));
+    } catch (error) {
+      console.error('Erreur lors de la persistance des logs:', error);
+    }
   }
 
   private initializeBackendLogs() {
@@ -231,6 +253,9 @@ class LogService {
     if (this.logs.length > this.maxLogs) {
       this.logs = this.logs.slice(0, this.maxLogs);
     }
+
+    // Persister les logs dans le localStorage
+    this.persistLogs();
 
     this.notifyListeners();
 

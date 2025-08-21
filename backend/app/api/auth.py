@@ -114,8 +114,8 @@ async def register(
         )
         
     except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
         )
 
@@ -256,23 +256,34 @@ async def get_current_user(
     """Récupérer l'utilisateur connecté (fonction utilitaire)"""
     auth_service = AuthService(db)
     
+    logger.info(f"🔐 Vérification du token: {credentials.credentials[:20]}...")
+        
     # Vérifier le token
     payload = auth_service.verify_token(credentials.credentials)
+    logger.info(f"🔐 Payload du token: {payload}")
+    
     if not payload or payload.get("type") != "access":
+        logger.error(f"❌ Token invalide - Payload: {payload}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token invalide"
         )
-    
+        
     # Récupérer l'utilisateur
     user_id = int(payload.get("sub"))
+    logger.info(f"🔐 User ID extrait: {user_id}")
+    
     user = auth_service.get_user_by_id(user_id)
+    logger.info(f"🔐 Utilisateur trouvé: {user.username if user else 'None'}")
+    
     if not user or not user.is_active:
+        logger.error(f"❌ Utilisateur non trouvé ou désactivé: {user_id}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Utilisateur non trouvé ou désactivé"
         )
     
+    logger.info(f"✅ Authentification réussie pour: {user.username}")
     return user
 
 @router.get("/me", response_model=UserInfo)

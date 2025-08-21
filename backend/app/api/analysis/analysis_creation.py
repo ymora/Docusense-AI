@@ -312,7 +312,7 @@ async def create_pending_analysis(
         provider=provider,
         model=model,
         custom_prompt=custom_prompt or "Analyse générale du document",
-        add_to_queue=False  # Don't add to queue yet, just create pending
+        start_processing=False  # Don't start processing immediately
     )
     
     # Store prompt information in metadata

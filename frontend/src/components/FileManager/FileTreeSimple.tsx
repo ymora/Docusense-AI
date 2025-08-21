@@ -4,7 +4,7 @@ import { useColors } from '../../hooks/useColors';
 import { useBackendStatus } from '../../hooks/useBackendStatus';
 import { isSupportedFormat } from '../../utils/mediaFormats';
 import { useUIStore } from '../../stores/uiStore';
-import { useAnalysisStore } from '../../stores/analysisStore';
+import { analysisService } from '../../services/analysisService';
 import { logService } from '../../services/logService';
 
 interface FileTreeSimpleProps {
@@ -22,7 +22,6 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
 }) => {
   const { colors } = useColors();
   const { setActivePanel } = useUIStore();
-  const { createAnalysis } = useAnalysisStore();
   const { isOnline } = useBackendStatus();
   const [directoryData, setDirectoryData] = useState<any>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
@@ -178,12 +177,11 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
       console.log('📝 Création d\'analyse pour:', file.name);
       
       // Créer l'analyse via le service avec mode priorité
-      await createAnalysis({
-        file_id: file.id,
+      await analysisService.createPendingAnalysis({
+        file_path: file.path,  // Utiliser le chemin au lieu de l'ID
         analysis_type: 'general',
-        provider: 'priority_mode',
-        model: 'auto',
-        start_processing: true
+        custom_prompt: 'Analyse générale du document',
+        status: 'pending'
       });
       
       logService.info('Analyse créée avec succès', 'FileTreeSimple', {
@@ -202,7 +200,7 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
       });
       console.error('❌ Erreur lors de la création d\'analyse:', error);
     }
-  }, [setActivePanel, createAnalysis]);
+  }, [setActivePanel]);
 
   // Visualiser un fichier
   const handleViewFile = useCallback((file: any, e: React.MouseEvent) => {

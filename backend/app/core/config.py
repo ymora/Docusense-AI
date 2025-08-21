@@ -31,7 +31,7 @@ class Settings(BaseSettings):
 
     # Security - OPTIMISATION: Valeurs par défaut plus sécurisées
     secret_key: str = Field(
-        default_factory=lambda: secrets.token_urlsafe(32),
+        default="docusense-secret-key-2024-change-in-production",
         env="SECRET_KEY"
     )
     algorithm: str = "HS256"

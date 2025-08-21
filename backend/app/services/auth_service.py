@@ -42,13 +42,19 @@ class AuthService:
     def verify_token(self, token: str) -> Optional[Dict[str, Any]]:
         """Vérifier et décoder un token JWT"""
         try:
+            logger.info(f"🔐 Tentative de décodage du token: {token[:20]}...")
+            logger.info(f"🔐 Secret key utilisé: {self.secret_key[:10]}...")
             payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
+            logger.info(f"✅ Token décodé avec succès: {payload}")
             return payload
         except jwt.ExpiredSignatureError:
-            logger.warning("Token expiré")
+            logger.error("❌ Token expiré")
             return None
-        except jwt.JWTError:
-            logger.warning("Token invalide")
+        except jwt.InvalidTokenError as e:
+            logger.error(f"❌ Token invalide: {str(e)}")
+            return None
+        except Exception as e:
+            logger.error(f"❌ Erreur inattendue lors de la vérification du token: {str(e)}")
             return None
     
     def create_guest_user(self) -> User:
