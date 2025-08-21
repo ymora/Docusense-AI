@@ -53,9 +53,20 @@ class PDFGeneratorService(BaseService):
             self.logger.info(f"PDF already exists for analysis {analysis_id}: {analysis.pdf_path}")
             return analysis.pdf_path
 
-        # Generate PDF filename
-        pdf_filename = f"analysis_{analysis_id}_{file.name}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
-        pdf_path = self.analyses_dir / pdf_filename
+        # Generate PDF filename with format: nom_original_IA_JJMMAA_01
+        file_name_without_ext = Path(file.name).stem
+        current_date = datetime.now().strftime('%d%m%y')
+        
+        # Find the next available number for this file on this date
+        counter = 1
+        while True:
+            pdf_filename = f"{file_name_without_ext}_IA_{current_date}_{counter:02d}.pdf"
+            pdf_path = self.analyses_dir / pdf_filename
+            if not pdf_path.exists():
+                break
+            counter += 1
+        
+        self.logger.info(f"Generated PDF filename: {pdf_filename} for analysis {analysis_id}")
 
         try:
             # Generate PDF content

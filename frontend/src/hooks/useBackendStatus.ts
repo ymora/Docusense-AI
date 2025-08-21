@@ -31,9 +31,9 @@ export const useBackendStatus = (checkInterval: number = 60000) => { // OPTIMISA
     const startTime = Date.now();
 
     try {
-      const response = await apiRequest('/api/health', {
+      const response = await apiRequest('/health', {
         method: 'GET',
-      }, 5000); // Timeout de 5 secondes
+      }, 5000);
 
       const endTime = Date.now();
       const responseTime = endTime - startTime;

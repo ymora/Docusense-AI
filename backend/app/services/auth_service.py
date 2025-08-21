@@ -45,7 +45,7 @@ class AuthService:
             logger.info(f"🔐 Tentative de décodage du token: {token[:20]}...")
             logger.info(f"🔐 Secret key utilisé: {self.secret_key[:10]}...")
             payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
-            logger.info(f"✅ Token décodé avec succès: {payload}")
+            logger.info(f"[SUCCESS] Token décodé avec succès: {payload}")
             return payload
         except jwt.ExpiredSignatureError:
             logger.error("❌ Token expiré")

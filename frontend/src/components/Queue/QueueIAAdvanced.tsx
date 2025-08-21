@@ -15,10 +15,16 @@ import {
   DocumentDuplicateIcon, 
   Squares2X2Icon, 
   TrashIcon,
-  FunnelIcon
+  FunnelIcon,
+  PlayIcon,
+  PauseIcon,
+  CheckIcon,
+  ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import { UnifiedTable } from '../UI/UnifiedTable';
 import { Prompt } from '../../services/promptService';
+import { getStatusIcon, getStatusText } from '../../utils/statusUtils';
+import { useBackendStatus } from '../../hooks/useBackendStatus';
 
 interface TableColumn<T> {
   key: string;
@@ -37,6 +43,7 @@ interface QueueTableProps {
   onProviderChange: (itemId: string, provider: string) => void;
   localSelections: { [itemId: string]: { provider?: string; prompt?: string } };
   textColors: any;
+  emptyMessage?: React.ReactNode;
 }
 
 interface QueueFiltersProps {
@@ -147,17 +154,6 @@ const ConfigurationCompact: React.FC<{
 
 // Composant d'affichage du statut
 const StatusDisplay: React.FC<{ item: any; colors: any }> = ({ item, colors }) => {
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'pending': return '⏳';
-      case 'processing': return '🔄';
-      case 'completed': return '✅';
-      case 'failed': return '❌';
-      case 'cancelled': return '🚫';
-      default: return '❓';
-    }
-  };
-
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return '#f59e0b';
@@ -177,8 +173,8 @@ const StatusDisplay: React.FC<{ item: any; colors: any }> = ({ item, colors }) =
         color: getStatusColor(item.status)
       }}
     >
-      <span className="mr-1">{getStatusIcon(item.status)}</span>
-      <span>{item.status}</span>
+      <span className="mr-1">{getStatusIcon(item.status as any)}</span>
+      <span>{getStatusText(item.status as any)}</span>
     </span>
   );
 };
@@ -278,7 +274,7 @@ const UtilityActions: React.FC<{
   // Logique pour l'action principale qui change selon le contexte
   if (isAnalysisPending) {
     if (canStart) {
-      actionConfig.main = { action: 'start', icon: <div className="w-4 h-4">▶️</div>, variant: 'success', disabled: false, tooltip: 'Démarrer l\'analyse' };
+      actionConfig.main = { action: 'start', icon: <PlayIcon className="w-4 h-4" />, variant: 'success', disabled: false, tooltip: 'Démarrer l\'analyse' };
     } else {
       const missingItems = [];
       if (!hasProvider) missingItems.push('IA');
@@ -288,18 +284,18 @@ const UtilityActions: React.FC<{
         ? `Sélectionner ${missingItems.join(' et ')} pour démarrer`
         : 'Configurer l\'IA et le prompt pour démarrer';
         
-      actionConfig.main = { action: '', icon: <div className="w-4 h-4">▶️</div>, variant: 'primary', disabled: true, tooltip };
+      actionConfig.main = { action: '', icon: <PlayIcon className="w-4 h-4" />, variant: 'primary', disabled: true, tooltip };
     }
   } else if (isAnalysisProcessing) {
-    actionConfig.main = { action: 'pause', icon: <div className="w-4 h-4">⏸️</div>, variant: 'warning', disabled: false, tooltip: 'Mettre en pause l\'analyse' };
+    actionConfig.main = { action: 'pause', icon: <PauseIcon className="w-4 h-4" />, variant: 'warning', disabled: false, tooltip: 'Mettre en pause l\'analyse' };
   } else if (isAnalysisPaused) {
-    actionConfig.main = { action: 'start', icon: <div className="w-4 h-4">▶️</div>, variant: 'success', disabled: false, tooltip: 'Reprendre l\'analyse' };
+    actionConfig.main = { action: 'start', icon: <PlayIcon className="w-4 h-4" />, variant: 'success', disabled: false, tooltip: 'Reprendre l\'analyse' };
   } else if (isAnalysisCompleted) {
-    actionConfig.main = { action: '', icon: <div className="w-4 h-4">✅</div>, variant: 'primary', disabled: true, tooltip: 'Analyse terminée' };
+    actionConfig.main = { action: '', icon: <CheckIcon className="w-4 h-4" />, variant: 'primary', disabled: true, tooltip: 'Analyse terminée' };
   } else if (isAnalysisFailed) {
-    actionConfig.main = { action: 'start', icon: <div className="w-4 h-4">🔄</div>, variant: 'primary', disabled: false, tooltip: 'Relancer l\'analyse' };
+    actionConfig.main = { action: 'start', icon: <ArrowPathIcon className="w-4 h-4" />, variant: 'primary', disabled: false, tooltip: 'Relancer l\'analyse' };
   } else { // Unknown status
-    actionConfig.main = { action: '', icon: <div className="w-4 h-4">▶️</div>, variant: 'primary', disabled: true, tooltip: 'Statut inconnu' };
+    actionConfig.main = { action: '', icon: <PlayIcon className="w-4 h-4" />, variant: 'primary', disabled: true, tooltip: 'Statut inconnu' };
     actionConfig.view.disabled = true;
   }
 
@@ -314,7 +310,7 @@ const UtilityActions: React.FC<{
         }`}
         style={{
           backgroundColor: 'transparent',
-          border: `1px solid ${actionConfig.main.disabled ? '#6b7280' : actionConfig.main.variant === 'success' ? '#10b981' : actionConfig.main.variant === 'warning' ? '#f59e0b' : actionConfig.main.variant === 'primary' ? '#3b82f6' : '#6b7280'}`,
+          border: 'none',
           color: actionConfig.main.disabled ? '#6b7280' : actionConfig.main.variant === 'success' ? '#10b981' : actionConfig.main.variant === 'warning' ? '#f59e0b' : actionConfig.main.variant === 'primary' ? '#3b82f6' : '#6b7280',
           minHeight: '24px'
         }}
@@ -332,7 +328,7 @@ const UtilityActions: React.FC<{
         }`}
         style={{
           backgroundColor: 'transparent',
-          border: `1px solid ${actionConfig.view.disabled ? '#6b7280' : '#10b981'}`,
+          border: 'none',
           color: actionConfig.view.disabled ? '#6b7280' : '#10b981',
           minHeight: '24px'
         }}
@@ -350,7 +346,7 @@ const UtilityActions: React.FC<{
         }`}
         style={{
           backgroundColor: 'transparent',
-          border: `1px solid ${actionConfig.duplicate.disabled ? '#6b7280' : '#3b82f6'}`,
+          border: 'none',
           color: actionConfig.duplicate.disabled ? '#6b7280' : '#3b82f6',
           minHeight: '24px'
         }}
@@ -368,7 +364,7 @@ const UtilityActions: React.FC<{
         }`}
         style={{
           backgroundColor: 'transparent',
-          border: `1px solid ${actionConfig.compare.disabled ? '#6b7280' : '#f59e0b'}`,
+          border: 'none',
           color: actionConfig.compare.disabled ? '#6b7280' : '#f59e0b',
           minHeight: '24px'
         }}
@@ -386,7 +382,7 @@ const UtilityActions: React.FC<{
         }`}
         style={{
           backgroundColor: 'transparent',
-          border: `1px solid ${actionConfig.delete.disabled ? '#6b7280' : '#ef4444'}`,
+          border: 'none',
           color: actionConfig.delete.disabled ? '#6b7280' : '#ef4444',
           minHeight: '24px'
         }}
@@ -408,7 +404,8 @@ const QueueTable: React.FC<QueueTableProps> = ({
   onPromptChange,
   onProviderChange,
   localSelections,
-  textColors
+  textColors,
+  emptyMessage
 }) => {
   const { colors } = useColors();
   const [sortConfig, setSortConfig] = useState({ key: '', direction: 'asc' as 'asc' | 'desc' });
@@ -496,6 +493,7 @@ const QueueTable: React.FC<QueueTableProps> = ({
       sortConfig={sortConfig}
       getItemId={(item) => item.id}
       showCheckbox={true}
+      emptyMessage={emptyMessage}
     />
   );
 };
@@ -590,6 +588,11 @@ export const QueueIAAdvanced: React.FC = () => {
   const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set());
   const [filterStatus, setFilterStatus] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>('');
+  
+
+  
+  // Utiliser le hook centralisé pour la détection du backend
+  const { isOnline, consecutiveFailures } = useBackendStatus();
 
   // Chargement initial
   useEffect(() => {
@@ -623,6 +626,8 @@ export const QueueIAAdvanced: React.FC = () => {
 
     initializeQueue();
   }, []);
+
+
 
   // État local pour les sélections d'IA et prompt
   const [localSelections, setLocalSelections] = useState<{
@@ -701,6 +706,31 @@ export const QueueIAAdvanced: React.FC = () => {
 
   const { simpleDelete, simpleAction } = useSimpleConfirm();
 
+  // Créer le message personnalisé selon l'état de la connexion
+  const getEmptyMessage = () => {
+    console.log('🔍 État de connexion:', isOnline, 'Échecs:', consecutiveFailures);
+    
+    // Si le backend n'est pas connecté
+    if (!isOnline || consecutiveFailures >= 3) {
+      return (
+        <div className="text-center">
+          <h3 className="text-lg font-medium mb-2" style={{ color: '#f97316' }}>
+            Attente connexion
+          </h3>
+        </div>
+      );
+    }
+    
+    // Si la connexion est établie mais qu'il n'y a rien dans la queue
+    return (
+      <div className="text-center">
+        <h3 className="text-lg font-medium mb-2" style={{ color: '#eab308' }}>
+          File d'attente vide
+        </h3>
+      </div>
+    );
+  };
+
   // Log des changements de configuration
   const handleProviderChange = useCallback((itemId: string, providerId: string) => {
     logService.info('Changement de fournisseur IA', 'QueueIAAdvanced', {
@@ -772,8 +802,14 @@ export const QueueIAAdvanced: React.FC = () => {
           setActivePanel('viewer');
           break;
         case 'duplicate':
-          // Dupliquer l'analyse (à implémenter)
-          console.log('Duplication non encore implémentée');
+          // Dupliquer l'analyse (créer une nouvelle analyse en queue)
+          await analysisService.duplicateAnalysis(item.id);
+          logService.info('Analyse dupliquée avec succès', 'QueueIAAdvanced', {
+            originalAnalysisId: item.id,
+            timestamp: new Date().toISOString()
+          });
+          // Recharger les analyses pour afficher la nouvelle
+          loadAnalyses();
           break;
         case 'compare':
           // Comparer l'analyse (à implémenter)
@@ -865,8 +901,36 @@ export const QueueIAAdvanced: React.FC = () => {
             timestamp: new Date().toISOString()
           });
           
-          // TODO: Implémenter la duplication via analysisService
-          console.log('Duplication multiple non encore implémentée');
+          // Dupliquer toutes les analyses sélectionnées
+          const duplicatePromises = Array.from(selectedItems).map(async (itemId) => {
+            try {
+              await analysisService.duplicateAnalysis(Number(itemId));
+              return { itemId, success: true };
+            } catch (error) {
+              logService.error('Erreur lors de la duplication d\'une analyse', 'QueueIAAdvanced', {
+                itemId,
+                error: error.message,
+                timestamp: new Date().toISOString()
+              });
+              return { itemId, success: false, error: error.message };
+            }
+          });
+          
+          const duplicateResults = await Promise.all(duplicatePromises);
+          const successfulDuplicates = duplicateResults.filter(result => result.success);
+          const failedDuplicates = duplicateResults.filter(result => !result.success);
+          
+          logService.info('Duplication multiple terminée', 'QueueIAAdvanced', {
+            totalSelected: selectedItems.size,
+            successful: successfulDuplicates.length,
+            failed: failedDuplicates.length,
+            successfulIds: successfulDuplicates.map(r => r.itemId),
+            failedIds: failedDuplicates.map(r => r.itemId),
+            timestamp: new Date().toISOString()
+          });
+          
+          // Recharger les analyses pour afficher les nouvelles
+          loadAnalyses();
           break;
 
         case 'compare_selected':
@@ -998,7 +1062,7 @@ export const QueueIAAdvanced: React.FC = () => {
               }`}
               style={{
                 backgroundColor: 'transparent',
-                border: `1px solid ${selectedItems.size > 0 ? getActionColor('view') : '#6b7280'}`,
+                border: 'none',
                 color: selectedItems.size > 0 ? getActionColor('view') : '#6b7280'
               }}
             >
@@ -1013,7 +1077,7 @@ export const QueueIAAdvanced: React.FC = () => {
               }`}
               style={{
                 backgroundColor: 'transparent',
-                border: `1px solid ${selectedItems.size > 0 ? getActionColor('duplicate') : '#6b7280'}`,
+                border: 'none',
                 color: selectedItems.size > 0 ? getActionColor('duplicate') : '#6b7280'
               }}
             >
@@ -1028,7 +1092,7 @@ export const QueueIAAdvanced: React.FC = () => {
               }`}
               style={{
                 backgroundColor: 'transparent',
-                border: `1px solid ${selectedItems.size >= 2 ? getActionColor('compare') : '#6b7280'}`,
+                border: 'none',
                 color: selectedItems.size >= 2 ? getActionColor('compare') : '#6b7280'
               }}
             >
@@ -1043,7 +1107,7 @@ export const QueueIAAdvanced: React.FC = () => {
               }`}
               style={{
                 backgroundColor: 'transparent',
-                border: `1px solid ${selectedItems.size > 0 ? getActionColor('delete') : '#6b7280'}`,
+                border: 'none',
                 color: selectedItems.size > 0 ? getActionColor('delete') : '#6b7280'
               }}
             >
@@ -1112,6 +1176,7 @@ export const QueueIAAdvanced: React.FC = () => {
                onProviderChange={handleProviderChange}
                localSelections={localSelections}
                textColors={textColors}
+               emptyMessage={getEmptyMessage()}
              />
           )}
         </div>

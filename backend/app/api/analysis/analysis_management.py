@@ -104,6 +104,57 @@ async def get_analyses_list(
     )
 
 
+@router.get("/{analysis_id}")
+@APIUtils.handle_errors
+@require_permission(Permissions.READ_ANALYSES, Features.ANALYSIS_VIEWING)
+async def get_analysis_by_id(
+    analysis_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Get a specific analysis by ID"""
+    # Get the analysis
+    analysis = db.query(Analysis).filter(Analysis.id == analysis_id).first()
+    if not analysis:
+        raise HTTPException(status_code=404, detail="Analysis not found")
+    
+    # Get file info
+    file_info = None
+    if analysis.file_id:
+        file = db.query(File).filter(File.id == analysis.file_id).first()
+        if file:
+            file_info = {
+                "id": file.id,
+                "name": file.name,
+                "path": file.path,
+                "size": file.size,
+                "mime_type": file.mime_type
+            }
+    
+    # Convert to response format
+    analysis_data = {
+        "id": analysis.id,
+        "file_info": file_info,
+        "analysis_type": analysis.analysis_type.value,
+        "status": analysis.status.value,
+        "provider": analysis.provider,
+        "model": analysis.model,
+        "prompt": analysis.prompt,
+        "result": analysis.result,
+        "analysis_metadata": analysis.analysis_metadata,
+        "created_at": analysis.created_at.isoformat() if analysis.created_at else None,
+        "started_at": analysis.started_at.isoformat() if analysis.started_at else None,
+        "completed_at": analysis.completed_at.isoformat() if analysis.completed_at else None,
+        "error_message": analysis.error_message,
+        "retry_count": analysis.retry_count
+    }
+    
+    return ResponseFormatter.success_response(
+        data=analysis_data,
+        message="Analysis retrieved successfully"
+    )
+
+
 @router.get("/stats")
 @APIUtils.handle_errors
 async def get_analysis_stats(db: Session = Depends(get_db)) -> Dict[str, Any]:

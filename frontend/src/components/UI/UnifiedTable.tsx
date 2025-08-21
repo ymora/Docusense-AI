@@ -133,13 +133,17 @@ export function UnifiedTable<T>({
                   {index === 0 ? (
                     <div className="flex items-center justify-center p-8">
                       <div className="text-center">
-                        <div className="text-4xl mb-4">📋</div>
-                        <h3 className="text-lg font-medium mb-2" style={{ color: colors.text }}>
-                          Aucun log disponible
-                        </h3>
-                        <p className="text-sm" style={{ color: colors.textSecondary }}>
-                          Aucun événement enregistré
-                        </p>
+                        {emptyMessage || (
+                          <>
+                            <div className="text-4xl mb-4">📋</div>
+                            <h3 className="text-lg font-medium mb-2" style={{ color: colors.text }}>
+                              Aucun log disponible
+                            </h3>
+                            <p className="text-sm" style={{ color: colors.textSecondary }}>
+                              Aucun événement enregistré
+                            </p>
+                          </>
+                        )}
                       </div>
                     </div>
                   ) : null}

@@ -13,6 +13,7 @@ from ..core.database import get_db
 from ..middleware.auth_middleware import AuthMiddleware
 from ..services.secure_streaming_service import SecureStreamingService
 from ..utils.api_utils import APIUtils
+from ..models.user import User
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +26,7 @@ secure_streaming_service = SecureStreamingService()
 @APIUtils.handle_errors
 async def get_secure_file_info(
     file_path: str,
-    session_token: str = Depends(AuthMiddleware.get_current_session),
+    current_user: User = Depends(AuthMiddleware.get_current_user_jwt),
     db: Session = Depends(get_db)
 ):
     """
@@ -33,7 +34,7 @@ async def get_secure_file_info(
     
     Args:
         file_path: Chemin vers le fichier (encodé en URL)
-        session_token: Token de session (injecté automatiquement)
+        current_user: Utilisateur connecté
         
     Returns:
         Dict: Informations du fichier
@@ -48,7 +49,7 @@ async def get_secure_file_info(
         logger.info(f"Demande d'informations sécurisées pour: {file_path_obj}")
         
         # Récupérer les informations sécurisées
-        file_info = secure_streaming_service.get_file_info_secure(file_path_obj, session_token)
+        file_info = secure_streaming_service.get_file_info_secure(file_path_obj, current_user.username)
         
         return {
             "success": True,
@@ -65,7 +66,7 @@ async def get_secure_file_info(
 @APIUtils.handle_errors
 async def stream_file_for_viewing(
     file_path: str,
-    session_token: str = Depends(AuthMiddleware.get_current_session),
+    current_user: User = Depends(AuthMiddleware.get_current_user_jwt),
     chunk_size: Optional[int] = Query(8192, description="Taille des chunks en bytes"),
     db: Session = Depends(get_db)
 ):
@@ -74,7 +75,7 @@ async def stream_file_for_viewing(
     
     Args:
         file_path: Chemin vers le fichier (encodé en URL)
-        session_token: Token de session (injecté automatiquement)
+        current_user: Utilisateur connecté
         chunk_size: Taille des chunks (optionnel)
         
     Returns:
@@ -92,7 +93,7 @@ async def stream_file_for_viewing(
         # Streamer le fichier pour la visualisation
         return secure_streaming_service.stream_file_secure(
             file_path_obj, 
-            session_token, 
+            current_user.username, 
             mode='view', 
             chunk_size=chunk_size
         )
@@ -107,7 +108,7 @@ async def stream_file_for_viewing(
 @APIUtils.handle_errors
 async def download_file_secure(
     file_path: str,
-    session_token: str = Depends(AuthMiddleware.get_current_session),
+    current_user: User = Depends(AuthMiddleware.get_current_user_jwt),
     db: Session = Depends(get_db)
 ):
     """
@@ -115,7 +116,7 @@ async def download_file_secure(
     
     Args:
         file_path: Chemin vers le fichier (encodé en URL)
-        session_token: Token de session (injecté automatiquement)
+        current_user: Utilisateur connecté
         
     Returns:
         FileResponse: Fichier à télécharger
@@ -132,7 +133,7 @@ async def download_file_secure(
         # Télécharger le fichier de manière sécurisée
         return secure_streaming_service.stream_file_secure(
             file_path_obj, 
-            session_token, 
+            current_user.username, 
             mode='download'
         )
         
@@ -146,7 +147,7 @@ async def download_file_secure(
 @APIUtils.handle_errors
 async def create_temporary_access_token(
     request: Request,
-    session_token: str = Depends(AuthMiddleware.get_current_session),
+    current_user: User = Depends(AuthMiddleware.get_current_user_jwt),
     expires_in: int = Query(300, description="Durée de validité en secondes"),
     db: Session = Depends(get_db)
 ):
@@ -155,7 +156,7 @@ async def create_temporary_access_token(
     
     Args:
         request: Requête contenant le chemin du fichier
-        session_token: Token de session (injecté automatiquement)
+        current_user: Utilisateur connecté
         expires_in: Durée de validité en secondes
         
     Returns:
@@ -178,7 +179,7 @@ async def create_temporary_access_token(
         # Créer le token temporaire
         temp_token = secure_streaming_service.create_temp_access_token(
             file_path_obj, 
-            session_token, 
+            current_user.username, 
             expires_in
         )
         
@@ -244,14 +245,14 @@ async def access_file_with_temp_token(
 @router.get("/stats")
 @APIUtils.handle_errors
 async def get_secure_streaming_stats(
-    session_token: str = Depends(AuthMiddleware.get_current_session),
+    current_user: User = Depends(AuthMiddleware.get_current_user_jwt),
     db: Session = Depends(get_db)
 ):
     """
     Récupère les statistiques du service de streaming sécurisé
     
     Args:
-        session_token: Token de session (injecté automatiquement)
+        current_user: Utilisateur connecté
         
     Returns:
         Dict: Statistiques du service

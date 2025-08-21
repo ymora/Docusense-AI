@@ -25,7 +25,7 @@ async def run_migrations(db: Session = Depends(get_db)) -> Dict[str, Any]:
     Exécute les migrations automatiques de la base de données
     """
     try:
-        logger.info("🔄 Déclenchement manuel des migrations")
+        logger.info("[MIGRATION] Déclenchement manuel des migrations")
         results = run_automatic_migrations(db)
         
         return {

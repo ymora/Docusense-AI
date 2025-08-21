@@ -10,10 +10,11 @@ from pathlib import Path
 import logging
 import urllib.parse
 
-from ..core.security import security_manager
+# Suppression de l'import security_manager - utilisation du système JWT
 from ..services.email_parser_service import EmailParserService
 from ..middleware.auth_middleware import AuthMiddleware
 from ..utils.api_utils import APIUtils, ResponseFormatter, FilePathValidator
+from ..models.user import User
 
 logger = logging.getLogger(__name__)
 
@@ -41,14 +42,14 @@ class EmailContent(BaseModel):
 @APIUtils.handle_errors
 async def parse_email_file(
     file_path: str,
-    session_token: Optional[str] = Depends(AuthMiddleware.get_current_session_optional)
+    current_user: Optional[User] = Depends(AuthMiddleware.get_current_user_optional)
 ):
     """
     Parse un fichier .eml et retourne son contenu structuré
     
     Args:
         file_path: Chemin vers le fichier .eml (encodé en URL)
-        session_token: Token de session (optionnel pour les fichiers locaux)
+        current_user: Utilisateur connecté (optionnel pour les fichiers locaux)
         
     Returns:
         EmailContent: Contenu structuré de l'email
@@ -106,14 +107,14 @@ async def parse_email_file(
 @APIUtils.handle_errors
 async def get_email_preview(
     file_path: str,
-    session_token: str = Depends(AuthMiddleware.get_current_session)
+    current_user: User = Depends(AuthMiddleware.get_current_user_jwt)
 ):
     """
     Retourne un aperçu rapide d'un fichier .eml
     
     Args:
         file_path: Chemin vers le fichier .eml (encodé en URL)
-        session_token: Token de session (injecté automatiquement)
+        current_user: Utilisateur connecté
         
     Returns:
         Dict: Aperçu de l'email
@@ -151,7 +152,7 @@ async def get_email_preview(
 async def download_email_attachment(
     file_path: str,
     attachment_index: int,
-    session_token: Optional[str] = Depends(AuthMiddleware.get_current_session_optional)
+    current_user: Optional[User] = Depends(AuthMiddleware.get_current_user_optional)
 ):
     """
     Télécharge une pièce jointe d'un email
@@ -159,7 +160,7 @@ async def download_email_attachment(
     Args:
         file_path: Chemin vers le fichier .eml (encodé en URL)
         attachment_index: Index de la pièce jointe
-        session_token: Token de session (optionnel pour les fichiers locaux)
+        current_user: Utilisateur connecté (optionnel)
         
     Returns:
         FileResponse: Pièce jointe
@@ -209,7 +210,7 @@ async def download_email_attachment(
 async def preview_email_attachment(
     file_path: str,
     attachment_index: int,
-    session_token: Optional[str] = Depends(AuthMiddleware.get_current_session_optional)
+    current_user: Optional[User] = Depends(AuthMiddleware.get_current_user_optional)
 ):
     """
     Préviseualise une pièce jointe d'un email (pour consultation directe)
@@ -217,7 +218,7 @@ async def preview_email_attachment(
     Args:
         file_path: Chemin vers le fichier .eml (encodé en URL)
         attachment_index: Index de la pièce jointe
-        session_token: Token de session (optionnel pour les fichiers locaux)
+        current_user: Utilisateur connecté (optionnel)
         
     Returns:
         Response: Pièce jointe pour prévisualisation

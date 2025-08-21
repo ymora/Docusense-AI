@@ -2,7 +2,7 @@
 export const DEFAULT_TIMEOUT = 30000; // 30 secondes
 
 // Configuration de l'API backend
-const API_BASE_URL = 'http://localhost:8000';
+const BACKEND_URL = 'http://localhost:8000';
 
 // Fonction utilitaire pour la gestion des erreurs
 export const handleApiError = (error: unknown): string => {
@@ -20,8 +20,20 @@ export const apiRequest = async (url: string, options?: RequestInit, timeout: nu
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeout);
 
-  // Construire l'URL complète avec la base URL
-  const fullUrl = url.startsWith('http') ? url : `${API_BASE_URL}${url}`;
+  // Construire l'URL complète
+  let fullUrl;
+  if (url.startsWith('http')) {
+    fullUrl = url;
+  } else if (url === '/health') {
+    // Endpoint health avec préfixe /api/
+    fullUrl = `${BACKEND_URL}/api${url}`;
+  } else if (url.startsWith('/api/')) {
+    // Si l'URL commence déjà par /api/, utiliser directement la base du backend
+    fullUrl = `${BACKEND_URL}${url}`;
+  } else {
+    // Sinon, ajouter le préfixe /api/
+    fullUrl = `${BACKEND_URL}/api${url}`;
+  }
 
   // Récupérer le token d'authentification depuis le localStorage
   const authStore = JSON.parse(localStorage.getItem('auth-storage') || '{}');
@@ -29,6 +41,7 @@ export const apiRequest = async (url: string, options?: RequestInit, timeout: nu
 
   // Debug: Afficher les informations d'authentification
   console.log('[apiRequest] URL:', fullUrl);
+  console.log('[apiRequest] Original URL:', url);
   console.log('[apiRequest] Token présent:', !!accessToken);
   console.log('[apiRequest] Auth store:', authStore);
 

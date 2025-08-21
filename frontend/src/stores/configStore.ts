@@ -82,7 +82,7 @@ export const useConfigStore = create<ConfigState>()(
               set({ 
                 error: errorMessage, 
                 loading: false,
-                isInitialized: true
+                isInitialized: false // Ne pas marquer comme initialisé en cas d'erreur
               });
               console.error('❌ Erreur lors du chargement des configurations:', error);
             }

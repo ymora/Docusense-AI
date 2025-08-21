@@ -6,15 +6,127 @@ import logging
 import sys
 import json
 import asyncio
-from datetime import datetime
+import atexit
+import signal
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 from .config import settings
 import time
+import threading
 
 # Variables globales pour éviter les logs répétitifs
 _logging_initialized = False
 _frontend_loggers: List[callable] = []
+_log_cleanup_scheduled = False
+
+class LogCleanupManager:
+    """Gestionnaire de nettoyage automatique des logs"""
+    
+    def __init__(self):
+        self.log_dir = Path("logs")
+        self.max_log_size_mb = 10  # Taille max par fichier de log
+        self.max_log_age_hours = 24  # Âge max des logs
+        self.cleanup_interval_hours = 6  # Intervalle de nettoyage
+        self._cleanup_thread = None
+        self._stop_cleanup = False
+        
+    def start_cleanup_scheduler(self):
+        """Démarre le planificateur de nettoyage automatique"""
+        if self._cleanup_thread is None or not self._cleanup_thread.is_alive():
+            self._stop_cleanup = False
+            self._cleanup_thread = threading.Thread(target=self._cleanup_scheduler, daemon=True)
+            self._cleanup_thread.start()
+            logger.info("[STARTUP] Planificateur de nettoyage des logs démarré")
+    
+    def stop_cleanup_scheduler(self):
+        """Arrête le planificateur de nettoyage"""
+        self._stop_cleanup = True
+        if self._cleanup_thread and self._cleanup_thread.is_alive():
+            self._cleanup_thread.join(timeout=5)
+        logger.info("[SHUTDOWN] Planificateur de nettoyage des logs arrêté")
+    
+    def _cleanup_scheduler(self):
+        """Planificateur de nettoyage en arrière-plan"""
+        while not self._stop_cleanup:
+            try:
+                self.cleanup_logs()
+                # Attendre l'intervalle de nettoyage
+                for _ in range(self.cleanup_interval_hours * 3600):  # Convertir en secondes
+                    if self._stop_cleanup:
+                        break
+                    time.sleep(1)
+            except Exception as e:
+                sys.stderr.write(f"Erreur dans le planificateur de nettoyage: {e}\n")
+                time.sleep(60)  # Attendre 1 minute en cas d'erreur
+    
+    def cleanup_logs(self, force: bool = False):
+        """
+        Nettoie les logs selon les critères définis
+        
+        Args:
+            force: Force le nettoyage même si pas nécessaire
+        """
+        try:
+            if not self.log_dir.exists():
+                return
+            
+            now = datetime.now()
+            max_age = now - timedelta(hours=self.max_log_age_hours)
+            max_size_bytes = self.max_log_size_mb * 1024 * 1024
+            
+            cleaned_count = 0
+            total_size_cleaned = 0
+            
+            # Nettoyer les fichiers de log
+            for log_file in self.log_dir.glob("*.log"):
+                try:
+                    stat = log_file.stat()
+                    file_age = datetime.fromtimestamp(stat.st_mtime)
+                    file_size = stat.st_size
+                    
+                    should_clean = False
+                    reason = ""
+                    
+                    # Vérifier l'âge du fichier
+                    if file_age < max_age:
+                        should_clean = True
+                        reason = "âge"
+                    # Vérifier la taille du fichier
+                    elif file_size > max_size_bytes:
+                        should_clean = True
+                        reason = "taille"
+                    # Nettoyage forcé
+                    elif force:
+                        should_clean = True
+                        reason = "forcé"
+                    
+                    if should_clean:
+                        log_file.unlink()
+                        cleaned_count += 1
+                        total_size_cleaned += file_size
+                        logger.info(f"[CLEANUP] Log supprimé ({reason}): {log_file.name}")
+                        
+                except Exception as e:
+                    logger.warning(f"Impossible de nettoyer {log_file}: {e}")
+            
+            if cleaned_count > 0:
+                logger.info(f"[CLEANUP] Nettoyage des logs terminé: {cleaned_count} fichiers supprimés ({total_size_cleaned / 1024 / 1024:.1f} MB)")
+            elif force:
+                logger.info("[CLEANUP] Aucun log à nettoyer")
+                
+        except Exception as e:
+            logger.error(f"Erreur lors du nettoyage des logs: {e}")
+    
+    def cleanup_on_exit(self):
+        """Nettoyage forcé à la fermeture de l'application"""
+        logger.info("[SHUTDOWN] Nettoyage des logs à la fermeture...")
+        self.stop_cleanup_scheduler()
+        self.cleanup_logs(force=True)
+        logger.info("[SUCCESS] Nettoyage des logs terminé")
+
+# Instance globale du gestionnaire de nettoyage
+log_cleanup_manager = LogCleanupManager()
 
 class FrontendLogHandler(logging.Handler):
     """Handler pour envoyer les logs au frontend via SSE"""
@@ -117,18 +229,30 @@ def setup_logging():
     frontend_handler = FrontendLogHandler()
     frontend_handler.setLevel(logging.DEBUG)
 
-    # Configure logging avec niveau réduit pour les modules externes
+    # Configure logging avec niveau réduit pour les modules externes et encodage UTF-8
+    # Console handler avec encodage UTF-8
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(getattr(logging, settings.log_level.upper()))
+    
+    # File handlers avec encodage UTF-8
+    file_handler = logging.FileHandler(log_dir / "docusense.log", encoding='utf-8')
+    file_handler.setLevel(getattr(logging, settings.log_level.upper()))
+    
+    error_handler = logging.FileHandler(log_dir / "docusense_error.log", encoding='utf-8')
+    error_handler.setLevel(logging.ERROR)
+    
+    # Formatter
+    formatter = logging.Formatter(settings.log_format)
+    console_handler.setFormatter(formatter)
+    file_handler.setFormatter(formatter)
+    error_handler.setFormatter(formatter)
+    
     logging.basicConfig(
         level=getattr(logging, settings.log_level.upper()),
-        format=settings.log_format,
         handlers=[
-            # Console handler
-            logging.StreamHandler(sys.stdout),
-            # File handler
-            logging.FileHandler(log_dir / "docusense.log"),
-            # Error file handler
-            logging.FileHandler(log_dir / "docusense_error.log"),
-            # Frontend handler
+            console_handler,
+            file_handler,
+            error_handler,
             frontend_handler
         ]
     )
@@ -153,8 +277,22 @@ def setup_logging():
     app_logger = logging.getLogger("docusense")
     app_logger.setLevel(getattr(logging, settings.log_level.upper()))
 
+    # Démarrer le planificateur de nettoyage automatique
+    log_cleanup_manager.start_cleanup_scheduler()
+    
+    # Enregistrer le nettoyage à la fermeture
+    atexit.register(log_cleanup_manager.cleanup_on_exit)
+    
+    # Gestion des signaux pour le nettoyage propre
+    def signal_handler(signum, frame):
+        log_cleanup_manager.cleanup_on_exit()
+        sys.exit(0)
+    
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
+
     _logging_initialized = True
-    logger.info("Logging optimisé configuré avec catégorisation")
+    logger.info("Logging optimisé configuré avec catégorisation et nettoyage automatique")
 
 def get_logger(name: str) -> logging.Logger:
     """Obtenir un logger avec le nom spécifié"""

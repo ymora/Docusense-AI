@@ -32,7 +32,7 @@ class DatabaseMigrationManager:
         Returns:
             Dict avec le statut des migrations
         """
-        logger.info("🔄 Début des migrations automatiques de la base de données")
+        logger.info("[MIGRATION] Début des migrations automatiques de la base de données")
         
         results = {
             'migrations_applied': [],
@@ -54,7 +54,7 @@ class DatabaseMigrationManager:
             # Migration 4: Mise à jour des métadonnées
             self._update_file_metadata(results)
             
-            logger.info(f"✅ Migrations terminées: {len(results['migrations_applied'])} appliquées")
+            logger.info(f"[SUCCESS] Migrations terminées: {len(results['migrations_applied'])} appliquées")
             
         except Exception as e:
             error_msg = f"Erreur lors des migrations: {str(e)}"

@@ -5,6 +5,7 @@ Système de sécurité pour l'accès distant
 import hashlib
 import secrets
 import time
+import os
 from typing import Optional, Dict, Any
 from datetime import datetime, timedelta
 import logging
@@ -31,13 +32,16 @@ class SecurityManager:
             if self.config_file.exists():
                 with open(self.config_file, 'r', encoding='utf-8') as f:
                     config = json.load(f)
-                    self.admin_password = config.get('admin_password', 'admin123')
+                    # Utiliser une variable d'environnement pour le mot de passe par défaut
+                    default_password = os.getenv('ADMIN_PASSWORD', 'admin123')
+                    self.admin_password = config.get('admin_password', self.hash_password(default_password))
                     self.session_timeout = config.get('session_timeout', 3600)  # 1 heure
                     self.max_login_attempts = config.get('max_login_attempts', 5)
                     self.lockout_duration = config.get('lockout_duration', 300)  # 5 minutes
             else:
-                # Configuration par défaut
-                self.admin_password = 'admin123'
+                # Configuration par défaut - utiliser une variable d'environnement
+                default_password = os.getenv('ADMIN_PASSWORD', 'admin123')
+                self.admin_password = self.hash_password(default_password)
                 self.session_timeout = 3600
                 self.max_login_attempts = 5
                 self.lockout_duration = 300
@@ -45,8 +49,9 @@ class SecurityManager:
                 
         except Exception as e:
             logger.error(f"Erreur lors du chargement de la configuration: {e}")
-            # Configuration de secours
-            self.admin_password = 'admin123'
+            # Configuration de secours - utiliser une variable d'environnement
+            default_password = os.getenv('ADMIN_PASSWORD', 'admin123')
+            self.admin_password = self.hash_password(default_password)
             self.session_timeout = 3600
             self.max_login_attempts = 5
             self.lockout_duration = 300

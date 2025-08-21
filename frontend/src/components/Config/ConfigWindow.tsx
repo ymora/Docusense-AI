@@ -1077,11 +1077,11 @@ const ConfigWindow: React.FC<ConfigWindowProps> = ({ onClose, onMinimize }) => {
                  Validation des clés et gestion des priorités
                </p>
              </div>
-                           {isInitialized && (
+                           {isInitialized && isOnline && activeProviders.length > 0 && (
                 <span 
                   className="text-xs font-bold"
                   style={{ 
-                    color: activeProviders.length > 0 ? '#10b981' : '#6b7280',
+                    color: '#10b981',
                     fontSize: '11px'
                   }}
                   title={`${activeProviders.length} IA(s) active(s)`}

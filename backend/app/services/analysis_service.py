@@ -568,7 +568,12 @@ class AnalysisService(BaseService):
             try:
                 pdf_path = self.pdf_generator.generate_analysis_pdf(analysis_id)
                 if pdf_path:
+                    # Update the analysis with the PDF path
+                    analysis.pdf_path = pdf_path
+                    self.db.commit()
                     self.logger.info(f"Generated PDF for completed analysis {analysis_id}: {pdf_path}")
+                else:
+                    self.logger.warning(f"No PDF path returned for analysis {analysis_id}")
             except Exception as e:
                 self.logger.error(f"Failed to generate PDF for analysis {analysis_id}: {str(e)}")
 

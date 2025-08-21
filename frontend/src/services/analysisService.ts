@@ -199,5 +199,50 @@ export const analysisService = {
     } catch (error) {
       throw new Error(`Erreur lors de la mise à jour de l'analyse: ${handleApiError(error)}`);
     }
+  },
+
+  // Dupliquer une analyse (créer une nouvelle analyse en queue avec les mêmes données)
+  async duplicateAnalysis(analysisId: number): Promise<CreateAnalysisResponse> {
+    try {
+      logService.info('Duplication d\'une analyse', 'AnalysisService', { analysisId });
+      
+      // Récupérer d'abord l'analyse à dupliquer
+      const analysis = await this.getAnalysis(analysisId);
+      
+      // Créer une nouvelle analyse avec les mêmes paramètres mais statut "pending"
+      const duplicateRequest: CreateAnalysisRequest = {
+        file_id: analysis.file_info?.id,
+        file_path: analysis.file_info?.path,
+        prompt_id: analysis.prompt,
+        analysis_type: analysis.analysis_type,
+        custom_prompt: analysis.prompt,
+        status: 'pending'
+      };
+      
+      const response = await this.createPendingAnalysis(duplicateRequest);
+      
+      logService.info('Analyse dupliquée avec succès', 'AnalysisService', { 
+        originalAnalysisId: analysisId,
+        newAnalysisId: response.analysis_id
+      });
+      
+      return response;
+    } catch (error) {
+      logService.error('Erreur lors de la duplication de l\'analyse', 'AnalysisService', { 
+        analysisId, 
+        error: error.message 
+      });
+      throw new Error(`Erreur lors de la duplication de l'analyse: ${handleApiError(error)}`);
+    }
+  },
+
+  // Récupérer une analyse spécifique
+  async getAnalysis(analysisId: number): Promise<Analysis> {
+    try {
+      const response = await apiRequest(`/api/analysis/${analysisId}`, {}, DEFAULT_TIMEOUT);
+      return response.data as Analysis;
+    } catch (error) {
+      throw new Error(`Erreur lors de la récupération de l'analyse: ${handleApiError(error)}`);
+    }
   }
 }; 

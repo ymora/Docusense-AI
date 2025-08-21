@@ -283,7 +283,7 @@ async def get_current_user(
             detail="Utilisateur non trouvé ou désactivé"
         )
     
-    logger.info(f"✅ Authentification réussie pour: {user.username}")
+    logger.info(f"[SUCCESS] Authentification réussie pour: {user.username}")
     return user
 
 @router.get("/me", response_model=UserInfo)

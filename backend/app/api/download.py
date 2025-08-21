@@ -10,10 +10,14 @@ from pathlib import Path
 import logging
 import urllib.parse
 
-from ..core.security import security_manager
+# Suppression de l'import security_manager - utilisation du système JWT
 from ..services.download_service import download_service
-from ..middleware.auth_middleware import AuthMiddleware
+from sqlalchemy.orm import Session
+from ..core.database import get_db
+
 from ..utils.api_utils import APIUtils, ResponseFormatter
+from ..api.auth import get_current_user
+from ..models.user import User
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +45,8 @@ class FileInfo(BaseModel):
 @APIUtils.handle_errors
 async def download_file(
     file_path: str,
-    session_token: str = Depends(AuthMiddleware.get_current_session)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Télécharge un fichier individuel
@@ -70,7 +75,8 @@ async def download_file(
 async def download_directory(
     directory_path: str,
     zip_name: Optional[str] = Query(None, description="Nom du fichier ZIP"),
-    session_token: str = Depends(AuthMiddleware.get_current_session)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Télécharge un répertoire sous forme de ZIP
@@ -96,7 +102,8 @@ async def download_directory(
 @APIUtils.handle_errors
 async def download_multiple_files(
     request: DownloadRequest,
-    session_token: str = Depends(AuthMiddleware.get_current_session)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Télécharge plusieurs fichiers sous forme de ZIP
@@ -120,7 +127,8 @@ async def download_multiple_files(
 @APIUtils.handle_errors
 async def get_file_info(
     file_path: str,
-    session_token: str = Depends(AuthMiddleware.get_current_session)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Récupère les informations d'un fichier ou répertoire
@@ -142,7 +150,10 @@ async def get_file_info(
 
 @router.get("/stats")
 @APIUtils.handle_errors
-async def get_download_stats(session_token: str = Depends(AuthMiddleware.get_current_session)):
+async def get_download_stats(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """
     Récupère les statistiques de téléchargement
     
@@ -161,7 +172,10 @@ async def get_download_stats(session_token: str = Depends(AuthMiddleware.get_cur
 
 @router.post("/cleanup")
 @APIUtils.handle_errors
-async def cleanup_temp_files(session_token: str = Depends(AuthMiddleware.get_current_session)):
+async def cleanup_temp_files(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
     """
     Nettoie les fichiers temporaires anciens
     
@@ -179,7 +193,8 @@ async def cleanup_temp_files(session_token: str = Depends(AuthMiddleware.get_cur
 @APIUtils.handle_errors
 async def browse_directory(
     directory_path: str,
-    session_token: str = Depends(AuthMiddleware.get_current_session)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Parcourt un répertoire et retourne son contenu

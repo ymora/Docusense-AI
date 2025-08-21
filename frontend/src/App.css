@@ -160,7 +160,8 @@ body[data-theme="light"], [data-theme="light"] body, [data-theme="light"] {
 }
 
 .animate-spin-smooth {
-  animation: spin-smooth 1s linear infinite;
+  animation: spin-smooth 0.8s linear infinite;
+  filter: drop-shadow(0 0 2px rgba(59, 130, 246, 0.3));
 }
 
 body, html, #root, .App {

@@ -1,30 +1,105 @@
 """
-API endpoints for logs management
+API endpoints for log management
 """
 
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from typing import List, Dict, Any
+from typing import Dict, Any, List, Optional
+from datetime import datetime, timedelta
 import json
 import asyncio
-import logging
-from datetime import datetime
+import time
 
 from ..core.database import get_db
-from ..core.logging import get_logger, log_with_context, FrontendLogHandler
+from ..core.logging import log_cleanup_manager
+from ..utils.response_formatter import ResponseFormatter
+from ..utils.api_utils import APIUtils
 
 router = APIRouter(tags=["logs"])
 
-logger = get_logger("api.logs")
-
-@router.get("/backend")
-async def get_backend_logs(limit: int = 100):
+@router.get("/backend/stream")
+@APIUtils.monitor_api_performance
+async def stream_backend_logs():
     """
-    Récupérer les logs backend récents
+    Endpoint de streaming des logs backend en temps réel
+    """
+    async def log_stream():
+        try:
+            from ..core.logging import FrontendLogHandler
+            import logging
+            
+            # Trouver le handler frontend
+            frontend_handler = None
+            root_logger = logging.getLogger()
+            for handler in root_logger.handlers:
+                if isinstance(handler, FrontendLogHandler):
+                    frontend_handler = handler
+                    break
+            
+            if not frontend_handler:
+                # Créer un handler temporaire si nécessaire
+                frontend_handler = FrontendLogHandler()
+                root_logger.addHandler(frontend_handler)
+            
+            # Envoyer les logs existants d'abord
+            recent_logs = frontend_handler.get_recent_logs(50)
+            for log in recent_logs:
+                yield f"data: {json.dumps(log, ensure_ascii=False)}\n\n"
+            
+            # Stream des nouveaux logs
+            last_log_count = len(recent_logs)
+            while True:
+                await asyncio.sleep(1)  # Vérifier toutes les secondes
+                
+                current_logs = frontend_handler.get_recent_logs(100)
+                if len(current_logs) > last_log_count:
+                    # Envoyer seulement les nouveaux logs
+                    new_logs = current_logs[last_log_count:]
+                    for log in new_logs:
+                        yield f"data: {json.dumps(log, ensure_ascii=False)}\n\n"
+                    last_log_count = len(current_logs)
+                
+                # Keep-alive
+                yield f"data: {json.dumps({'type': 'keepalive', 'timestamp': datetime.now().isoformat()})}\n\n"
+                
+        except Exception as e:
+            error_data = {
+                "type": "error",
+                "message": f"Erreur dans le streaming: {str(e)}",
+                "timestamp": datetime.now().isoformat()
+            }
+            yield f"data: {json.dumps(error_data, ensure_ascii=False)}\n\n"
+    
+    return StreamingResponse(
+        log_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Cache-Control"
+        }
+    )
+
+@router.get("/list")
+@APIUtils.monitor_api_performance
+async def get_logs(
+    level: Optional[str] = Query(None, description="Niveau de log (debug, info, warning, error)"),
+    source: Optional[str] = Query(None, description="Source du log"),
+    limit: int = Query(100, ge=1, le=1000, description="Nombre maximum de logs"),
+    offset: int = Query(0, ge=0, description="Offset pour la pagination"),
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    Récupère les logs avec filtrage et pagination
     """
     try:
-        # Récupérer les logs depuis le handler frontend
+        # Récupérer les logs récents depuis le buffer frontend
+        from ..core.logging import FrontendLogHandler
+        import logging
+        
+        # Trouver le handler frontend
         frontend_handler = None
         root_logger = logging.getLogger()
         for handler in root_logger.handlers:
@@ -33,134 +108,114 @@ async def get_backend_logs(limit: int = 100):
                 break
         
         if frontend_handler:
-            logs = frontend_handler.get_recent_logs(limit)
-            log_with_context(logger, "info", "Logs backend récupérés", {
-                "limit": limit,
-                "count": len(logs)
-            })
-            return {"success": True, "data": logs}
+            recent_logs = frontend_handler.get_recent_logs(limit + offset)
         else:
-            log_with_context(logger, "warning", "Handler frontend non trouvé")
-            return {"success": True, "data": []}
-            
+            recent_logs = []
+        
+        # Appliquer les filtres
+        filtered_logs = []
+        for log in recent_logs:
+            # Filtre par niveau
+            if level and log.get("level") != level.lower():
+                continue
+            # Filtre par source
+            if source and source.lower() not in log.get("source", "").lower():
+                continue
+            filtered_logs.append(log)
+        
+        # Appliquer la pagination
+        paginated_logs = filtered_logs[offset:offset + limit]
+        
+        return ResponseFormatter.success_response(
+            data={
+                "logs": paginated_logs,
+                "total": len(filtered_logs),
+                "limit": limit,
+                "offset": offset,
+                "filters": {
+                    "level": level,
+                    "source": source
+                }
+            },
+            message=f"Logs récupérés ({len(paginated_logs)} résultats)"
+        )
+        
     except Exception as e:
-        log_with_context(logger, "error", "Erreur lors de la récupération des logs backend", 
-                        exception=e)
-        raise HTTPException(status_code=500, detail=str(e))
+        return ResponseFormatter.error_response(
+            message="Erreur lors de la récupération des logs",
+            error=str(e)
+        )
 
-@router.get("/backend/stream")
-async def stream_backend_logs():
+@router.post("/cleanup")
+@APIUtils.monitor_api_performance
+async def cleanup_logs(
+    force: bool = Query(False, description="Forcer le nettoyage même si pas nécessaire"),
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
     """
-    Streamer les logs backend en temps réel via SSE
-    """
-    async def event_stream():
-        try:
-            log_with_context(logger, "info", "Début du streaming des logs backend")
-            
-            # OPTIMISATION: Queue plus petite et timeout plus court
-            log_queue = asyncio.Queue(maxsize=50)  # Réduit de 100 à 50
-            
-            # OPTIMISATION: Callback optimisé avec gestion d'erreur améliorée
-            def send_log_to_frontend(log_entry: Dict[str, Any]):
-                try:
-                    # Ajouter directement à la queue sans créer de tâche asynchrone
-                    if not log_queue.full():
-                        log_queue.put_nowait(log_entry)
-                    else:
-                        # Si la queue est pleine, supprimer le plus ancien et ajouter le nouveau
-                        try:
-                            log_queue.get_nowait()
-                            log_queue.put_nowait(log_entry)
-                        except:
-                            pass
-                except Exception as e:
-                    logger.error(f"Erreur ajout log à queue: {e}")
-            
-            # Enregistrer le callback
-            from ..core.logging import register_frontend_logger
-            register_frontend_logger(send_log_to_frontend)
-            
-            # OPTIMISATION: Heartbeat plus fréquent (10s au lieu de 15s) pour une meilleure réactivité
-            heartbeat_count = 0
-            while True:
-                try:
-                    # OPTIMISATION: Timeout encore plus court pour une réponse plus rapide
-                    try:
-                        log_entry = await asyncio.wait_for(log_queue.get(), timeout=10.0)
-                        
-                        # OPTIMISATION: Formatage JSON optimisé avec séparateurs compacts
-                        data = {
-                            "type": "backend_log",
-                            "timestamp": datetime.now().isoformat(),
-                            "log": log_entry
-                        }
-                        yield f"data: {json.dumps(data, separators=(',', ':'))}\n\n"
-                        
-                    except asyncio.TimeoutError:
-                        # Envoyer heartbeat
-                        heartbeat_count += 1
-                        heartbeat_data = {
-                            "type": "heartbeat",
-                            "timestamp": datetime.now().isoformat(),
-                            "count": heartbeat_count
-                        }
-                        yield f"data: {json.dumps(heartbeat_data, separators=(',', ':'))}\n\n"
-                        
-                except Exception as e:
-                    logger.error(f"Erreur dans la boucle SSE: {e}")
-                    await asyncio.sleep(0.1)  # OPTIMISATION: Délai très court
-                
-        except asyncio.CancelledError:
-            # Connexion fermée par le client
-            log_with_context(logger, "info", "Streaming des logs backend arrêté")
-            from ..core.logging import unregister_frontend_logger
-            unregister_frontend_logger(send_log_to_frontend)
-        except Exception as e:
-            log_with_context(logger, "error", "Erreur dans le streaming des logs", 
-                           exception=e)
-            error_data = {
-                "type": "error",
-                "timestamp": datetime.now().isoformat(),
-                "error": str(e)
-            }
-            yield f"data: {json.dumps(error_data, separators=(',', ':'))}\n\n"
-    
-    return StreamingResponse(
-        event_stream(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "Access-Control-Allow-Origin": "*",
-            "Access-Control-Allow-Headers": "*",
-            # OPTIMISATION: Headers pour améliorer les performances SSE
-            "X-Accel-Buffering": "no",  # Désactiver le buffering nginx
-            "X-Content-Type-Options": "nosniff",
-        }
-    )
-
-@router.delete("/backend")
-async def clear_backend_logs():
-    """
-    Vider le buffer des logs backend
+    Déclenche le nettoyage manuel des logs
     """
     try:
-        # Vider le buffer du handler frontend
-        frontend_handler = None
-        for handler in logger.handlers:
-            if isinstance(handler, FrontendLogHandler):
-                frontend_handler = handler
-                break
+        # Déclencher le nettoyage
+        log_cleanup_manager.cleanup_logs(force=force)
         
-        if frontend_handler:
-            frontend_handler.log_buffer.clear()
-            log_with_context(logger, "info", "Buffer des logs backend vidé")
-            return {"success": True, "message": "Logs backend supprimés"}
-        else:
-            log_with_context(logger, "warning", "Handler frontend non trouvé pour suppression")
-            return {"success": False, "message": "Handler non trouvé"}
-            
+        return ResponseFormatter.success_response(
+            data={
+                "timestamp": datetime.now().isoformat(),
+                "force": force
+            },
+            message="Nettoyage des logs déclenché avec succès"
+        )
+        
     except Exception as e:
-        log_with_context(logger, "error", "Erreur lors de la suppression des logs backend", 
-                        exception=e)
-        raise HTTPException(status_code=500, detail=str(e))
+        return ResponseFormatter.error_response(
+            message="Erreur lors du nettoyage des logs",
+            error=str(e)
+        )
+
+@router.get("/stats")
+@APIUtils.monitor_api_performance
+async def get_log_stats(
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    Récupère les statistiques des logs
+    """
+    try:
+        from pathlib import Path
+        
+        log_dir = Path("logs")
+        stats = {
+            "total_files": 0,
+            "total_size_mb": 0,
+            "files": []
+        }
+        
+        if log_dir.exists():
+            for log_file in log_dir.glob("*.log"):
+                try:
+                    stat = log_file.stat()
+                    file_size_mb = stat.st_size / (1024 * 1024)
+                    file_age_hours = (datetime.now() - datetime.fromtimestamp(stat.st_mtime)).total_seconds() / 3600
+                    
+                    stats["total_files"] += 1
+                    stats["total_size_mb"] += file_size_mb
+                    stats["files"].append({
+                        "name": log_file.name,
+                        "size_mb": round(file_size_mb, 2),
+                        "age_hours": round(file_age_hours, 2),
+                        "modified": datetime.fromtimestamp(stat.st_mtime).isoformat()
+                    })
+                except Exception as e:
+                    continue
+        
+        return ResponseFormatter.success_response(
+            data=stats,
+            message=f"Statistiques des logs récupérées ({stats['total_files']} fichiers, {stats['total_size_mb']:.1f} MB)"
+        )
+        
+    except Exception as e:
+        return ResponseFormatter.error_response(
+            message="Erreur lors de la récupération des statistiques",
+            error=str(e)
+        )

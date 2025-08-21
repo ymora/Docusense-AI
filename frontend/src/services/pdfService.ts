@@ -3,7 +3,7 @@
  * Handles PDF generation and management for analysis results
  */
 
-const API_BASE_URL = 'http://localhost:8000';
+import { apiRequest, handleApiError } from '../utils/apiUtils';
 
 export interface PDFInfo {
   analysis_id: number;
@@ -36,67 +36,56 @@ export interface BulkPDFGenerationResponse {
 }
 
 class PDFService {
-  private baseUrl = `${API_BASE_URL}/pdf-files`;
 
   /**
    * Generate PDF for a specific analysis
    */
   async generateAnalysisPDF(analysisId: number): Promise<PDFGenerationResponse> {
-    const response = await fetch(`${this.baseUrl}/generate/${analysisId}`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.getSessionToken()}`
-      }
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || 'Erreur lors de la génération du PDF');
+    try {
+      const response = await apiRequest(`/api/pdf-files/generate/${analysisId}`, {
+        method: 'POST'
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(`Erreur lors de la génération du PDF: ${handleApiError(error)}`);
     }
-
-    const data = await response.json();
-    return data.data;
   }
 
   /**
    * Generate PDFs for all completed analyses that don't have one
    */
   async generatePDFsForAllCompletedAnalyses(): Promise<BulkPDFGenerationResponse> {
-    const response = await fetch(`${this.baseUrl}/generate-all-completed`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.getSessionToken()}`
-      }
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || 'Erreur lors de la génération des PDFs');
+    try {
+      const response = await apiRequest('/api/pdf-files/generate-all-completed', {
+        method: 'POST'
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(`Erreur lors de la génération des PDFs: ${handleApiError(error)}`);
     }
-
-    const data = await response.json();
-    return data.data;
   }
 
   /**
    * Download PDF for a specific analysis
    */
   async downloadAnalysisPDF(analysisId: number): Promise<Blob> {
-    const response = await fetch(`${this.baseUrl}/download/${analysisId}`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${this.getSessionToken()}`
+    try {
+      const response = await fetch(`http://localhost:8000/api/pdf-files/download/${analysisId}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.getSessionToken()}`
+        }
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.detail || 'Erreur lors du téléchargement du PDF');
       }
-    });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || 'Erreur lors du téléchargement du PDF');
+      return response.blob();
+    } catch (error) {
+      throw new Error(`Erreur lors du téléchargement du PDF: ${handleApiError(error)}`);
     }
-
-    return response.blob();
   }
 
   /**
@@ -107,50 +96,40 @@ class PDFService {
     limit?: number;
     offset?: number;
   }): Promise<PDFListResponse> {
-    const searchParams = new URLSearchParams();
-    
-    if (params?.fileId) {
-      searchParams.append('file_id', params.fileId.toString());
-    }
-    if (params?.limit) {
-      searchParams.append('limit', params.limit.toString());
-    }
-    if (params?.offset) {
-      searchParams.append('offset', params.offset.toString());
-    }
-
-    const url = `${this.baseUrl}/list${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
-    
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${this.getSessionToken()}`
+    try {
+      const searchParams = new URLSearchParams();
+      
+      if (params?.fileId) {
+        searchParams.append('file_id', params.fileId.toString());
       }
-    });
+      if (params?.limit) {
+        searchParams.append('limit', params.limit.toString());
+      }
+      if (params?.offset) {
+        searchParams.append('offset', params.offset.toString());
+      }
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || 'Erreur lors de la récupération de la liste des PDFs');
+      const url = `/api/pdf-files/list${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+      
+      const response = await apiRequest(url, {
+        method: 'GET'
+      });
+      return response.data;
+    } catch (error) {
+      throw new Error(`Erreur lors de la récupération de la liste des PDFs: ${handleApiError(error)}`);
     }
-
-    const data = await response.json();
-    return data.data;
   }
 
   /**
    * Delete PDF for a specific analysis
    */
   async deleteAnalysisPDF(analysisId: number): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/${analysisId}`, {
-      method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${this.getSessionToken()}`
-      }
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || 'Erreur lors de la suppression du PDF');
+    try {
+      await apiRequest(`/api/pdf-files/${analysisId}`, {
+        method: 'DELETE'
+      });
+    } catch (error) {
+      throw new Error(`Erreur lors de la suppression du PDF: ${handleApiError(error)}`);
     }
   }
 
@@ -158,14 +137,14 @@ class PDFService {
    * Get PDF download URL for a specific analysis
    */
   getPDFDownloadURL(analysisId: number): string {
-    return `${this.baseUrl}/download/${analysisId}`;
+    return `http://localhost:8000/api/pdf-files/download/${analysisId}`;
   }
 
   /**
    * Get PDF generation URL for a specific analysis
    */
   getPDFGenerationURL(analysisId: number): string {
-    return `${this.baseUrl}/generate/${analysisId}`;
+    return `http://localhost:8000/api/pdf-files/generate/${analysisId}`;
   }
 
   /**
@@ -208,12 +187,7 @@ class PDFService {
     }
   }
 
-  /**
-   * Get session token from localStorage
-   */
-  private getSessionToken(): string {
-    return localStorage.getItem('session_token') || '';
-  }
+
 }
 
 // Export singleton instance

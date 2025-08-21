@@ -333,11 +333,6 @@ const MainPanel: React.FC<MainPanelProps> = ({
       case 'queue':
         return <QueueIAAdvanced />;
 
-
-
-      case 'queue':
-        return <QueueIAAdvanced />;
-
       case 'logs':
         return <LogsPanel />;
 
@@ -504,16 +499,6 @@ const MainPanel: React.FC<MainPanelProps> = ({
         
         {/* Description dynamique */}
         <div className="p-4 border-b" style={{ borderColor: colors.border }}>
-          {activePanel === 'queue' && (
-            <>
-              <h1 className="text-xl font-bold" style={{ color: colors.text }}>
-                Queue IA Avancée
-              </h1>
-              <p className="text-sm" style={{ color: colors.textSecondary }}>
-                Gestion simplifiée de la queue d'analyses
-              </p>
-            </>
-          )}
           {activePanel === 'queue' && (
             <>
               <h1 className="text-xl font-bold" style={{ color: colors.text }}>
