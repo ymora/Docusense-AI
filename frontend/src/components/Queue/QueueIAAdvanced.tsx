@@ -295,9 +295,9 @@ const UtilityActions: React.FC<{
   } else if (isAnalysisPaused) {
     actionConfig.main = { action: 'start', icon: <div className="w-4 h-4">▶️</div>, variant: 'success', disabled: false, tooltip: 'Reprendre l\'analyse' };
   } else if (isAnalysisCompleted) {
-    actionConfig.main = { action: 'retry', icon: <RotateCcw size={16} />, variant: 'primary', disabled: false, tooltip: 'Relancer l\'analyse' };
+    actionConfig.main = { action: '', icon: <div className="w-4 h-4">✅</div>, variant: 'primary', disabled: true, tooltip: 'Analyse terminée' };
   } else if (isAnalysisFailed) {
-    actionConfig.main = { action: 'retry', icon: <RotateCcw size={16} />, variant: 'primary', disabled: false, tooltip: 'Relancer l\'analyse' };
+    actionConfig.main = { action: 'start', icon: <div className="w-4 h-4">🔄</div>, variant: 'primary', disabled: false, tooltip: 'Relancer l\'analyse' };
   } else { // Unknown status
     actionConfig.main = { action: '', icon: <div className="w-4 h-4">▶️</div>, variant: 'primary', disabled: true, tooltip: 'Statut inconnu' };
     actionConfig.view.disabled = true;
@@ -758,14 +758,11 @@ export const QueueIAAdvanced: React.FC = () => {
       switch (action) {
         case 'start':
           // Démarrer l'analyse
-          await analysisService.retryAnalysis(item.id);
+          await analysisService.startAnalysis(item.id);
           break;
         case 'pause':
           // Mettre en pause l'analyse (à implémenter)
           console.log('Pause non encore implémentée');
-          break;
-        case 'retry':
-          await analysisService.retryAnalysis(item.id);
           break;
         case 'delete':
           await analysisService.deleteAnalysis(item.id);

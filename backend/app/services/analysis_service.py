@@ -91,6 +91,25 @@ class AnalysisService(BaseService):
         self.logger.info(f"Created analysis {analysis.id} for file {file_id}")
         return analysis
 
+    def start_analysis(self, analysis_id: int) -> bool:
+        """Start processing an analysis - returns True if started successfully"""
+        try:
+            # Check if analysis exists and is in pending status
+            analysis = self.db.query(Analysis).filter(Analysis.id == analysis_id).first()
+            if not analysis:
+                raise ValueError(f"Analysis {analysis_id} not found")
+            
+            if analysis.status != AnalysisStatus.PENDING:
+                raise ValueError(f"Analysis {analysis_id} is not in pending status (current: {analysis.status})")
+            
+            # Start processing
+            self._start_processing(analysis_id)
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Error starting analysis {analysis_id}: {str(e)}")
+            return False
+
     def _start_processing(self, analysis_id: int) -> None:
         """Start processing an analysis with automatic fallback"""
         try:

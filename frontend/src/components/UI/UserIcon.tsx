@@ -246,17 +246,7 @@ export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
                  </button>
                )}
 
-                               {/* Actions spécifiques au rôle */}
-                {isAdmin() && (
-                  <button
-                    onClick={() => setShowMenu(false)}
-                    className="w-full flex items-center space-x-2 px-3 py-2 text-sm rounded hover:bg-opacity-80 transition-colors"
-                    style={{ backgroundColor: colors.background }}
-                  >
-                    <ShieldCheckIcon className="w-4 h-4" style={{ color: '#22c55e' }} />
-                    <span style={{ color: colors.text }}>Administration</span>
-                  </button>
-                )}
+
 
                {/* Déconnexion */}
                <button

@@ -268,11 +268,14 @@ async def start_analysis(
     if analysis.status != AnalysisStatus.PENDING:
         raise HTTPException(status_code=400, detail="Analysis is not in pending status")
     
-    # Add to queue to start processing
-    analysis_service.queue_service.add_to_queue(analysis_id)
+    # Start the analysis processing
+    success = analysis_service.start_analysis(analysis_id)
     
-    logger.info(f"Successfully started analysis {analysis_id}")
-    return ResponseFormatter.success_response(
-        data={"analysis_id": analysis_id},
-        message="Analysis started successfully"
-    ) 
+    if success:
+        logger.info(f"Successfully started analysis {analysis_id}")
+        return ResponseFormatter.success_response(
+            data={"analysis_id": analysis_id},
+            message="Analysis started successfully"
+        )
+    else:
+        raise HTTPException(status_code=500, detail="Failed to start analysis") 
