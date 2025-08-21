@@ -25,8 +25,8 @@ export const apiRequest = async (url: string, options?: RequestInit, timeout: nu
   if (url.startsWith('http')) {
     fullUrl = url;
   } else if (url === '/health') {
-    // Endpoint health avec préfixe /api/
-    fullUrl = `${BACKEND_URL}/api${url}`;
+    // Endpoint health avec préfixe /api/ et slash final
+    fullUrl = `${BACKEND_URL}/api${url}/`;
   } else if (url.startsWith('/api/')) {
     // Si l'URL commence déjà par /api/, utiliser directement la base du backend
     fullUrl = `${BACKEND_URL}${url}`;

@@ -200,10 +200,20 @@ def _list_analysis_pdfs_logic(file_id: Optional[int], limit: int, offset: int, d
         # Check if PDF file exists
         pdf_exists = analysis.pdf_path and os.path.exists(analysis.pdf_path)
         
+        # Récupérer les informations du fichier de manière sécurisée
+        file_name = "Fichier inconnu"
+        if analysis.file:
+            file_name = analysis.file.name
+        elif analysis.file_id:
+            # Essayer de récupérer le fichier depuis la base
+            file = db.query(FileModel).filter(FileModel.id == analysis.file_id).first()
+            if file:
+                file_name = file.name
+        
         pdfs.append({
             "analysis_id": analysis.id,
             "file_id": analysis.file_id,
-            "file_name": analysis.file.name if analysis.file else "Fichier inconnu",
+            "file_name": file_name,
             "analysis_type": analysis.analysis_type,
             "provider": analysis.provider,
             "model": analysis.model,

@@ -22,6 +22,7 @@ import {
   ArrowPathIcon
 } from '@heroicons/react/24/outline';
 import { UnifiedTable } from '../UI/UnifiedTable';
+import { DeleteConfirmationModal } from '../UI/DeleteConfirmationModal';
 import { Prompt } from '../../services/promptService';
 import { getStatusIcon, getStatusText } from '../../utils/statusUtils';
 import { useBackendStatus } from '../../hooks/useBackendStatus';
@@ -201,30 +202,7 @@ const UtilityActions: React.FC<{
   const hasValidPrompt = hasPrompt && hasPrompt.trim() !== '';
   const canStart = hasProvider && hasValidPrompt;
 
-  // État pour vérifier l'existence du PDF
-  const [hasPDF, setHasPDF] = React.useState<boolean>(false);
-  const [isCheckingPDF, setIsCheckingPDF] = React.useState<boolean>(false);
-
-  // Vérifier l'existence du PDF pour les analyses terminées
-  React.useEffect(() => {
-    if (isAnalysisCompleted) {
-      setIsCheckingPDF(true);
-      pdfService.hasPDF(parseInt(item.id))
-        .then(exists => {
-          setHasPDF(exists);
-        })
-        .catch(error => {
-          // Gérer gracieusement l'erreur d'authentification ou autres erreurs
-          console.warn('Impossible de vérifier l\'existence du PDF (erreur ignorée):', error.message);
-          setHasPDF(false);
-        })
-        .finally(() => {
-          setIsCheckingPDF(false);
-        });
-    } else {
-      setHasPDF(false);
-    }
-  }, [item.id, isAnalysisCompleted]);
+  // États supprimés car la vérification PDF n'est nécessaire qu'au moment de la suppression
 
   // Configuration des actions avec une seule icône principale qui change selon le contexte
   const actionConfig = {
@@ -233,18 +211,10 @@ const UtilityActions: React.FC<{
     },
     view: {
       action: 'view', 
-      icon: isCheckingPDF ? (
-        <div className="w-4 h-4 flex items-center justify-center">
-          <div className="animate-spin rounded-full h-3 w-3 border-b-2 border-blue-500"></div>
-        </div>
-      ) : (
-        <EyeIcon className="w-4 h-4" />
-      ), 
+      icon: <EyeIcon className="w-4 h-4" />, 
       variant: 'info', 
-      disabled: !isAnalysisCompleted || !hasPDF, 
-      tooltip: isCheckingPDF ? 'Vérification du PDF...' : 
-               !isAnalysisCompleted ? 'Analyse non terminée' :
-               !hasPDF ? 'Aucun PDF disponible' : 'Visualiser le fichier'
+      disabled: !isAnalysisCompleted, 
+      tooltip: !isAnalysisCompleted ? 'Analyse non terminée' : 'Visualiser le fichier'
     },
     duplicate: {
       action: 'duplicate', 
@@ -589,6 +559,16 @@ export const QueueIAAdvanced: React.FC = () => {
   const [filterStatus, setFilterStatus] = useState<string>('');
   const [searchTerm, setSearchTerm] = useState<string>('');
   
+  // États pour la confirmation de suppression
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [itemsToDelete, setItemsToDelete] = useState<Array<{
+    id: number;
+    name: string;
+    type: string;
+    hasPDF?: boolean;
+  }>>([]);
+  const [isDeleting, setIsDeleting] = useState(false);
+  
 
   
   // Utiliser le hook centralisé pour la détection du backend
@@ -795,7 +775,15 @@ export const QueueIAAdvanced: React.FC = () => {
           console.log('Pause non encore implémentée');
           break;
         case 'delete':
-          await analysisService.deleteAnalysis(item.id);
+          // Préparer la confirmation de suppression
+          const hasPDF = await pdfService.hasPDF(item.id).catch(() => false);
+          setItemsToDelete([{
+            id: item.id,
+            name: item.file_info?.name || `Analyse #${item.id}`,
+            type: item.analysis_type || 'Général',
+            hasPDF
+          }]);
+          setShowDeleteModal(true);
           break;
         case 'view':
           // Ouvrir le fichier dans le visualiseur
@@ -1001,9 +989,25 @@ export const QueueIAAdvanced: React.FC = () => {
           break;
 
         case 'delete':
-          for (const itemId of selectedItems) {
-            await analysisService.deleteAnalysis(Number(itemId));
-          }
+          // Préparer la confirmation de suppression multiple
+          const itemsToDeletePromises = Array.from(selectedItems).map(async (itemId) => {
+            const item = analyses.find(a => a.id.toString() === itemId);
+            if (!item) return null;
+            
+            const hasPDF = await pdfService.hasPDF(Number(itemId)).catch(() => false);
+            return {
+              id: Number(itemId),
+              name: item.file_info?.name || `Analyse #${itemId}`,
+              type: item.analysis_type || 'Général',
+              hasPDF
+            };
+          });
+          
+          const itemsToDeleteResults = await Promise.all(itemsToDeletePromises);
+          const validItems = itemsToDeleteResults.filter(item => item !== null);
+          
+          setItemsToDelete(validItems);
+          setShowDeleteModal(true);
           break;
 
         default:
@@ -1040,6 +1044,69 @@ export const QueueIAAdvanced: React.FC = () => {
       case 'delete': return '#ef4444';
       default: return '#6b7280';
     }
+  };
+
+  // Fonction pour gérer la confirmation de suppression
+  const handleDeleteConfirm = async () => {
+    if (itemsToDelete.length === 0) return;
+
+    setIsDeleting(true);
+    try {
+      logService.info('Début de la suppression confirmée', 'QueueIAAdvanced', {
+        itemsToDelete: itemsToDelete.map(item => ({ id: item.id, name: item.name })),
+        count: itemsToDelete.length,
+        timestamp: new Date().toISOString()
+      });
+
+      // Supprimer chaque analyse
+      const deletePromises = itemsToDelete.map(async (item) => {
+        try {
+          await analysisService.deleteAnalysis(item.id);
+          return { id: item.id, success: true };
+        } catch (error) {
+          logService.error('Erreur lors de la suppression d\'une analyse', 'QueueIAAdvanced', {
+            itemId: item.id,
+            error: error.message,
+            timestamp: new Date().toISOString()
+          });
+          return { id: item.id, success: false, error: error.message };
+        }
+      });
+
+      const results = await Promise.all(deletePromises);
+      const successful = results.filter(r => r.success);
+      const failed = results.filter(r => !r.success);
+
+      logService.info('Suppression terminée', 'QueueIAAdvanced', {
+        total: itemsToDelete.length,
+        successful: successful.length,
+        failed: failed.length,
+        successfulIds: successful.map(r => r.id),
+        failedIds: failed.map(r => r.id),
+        timestamp: new Date().toISOString()
+      });
+
+      // Recharger les analyses
+      await loadAnalyses();
+      
+      // Fermer le modal et réinitialiser
+      setShowDeleteModal(false);
+      setItemsToDelete([]);
+      setSelectedItems(new Set());
+
+    } catch (error) {
+      logService.error('Erreur lors de la suppression', 'QueueIAAdvanced', {
+        error: error.message,
+        timestamp: new Date().toISOString()
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
+    setItemsToDelete([]);
   };
 
   return (
@@ -1181,6 +1248,15 @@ export const QueueIAAdvanced: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Modal de confirmation de suppression */}
+      <DeleteConfirmationModal
+        isOpen={showDeleteModal}
+        onClose={handleDeleteCancel}
+        onConfirm={handleDeleteConfirm}
+        items={itemsToDelete}
+        isLoading={isDeleting}
+      />
     </div>
   );
 };

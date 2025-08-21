@@ -316,12 +316,33 @@ class AnalysisService(BaseService):
         if not analysis:
             return False
 
-        # Delete analysis
-        self.db.delete(analysis)
-        self.db.commit()
+        try:
+            # Supprimer le fichier PDF associé s'il existe
+            if analysis.pdf_path:
+                import os
+                from pathlib import Path
+                
+                pdf_path = Path(analysis.pdf_path)
+                if pdf_path.exists():
+                    try:
+                        os.remove(pdf_path)
+                        self.logger.info(f"PDF supprimé: {pdf_path}")
+                    except Exception as e:
+                        self.logger.warning(f"Impossible de supprimer le PDF {pdf_path}: {str(e)}")
+                else:
+                    self.logger.info(f"PDF introuvable (déjà supprimé): {pdf_path}")
+            
+            # Supprimer l'analyse de la base de données
+            self.db.delete(analysis)
+            self.db.commit()
 
-        self.logger.info(f"Deleted analysis {analysis_id}")
-        return True
+            self.logger.info(f"Analyse {analysis_id} supprimée avec succès (base + PDF)")
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"Erreur lors de la suppression de l'analyse {analysis_id}: {str(e)}")
+            self.db.rollback()
+            return False
 
     @log_service_operation("create_bulk_analyses")
     def create_bulk_analyses(
@@ -536,7 +557,7 @@ class AnalysisService(BaseService):
         self,
         analysis_id: int,
         result: Dict[str, Any],
-        status: AnalysisStatus = AnalysisStatus.COMPLETED
+        status: AnalysisStatus = AnalysisStatus.PROCESSING  # Changé: ne plus marquer comme terminé par défaut
     ) -> Optional[Analysis]:
         """
         Update analysis with result
@@ -544,38 +565,66 @@ class AnalysisService(BaseService):
         return self.safe_execute("update_analysis_result", self._update_analysis_result_logic, analysis_id, result, status)
 
     def _update_analysis_result_logic(self, analysis_id: int, result: Dict[str, Any], status: AnalysisStatus) -> Optional[Analysis]:
-        """Logic for updating analysis result"""
+        """
+        NOUVELLE LOGIQUE: Une analyse n'est terminée QUE si l'IA ET le PDF sont générés avec succès
+        - Si analyse IA échoue → statut erreur
+        - Si analyse IA OK mais génération PDF échoue → statut erreur  
+        - Analyse terminée = Analyse IA + PDF généré
+        """
         analysis = self.get_analysis(analysis_id)
         if not analysis:
             return None
 
-        # Update analysis
+        # Si c'est un échec de l'IA, marquer comme failed directement
+        if status == AnalysisStatus.FAILED:
+            analysis.result = result
+            analysis.status = AnalysisStatus.FAILED
+            analysis.completed_at = func.now()
+            self.db.commit()
+            self.db.refresh(analysis)
+            self.logger.error(f"Analysis {analysis_id} failed during AI processing")
+            return analysis
+
+        # Si l'IA a réussi, on met à jour le résultat mais on ne marque PAS comme terminé
         analysis.result = result
-        analysis.status = status
-        analysis.completed_at = func.now()
-
+        analysis.status = AnalysisStatus.PROCESSING  # Reste en processing jusqu'à génération PDF
         self.db.commit()
-        self.db.refresh(analysis)
-
-        # Update file status if analysis completed
-        if status == AnalysisStatus.COMPLETED:
-            file = self.db.query(File).filter(File.id == analysis.file_id).first()
-            if file:
-                file.status = FileStatus.COMPLETED
-                self.db.commit()
+        
+        # NOUVELLE LOGIQUE: Tenter de générer le PDF
+        try:
+            self.logger.info(f"AI analysis completed for {analysis_id}, generating PDF...")
+            pdf_path = self.pdf_generator.generate_analysis_pdf(analysis_id)
             
-            # Generate PDF for completed analysis
-            try:
-                pdf_path = self.pdf_generator.generate_analysis_pdf(analysis_id)
-                if pdf_path:
-                    # Update the analysis with the PDF path
-                    analysis.pdf_path = pdf_path
+            if pdf_path:
+                # PDF généré avec succès - MAINTENANT on peut marquer comme terminé
+                analysis.pdf_path = pdf_path
+                analysis.status = AnalysisStatus.COMPLETED
+                analysis.completed_at = func.now()
+                self.db.commit()
+                
+                # Mettre à jour le statut du fichier
+                file = self.db.query(File).filter(File.id == analysis.file_id).first()
+                if file:
+                    file.status = FileStatus.COMPLETED
                     self.db.commit()
-                    self.logger.info(f"Generated PDF for completed analysis {analysis_id}: {pdf_path}")
-                else:
-                    self.logger.warning(f"No PDF path returned for analysis {analysis_id}")
-            except Exception as e:
-                self.logger.error(f"Failed to generate PDF for analysis {analysis_id}: {str(e)}")
+                
+                self.logger.info(f"Analysis {analysis_id} FULLY COMPLETED: AI + PDF generated successfully")
+            else:
+                # Échec génération PDF - marquer comme failed
+                analysis.status = AnalysisStatus.FAILED
+                analysis.error_message = "Échec de la génération du PDF"
+                analysis.completed_at = func.now()
+                self.db.commit()
+                self.logger.error(f"Analysis {analysis_id} FAILED: AI OK but PDF generation failed (no path returned)")
+                
+        except Exception as e:
+            # Échec génération PDF - marquer comme failed
+            analysis.status = AnalysisStatus.FAILED
+            analysis.error_message = f"Erreur génération PDF: {str(e)}"
+            analysis.completed_at = func.now()
+            self.db.commit()
+            self.logger.error(f"Analysis {analysis_id} FAILED: AI OK but PDF generation failed with error: {str(e)}")
 
-        self.logger.info(f"Updated analysis {analysis_id} with result")
+        self.db.refresh(analysis)
+        self.logger.info(f"Updated analysis {analysis_id} with result and final status: {analysis.status}")
         return analysis

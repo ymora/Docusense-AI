@@ -165,15 +165,7 @@ async def root():
     }
 
 
-@app.get("/health")
-async def health_check():
-    """Health check endpoint at root level for compatibility"""
-    return {
-        "status": "healthy",
-        "app_name": settings.app_name,
-        "version": settings.app_version,
-        "environment": settings.environment
-    }
+# Endpoint de santé supprimé - utilisez /api/health/ à la place
 
 
 if __name__ == "__main__":

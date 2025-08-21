@@ -178,11 +178,26 @@ class PDFService {
    */
   async hasPDF(analysisId: number): Promise<boolean> {
     try {
+      // Vérifier d'abord si le backend est disponible
+      const response = await fetch('/api/health/', { 
+        method: 'GET',
+        signal: AbortSignal.timeout(3000) // Timeout de 3 secondes
+      });
+      
+      if (!response.ok) {
+        console.warn(`Backend non disponible pour vérifier le PDF de l'analyse ${analysisId}`);
+        return false;
+      }
+
       const pdfs = await this.listAnalysisPDFs({ limit: 1000 });
       return pdfs.pdfs.some(pdf => pdf.analysis_id === analysisId && pdf.pdf_exists);
     } catch (error) {
-      // Gérer gracieusement les erreurs d'authentification ou autres erreurs
-      console.warn(`Impossible de vérifier l'existence du PDF pour l'analyse ${analysisId}:`, error);
+      // Gérer gracieusement les erreurs de connexion
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        console.warn(`Backend non accessible pour vérifier le PDF de l'analyse ${analysisId}`);
+      } else {
+        console.warn(`Impossible de vérifier l'existence du PDF pour l'analyse ${analysisId}:`, error);
+      }
       return false;
     }
   }
