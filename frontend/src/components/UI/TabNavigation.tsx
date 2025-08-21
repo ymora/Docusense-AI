@@ -43,14 +43,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({ activePanel, onTabChange 
     }
   ];
 
-  const rightTabs: Tab[] = [
-    {
-      id: 'config',
-      label: 'Configuration IA',
-      icon: Cog6ToothIcon,
-      description: 'Configurez vos providers IA'
-    }
-  ];
+  const rightTabs: Tab[] = [];
 
   return (
     <div

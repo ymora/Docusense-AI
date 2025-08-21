@@ -19,7 +19,7 @@ import {
   MusicalNoteIcon,
   FolderIcon
 } from '@heroicons/react/24/outline';
-import { ConfigContent } from '../Config/ConfigWindow';
+
 
 import { QueueIAAdvanced } from '../Queue/QueueIAAdvanced';
 import LogsPanel from '../Logs/LogsPanel';
@@ -33,8 +33,8 @@ import { useUIStore } from '../../stores/uiStore';
 import { useStartupInitialization } from '../../hooks/useStartupInitialization';
 
 interface MainPanelProps {
-  activePanel: 'viewer' | 'config' | 'analyses' | 'queue';
-  onSetActivePanel?: (panel: 'viewer' | 'config' | 'analyses' | 'queue') => void;
+  activePanel: 'viewer' | 'analyses' | 'queue';
+  onSetActivePanel?: (panel: 'viewer' | 'analyses' | 'queue') => void;
 }
 
 const MainPanel: React.FC<MainPanelProps> = ({ 
@@ -51,7 +51,7 @@ const MainPanel: React.FC<MainPanelProps> = ({
   const [logsCount, setLogsCount] = useState(0);
   const [errorCount, setErrorCount] = useState(0);
   const [warningCount, setWarningCount] = useState(0);
-  const [activeTab, setActiveTab] = useState('config');
+  const [activeTab, setActiveTab] = useState('queue');
 
   // OPTIMISATION: Chargement des providers une seule fois
   const allProviders = getActiveProviders();
@@ -86,12 +86,7 @@ const MainPanel: React.FC<MainPanelProps> = ({
 
   // Définir les onglets
   const tabs = [
-    {
-      id: 'config',
-      label: 'Configuration IA',
-      icon: <Cog6ToothIcon className="h-4 w-4" />,
-      count: activeProviders.length,
-    },
+
     {
       id: 'queue',
       label: 'File d\'attente',
@@ -100,7 +95,7 @@ const MainPanel: React.FC<MainPanelProps> = ({
     },
     {
       id: 'analyses',
-      label: 'Analyses & Logs',
+      label: 'Logs',
       icon: <LogsIcon className="h-4 w-4" />,
       count: logsCount,
       errorCount: errorCount,
@@ -357,8 +352,7 @@ const MainPanel: React.FC<MainPanelProps> = ({
       case 'queue':
         return <QueueIAAdvanced />;
 
-      case 'config':
-        return <ConfigContent />;
+
 
       case 'analyses':
         return <LogsPanel />;
@@ -540,23 +534,14 @@ const MainPanel: React.FC<MainPanelProps> = ({
           {activePanel === 'analyses' && (
             <>
               <h1 className="text-xl font-bold" style={{ color: colors.text }}>
-                Analyses & Logs
+                Logs
               </h1>
               <p className="text-sm" style={{ color: colors.textSecondary }}>
                 Gestion et consultation des logs système avec filtres et actions
               </p>
             </>
           )}
-          {activePanel === 'config' && (
-            <>
-              <h1 className="text-xl font-bold" style={{ color: colors.text }}>
-                Configuration des Providers IA
-              </h1>
-              <p className="text-sm" style={{ color: colors.textSecondary }}>
-                Configuration et test des providers d'intelligence artificielle
-              </p>
-            </>
-          )}
+
           {activePanel === 'viewer' && (
             <>
               <h1 className="text-xl font-bold" style={{ color: colors.text }}>

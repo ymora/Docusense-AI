@@ -332,8 +332,8 @@ const Layout: React.FC = () => {
   useEffect(() => {
     const handleSetActivePanel = (event: CustomEvent) => {
       const { panel } = event.detail;
-      if (panel && ['viewer', 'config', 'analyses', 'queue'].includes(panel)) {
-        setActivePanel(panel as 'viewer' | 'config' | 'analyses' | 'queue');
+              if (panel && ['viewer', 'analyses', 'queue'].includes(panel)) {
+        setActivePanel(panel as 'viewer' | 'analyses' | 'queue');
       }
     };
 
