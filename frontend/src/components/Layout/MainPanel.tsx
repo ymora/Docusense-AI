@@ -9,11 +9,9 @@ import { getFileType } from '../../utils/fileTypeUtils';
 import { isSupportedFormat } from '../../utils/mediaFormats';
 
 import {
-  QueueListIcon,
   Cog6ToothIcon,
   DocumentTextIcon,
   EyeIcon,
-  DocumentTextIcon as LogsIcon,
   PhotoIcon,
   FilmIcon,
   MusicalNoteIcon,
@@ -23,7 +21,7 @@ import {
 
 import { QueueIAAdvanced } from '../Queue/QueueIAAdvanced';
 import LogsPanel from '../Logs/LogsPanel';
-import TabPanel from '../UI/TabPanel';
+import TabNavigation from '../UI/TabNavigation';
 import SecureFileViewer from '../FileManager/SecureFileViewer';
 import FileDetailsPanel from '../FileManager/FileDetailsPanel';
 import ThumbnailGrid from '../FileManager/ThumbnailGrid';
@@ -31,10 +29,11 @@ import UnifiedFileViewer from '../FileManager/UnifiedFileViewer';
 
 import { useUIStore } from '../../stores/uiStore';
 import { useStartupInitialization } from '../../hooks/useStartupInitialization';
+import useAuthStore from '../../stores/authStore';
 
 interface MainPanelProps {
-  activePanel: 'viewer' | 'analyses' | 'queue';
-  onSetActivePanel?: (panel: 'viewer' | 'analyses' | 'queue') => void;
+  activePanel: 'viewer' | 'queue' | 'logs';
+  onSetActivePanel?: (panel: 'viewer' | 'queue' | 'logs') => void;
 }
 
 const MainPanel: React.FC<MainPanelProps> = ({ 
@@ -51,7 +50,11 @@ const MainPanel: React.FC<MainPanelProps> = ({
   const [logsCount, setLogsCount] = useState(0);
   const [errorCount, setErrorCount] = useState(0);
   const [warningCount, setWarningCount] = useState(0);
-  const [activeTab, setActiveTab] = useState('queue');
+  const [activeTab, setActiveTab] = useState(() => {
+    // Par défaut, afficher les logs pour les admins, sinon la queue
+    const { isAdmin } = useAuthStore.getState();
+    return isAdmin() ? 'logs' : 'queue';
+  });
 
   // OPTIMISATION: Chargement des providers une seule fois
   const allProviders = getActiveProviders();
@@ -84,29 +87,7 @@ const MainPanel: React.FC<MainPanelProps> = ({
   // OPTIMISATION: Suppression du useEffect redondant pour loadQueueItems
   // La queue est maintenant gérée par SSE dans QueueIAAdvanced
 
-  // Définir les onglets
-  const tabs = [
-
-    {
-      id: 'queue',
-      label: 'File d\'attente',
-      icon: <QueueListIcon className="h-4 w-4" />,
-      count: getAnalysesCount(),
-    },
-    {
-      id: 'analyses',
-      label: 'Logs',
-      icon: <LogsIcon className="h-4 w-4" />,
-      count: logsCount,
-      errorCount: errorCount,
-      warningCount: warningCount,
-    },
-    {
-      id: 'viewer',
-      label: 'Visualiseur de fichiers',
-      icon: <EyeIcon className="h-4 w-4" />,
-    },
-  ];
+  // Les onglets sont maintenant définis dans TabNavigation.tsx
 
   // Gestion du changement d'onglet avec logs détaillés
   const handleTabChange = (tabId: string) => {
@@ -354,7 +335,10 @@ const MainPanel: React.FC<MainPanelProps> = ({
 
 
 
-      case 'analyses':
+      case 'queue':
+        return <QueueIAAdvanced />;
+
+      case 'logs':
         return <LogsPanel />;
 
       case 'viewer':
@@ -512,10 +496,9 @@ const MainPanel: React.FC<MainPanelProps> = ({
     >
       {/* Panneau haut (fixe) */}
       <div className="flex-shrink-0">
-        {/* TabPanel (onglets) */}
-        <TabPanel 
-          tabs={tabs} 
-          activeTab={activePanel} 
+        {/* TabNavigation (onglets) */}
+        <TabNavigation 
+          activePanel={activePanel} 
           onTabChange={onSetActivePanel} 
         />
         
@@ -531,7 +514,17 @@ const MainPanel: React.FC<MainPanelProps> = ({
               </p>
             </>
           )}
-          {activePanel === 'analyses' && (
+          {activePanel === 'queue' && (
+            <>
+              <h1 className="text-xl font-bold" style={{ color: colors.text }}>
+                Queue IA
+              </h1>
+              <p className="text-sm" style={{ color: colors.textSecondary }}>
+                Gestion de la file d'attente des analyses IA
+              </p>
+            </>
+          )}
+          {activePanel === 'logs' && (
             <>
               <h1 className="text-xl font-bold" style={{ color: colors.text }}>
                 Logs

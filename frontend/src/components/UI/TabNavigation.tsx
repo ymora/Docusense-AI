@@ -1,5 +1,6 @@
 import React from 'react';
 import { useColors } from '../../hooks/useColors';
+import useAuthStore from '../../stores/authStore';
 import {
   EyeIcon,
   QueueListIcon,
@@ -21,29 +22,36 @@ interface TabNavigationProps {
 
 const TabNavigation: React.FC<TabNavigationProps> = ({ activePanel, onTabChange }) => {
   const { colors } = useColors();
+  const { isAdmin } = useAuthStore();
 
   const tabs: Tab[] = [
     {
-      id: 'main',
+      id: 'viewer',
       label: 'Visualisation',
       icon: EyeIcon,
       description: 'Visualisez vos fichiers'
     },
     {
-      id: 'analyses',
+      id: 'queue',
       label: 'Queue IA',
       icon: QueueListIcon,
       description: 'Gérez vos analyses IA'
-    },
-    {
+    }
+  ];
+
+  const rightTabs: Tab[] = [
+    // Onglet Logs visible uniquement pour l'admin
+    ...(isAdmin() ? [{
       id: 'logs',
       label: 'Logs',
       icon: DocumentTextIcon,
       description: 'Consultez les logs'
-    }
+    }] : [])
   ];
+  
 
-  const rightTabs: Tab[] = [];
+  
+
 
   return (
     <div
@@ -63,7 +71,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({ activePanel, onTabChange 
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+              className={`tab-button flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                 isActive 
                   ? 'shadow-sm' 
                   : 'hover:bg-slate-700/50'
@@ -74,9 +82,12 @@ const TabNavigation: React.FC<TabNavigationProps> = ({ activePanel, onTabChange 
                 border: isActive ? `1px solid ${colors.primary}` : '1px solid transparent',
               }}
               title={tab.description}
+              aria-label={`Onglet ${tab.label}`}
+              data-tab-id={tab.id}
+              data-tab-label={tab.label}
             >
               <Icon className="h-4 w-4" />
-              <span>{tab.label}</span>
+              <span className="tab-label">{tab.label}</span>
             </button>
           );
         })}
@@ -92,7 +103,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({ activePanel, onTabChange 
             <button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
-              className={`flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
+              className={`tab-button flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                 isActive 
                   ? 'shadow-sm' 
                   : 'hover:bg-slate-700/50'
@@ -103,9 +114,12 @@ const TabNavigation: React.FC<TabNavigationProps> = ({ activePanel, onTabChange 
                 border: isActive ? `1px solid ${colors.primary}` : '1px solid transparent',
               }}
               title={tab.description}
+              aria-label={`Onglet ${tab.label}`}
+              data-tab-id={tab.id}
+              data-tab-label={tab.label}
             >
               <Icon className="h-4 w-4" />
-              <span>{tab.label}</span>
+              <span className="tab-label">{tab.label}</span>
             </button>
           );
         })}
