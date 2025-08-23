@@ -32,7 +32,7 @@ git clone <repository-url>
 cd DocuSense-AI
 
 # 2. Installation automatique
-.\scripts\start_optimized.ps1 -Analyze -Optimize -Force
+.\docusense.ps1 start
 
 # 3. Accéder à l'application
 # Frontend : http://localhost:3000
@@ -170,14 +170,14 @@ cd DocuSense-AI
 # Installation complète avec optimisation
 git clone <repository-url>
 cd DocuSense-AI
-.\scripts\start_optimized.ps1 -Analyze -Optimize -Force
+.\docusense.ps1 start
 ```
 
 ### 🎬 Support Multimédia (Optionnel)
 
 ```powershell
 # Installation automatique FFmpeg + codecs
-.\scripts\install_multimedia_deps.ps1
+winget install Gyan.FFmpeg --accept-source-agreements --accept-package-agreements
 
 # Ou installation manuelle
 winget install Gyan.FFmpeg --accept-source-agreements --accept-package-agreements
@@ -424,7 +424,7 @@ if risk_score >= 70:
 #### **Environnement Virtuel Manquant**
 ```powershell
 # Solution automatique
-.\scripts\optimize_system.ps1 -System
+.\docusense.ps1 cleanup
 
 # Solution manuelle
 cd backend
@@ -436,7 +436,7 @@ venv\Scripts\pip.exe install -r requirements.txt
 #### **Ports Déjà Utilisés**
 ```powershell
 # Solution automatique
-.\scripts\start_optimized.ps1 -Force
+.\docusense.ps1 restart
 
 # Solution manuelle
 taskkill /F /IM python.exe /T
@@ -446,10 +446,10 @@ taskkill /F /IM node.exe /T
 #### **Base de Données Corrompue**
 ```powershell
 # Diagnostic
-.\scripts\diagnostic_complet.ps1 -Report
+.\docusense.ps1 status
 
 # Optimisation automatique
-.\scripts\optimize_system.ps1 -Database -Force
+.\docusense.ps1 cleanup
 ```
 
 #### **Lecteur Vidéo Ne Fonctionne Pas**
@@ -484,9 +484,9 @@ curl http://localhost:8000/api/files/stream-by-path/[chemin_fichier]
 
 ### 🔧 Outils de Diagnostic
 
-- **Diagnostic automatique** : `.\scripts\diagnostic_complet.ps1 -Report`
-- **Optimisation automatique** : `.\scripts\optimize_system.ps1 -Force`
-- **Surveillance continue** : `.\scripts\monitor_realtime.ps1 -Log`
+- **Diagnostic automatique** : `.\docusense.ps1 status`
+- **Optimisation automatique** : `.\docusense.ps1 cleanup`
+- **Surveillance continue** : `.\docusense.ps1 monitor`
 
 ### 📞 Contact
 

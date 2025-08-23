@@ -87,10 +87,10 @@ INFO: Analysis 123 completed successfully with provider claude
 
 ## 🛠️ **Implémentation Technique**
 
-### **Backend - Nouveaux endpoints :**
+### **Backend - Endpoints utilisés :**
 
 1. **`select_best_provider_from_priority()`** : Sélectionne le provider selon la priorité
-2. **`_process_with_priority_fallback()`** : Gère le fallback automatique
+2. **`get_available_providers_async()`** : Récupère les providers fonctionnels
 3. **Support du `priority_mode`** : Reconnaît l'option spéciale dans les requêtes
 
 ### **Frontend - Modifications :**
@@ -101,20 +101,20 @@ INFO: Analysis 123 completed successfully with provider claude
 
 ## 🧪 **Tests**
 
-### **Script de test disponible :**
+### **Test du système :**
 
 ```bash
 cd backend
-python test_priority_mode.py
+venv\Scripts\python.exe -c "from app.core.database import get_db; from app.services.config_service import ConfigService; db = next(get_db()); config = ConfigService(db); print('Priorités:', config.get_all_provider_priorities())"
 ```
 
-### **Tests inclus :**
+### **Fonctionnalités testées :**
 
-1. ✅ Sélection standard
-2. ✅ Mode priorité simple
-3. ✅ Mode priorité complexe
+1. ✅ Sélection automatique par priorité
+2. ✅ Fallback en cas d'échec
+3. ✅ Auto-correction des priorités non séquentielles
 4. ✅ Gestion des providers invalides
-5. ✅ Fallback automatique
+5. ✅ Logs détaillés des sélections
 
 ## 📈 **Avantages pour l'utilisateur**
 

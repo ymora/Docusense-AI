@@ -874,34 +874,7 @@ class AIService(BaseService):
 
 
 
-    async def select_best_provider_from_priority(self, provider_priority: list[str]) -> tuple[str, str]:
-        """
-        Select the best available provider from a priority list
-        """
-        try:
-            # Get available providers
-            available_providers = await self.get_available_providers_async()
-            
-            # Filter providers that are in the priority list and available
-            priority_providers = []
-            for provider_name in provider_priority:
-                for provider in available_providers:
-                    if provider["name"] == provider_name and provider["is_active"]: # Changed is_available to is_active
-                        priority_providers.append(provider)
-                        break
-            
-            if priority_providers:
-                # Use the first available provider from priority list
-                selected_provider = priority_providers[0]
-                return selected_provider["name"], selected_provider["default_model"]
-            
-            # Fallback to default selection if no priority providers available
-            self.logger.warning("No priority providers available, falling back to default selection")
-            return await self.select_best_provider()
-            
-        except Exception as e:
-            self.logger.error(f"Error selecting provider from priority: {str(e)}")
-            return await self.select_best_provider()
+
 
     def get_available_ai_providers_with_priority(self) -> List[Dict[str, Any]]:
         """
