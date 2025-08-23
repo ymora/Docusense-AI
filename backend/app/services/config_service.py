@@ -24,11 +24,19 @@ _config_initialized = False
 
 class ConfigService(BaseService):
     """Service for configuration management"""
+    
+    # Cache statique partagé entre toutes les instances
+    _global_cache = {}
+    _cache_loaded = False
 
     def __init__(self, db: Session):
         super().__init__(db)
-        self._cache = {}
-        self._load_cache()
+        self._cache = ConfigService._global_cache
+        
+        # Charger le cache seulement si il n'a pas encore été chargé
+        if not ConfigService._cache_loaded:
+            self._load_cache()
+            ConfigService._cache_loaded = True
 
     @log_service_operation("load_cache")
     def _load_cache(self):
@@ -1766,3 +1774,9 @@ class ConfigService(BaseService):
                 "message": f"Erreur lors du test: {str(e)}",
                 "cached": False
             }
+
+    @classmethod
+    def clear_cache(cls):
+        """Clear the global cache"""
+        cls._global_cache.clear()
+        cls._cache_loaded = False

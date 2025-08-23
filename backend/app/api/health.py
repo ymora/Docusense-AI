@@ -4,6 +4,7 @@ Health check endpoints for DocuSense AI
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
+from sqlalchemy import text
 from datetime import datetime, timezone
 import psutil
 import os
@@ -28,10 +29,8 @@ async def health_check():
         "version": settings.app_version,
         "environment": settings.environment
     }
-    return ResponseFormatter.success_response(
-        data=health_data,
-        message="Vérification de santé de base"
-    )
+    # Retourner une réponse simple pour la compatibilité frontend
+    return health_data
 
 
 @router.get("/health")
@@ -59,8 +58,8 @@ async def detailed_health_check(db: Session = Depends(get_db)):
     Detailed health check with system information
     """
     try:
-        # Test database connection
-        db.execute("SELECT 1")
+        # Test database connection with explicit text() declaration
+        db.execute(text("SELECT 1"))
         db_status = "healthy"
     except Exception as e:
         db_status = f"error: {str(e)}"
@@ -88,7 +87,7 @@ async def detailed_health_check(db: Session = Depends(get_db)):
         },
         "database": {
             "status": db_status,
-            "url": settings.database_url.split("://")[0] + "://***"
+            "url": "SQLite"
         },
         "features": {
             "ocr_enabled": settings.ocr_enabled,

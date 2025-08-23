@@ -1,264 +1,80 @@
-
-import { apiRequest, handleApiError } from '../utils/apiUtils';
-import { logService } from './logService';
-import { useBackendConnection } from '../hooks/useBackendConnection';
-
-const DEFAULT_TIMEOUT = 30000; // 30 secondes
+import { unifiedApiService } from './unifiedApiService';
 
 export interface Analysis {
   id: number;
+  file_id: number;
+  analysis_type: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  result?: string;
+  error?: string;
+  provider?: string;
+  model?: string;
+  prompt?: string;
   file_info?: {
-    id: number;
     name: string;
     path: string;
     size: number;
     mime_type: string;
   };
-  analysis_type: string;
-  status: string;
-  provider: string;
-  model: string;
-  prompt: string;
-  result?: string;
-  analysis_metadata?: any;
-  created_at: string;
-  started_at?: string;
-  completed_at?: string;
-  error_message?: string;
-  retry_count: number;
-}
-
-export interface AnalysisListParams {
-  sort_by?: 'created_at' | 'status' | 'provider' | 'file_name' | 'analysis_type';
-  sort_order?: 'asc' | 'desc';
-  status_filter?: string;
-  prompt_filter?: string;
-  search?: string;
-  limit?: number;
-  offset?: number;
-}
-
-export interface AnalysisListResponse {
-  analyses: Analysis[];
-  total: number;
-  limit: number;
-  offset: number;
-  sort_by: string;
-  sort_order: string;
 }
 
 export interface CreateAnalysisRequest {
-  file_id?: number | string;
-  file_path?: string;  // Nouveau: support du chemin de fichier
-  prompt_id: string;
-  analysis_type?: string;
-  custom_prompt?: string;
-  status?: 'pending' | 'processing' | 'completed' | 'failed';
+  file_id: number;
+  analysis_type: string;
+  provider: string;
+  model: string;
+  prompt: string;
 }
 
-export interface CreateAnalysisResponse {
-  analysis_id: number;
-  status: string;
-  message: string;
+export interface AnalysisServiceResponse<T = any> {
+  success: boolean;
+  data?: T;
+  error?: string;
 }
 
-// Service de base sans vérification de connexion
-const baseAnalysisService = {
-  // Récupérer la liste des analyses avec tri et filtrage
-  async getAnalysesList(params: AnalysisListParams = {}): Promise<AnalysisListResponse> {
-    try {
-      const queryParams = new URLSearchParams();
-      
-      if (params.sort_by) queryParams.append('sort_by', params.sort_by);
-      if (params.sort_order) queryParams.append('sort_order', params.sort_order);
-      if (params.status_filter) queryParams.append('status_filter', params.status_filter);
-      if (params.prompt_filter) queryParams.append('prompt_filter', params.prompt_filter);
-      if (params.search) queryParams.append('search', params.search);
-      if (params.limit) queryParams.append('limit', params.limit.toString());
-      if (params.offset) queryParams.append('offset', params.offset.toString());
-      
-      const url = `/api/analysis/list${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
-  
-      const response = await apiRequest(url, {}, DEFAULT_TIMEOUT);
-      
-      logService.info('Liste des analyses récupérée', 'AnalysisService', {
-        count: response.data?.length || 0,
-        filters: params,
-        timestamp: new Date().toISOString()
-      });
-      
-      // Adapter la réponse de l'API au format attendu par le frontend
-      const adaptedResponse: AnalysisListResponse = {
-        analyses: response.data || [],
-        total: response.pagination?.total || 0,
-        limit: response.pagination?.limit || 50,
-        offset: response.pagination?.offset || 0,
-        sort_by: response.sort_by || 'created_at',
-        sort_order: response.sort_order || 'desc'
-      };
-      
-      return adaptedResponse;
-    } catch (error) {
-      logService.error('Erreur lors de la récupération des analyses', 'AnalysisService', {
-        error: handleApiError(error),
-        filters: params,
-        timestamp: new Date().toISOString()
-      });
-      throw new Error(`Erreur lors de la récupération des analyses: ${handleApiError(error)}`);
-    }
-  },
-
-  // Créer une nouvelle analyse
-  async createAnalysis(request: CreateAnalysisRequest): Promise<CreateAnalysisResponse> {
-    try {
-      const response = await apiRequest('/api/analysis/create', {
-        method: 'POST',
-        body: JSON.stringify(request),
-      }, DEFAULT_TIMEOUT) as any;
-
-      logService.info('Analyse créée', 'AnalysisService', {
-        analysisId: response.analysis_id,
-        fileId: request.file_id,
-        filePath: request.file_path,
-        promptId: request.prompt_id,
-        timestamp: new Date().toISOString()
-      });
-
+// Service de base pour les analyses
+export const analysisService = {
+  async getAnalysesList(): Promise<AnalysisServiceResponse<Analysis[]>> {
+    const response = await unifiedApiService.get('/api/database/analyses') as any;
+    // L'API retourne directement {analyses: [...], total: number, limit: number, offset: number}
+    // On doit adapter la réponse au format attendu
+    if (response && response.analyses) {
       return {
-        analysis_id: response.analysis_id,
-        status: response.status,
-        message: response.message
+        success: true,
+        data: response.analyses
       };
-    } catch (error) {
-      logService.error('Erreur lors de la création de l\'analyse', 'AnalysisService', {
-        error: handleApiError(error),
-        request,
-        timestamp: new Date().toISOString()
-      });
-      throw new Error(`Erreur lors de la création de l'analyse: ${handleApiError(error)}`);
     }
+    return { success: false, error: 'Réponse invalide' };
   },
 
-  // Démarrer une analyse
-  async startAnalysis(analysisId: string | number): Promise<void> {
-    try {
-      await apiRequest(`/api/analysis/${analysisId}/start`, {
-        method: 'POST',
-      }, DEFAULT_TIMEOUT);
-
-      logService.info('Analyse démarrée', 'AnalysisService', {
-        analysisId,
-        timestamp: new Date().toISOString()
-      });
-    } catch (error) {
-      logService.error('Erreur lors du démarrage de l\'analyse', 'AnalysisService', {
-        error: handleApiError(error),
-        analysisId,
-        timestamp: new Date().toISOString()
-      });
-      throw new Error(`Erreur lors du démarrage de l'analyse: ${handleApiError(error)}`);
-    }
+  async createAnalysis(request: CreateAnalysisRequest): Promise<AnalysisServiceResponse<Analysis>> {
+    return await unifiedApiService.post('/api/analysis/create', request);
   },
 
-  // Supprimer une analyse
-  async deleteAnalysis(analysisId: string | number): Promise<void> {
-    try {
-      await apiRequest(`/api/analysis/${analysisId}`, {
-        method: 'DELETE',
-      }, DEFAULT_TIMEOUT);
-
-      logService.info('Analyse supprimée', 'AnalysisService', {
-        analysisId,
-        timestamp: new Date().toISOString()
-      });
-    } catch (error) {
-      logService.error('Erreur lors de la suppression de l\'analyse', 'AnalysisService', {
-        error: handleApiError(error),
-        analysisId,
-        timestamp: new Date().toISOString()
-      });
-      throw new Error(`Erreur lors de la suppression de l'analyse: ${handleApiError(error)}`);
-    }
+  async retryAnalysis(id: number): Promise<AnalysisServiceResponse<Analysis>> {
+    return await unifiedApiService.post(`/api/analysis/${id}/retry`);
   },
 
-  // Supprimer plusieurs analyses
-  async deleteMultipleAnalyses(analysisIds: (string | number)[]): Promise<void> {
-    try {
-      await apiRequest('/api/analysis/bulk-delete', {
-        method: 'DELETE',
-        body: JSON.stringify({ analysis_ids: analysisIds }),
-      }, DEFAULT_TIMEOUT);
-
-      logService.info('Analyses supprimées en lot', 'AnalysisService', {
-        count: analysisIds.length,
-        analysisIds,
-        timestamp: new Date().toISOString()
-      });
-    } catch (error) {
-      logService.error('Erreur lors de la suppression en lot', 'AnalysisService', {
-        error: handleApiError(error),
-        count: analysisIds.length,
-        analysisIds,
-        timestamp: new Date().toISOString()
-      });
-      throw new Error(`Erreur lors de la suppression en lot: ${handleApiError(error)}`);
-    }
+  async deleteAnalysis(id: number): Promise<AnalysisServiceResponse<void>> {
+    return await unifiedApiService.delete(`/api/analysis/${id}`);
   },
 
-  // Obtenir les détails d'une analyse
-  async getAnalysisDetails(analysisId: string | number): Promise<Analysis> {
-    try {
-      const response = await apiRequest(`/api/analysis/${analysisId}`, {}, DEFAULT_TIMEOUT) as Analysis;
-      
-      logService.info('Détails de l\'analyse récupérés', 'AnalysisService', {
-        analysisId,
-        status: response.status,
-        timestamp: new Date().toISOString()
-      });
+  async getAnalysisById(id: number): Promise<AnalysisServiceResponse<Analysis>> {
+    return await unifiedApiService.get(`/api/analysis/${id}`);
+  },
 
-      return response;
-    } catch (error) {
-      logService.error('Erreur lors de la récupération des détails', 'AnalysisService', {
-        error: handleApiError(error),
-        analysisId,
-        timestamp: new Date().toISOString()
-      });
-      throw new Error(`Erreur lors de la récupération des détails: ${handleApiError(error)}`);
+  async startAnalysis(id: number): Promise<AnalysisServiceResponse<Analysis>> {
+    return await unifiedApiService.post(`/api/analysis/${id}/start`);
+  },
+
+  async hasPDF(id: number): Promise<boolean> {
+    try {
+      const response = await unifiedApiService.get(`/api/analysis/${id}/has-pdf`) as AnalysisServiceResponse<boolean>;
+      return response.success && response.data === true;
+    } catch {
+      return false;
     }
   }
 };
-
-// Hook pour utiliser le service avec vérification de connexion
-export const useAnalysisService = () => {
-  const { conditionalRequest } = useBackendConnection();
-
-  return {
-    getAnalysesList: (params: AnalysisListParams = {}) => 
-      conditionalRequest(() => baseAnalysisService.getAnalysesList(params), {
-        analyses: [],
-        total: 0,
-        limit: 50,
-        offset: 0,
-        sort_by: 'created_at',
-        sort_order: 'desc'
-      }),
-
-    createAnalysis: (request: CreateAnalysisRequest) => 
-      conditionalRequest(() => baseAnalysisService.createAnalysis(request)),
-
-    startAnalysis: (analysisId: string | number) => 
-      conditionalRequest(() => baseAnalysisService.startAnalysis(analysisId)),
-
-    deleteAnalysis: (analysisId: string | number) => 
-      conditionalRequest(() => baseAnalysisService.deleteAnalysis(analysisId)),
-
-    deleteMultipleAnalyses: (analysisIds: (string | number)[]) => 
-      conditionalRequest(() => baseAnalysisService.deleteMultipleAnalyses(analysisIds)),
-
-    getAnalysisDetails: (analysisId: string | number) => 
-      conditionalRequest(() => baseAnalysisService.getAnalysisDetails(analysisId))
-  };
-};
-
-// Export du service de base pour compatibilité
-export const analysisService = baseAnalysisService; 

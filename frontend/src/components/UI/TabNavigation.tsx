@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useColors } from '../../hooks/useColors';
 import useAuthStore from '../../stores/authStore';
 import { logService } from '../../services/logService';
@@ -6,7 +6,11 @@ import {
   EyeIcon,
   QueueListIcon,
   Cog6ToothIcon,
-  DocumentTextIcon
+  DocumentTextIcon,
+  ServerIcon,
+  CpuChipIcon,
+  UsersIcon,
+  BookOpenIcon
 } from '@heroicons/react/24/outline';
 
 interface Tab {
@@ -18,12 +22,89 @@ interface Tab {
 
 interface TabNavigationProps {
   activePanel: string;
-  onTabChange: (panel: string) => void;
+  onTabChange: (tabId: string) => void;
 }
 
 const TabNavigation: React.FC<TabNavigationProps> = ({ activePanel, onTabChange }) => {
   const { colors } = useColors();
   const { isAdmin } = useAuthStore();
+
+  // Vérifier les permissions et rediriger si nécessaire
+  useEffect(() => {
+    const availableTabs = getAvailableTabs();
+    const hasAccessToCurrentTab = availableTabs.some(tab => tab.id === activePanel);
+    
+    if (!hasAccessToCurrentTab) {
+      // L'utilisateur n'a pas accès à l'onglet actuel, rediriger vers le premier onglet disponible
+      const firstAvailableTab = availableTabs[0];
+      if (firstAvailableTab) {
+        logService.info('Redirection automatique - permissions insuffisantes', 'TabNavigation', {
+          fromTab: activePanel,
+          toTab: firstAvailableTab.id,
+          reason: 'Permissions insuffisantes pour l\'onglet actuel',
+          timestamp: new Date().toISOString()
+        });
+        onTabChange(firstAvailableTab.id);
+      }
+    }
+  }, [activePanel, isAdmin, onTabChange]);
+
+  // Fonction pour obtenir les onglets disponibles selon les permissions
+  const getAvailableTabs = (): Tab[] => {
+    const baseTabs: Tab[] = [
+      {
+        id: 'queue',
+        label: 'Queue IA',
+        icon: QueueListIcon,
+        description: 'Gérez vos analyses IA'
+      },
+      {
+        id: 'viewer',
+        label: 'Visualisation',
+        icon: EyeIcon,
+        description: 'Visualisez vos fichiers'
+      }
+    ];
+
+    // Ajouter les onglets admin seulement si l'utilisateur est admin
+    if (isAdmin()) {
+      return [
+        ...baseTabs,
+        {
+          id: 'logs',
+          label: 'Logs',
+          icon: DocumentTextIcon,
+          description: 'Consultez les logs'
+        },
+        {
+          id: 'system',
+          label: 'Système',
+          icon: ServerIcon,
+          description: 'Monitoring et santé du système'
+        },
+        {
+          id: 'ai-config',
+          label: 'Configuration IA',
+          icon: CpuChipIcon,
+          description: 'Gestion des providers IA'
+        },
+        {
+          id: 'users',
+          label: 'Utilisateurs',
+          icon: UsersIcon,
+          description: 'Gestion des utilisateurs'
+        },
+        {
+          id: 'api-docs',
+          label: 'API Docs',
+          icon: BookOpenIcon,
+          description: 'Documentation de l\'API'
+        }
+      ];
+    }
+
+    return baseTabs;
+  };
 
   const handleTabChange = (tabId: string, tabLabel: string) => {
     logService.info(`Navigation: Changement d'onglet vers "${tabLabel}" (${tabId})`, 'TabNavigation', {
@@ -34,29 +115,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({ activePanel, onTabChange 
     onTabChange(tabId);
   };
 
-  const tabs: Tab[] = [
-    {
-      id: 'viewer',
-      label: 'Visualisation',
-      icon: EyeIcon,
-      description: 'Visualisez vos fichiers'
-    },
-    {
-      id: 'queue',
-      label: 'Queue IA',
-      icon: QueueListIcon,
-      description: 'Gérez vos analyses IA'
-    },
-    // Onglet Logs visible uniquement pour l'admin, placé juste après Queue IA
-    ...(isAdmin() ? [{
-      id: 'logs',
-      label: 'Logs',
-      icon: DocumentTextIcon,
-      description: 'Consultez les logs'
-    }] : [])
-  ];
-
-
+  const tabs = getAvailableTabs();
 
   return (
     <div

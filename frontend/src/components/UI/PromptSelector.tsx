@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useColors } from '../../hooks/useColors';
-import { promptService } from '../../services/promptService';
+import { usePromptService } from '../../hooks/usePromptService';
 
 interface PromptSelectorProps {
   visible: boolean;
@@ -20,6 +20,7 @@ export const PromptSelector: React.FC<PromptSelectorProps> = ({
   onPromptSelect
 }) => {
   const { colors } = useColors();
+  const promptService = usePromptService();
   const [prompts, setPrompts] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedPrompt, setSelectedPrompt] = useState<string>('');
@@ -28,7 +29,7 @@ export const PromptSelector: React.FC<PromptSelectorProps> = ({
     if (visible) {
       loadPrompts();
     }
-  }, [visible]);
+  }, [visible, promptService]);
 
   const loadPrompts = async () => {
     setLoading(true);

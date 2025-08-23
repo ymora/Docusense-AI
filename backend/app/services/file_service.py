@@ -16,7 +16,7 @@ from ..core.file_utils import FileInfoExtractor
 from ..core.file_validation import FileValidator
 from ..core.status_manager import FileStatus
 from ..core.database_utils import DatabaseMetrics
-from ..core.cache import cached
+from ..core.advanced_cache import cached, invalidate_file_cache
 from ..core.performance_monitor import performance_monitor
 from ..core.database_migration import run_automatic_migrations, check_database_consistency
 from .base_service import BaseService, log_service_operation
@@ -105,6 +105,7 @@ class FileService(BaseService):
         """
         return self.safe_execute("get_files", self._get_files_logic, directory, status, selected_only, search, limit, offset)
 
+    @cached(ttl=300, key_prefix="files")
     def _get_files_logic(self, directory: Optional[str], status: Optional[FileStatus], selected_only: bool, search: Optional[str], limit: int, offset: int) -> FileListResponse:
         """Logic for getting files"""
         query = self.db.query(File)
@@ -165,6 +166,7 @@ class FileService(BaseService):
             offset=offset
         )
 
+    @cached(ttl=600, key_prefix="files")
     def _get_status_counts(self, directory: Optional[str] = None) -> Dict[str, int]:
         """
         Get count of files by status
@@ -194,6 +196,10 @@ class FileService(BaseService):
 
         self.db.commit()
         self.logger.info(f"Updated status of {len(files)} files to {status}")
+        
+        # Invalider le cache des fichiers
+        invalidate_file_cache()
+        
         return files
 
     @log_service_operation("toggle_file_selection")

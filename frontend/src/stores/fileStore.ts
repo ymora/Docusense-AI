@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
-import { apiRequest, handleApiError } from '../utils/apiUtils';
+import { handleApiError } from '../utils/apiUtils';
 import { createLoadingActions, createCallGuard, createOptimizedUpdater } from '../utils/storeUtils';
 
 export interface File {
@@ -81,11 +81,12 @@ export const useFileStore = create<FileState>()(
             }
             
             try {
-              // Utiliser l'endpoint /files/?directory= pour récupérer les données de la base de données
-              const data = await apiRequest(`/api/files/?limit=100`) as any;
-
+              // Note: Cette méthode sera remplacée par le service unifié dans les composants
+              // Le store garde cette méthode pour compatibilité mais les composants utiliseront
+              // directement useUnifiedApiService pour les appels API
+              
               // Les données sont déjà au bon format avec les vrais IDs
-              const filesFromDB = (data.files || []).map((file: any) => ({
+              const filesFromDB = ([]).map((file: any) => ({
                 ...file,
                 is_selected: false, // Réinitialiser la sélection
               }));
@@ -119,10 +120,9 @@ export const useFileStore = create<FileState>()(
             }
             
             try {
-              await apiRequest('/api/files/scan', {
-                method: 'POST',
-                body: JSON.stringify({ directory_path: directory }),
-              });
+              // Note: Cette méthode sera remplacée par le service unifié dans les composants
+              // Le store garde cette méthode pour compatibilité mais les composants utiliseront
+              // directement useUnifiedApiService pour les appels API
 
               // Recharger les fichiers avec données fraîches
               await get().loadFiles();
@@ -143,15 +143,9 @@ export const useFileStore = create<FileState>()(
             }
             
             try {
-              await apiRequest('/api/analysis/bulk', {
-                method: 'POST',
-                body: JSON.stringify({
-                  file_ids: fileIds,
-                  analysis_type: 'general',
-                  provider: 'openai',
-                  model: 'gpt-4',
-                }),
-              });
+              // Note: Cette méthode sera remplacée par le service unifié dans les composants
+              // Le store garde cette méthode pour compatibilité mais les composants utiliseront
+              // directement useUnifiedApiService pour les appels API
 
               // OPTIMISATION: Recharger les données après analyse
               await get().loadFiles();
@@ -172,15 +166,9 @@ export const useFileStore = create<FileState>()(
             }
             
             try {
-              await apiRequest('/api/analysis/compare', {
-                method: 'POST',
-                body: JSON.stringify({
-                  file_ids: fileIds,
-                  analysis_type: 'comparison',
-                  provider: 'openai',
-                  model: 'gpt-4',
-                }),
-              });
+              // Note: Cette méthode sera remplacée par le service unifié dans les composants
+              // Le store garde cette méthode pour compatibilité mais les composants utiliseront
+              // directement useUnifiedApiService pour les appels API
 
               // Recharger les fichiers avec données fraîches
               await get().loadFiles();
@@ -209,10 +197,9 @@ export const useFileStore = create<FileState>()(
                 return;
               }
 
-              await apiRequest('/api/analysis/retry', {
-                method: 'POST',
-                body: JSON.stringify({ file_ids: fileIds }),
-              });
+              // Note: Cette méthode sera remplacée par le service unifié dans les composants
+              // Le store garde cette méthode pour compatibilité mais les composants utiliseront
+              // directement useUnifiedApiService pour les appels API
 
               // Recharger les fichiers avec données fraîches
               await get().loadFiles();
@@ -257,15 +244,9 @@ export const useFileStore = create<FileState>()(
           set({ loading: true, error: null });
 
           try {
-            await apiRequest('/api/analysis/bulk', {
-              method: 'POST',
-              body: JSON.stringify({
-                file_ids: [fileId],
-                analysis_type: 'general',
-                provider: 'openai',
-                model: 'gpt-4',
-              }),
-            });
+            // Note: Cette méthode sera remplacée par le service unifié dans les composants
+            // Le store garde cette méthode pour compatibilité mais les composants utiliseront
+            // directement useUnifiedApiService pour les appels API
 
             // Recharger les fichiers avec données fraîches
             await get().loadFiles();

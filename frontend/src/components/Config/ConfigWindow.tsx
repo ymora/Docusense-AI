@@ -5,13 +5,13 @@ import {
 } from '@heroicons/react/24/outline';
 import { useColors } from '../../hooks/useColors';
 import { useBackendConnection } from '../../hooks/useBackendConnection';
-import ConfigService from '../../services/configService';
+import { useConfigService } from '../../hooks/useConfigService';
 import { logService } from '../../services/logService';
 import { useConfigStore } from '../../stores/configStore';
 import { IconButton } from '../UI/Button';
+import { BackendOfflineMessage } from '../UI/BackendOfflineMessage';
 import { 
   getStatusColor, 
-  getActionColor,
   ACTION_COLORS
 } from '../../utils/colorConstants';
 
@@ -43,11 +43,12 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
   const { colors } = useColors();
   const { isOnline, canMakeRequests } = useBackendConnection();
   const { aiProviders, loadAIProviders, refreshAIProviders, isInitialized } = useConfigStore();
+  const configService = useConfigService();
   const [loading, setLoading] = useState(false);
   const [providers, setProviders] = useState<ProviderState[]>([]);
   const [testing, setTesting] = useState<Record<string, boolean>>({});
   const [error, setError] = useState<string | null>(null);
-  const [priorityMode, setPriorityMode] = useState<'auto' | 'manual'>('auto');
+  const [priorityMode, setPriorityMode] = useState<'auto' | 'manual'>('manual');
 
   // Charger les providers depuis le store
   useEffect(() => {
@@ -99,11 +100,12 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
           // Pour les autres providers, vérifier la clé API
           if (!provider.has_api_key) {
             status = 'empty';
-          } else if (provider.is_active) {
-            // Si le provider est déjà actif, le garder actif
+          } else if (provider.status === 'valid') {
+            // Si le provider est marqué comme valide, il est actif
             status = 'active';
-          } else if (provider.is_functional && provider.status === 'valid') {
-            status = 'active';
+          } else if (provider.is_functional && provider.status === 'inactive') {
+            // Si le provider est fonctionnel mais inactif
+            status = 'functional';
           } else if (provider.is_functional) {
             status = 'functional';
           } else if (provider.has_api_key) {
@@ -119,10 +121,10 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
         let apiKey = '';
         if (provider.has_api_key && provider.name.toLowerCase() !== 'ollama') {
           try {
-            const keyResponse = await ConfigService.getAPIKey(provider.name);
+            const keyResponse = await configService.getApiKey(provider.name);
             
-            if (keyResponse.success && keyResponse.data && keyResponse.data.provider === provider.name) {
-              apiKey = keyResponse.data.key || '';
+            if (keyResponse.success && keyResponse.data) {
+              apiKey = keyResponse.data || '';
             }
           } catch (error) {
             logService.warning(`Erreur récupération clé API ${provider.name}`, 'ConfigWindow', { 
@@ -195,7 +197,7 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
       let result;
       if (providerName.toLowerCase() === 'ollama') {
         // Test Ollama sans clé API
-        result = await ConfigService.testProvider(providerName);
+        result = await configService.testProvider(providerName);
       } else {
         // Test avec la clé API fournie
         if (!provider.apiKey || provider.apiKey.trim() === '') {
@@ -207,7 +209,7 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
           return;
         }
         
-        result = await ConfigService.testProvider(providerName, provider.apiKey);
+                  result = await configService.testProvider(providerName);
       }
 
       if (result.success) {
@@ -218,7 +220,7 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
 
         // Sauvegarder la clé API si le test réussit
         if (providerName.toLowerCase() !== 'ollama' && provider.apiKey.trim()) {
-          await ConfigService.saveAPIKey(providerName, provider.apiKey);
+          await configService.saveAPIKey(providerName, provider.apiKey);
         }
 
         // Mettre à jour le statut local vers "configured" après test réussi
@@ -229,7 +231,7 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
         ));
 
         // Activer le provider automatiquement après test réussi
-        await ConfigService.setProviderStatus(providerName, 'valid');
+        await configService.setProviderStatus(providerName, 'valid');
 
         // Recharger tous les providers pour obtenir les statuts mis à jour
         await refreshAIProviders();
@@ -255,30 +257,30 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
       const provider = providers.find(p => p.name === providerName);
       if (!provider) return;
 
+      logService.info('Toggle provider démarré', 'ConfigWindow', {
+        provider: providerName,
+        currentStatus: provider.status,
+        timestamp: new Date().toISOString()
+      });
+
       if (provider.status === 'active') {
         // Désactiver le provider
-        await ConfigService.setProviderStatus(providerName, 'inactive');
-        
-        if (priorityMode === 'auto') {
-          // En mode auto, recalculer les priorités après désactivation
-          await recalculateAutoPriorities();
-        }
+        await configService.setProviderStatus(providerName, 'inactive');
+        logService.info('Provider désactivé', 'ConfigWindow', {
+          provider: providerName,
+          timestamp: new Date().toISOString()
+        });
       } else {
-        // Activer le provider
-        await ConfigService.setProviderStatus(providerName, 'valid');
-        
-        if (priorityMode === 'auto') {
-          // En mode auto, recalculer toutes les priorités
-          await recalculateAutoPriorities();
-        } else {
-          // En mode manuel, attribuer la prochaine priorité disponible
-          const activeProviders = providers.filter(p => p.status === 'active');
-          const nextPriority = activeProviders.length + 1;
-          await ConfigService.setProviderPriority(providerName, nextPriority);
-        }
+        // Activer le provider - utiliser 'valid' pour le backend
+        await configService.setProviderStatus(providerName, 'valid');
+        logService.info('Provider activé', 'ConfigWindow', {
+          provider: providerName,
+          timestamp: new Date().toISOString()
+        });
       }
 
-      // Recharger les providers
+      // Recharger les providers sans recalculer automatiquement les priorités
+      // L'utilisateur peut décider manuellement de recalculer les priorités si nécessaire
       await refreshAIProviders();
     } catch (error) {
       logService.error(`Erreur toggle provider ${providerName}`, 'ConfigWindow', { error: error.message, provider: providerName });
@@ -289,20 +291,24 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
   // Recalculer les priorités automatiques
   const recalculateAutoPriorities = async () => {
     try {
-      // Obtenir tous les providers actifs
-      const activeProviders = providers.filter(p => p.status === 'active');
+      // Recharger d'abord les providers pour avoir les données à jour
+      await refreshAIProviders();
+      
+      // Obtenir tous les providers actifs depuis le store
+      const currentProviders = useConfigStore.getState().aiProviders;
+      const activeProviders = currentProviders.filter(p => p.status === 'valid' && p.is_functional);
       const ollamaProvider = activeProviders.find(p => p.name.toLowerCase() === 'ollama');
       const otherProviders = activeProviders.filter(p => p.name.toLowerCase() !== 'ollama');
       
       // Ollama en priorité 1
       if (ollamaProvider) {
-        await ConfigService.setProviderPriority(ollamaProvider.name, 1);
+        await configService.setProviderPriority(ollamaProvider.name, 1);
       }
       
       // Les autres providers en priorité 2, 3, 4...
       for (let i = 0; i < otherProviders.length; i++) {
         const priority = ollamaProvider ? i + 2 : i + 1;
-        await ConfigService.setProviderPriority(otherProviders[i].name, priority);
+        await configService.setProviderPriority(otherProviders[i].name, priority);
       }
     } catch (error) {
       logService.error('Erreur recalcul priorités auto', 'ConfigWindow', { error: error.message });
@@ -328,29 +334,30 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
       // Vérifier s'il y a un conflit de priorité
       const existingProvider = activeProviders.find(p => p.name !== providerName && p.priority === newPriority);
       
-      if (existingProvider) {
-        // Échanger les priorités automatiquement
-        logService.info('Échange automatique de priorités', 'ConfigWindow', {
-          provider1: providerName,
-          provider2: existingProvider.name,
-          priority1: currentPriority,
-          priority2: newPriority,
-          timestamp: new Date().toISOString()
-        });
-        await ConfigService.setProviderPriority(existingProvider.name, currentPriority);
-        await ConfigService.setProviderPriority(providerName, newPriority);
-      } else {
-        // Pas de conflit, mise à jour simple
-        await ConfigService.setProviderPriority(providerName, newPriority);
-      }
+              if (existingProvider) {
+          // Échanger les priorités automatiquement
+          logService.info('Échange automatique de priorités', 'ConfigWindow', {
+            provider1: providerName,
+            provider2: existingProvider.name,
+            priority1: currentPriority,
+            priority2: newPriority,
+            timestamp: new Date().toISOString()
+          });
+          await configService.setProviderPriority(existingProvider.name, currentPriority);
+          await configService.setProviderPriority(providerName, newPriority);
+        } else {
+          // Pas de conflit, mise à jour simple
+          await configService.setProviderPriority(providerName, newPriority);
+        }
       
       // Recharger les providers
       await refreshAIProviders();
     } catch (error) {
+      const currentProvider = providers.find(p => p.name === providerName);
       logService.error(`Erreur changement priorité ${providerName}`, 'ConfigWindow', { 
         error: error.message, 
         provider: providerName,
-        oldPriority: provider?.priority,
+        oldPriority: currentProvider?.priority,
         newPriority: newPriority,
         timestamp: new Date().toISOString()
       });
@@ -523,16 +530,7 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
         <div className="h-full overflow-y-auto p-4">
           <div className="space-y-6">
             
-            {!isOnline && (
-              <div className="p-3 rounded-lg border" style={{ backgroundColor: '#fef3c7', borderColor: '#f97316' }}>
-                <div className="flex items-center space-x-2">
-                  <span style={{ color: '#f97316' }}>⚠️</span>
-                  <span className="text-sm" style={{ color: '#92400e' }}>
-                    Backend déconnecté - Les statuts des providers IA ne peuvent pas être vérifiés
-                  </span>
-                </div>
-              </div>
-            )}
+                         <BackendOfflineMessage panel="ai-config" />
             
             {error && (
               <div className="p-3 rounded-lg border bg-red-50 border-red-200">
@@ -605,6 +603,36 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                             </span>
                           </label>
                         </div>
+                        
+                        {/* Bouton de recalcul manuel des priorités */}
+                        <button
+                          onClick={async () => {
+                            try {
+                              setLoading(true);
+                              await recalculateAutoPriorities();
+                              await refreshAIProviders();
+                              logService.info('Priorités recalculées manuellement', 'ConfigWindow', {
+                                timestamp: new Date().toISOString()
+                              });
+                            } catch (error) {
+                              logService.error('Erreur lors du recalcul des priorités', 'ConfigWindow', { 
+                                error: error.message 
+                              });
+                              setError('Erreur lors du recalcul des priorités');
+                            } finally {
+                              setLoading(false);
+                            }
+                          }}
+                          disabled={loading || !isOnline}
+                          className="px-3 py-1 text-xs rounded border transition-colors disabled:opacity-50"
+                          style={{
+                            backgroundColor: 'transparent',
+                            borderColor: colors.primary,
+                            color: colors.primary
+                          }}
+                        >
+                          Recalculer les priorités
+                        </button>
                       </div>
                    </div>
                   
@@ -746,25 +774,25 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                                             handleTestProvider(provider.name);
                                           }
                                         }}
-                                        disabled={isTesting || !isOnline || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty')}
+                                        disabled={isTesting || !isOnline || (provider.name.toLowerCase() !== 'ollama' && (!provider.apiKey || provider.apiKey.trim() === ''))}
                                         className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
-                                          isTesting || !isOnline || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty') ? 'opacity-50 cursor-not-allowed' : ''
+                                          isTesting || !isOnline || (provider.name.toLowerCase() !== 'ollama' && (!provider.apiKey || provider.apiKey.trim() === '')) ? 'opacity-50 cursor-not-allowed' : ''
                                         }`}
                                         style={{
                                           backgroundColor: 'transparent',
                                           border: `1px solid ${(() => {
-                                            if (isTesting) return getActionColor('primary');
-                                            if (provider.status === 'active') return getActionColor('delete');
-                                            if (provider.status === 'configured' || provider.status === 'functional') return getActionColor('start');
-                                            if (provider.status === 'pending') return getActionColor('pause');
-                                            return getActionColor('primary');
+                                            if (isTesting) return colors.primary;
+                                            if (provider.status === 'active') return colors.error;
+                                            if (provider.status === 'configured' || provider.status === 'functional') return colors.success;
+                                            if (provider.status === 'pending') return colors.warning;
+                                            return colors.primary;
                                           })()}`,
                                           color: (() => {
-                                            if (isTesting) return getActionColor('primary');
-                                            if (provider.status === 'active') return getActionColor('delete');
-                                            if (provider.status === 'configured' || provider.status === 'functional') return getActionColor('start');
-                                            if (provider.status === 'pending') return getActionColor('pause');
-                                            return getActionColor('primary');
+                                            if (isTesting) return colors.primary;
+                                            if (provider.status === 'active') return colors.error;
+                                            if (provider.status === 'configured' || provider.status === 'functional') return colors.success;
+                                            if (provider.status === 'pending') return colors.warning;
+                                            return colors.primary;
                                           })()
                                         }}
                                       >
@@ -772,9 +800,9 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                                          if (isTesting) return 'Test...';
                                          if (provider.status === 'active') return 'Désactiver';
                                          if (provider.status === 'configured' || provider.status === 'functional') return 'Activer';
-                                         if (provider.status === 'pending') return 'Tester';
-                                         if (provider.status === 'empty') return 'Configurer';
-                                         return 'Tester';
+                                         if (provider.status === 'pending') return 'Vérifier la clé';
+                                         if (provider.status === 'empty') return 'Vérifier la clé';
+                                         return 'Vérifier la clé';
                                        })()}
                                      </button>
                                      
@@ -940,18 +968,18 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                                        style={{
                                          backgroundColor: 'transparent',
                                          border: `1px solid ${(() => {
-                                           if (isTesting) return getActionColor('primary');
-                                           if (provider.status === 'active') return getActionColor('delete');
-                                           if (provider.status === 'configured' || provider.status === 'functional') return getActionColor('start');
-                                           if (provider.status === 'pending') return getActionColor('pause');
-                                           return getActionColor('primary');
+                                           if (isTesting) return colors.primary;
+                                           if (provider.status === 'active') return colors.error;
+                                           if (provider.status === 'configured' || provider.status === 'functional') return colors.success;
+                                           if (provider.status === 'pending') return colors.warning;
+                                           return colors.primary;
                                          })()}`,
                                          color: (() => {
-                                           if (isTesting) return getActionColor('primary');
-                                           if (provider.status === 'active') return getActionColor('delete');
-                                           if (provider.status === 'configured' || provider.status === 'functional') return getActionColor('start');
-                                           if (provider.status === 'pending') return getActionColor('pause');
-                                           return getActionColor('primary');
+                                           if (isTesting) return colors.primary;
+                                           if (provider.status === 'active') return colors.error;
+                                           if (provider.status === 'configured' || provider.status === 'functional') return colors.success;
+                                           if (provider.status === 'pending') return colors.warning;
+                                           return colors.primary;
                                          })()
                                        }}
                                      >
@@ -959,9 +987,9 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                                         if (isTesting) return 'Test...';
                                         if (provider.status === 'active') return 'Désactiver';
                                         if (provider.status === 'configured' || provider.status === 'functional') return 'Activer';
-                                        if (provider.status === 'pending') return 'Tester';
-                                        if (provider.status === 'empty') return 'Configurer';
-                                        return 'Tester';
+                                        if (provider.status === 'pending') return 'Vérifier la clé';
+                                        if (provider.status === 'empty') return 'Vérifier la clé';
+                                        return 'Vérifier la clé';
                                       })()}
                                     </button>
                                     

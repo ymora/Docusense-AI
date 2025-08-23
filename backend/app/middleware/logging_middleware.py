@@ -54,10 +54,13 @@ class LoggingMiddleware(BaseHTTPMiddleware):
         current_user = None
         user_id = None
         try:
-            # Import différé pour éviter l'importation circulaire
-            from app.middleware.auth_middleware import get_current_user_from_request
-            current_user = await get_current_user_from_request(request, db)
-            user_id = current_user.id if current_user else None
+            # Extract user from authorization header if present
+            auth_header = request.headers.get("Authorization", "")
+            if auth_header.startswith("Bearer "):
+                token = auth_header.split(" ")[1]
+                # For now, we'll just log that we have a token
+                # In a full implementation, you would decode the JWT here
+                user_id = None  # Placeholder - would decode JWT to get user_id
         except:
             # User not authenticated or error getting user
             pass

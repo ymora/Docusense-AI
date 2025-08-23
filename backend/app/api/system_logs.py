@@ -277,3 +277,32 @@ async def create_manual_log_event(
     except Exception as e:
         logger.error(f"Error creating manual log event: {str(e)}")
         raise HTTPException(status_code=500, detail="Error creating manual log event")
+
+@router.post("/frontend-logs")
+async def create_frontend_log_event(
+    level: LogLevel,
+    source: str,
+    action: str,
+    details: Optional[dict] = None,
+    db: Session = Depends(get_db),
+    request: Request = None
+):
+    """Create a log event from frontend - No admin required"""
+    try:
+        log_service = SystemLogService(db)
+        
+        # Create the frontend log event
+        log_entry = log_service.log_event(
+            level=level,
+            source=f"frontend_{source}",
+            action=action,
+            details=details or {},
+            user_id=None,  # Pas d'utilisateur requis pour les logs frontend
+            request=request
+        )
+        
+        return {'success': True}
+        
+    except Exception as e:
+        logger.error(f"Error creating frontend log event: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error creating frontend log event")

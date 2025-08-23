@@ -5,7 +5,7 @@ export interface User {
   id: number;
   username: string;
   email?: string;
-  role: 'guest' | 'user' | 'master';
+  role: 'guest' | 'user' | 'admin';
   is_active: boolean;
 }
 
@@ -19,18 +19,15 @@ export interface AuthState {
 }
 
 export interface AuthActions {
-  // Actions d'authentification
-  login: (username: string, password: string) => Promise<void>;
-  register: (username: string, email: string, password: string) => Promise<void>;
-  loginAsGuest: () => Promise<void>;
-  logout: () => void;
-  refreshAccessToken: () => Promise<void>;
-  
   // Actions d'état
+  setUser: (user: User | null) => void;
+  setTokens: (accessToken: string, refreshToken: string) => void;
+  setAuthenticated: (authenticated: boolean) => void;
   setLoading: (loading: boolean) => void;
   setError: (error: string | null) => void;
   clearError: () => void;
-  
+  logout: () => void;
+
   // Actions de permissions
   hasPermission: (permission: string) => boolean;
   isGuest: () => boolean;
@@ -51,175 +48,37 @@ const useAuthStore = create<AuthStore>()(
       isLoading: false,
       error: null,
 
-      // Actions d'authentification
-      login: async (username: string, password: string) => {
-        set({ isLoading: true, error: null });
-        
-        try {
-          const response = await fetch('http://localhost:8000/api/auth/login', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ username, password }),
-          });
-
-          if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Erreur de connexion');
-          }
-
-          const data = await response.json();
-          
-          set({
-            user: data.user,
-            accessToken: data.access_token,
-            refreshToken: data.refresh_token,
-            isAuthenticated: true,
-            isLoading: false,
-            error: null,
-          });
-        } catch (error) {
-          set({
-            isLoading: false,
-            error: error instanceof Error ? error.message : 'Erreur inconnue',
-          });
-          throw error;
-        }
-      },
-
-      register: async (username: string, email: string, password: string) => {
-        set({ isLoading: true, error: null });
-        
-        try {
-          const response = await fetch('http://localhost:8000/api/auth/register', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ username, email, password }),
-          });
-
-          if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Erreur d\'inscription');
-          }
-
-          const data = await response.json();
-          
-          set({
-            user: data.user,
-            accessToken: data.access_token,
-            refreshToken: data.refresh_token,
-            isAuthenticated: true,
-            isLoading: false,
-            error: null,
-          });
-        } catch (error) {
-          set({
-            isLoading: false,
-            error: error instanceof Error ? error.message : 'Erreur inconnue',
-          });
-          throw error;
-        }
-      },
-
-      loginAsGuest: async () => {
-        set({ isLoading: true, error: null });
-        
-        try {
-          const response = await fetch('http://localhost:8000/api/auth/guest-login', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          });
-
-          if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Erreur de connexion invité');
-          }
-
-          const data = await response.json();
-          
-          set({
-            user: data.user,
-            accessToken: data.access_token,
-            refreshToken: data.refresh_token,
-            isAuthenticated: true,
-            isLoading: false,
-            error: null,
-          });
-        } catch (error) {
-          set({
-            isLoading: false,
-            error: error instanceof Error ? error.message : 'Erreur inconnue',
-          });
-          throw error;
-        }
-      },
-
-      logout: () => {
-        set({
-          user: null,
-          accessToken: null,
-          refreshToken: null,
-          isAuthenticated: false,
-          isLoading: false,
-          error: null,
-        });
-      },
-
-      refreshAccessToken: async () => {
-        const { refreshToken } = get();
-        if (!refreshToken) {
-          throw new Error('Aucun token de rafraîchissement disponible');
-        }
-
-        try {
-          const response = await fetch('http://localhost:8000/api/auth/refresh', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ refresh_token: refreshToken }),
-          });
-
-          if (!response.ok) {
-            throw new Error('Token de rafraîchissement expiré');
-          }
-
-          const data = await response.json();
-          
-          set({
-            accessToken: data.access_token,
-            refreshToken: data.refresh_token,
-          });
-        } catch (error) {
-          // Si le refresh échoue, déconnecter l'utilisateur
-          get().logout();
-          throw error;
-        }
-      },
-
       // Actions d'état
+      setUser: (user: User | null) => set({ user }),
+      setTokens: (accessToken: string, refreshToken: string) => set({ accessToken, refreshToken }),
+      setAuthenticated: (authenticated: boolean) => set({ isAuthenticated: authenticated }),
       setLoading: (loading: boolean) => set({ isLoading: loading }),
       setError: (error: string | null) => set({ error }),
       clearError: () => set({ error: null }),
+      logout: () => set({
+        user: null,
+        accessToken: null,
+        refreshToken: null,
+        isAuthenticated: false,
+        isLoading: false,
+        error: null,
+      }),
 
       // Actions de permissions
       hasPermission: (permission: string) => {
         const { user } = get();
         if (!user) return false;
-
-        const permissions = {
-          guest: ['read_analyses', 'view_pdfs'],
-          user: ['read_analyses', 'view_pdfs', 'create_analyses', 'delete_own_analyses'],
-          admin: ['*'], // Toutes les permissions
-        };
-
-        const userPermissions = permissions[user.role] || [];
-        return userPermissions.includes('*') || userPermissions.includes(permission);
+        
+        switch (permission) {
+          case 'admin':
+            return user.role === 'admin';
+          case 'user':
+            return user.role === 'user' || user.role === 'admin';
+          case 'guest':
+            return user.role === 'guest' || user.role === 'user' || user.role === 'admin';
+          default:
+            return false;
+        }
       },
 
       isGuest: () => {
@@ -229,7 +88,7 @@ const useAuthStore = create<AuthStore>()(
 
       isUser: () => {
         const { user } = get();
-        return user?.role === 'user';
+        return user?.role === 'user' || user?.role === 'admin';
       },
 
       isAdmin: () => {

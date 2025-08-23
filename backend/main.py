@@ -3,13 +3,18 @@ Main application entry point for DocuSense AI
 """
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
+from fastapi.middleware.trustedhost import TrustedHostMiddleware
+from fastapi.middleware.httpsredirect import HTTPSRedirectMiddleware
 from contextlib import asynccontextmanager
 import logging
 import sys
 import os
+import time
+from typing import Callable
+import secrets
 
 # Add the app directory to the Python path
 sys.path.append(os.path.join(os.path.dirname(__file__), 'app'))
@@ -18,13 +23,14 @@ from app.core.config import settings, load_api_keys_from_database
 from app.core.database import engine, Base
 from app.core.logging import setup_logging
 from app.middleware.log_requests import LoggingMiddleware as OldLoggingMiddleware
-from app.middleware.logging_middleware import LoggingMiddleware
+from app.middleware.simple_logging_middleware import SimpleLoggingMiddleware
 from app.api import (
     analysis_router, auth_router, config_router, download_router, emails_router, files_router, health_router, 
-    monitoring_router, multimedia_router, prompts_router, video_converter_router, secure_streaming_router, pdf_files_router, logs_router
+    monitoring_router, multimedia_router, prompts_router, video_converter_router, secure_streaming_router, pdf_files_router, logs_router, admin_router
 )
 from app.api.system_logs import router as system_logs_router
 from app.api.database import router as database_router
+from app.api.cache_monitoring import router as cache_monitoring_router
 
 # Setup logging
 setup_logging()
@@ -32,6 +38,108 @@ logger = logging.getLogger(__name__)
 
 # NOUVEAU: Charger les clés API depuis la base de données au démarrage
 load_api_keys_from_database()
+
+# Middleware de sécurité pour les en-têtes HTTP
+class SecurityHeadersMiddleware:
+    def __init__(self, app: FastAPI):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            # Ajouter des en-têtes de sécurité
+            async def send_with_headers(message):
+                if message["type"] == "http.response.start":
+                    headers = list(message.get("headers", []))
+                    # Ajouter les en-têtes de sécurité
+                    security_headers = [
+                        (b"X-Content-Type-Options", b"nosniff"),
+                        (b"X-Frame-Options", b"DENY"),
+                        (b"X-XSS-Protection", b"1; mode=block"),
+                        (b"Referrer-Policy", b"strict-origin-when-cross-origin"),
+                        (b"Content-Security-Policy", b"default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline';"),
+                        (b"Strict-Transport-Security", b"max-age=31536000; includeSubDomains"),
+                        (b"Permissions-Policy", b"geolocation=(), microphone=(), camera=()"),
+                    ]
+                    headers.extend(security_headers)
+                    message["headers"] = headers
+                await send(message)
+            
+            await self.app(scope, receive, send_with_headers)
+        else:
+            await self.app(scope, receive, send)
+
+# Middleware de rate limiting global
+class RateLimitMiddleware:
+    def __init__(self, app: FastAPI):
+        self.app = app
+        self.requests = {}
+        self.max_requests = 100  # Requêtes par minute
+        self.window = 60  # Secondes
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            client_ip = scope.get("client", ("unknown",))[0]
+            current_time = time.time()
+            
+            # Nettoyer les anciennes entrées
+            self.requests = {
+                ip: (count, timestamp) 
+                for ip, (count, timestamp) in self.requests.items()
+                if current_time - timestamp < self.window
+            }
+            
+            # Vérifier le rate limit
+            if client_ip in self.requests:
+                count, timestamp = self.requests[client_ip]
+                if count >= self.max_requests:
+                    # Rate limit dépassé - envoyer erreur 429
+                    await send({
+                        "type": "http.response.start",
+                        "status": 429,
+                        "headers": [(b"content-type", b"application/json")]
+                    })
+                    await send({
+                        "type": "http.response.body",
+                        "body": b'{"detail": "Rate limit exceeded"}'
+                    })
+                    return
+            
+            # Incrémenter le compteur
+            if client_ip in self.requests:
+                count, _ = self.requests[client_ip]
+                self.requests[client_ip] = (count + 1, current_time)
+            else:
+                self.requests[client_ip] = (1, current_time)
+        
+        await self.app(scope, receive, send)
+
+# Middleware de logging de sécurité
+class SecurityLoggingMiddleware:
+    def __init__(self, app: FastAPI):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "http":
+            client_ip = scope.get("client", ("unknown",))[0]
+            method = scope.get("method", "UNKNOWN")
+            path = scope.get("path", "/")
+            user_agent = dict(scope.get("headers", [])).get(b"user-agent", b"").decode("utf-8", errors="ignore")
+            
+            # Log des requêtes suspectes
+            if any(suspicious in path.lower() for suspicious in ["/admin", "/config", "/system", "/debug"]):
+                logger.warning(f"Requête suspecte: {method} {path} depuis {client_ip} - User-Agent: {user_agent}")
+            
+            # Log des erreurs 4xx/5xx
+            async def send_with_logging(message):
+                if message["type"] == "http.response.start":
+                    status = message.get("status", 200)
+                    if status >= 400:
+                        logger.warning(f"Erreur HTTP {status}: {method} {path} depuis {client_ip}")
+                await send(message)
+            
+            await self.app(scope, receive, send_with_logging)
+        else:
+            await self.app(scope, receive, send)
 
 
 @asynccontextmanager
@@ -136,7 +244,11 @@ app.add_middleware(
 if settings.compression_enabled:
     app.add_middleware(GZipMiddleware, minimum_size=settings.gzip_min_size)
 
-app.add_middleware(LoggingMiddleware)
+app.add_middleware(SimpleLoggingMiddleware)  # Middleware simplifié sans boucle
+# Middlewares de sécurité temporairement désactivés pour debug
+# app.add_middleware(SecurityHeadersMiddleware(app))
+# app.add_middleware(RateLimitMiddleware(app))
+# app.add_middleware(SecurityLoggingMiddleware(app))
 
 # Include routers
 app.include_router(auth_router, prefix="/api/auth", tags=["Authentication"])
@@ -156,6 +268,8 @@ app.include_router(pdf_files_router, prefix="/api/pdf-files", tags=["PDF Files"]
 app.include_router(logs_router, prefix="/api/logs", tags=["Logs"])
 app.include_router(system_logs_router, tags=["System Logs"])
 app.include_router(database_router)
+app.include_router(cache_monitoring_router)
+app.include_router(admin_router, tags=["Admin"])
 
 
 @app.get("/")

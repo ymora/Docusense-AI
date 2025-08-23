@@ -1,5 +1,5 @@
 import React from 'react';
-import { useBackendStatus } from '../../hooks/useBackendStatus';
+import { useBackendConnection } from '../../hooks/useBackendConnection';
 import { useColors } from '../../hooks/useColors';
 
 interface BackendStatusIndicatorProps {
@@ -20,7 +20,7 @@ export const BackendStatusIndicator: React.FC<BackendStatusIndicatorProps> = ({
     lastCheck, 
     responseTime,
     forceCheck 
-  } = useBackendStatus();
+  } = useBackendConnection();
   
   const { colors } = useColors();
 
@@ -85,7 +85,7 @@ export const BackendStatusIndicator: React.FC<BackendStatusIndicatorProps> = ({
 
 // Composant compact pour les headers - SIMPLIFIÉ
 export const BackendStatusDot: React.FC<{ className?: string }> = ({ className = '' }) => {
-  const { isOnline, isInactive, consecutiveFailures, isChecking } = useBackendStatus();
+  const { isOnline, isInactive, consecutiveFailures, isChecking } = useBackendConnection();
   const { colors } = useColors();
 
   // Si le backend est connecté, ne rien afficher

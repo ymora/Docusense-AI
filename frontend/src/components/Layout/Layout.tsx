@@ -9,13 +9,73 @@ import { useAnalysisStore } from '../../stores/analysisStore';
 import { useFileStore } from '../../stores/fileStore';
 import { useColors } from '../../hooks/useColors';
 import { useStartupInitialization } from '../../hooks/useStartupInitialization';
-import { analysisService } from '../../services/analysisService';
+import { useFileService } from '../../hooks/useFileService';
+import { useAnalysisService } from '../../hooks/useAnalysisService';
 import useAuthStore from '../../stores/authStore';
+import { useUnifiedAuth } from '../../hooks/useUnifiedAuth';
+import { CpuChipIcon, UserIcon as UserIconHero, EyeIcon, PlusIcon } from '@heroicons/react/24/outline';
 
-import { promptService } from '../../services/promptService';
-import { fileService } from '../../services/fileService';
 import { logService } from '../../services/logService';
 
+// Composant de notification d'erreur
+const ErrorNotification: React.FC<{ message: string; onClose: () => void }> = ({ message, onClose }) => {
+  const { colors } = useColors();
+  
+  return (
+    <div className="fixed top-4 right-4 z-50 max-w-md">
+      <div 
+        className="p-4 rounded-lg shadow-lg border-l-4 flex items-center justify-between"
+        style={{
+          backgroundColor: colors.surface,
+          borderColor: '#ef4444',
+          borderLeftColor: '#ef4444',
+        }}
+      >
+        <div className="flex items-center space-x-3">
+          <span className="text-xl">⚠️</span>
+          <span style={{ color: colors.text }} className="text-sm">{message}</span>
+        </div>
+        <button
+          onClick={onClose}
+          className="ml-4 text-gray-400 hover:text-gray-600"
+          style={{ color: colors.textSecondary }}
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+  );
+};
+
+// Composant de notification de succès
+const SuccessNotification: React.FC<{ message: string; onClose: () => void }> = ({ message, onClose }) => {
+  const { colors } = useColors();
+  
+  return (
+    <div className="fixed top-4 right-4 z-50 max-w-md">
+      <div 
+        className="p-4 rounded-lg shadow-lg border-l-4 flex items-center justify-between"
+        style={{
+          backgroundColor: colors.surface,
+          borderColor: '#22c55e',
+          borderLeftColor: '#22c55e',
+        }}
+      >
+        <div className="flex items-center space-x-3">
+          <span className="text-xl">✅</span>
+          <span style={{ color: colors.text }} className="text-sm">{message}</span>
+        </div>
+        <button
+          onClick={onClose}
+          className="ml-4 text-gray-400 hover:text-gray-600"
+          style={{ color: colors.textSecondary }}
+        >
+          ✕
+        </button>
+      </div>
+    </div>
+  );
+};
 
 const Layout: React.FC = () => {
   const { selectedFile, selectedFiles, selectFile, markFileAsViewed, files } = useFileStore();
@@ -23,12 +83,87 @@ const Layout: React.FC = () => {
   const { isInitialized, isLoading, initializationStep } = useStartupInitialization();
   const { sidebarWidth, setSidebarWidth, activePanel, setActivePanel } = useUIStore();
   const { colors } = useColors();
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, setUser, setTokens, setAuthenticated, accessToken, refreshToken } = useAuthStore();
+  const { loginAsGuest } = useUnifiedAuth();
+  const fileService = useFileService();
+  const analysisService = useAnalysisService();
   const [isResizing, setIsResizing] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(true);
   const [resizeStartWidth, setResizeStartWidth] = useState<number | null>(null);
   
-  // États pour l'authentification (maintenant géré par le store)
+  // États pour les notifications
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  
+  // Gestionnaire d'erreurs global
+  useEffect(() => {
+    const handleGlobalError = (event: ErrorEvent) => {
+      console.error('Erreur globale détectée:', event.error);
+      setErrorMessage('Une erreur inattendue s\'est produite. Veuillez rafraîchir la page.');
+      
+      // Log de l'erreur
+      logService.error('Erreur globale', 'Layout', {
+        error: event.error?.message || 'Erreur inconnue',
+        stack: event.error?.stack,
+        timestamp: new Date().toISOString()
+      });
+    };
+
+    const handleUnhandledRejection = (event: PromiseRejectionEvent) => {
+      console.error('Promesse rejetée non gérée:', event.reason);
+      setErrorMessage('Une erreur de communication s\'est produite. Veuillez réessayer.');
+      
+      // Log de l'erreur
+      logService.error('Promesse rejetée', 'Layout', {
+        reason: event.reason?.message || String(event.reason),
+        timestamp: new Date().toISOString()
+      });
+    };
+
+    window.addEventListener('error', handleGlobalError);
+    window.addEventListener('unhandledrejection', handleUnhandledRejection);
+
+    return () => {
+      window.removeEventListener('error', handleGlobalError);
+      window.removeEventListener('unhandledrejection', handleUnhandledRejection);
+    };
+  }, []);
+  
+  // Vérification d'authentification au démarrage
+  useEffect(() => {
+    const { user } = useAuthStore.getState();
+    
+    // Si l'utilisateur n'a pas de tokens, forcer la déconnexion
+    if (!accessToken && !refreshToken) {
+      setUser(null);
+      setTokens('', '');
+      setAuthenticated(false);
+    } else if (accessToken && !isAuthenticated) {
+      // Si on a des tokens mais que isAuthenticated est false, corriger l'état
+      setAuthenticated(true);
+    } else if (isAuthenticated && !user) {
+      // Si on est authentifié mais sans utilisateur, forcer la déconnexion
+      setUser(null);
+      setTokens('', '');
+      setAuthenticated(false);
+    }
+  }, [accessToken, refreshToken, isAuthenticated, setUser, setTokens, setAuthenticated]);
+
+  // Vérification des permissions pour le panneau actif
+  useEffect(() => {
+    const { isAdmin } = useAuthStore.getState();
+    
+    // Si l'utilisateur n'est pas admin et que le panneau actif est admin, rediriger
+    if (!isAdmin() && (activePanel === 'logs' || activePanel === 'system' || activePanel === 'ai-config' || activePanel === 'users' || activePanel === 'api-docs')) {
+      logService.info('Redirection automatique - changement d\'utilisateur', 'Layout', {
+        fromPanel: activePanel,
+        toPanel: 'queue',
+        reason: 'Utilisateur non-admin détecté sur panneau admin',
+        timestamp: new Date().toISOString()
+      });
+      setActivePanel('queue');
+    }
+  }, [isAuthenticated, activePanel, setActivePanel]);
   
   // États pour les actions de fichiers
 
@@ -78,18 +213,19 @@ const Layout: React.FC = () => {
             timestamp: new Date().toISOString()
           });
 
-          let downloadUrl = `/api/files/download-by-path/${encodeURIComponent(file.path)}`;
+          const response = await fileService.downloadFile(`/api/files/download-by-path/${encodeURIComponent(file.path)}?t=${Date.now()}`);
           
-          const link = document.createElement('a');
-          link.href = downloadUrl;
-          link.download = file.name || 'download';
-          link.target = '_self';
-          link.rel = 'noopener noreferrer';
-          link.href += `?t=${Date.now()}`;
-          
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
+          if (response) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = file.name || 'download';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+          }
 
           logService.info('Téléchargement de fichier individuel terminé', 'Layout', {
             fileName: file.name,
@@ -102,7 +238,7 @@ const Layout: React.FC = () => {
             timestamp: new Date().toISOString()
           });
         }
-             } else if (action === 'download_directory' && file) {
+      } else if (action === 'download_directory' && file) {
         // Télécharger le dossier en ZIP
         try {
           logService.info('Téléchargement de dossier en ZIP', 'Layout', {
@@ -111,13 +247,19 @@ const Layout: React.FC = () => {
             timestamp: new Date().toISOString()
           });
 
-          const downloadUrl = `/api/download/directory/${encodeURIComponent(file.path)}`;
-          const link = document.createElement('a');
-          link.href = downloadUrl;
-          link.download = `${file.name || 'folder'}.zip`;
-          document.body.appendChild(link);
-          link.click();
-          document.body.removeChild(link);
+          const response = await fileService.downloadFile(`/api/download/directory/${encodeURIComponent(file.path)}`);
+          
+          if (response) {
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `${file.name || 'folder'}.zip`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            window.URL.revokeObjectURL(url);
+          }
 
           logService.info('Téléchargement de dossier en ZIP terminé', 'Layout', {
             folderName: file.name,
@@ -130,53 +272,45 @@ const Layout: React.FC = () => {
             timestamp: new Date().toISOString()
           });
         }
-             } else if (action === 'explore_directory' && file) {
-         // Explorer le contenu du dossier
-         selectFile(file);
-         setActivePanel('viewer');
-       } else if (action === 'view_directory_thumbnails' && file) {
-         // Visualiser tous les fichiers du dossier en miniatures
-         selectFile(file);
-         setActivePanel('viewer');
-         // Déclencher l'affichage en mode miniatures
-         window.dispatchEvent(new CustomEvent('viewDirectoryThumbnails', {
-           detail: { directoryPath: file.path }
-         }));
-              } else if (action === 'analyze_directory' && file) {
-         // Analyser tous les fichiers du dossier
-         try {
-           const response = await fetch(`/api/files/analyze-directory`, {
-             method: 'POST',
-             headers: { 'Content-Type': 'application/json' },
-             body: JSON.stringify({ directory_path: file.path })
-           });
-           if (response.ok) {
-             setActivePanel('analyses');
-           } else {
-             logService.error('Erreur lors de l\'analyse du dossier', 'Layout', { directory: file.path });
-           }
-         } catch (error) {
-           logService.error('Erreur lors de l\'analyse du dossier', 'Layout', { error: error.message, directory: file.path });
-         }
-       } else if (action === 'analyze_directory_supported' && file) {
-         // Analyser uniquement les fichiers supportés du dossier
-         try {
-           const response = await fetch(`/api/files/analyze-directory-supported`, {
-             method: 'POST',
-             headers: { 'Content-Type': 'application/json' },
-             body: JSON.stringify({ directory_path: file.path })
-           });
-           if (response.ok) {
-             setActivePanel('analyses');
-           } else {
-             logService.error('Erreur lors de l\'analyse des fichiers supportés du dossier', 'Layout', { directory: file.path });
-           }
-         } catch (error) {
-           logService.error('Erreur lors de l\'analyse des fichiers supportés du dossier', 'Layout', { error: error.message, directory: file.path });
-         }
-       } else if (action === 'view_directory_analyses' && file) {
+      } else if (action === 'explore_directory' && file) {
+        // Explorer le contenu du dossier
+        selectFile(file);
+        setActivePanel('viewer');
+      } else if (action === 'view_directory_thumbnails' && file) {
+        // Visualiser tous les fichiers du dossier en miniatures
+        selectFile(file);
+        setActivePanel('viewer');
+        // Déclencher l'affichage en mode miniatures
+        window.dispatchEvent(new CustomEvent('viewDirectoryThumbnails', {
+          detail: { directoryPath: file.path }
+        }));
+      } else if (action === 'analyze_directory' && file) {
+        // Analyser tous les fichiers du dossier
+        try {
+          const result = await fileService.analyzeDirectory(file.path);
+          if (result.success) {
+            setActivePanel('queue');
+          } else {
+            logService.error('Erreur lors de l\'analyse du dossier', 'Layout', { directory: file.path });
+          }
+        } catch (error) {
+          logService.error('Erreur lors de l\'analyse du dossier', 'Layout', { error: error.message, directory: file.path });
+        }
+      } else if (action === 'analyze_directory_supported' && file) {
+        // Analyser uniquement les fichiers supportés du dossier
+        try {
+          const result = await fileService.analyzeDirectory(file.path);
+          if (result.success) {
+            setActivePanel('queue');
+          } else {
+            logService.error('Erreur lors de l\'analyse des fichiers supportés du dossier', 'Layout', { directory: file.path });
+          }
+        } catch (error) {
+          logService.error('Erreur lors de l\'analyse des fichiers supportés du dossier', 'Layout', { error: error.message, directory: file.path });
+        }
+      } else if (action === 'view_directory_analyses' && file) {
         // Voir les analyses du dossier
-        setActivePanel('analyses');
+        setActivePanel('queue');
         window.dispatchEvent(new CustomEvent('filterAnalysesByDirectory', {
           detail: { directoryPath: file.path }
         }));
@@ -184,37 +318,35 @@ const Layout: React.FC = () => {
         // Relancer l'analyse avec un nouveau prompt
         const fileIds = [file.id || file.path];
         handleAddToQueue(fileIds);
-        setActivePanel('analyses');
+        setActivePanel('queue');
       } else if (action === 'compare_analyses' && file) {
         // Comparer les analyses du fichier
-        setActivePanel('analyses');
+        setActivePanel('queue');
         window.dispatchEvent(new CustomEvent('compareAnalyses', {
           detail: { fileId: file.id, filePath: file.path }
         }));
       } else if (action === 'analyze_multiple' && file) {
         // Analyser tous les fichiers sélectionnés
         handleAddToQueue(selectedFiles);
-        setActivePanel('analyses');
+        setActivePanel('queue');
       } else if (action === 'compare_multiple' && file) {
         // Comparer les analyses des fichiers sélectionnés
-        setActivePanel('analyses');
+        setActivePanel('queue');
         window.dispatchEvent(new CustomEvent('compareMultipleAnalyses', {
           detail: { fileIds: selectedFiles }
         }));
-             } else if (action === 'add_to_queue' && file) {
+      } else if (action === 'add_to_queue' && file) {
         const fileIds = [file.id || file.path];
         handleAddToQueue(fileIds);
       } else if (action === 'view_analyses' && file) {
         // Basculer vers l'onglet Analyses IA et filtrer par fichier
-        setActivePanel('analyses');
+        setActivePanel('queue');
         window.dispatchEvent(new CustomEvent('filterAnalysesByFile', {
           detail: { filePath: file.path }
         }));
       } else if (action === 'download_multiple' && file) {
         // Téléchargement ZIP pour plusieurs fichiers sélectionnés
         try {
-          const downloadUrl = `/api/files/download-multiple`;
-          
           const filePaths = [];
           selectedFiles.forEach((fileId) => {
             const file = files.find(f => f.id === fileId || f.path === fileId);
@@ -228,7 +360,7 @@ const Layout: React.FC = () => {
             return;
           }
           
-          const response = await fetch(downloadUrl, {
+          const response = await fetch('/api/files/download-multiple', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -262,9 +394,7 @@ const Layout: React.FC = () => {
     return () => {
       window.removeEventListener('fileAction', handleFileAction as EventListener);
     };
-  }, [selectedFiles, selectFile, setActivePanel]);
-
-
+  }, [selectedFiles, selectFile, setActivePanel, analysisService]);
 
   // Fonction pour ajouter des fichiers en attente d'analyse
   const handleAddToQueue = async (fileIds: (number | string)[]) => {
@@ -278,8 +408,12 @@ const Layout: React.FC = () => {
           // Si pas trouvé localement, essayer de le récupérer depuis le service
           if (!file && typeof fileId === 'number') {
             try {
-              file = await fileService.getFileById(fileId);
-              logService.info(`Fichier trouvé par service: ${file.name}`, 'Layout', { fileId: file.id });
+              // Utiliser le service unifié pour récupérer le fichier
+              const fileResponse = await analysisService.getAnalysisById(fileId);
+              if (fileResponse.success && fileResponse.data) {
+                file = fileResponse.data;
+                logService.info(`Fichier trouvé par service: ${file.name}`, 'Layout', { fileId: file.id });
+              }
             } catch (error) {
               logService.warning(`Fichier ${fileId} non trouvé`, 'Layout', { error: error.message });
               return null;
@@ -292,11 +426,12 @@ const Layout: React.FC = () => {
           }
           
           // Créer une analyse en attente
-          const analysisResponse = await analysisService.createPendingAnalysis({
-            file_path: file.path,
-            prompt_id: 'default',
+          const analysisResponse = await analysisService.createAnalysis({
+            file_id: file.id,
             analysis_type: 'general',
-            custom_prompt: ''
+            provider: 'ollama',
+            model: 'llama2',
+            prompt: 'Analyse générale du document'
           });
           
           // L'analyse est maintenant créée directement avec le statut approprié
@@ -327,6 +462,37 @@ const Layout: React.FC = () => {
     }
   };
 
+  // Fonction pour la connexion invité
+  const handleGuestLogin = async () => {
+    try {
+      logService.info('Connexion invité demandée par l\'utilisateur', 'Layout', {
+        timestamp: new Date().toISOString()
+      });
+      
+      const authResponse = await loginAsGuest();
+      if (authResponse && authResponse.user) {
+        logService.info('Connexion invité réussie via Layout', 'Layout', {
+          userId: authResponse.user.id,
+          username: authResponse.user.username,
+          timestamp: new Date().toISOString()
+        });
+        
+        setUser(authResponse.user);
+        setTokens(authResponse.access_token, authResponse.refresh_token);
+        setAuthenticated(true);
+      } else {
+        logService.error('Échec de la connexion invité via Layout', 'Layout', {
+          error: authResponse?.error || 'Réponse invalide',
+          timestamp: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      logService.error('Erreur de connexion invité via Layout', 'Layout', {
+        error: error instanceof Error ? error.message : 'Erreur inconnue',
+        timestamp: new Date().toISOString()
+      });
+    }
+  };
 
 
   // Fonction pour basculer le thème jour/nuit
@@ -513,6 +679,20 @@ const Layout: React.FC = () => {
 
   return (
     <>
+      {/* Notifications */}
+      {errorMessage && (
+        <ErrorNotification 
+          message={errorMessage} 
+          onClose={() => setErrorMessage(null)} 
+        />
+      )}
+      {successMessage && (
+        <SuccessNotification 
+          message={successMessage} 
+          onClose={() => setSuccessMessage(null)} 
+        />
+      )}
+      
       <StartupLoader 
         isLoading={isLoading}
         initializationStep={initializationStep}
@@ -609,110 +789,71 @@ const Layout: React.FC = () => {
           </>
         </>
         
-        {/* Overlay de floutage avec interface de connexion professionnelle */}
+        {/* Overlay de connexion - seulement si non authentifié */}
         {!isAuthenticated && (
-          <div 
-            className="fixed inset-0 z-40 pointer-events-none"
-            style={{
-              backdropFilter: 'blur(3px)',
-              backgroundColor: 'rgba(0, 0, 0, 0.15)',
-            }}
-          >
-            {/* Interface de connexion centrée */}
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-auto">
-              <div 
-                className="px-10 py-8 rounded-xl shadow-2xl text-center max-w-lg w-full mx-6"
-                style={{
-                  backgroundColor: colors.surface,
-                  border: `1px solid ${colors.border}`,
-                  boxShadow: `0 25px 50px -12px rgba(0, 0, 0, 0.25)`,
-                }}
-              >
-                {/* Logo et titre */}
-                <div className="mb-8">
-                  <div className="text-3xl mb-3" style={{ color: colors.primary }}>
-                    🔐
-                  </div>
-                  <h1 className="text-2xl font-bold mb-2" style={{ color: colors.text }}>
-                    DocuSense AI
-                  </h1>
-                  <p className="text-sm font-medium" style={{ color: colors.textSecondary }}>
-                    Accédez à votre espace de travail
-                  </p>
+          <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-40 backdrop-blur-sm">
+            <div className="w-96 p-8 rounded-xl shadow-2xl" style={{ 
+              backgroundColor: colors.surface,
+              border: `1px solid ${colors.border}`,
+              boxShadow: `0 25px 50px -12px rgba(0, 0, 0, 0.25)`,
+            }}>
+              {/* Header */}
+              <div className="text-center mb-8">
+                <div className="mb-4 flex justify-center">
+                  ��
                 </div>
-                
-                {/* Boutons de connexion */}
-                <div className="space-y-4">
-                  {/* Connexion utilisateur - Bouton principal */}
-                  <button
-                    onClick={() => {
-                      window.dispatchEvent(new CustomEvent('openLoginModal'));
-                    }}
-                    className="w-full flex items-center justify-center space-x-3 px-6 py-4 rounded-lg transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] font-semibold text-base"
-                    style={{
-                      backgroundColor: colors.primary,
-                      color: 'white',
-                      boxShadow: `0 4px 14px 0 ${colors.primary}40`,
-                    }}
-                  >
-                    <span className="text-lg">👤</span>
-                    <span>Se connecter</span>
-                  </button>
-                  
-                  {/* Connexion invité - Bouton secondaire */}
-                  <button
-                    onClick={async () => {
-                      try {
-                        await useAuthStore.getState().loginAsGuest();
-                      } catch (error) {
-                        console.error('Erreur de connexion invité:', error);
-                      }
-                    }}
-                    className="w-full flex items-center justify-center space-x-3 px-6 py-4 rounded-lg transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] font-medium text-base"
-                    style={{
-                      backgroundColor: 'transparent',
-                      border: `2px solid ${colors.border}`,
-                      color: colors.text,
-                    }}
-                  >
-                    <span className="text-lg">👁️</span>
-                    <span>Mode invité</span>
-                  </button>
-                  
-                  {/* Séparateur */}
-                  <div className="relative my-6">
-                    <div className="absolute inset-0 flex items-center">
-                      <div className="w-full border-t" style={{ borderColor: colors.border }}></div>
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                      <span className="px-2" style={{ backgroundColor: colors.surface, color: colors.textSecondary }}>
-                        ou
-                      </span>
-                    </div>
-                  </div>
-                  
-                  {/* Inscription - Bouton tertiaire */}
-                  <button
-                    onClick={() => {
-                      window.dispatchEvent(new CustomEvent('openRegisterModal'));
-                    }}
-                    className="w-full flex items-center justify-center space-x-3 px-6 py-3 rounded-lg transition-all duration-300 hover:bg-opacity-80 font-medium text-sm"
-                    style={{
-                      backgroundColor: 'transparent',
-                      color: colors.textSecondary,
-                    }}
-                  >
-                    <span className="text-base">➕</span>
-                    <span>Créer un compte</span>
-                  </button>
-                </div>
-                
-                {/* Footer */}
-                <div className="mt-8 pt-6 border-t" style={{ borderColor: colors.border }}>
-                  <p className="text-xs" style={{ color: colors.textSecondary }}>
-                    Sécurisé et optimisé pour votre productivité
-                  </p>
-                </div>
+                <h1 className="text-3xl font-bold mb-2" style={{ color: colors.text }}>
+                  DocuSense AI
+                </h1>
+                <p className="text-lg" style={{ color: colors.textSecondary }}>
+                  Analyse intelligente de documents
+                </p>
+              </div>
+
+              {/* Boutons d'action */}
+              <div className="space-y-4">
+                <button
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent('openLoginModal'));
+                  }}
+                  className="w-full flex items-center justify-center space-x-3 px-6 py-4 rounded-lg transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] font-semibold text-base"
+                  style={{
+                    backgroundColor: 'transparent',
+                    border: `2px solid ${colors.primary}`,
+                    color: colors.primary,
+                  }}
+                >
+                  <UserIconHero className="w-5 h-5" />
+                  <span>Se connecter</span>
+                </button>
+
+                <button
+                  onClick={handleGuestLogin}
+                  className="w-full flex items-center justify-center space-x-3 px-6 py-4 rounded-lg transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] font-semibold text-base"
+                  style={{
+                    backgroundColor: 'transparent',
+                    border: `2px solid ${colors.primary}`,
+                    color: colors.primary,
+                  }}
+                >
+                  <EyeIcon className="w-5 h-5" />
+                  <span>Invité</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent('openRegisterModal'));
+                  }}
+                  className="w-full flex items-center justify-center space-x-3 px-6 py-4 rounded-lg transition-all duration-300 hover:scale-[1.02] active:scale-[0.98] font-semibold text-base"
+                  style={{
+                    backgroundColor: 'transparent',
+                    border: `2px solid ${colors.primary}`,
+                    color: colors.primary,
+                  }}
+                >
+                  <PlusIcon className="w-5 h-5" />
+                  <span>Créer un compte</span>
+                </button>
               </div>
             </div>
           </div>

@@ -8,6 +8,7 @@ import {
 } from '@heroicons/react/24/outline';
 import { formatDate } from '../../utils/fileUtils';
 import { getStatusIcon, getStatusText } from '../../utils/statusUtils.tsx';
+import { useAnalysisService } from '../../hooks/useAnalysisService';
 
 interface AnalysisResult {
   id: number;
@@ -30,6 +31,7 @@ interface FileResultViewerProps {
 
 const FileResultViewer: React.FC<FileResultViewerProps> = ({ fileId, onClose }) => {
   const { colors, colorMode } = useColors();
+  const analysisService = useAnalysisService();
   const [analysisResults, setAnalysisResults] = useState<AnalysisResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -44,10 +46,9 @@ const FileResultViewer: React.FC<FileResultViewerProps> = ({ fileId, onClose }) 
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`/api/analysis/file/${fileId}`);
-      if (response.ok) {
-        const data = await response.json();
-        setAnalysisResults(data.analyses || []);
+      const result = await analysisService.getAnalysisFile(fileId);
+      if (result.success && result.data) {
+        setAnalysisResults(result.data.analyses || []);
       } else {
         setError('Impossible de charger les résultats d\'analyse');
       }
@@ -60,11 +61,9 @@ const FileResultViewer: React.FC<FileResultViewerProps> = ({ fileId, onClose }) 
 
   const handleRetryAnalysis = async (analysisId: number): Promise<void> => {
     try {
-      const response = await fetch(`/api/analysis/${analysisId}/retry`, {
-        method: 'POST',
-      });
+      const result = await analysisService.retryAnalysis(analysisId);
 
-      if (response.ok) {
+      if (result.success) {
         await loadAnalysisResults();
       }
     } catch (err) {

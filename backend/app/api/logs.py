@@ -18,6 +18,44 @@ from ..utils.api_utils import APIUtils
 
 router = APIRouter(tags=["logs"])
 
+@router.get("/backend")
+@APIUtils.monitor_api_performance
+async def get_backend_logs(
+    limit: int = Query(100, ge=1, le=1000, description="Nombre maximum de logs"),
+    db: Session = Depends(get_db)
+) -> Dict[str, Any]:
+    """
+    Récupère les logs backend récents
+    """
+    try:
+        # Récupérer les logs récents depuis le buffer frontend
+        from ..core.logging import FrontendLogHandler
+        import logging
+        
+        # Trouver le handler frontend
+        frontend_handler = None
+        root_logger = logging.getLogger()
+        for handler in root_logger.handlers:
+            if isinstance(handler, FrontendLogHandler):
+                frontend_handler = handler
+                break
+        
+        if frontend_handler:
+            recent_logs = frontend_handler.get_recent_logs(limit)
+        else:
+            recent_logs = []
+        
+        return ResponseFormatter.success_response(
+            data=recent_logs,
+            message=f"Logs backend récupérés ({len(recent_logs)} résultats)"
+        )
+        
+    except Exception as e:
+        return ResponseFormatter.error_response(
+            message="Erreur lors de la récupération des logs backend",
+            error=str(e)
+        )
+
 @router.get("/backend/stream")
 @APIUtils.monitor_api_performance
 async def stream_backend_logs():

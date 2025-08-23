@@ -1,5 +1,44 @@
 # ==========================
-# COMMANDES
+# RÈGLES DE TRAVAIL - CURSOR
+# ==========================
+
+# ==========================
+# MÉTHODE DE TRAVAIL STANDARDISÉE
+# ==========================
+
+## 1. ANALYSE ET VÉRIFICATION
+- TOUJOURS examiner l'existant avant de créer quoi que ce soit
+- Vérifier l'exactitude des informations et identifier les incohérences
+- Chercher dans *.backup, codemort/, grep_search pour éviter la duplication
+- Restaurer/Adapter plutôt que créer de nouveau
+
+## 2. ORGANISATION ET STRUCTURE
+- Réorganiser logiquement le contenu avec une structure claire
+- Créer une table des matières navigable
+- Séparer les sections par responsabilité (utilisateur vs développeur)
+- Privilégier les tableaux aux listes pour les références techniques
+
+## 3. OPTIMISATION POUR LA MAINTENANCE
+- Supprimer le code redondant - garder seulement les noms de fonctions
+- Focus sur l'information utile aux développeurs
+- Ajouter les références de fichiers et emplacements précis
+- Documenter les patterns d'architecture utilisés
+
+## 4. DOCUMENTATION DÉVELOPPEUR
+- Structure du projet complète avec descriptions
+- Mapping des composants vers leurs fichiers
+- Scripts et outils disponibles avec leurs fonctions
+- Métriques de performance actuelles et objectifs
+- Emplacements des logs pour le debugging
+
+## 5. NETTOYAGE ET UNIFICATION
+- Fusionner les documents en un seul fichier de référence
+- Supprimer les doublons et contenus obsolètes
+- Garder seulement l'information actuelle et pertinente
+- Éviter les explications de problèmes passés ou "avant/après"
+
+# ==========================
+# COMMANDES SPÉCIFIQUES
 # ==========================
 
 commands:
@@ -32,12 +71,6 @@ startup:
     npm run dev
 
 # ==========================
-# NAVIGATION FICHIERS
-# ==========================
-
-# Navigation système de fichiers via /api/files/list/{directory}
-
-# ==========================
 # GESTION TERMINAL
 # ==========================
 
@@ -50,6 +83,25 @@ startup:
 # ==========================
 
 # PRIORITÉ: Vérifier l'existant avant de créer
-# 1. Chercher dans *.backup, codemort/, grep_search
-# 2. Restaurer/Adapter plutôt que créer
-# 3. Éviter la duplication de code
+# Chercher dans *.backup, codemort/, grep_search
+# Restaurer/Adapter plutôt que créer
+# Éviter la duplication de code
+
+# ==========================
+# PREFERENCES UTILISATEUR
+# ==========================
+
+# Interface: Style très fin, thème sombre, design minimaliste
+# Icônes: Bleu clair comme le sélecteur de disque
+# Frontend: Port 3000, fermer les processus si occupé
+# Backend: python main.py dans venv
+# Langue: Répondre entièrement en français
+# Sélection de répertoire: Dialogue de sélection de fichiers
+# Optimisations: Conserver les optimisations lors des mises à jour
+# Tests: Modifier les tests existants plutôt que créer des doublons
+# Analyse IA: Sélectionner Ollama par défaut
+# Documentation: Mise à jour automatique avec validation manuelle
+# Interface: Texte informatif uniquement dans les zones de sélection
+# Processus: Lancer automatiquement toutes les tâches
+# Erreurs: Analyser automatiquement les erreurs de console
+# Vérification: Vérifier automatiquement le code avant de déclarer opérationnel

@@ -5,6 +5,95 @@
 
 import { StateCreator } from 'zustand';
 
+// Types pour les stores Zustand
+export type StoreState<T> = T;
+
+// Fonction utilitaire pour créer un store avec persistance
+export function createPersistedStore<T extends object>(
+  initialState: T,
+  storageKey: string
+): StateCreator<T> {
+  return (set, get, store) => {
+    // Charger l'état depuis le localStorage
+    const savedState = localStorage.getItem(storageKey);
+    if (savedState) {
+      try {
+        const parsedState = JSON.parse(savedState);
+        set({ ...initialState, ...parsedState });
+      } catch (error) {
+        console.error('Erreur lors du chargement de l\'état:', error);
+        set(initialState);
+      }
+    } else {
+      set(initialState);
+    }
+
+    // Sauvegarder automatiquement les changements
+    const originalSet = set;
+    set = (partial, replace) => {
+      originalSet(partial, replace);
+      const currentState = get();
+      localStorage.setItem(storageKey, JSON.stringify(currentState));
+    };
+
+    return {
+      ...initialState,
+      set
+    };
+  };
+}
+
+// Fonction utilitaire pour créer un store avec debounce
+export function createDebouncedStore<T extends object>(
+  initialState: T,
+  debounceDelay: number = 300
+): StateCreator<T> {
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+  return (set, get, store) => {
+    const debouncedSet = (partial: Partial<T> | ((state: T) => Partial<T>), replace?: boolean) => {
+      if (timeoutId) {
+        clearTimeout(timeoutId);
+      }
+
+      timeoutId = setTimeout(() => {
+        set(partial, replace);
+        timeoutId = null;
+      }, debounceDelay);
+    };
+
+    return {
+      ...initialState,
+      set: debouncedSet
+    };
+  };
+}
+
+// Fonction utilitaire pour créer un store avec validation
+export function createValidatedStore<T extends object>(
+  initialState: T,
+  validator: (state: T) => boolean | string
+): StateCreator<T> {
+  return (set, get, store) => {
+    const validatedSet = (partial: Partial<T> | ((state: T) => Partial<T>), replace?: boolean) => {
+      const newState = typeof partial === 'function' ? partial(get()) : { ...get(), ...partial };
+      const validation = validator(newState);
+      
+      if (validation === true) {
+        set(partial, replace);
+      } else if (typeof validation === 'string') {
+        console.error('Validation failed:', validation);
+        throw new Error(validation);
+      }
+    };
+
+    return {
+      ...initialState,
+      set: validatedSet
+    };
+  };
+}
+
 // Type pour les stores avec état de chargement
 export interface LoadingState {
   loading: boolean;
@@ -119,7 +208,7 @@ export const createOptimizedUpdater = <T>(
 
 // Debounce utilitaire pour éviter les appels multiples
 export const createDebouncer = (delay: number = 500) => {
-  let timeoutId: NodeJS.Timeout | null = null;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
   
   return (fn: () => void) => {
     if (timeoutId) {

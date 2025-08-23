@@ -140,7 +140,23 @@ class PromptService(BaseService):
 
     def _get_all_prompts_logic(self) -> Dict[str, Dict[str, Any]]:
         """Logic for getting all prompts"""
-        return self.prompts_data.get("specialized_prompts", {})
+        specialized_prompts = self.prompts_data.get("specialized_prompts", {})
+        
+        # Convertir le format {key: object} en tableau d'objets pour le frontend
+        formatted_prompts = []
+        for key, prompt_data in specialized_prompts.items():
+            formatted_prompts.append({
+                "id": key,
+                "name": prompt_data.get("name", key.replace("_", " ").title()),
+                "prompt": prompt_data.get("prompt", ""),
+                "description": prompt_data.get("description", ""),
+                "category": "specialized",
+                "type": prompt_data.get("type", "analysis"),
+                "domain": prompt_data.get("domain", "general"),
+                "output_format": prompt_data.get("output_format", "structured")
+            })
+        
+        return formatted_prompts
 
     def get_all_default_prompts(self) -> Dict[str, str]:
         """Get all default prompts"""
@@ -152,7 +168,22 @@ class PromptService(BaseService):
 
     def _get_all_default_prompts_logic(self) -> Dict[str, str]:
         """Logic for getting all default prompts"""
-        return self.prompts_data.get("default_prompts", {})
+        default_prompts = self.prompts_data.get("default_prompts", {})
+        
+        # Convertir le format {key: value} en tableau d'objets pour le frontend
+        formatted_prompts = []
+        for key, prompt_text in default_prompts.items():
+            formatted_prompts.append({
+                "id": key.lower(),
+                "name": key.replace("_", " ").title(),
+                "prompt": prompt_text,
+                "description": f"Prompt par défaut pour {key.lower().replace('_', ' ')}",
+                "category": "default",
+                "type": "analysis",
+                "domain": key.lower()
+            })
+        
+        return formatted_prompts
 
     def get_prompts_summary(self) -> Dict[str, Any]:
         """Get a summary of all prompts organized by domain"""

@@ -7,9 +7,7 @@ import { useConfigStore } from '../../stores/configStore';
 import { useUIStore } from '../../stores/uiStore';
 import { useSimpleConfirm } from '../../hooks/useSimpleConfirm';
 import { logService } from '../../services/logService';
-import { pdfService } from '../../services/pdfService';
-import { useAnalysisService } from '../../services/analysisService';
-import { Search, Filter, SortAsc, SortDesc, RefreshCw, Trash2, RotateCcw, Download, Eye } from 'lucide-react';
+import { useAnalysisService } from '../../hooks/useAnalysisService';
 import { 
   EyeIcon, 
   DocumentDuplicateIcon, 
@@ -19,11 +17,16 @@ import {
   PlayIcon,
   PauseIcon,
   CheckIcon,
-  ArrowPathIcon
+  ArrowPathIcon,
+  MagnifyingGlassIcon,
+  ArrowUpIcon,
+  ArrowDownIcon,
+  ArrowDownTrayIcon
 } from '@heroicons/react/24/outline';
 import { UnifiedTable } from '../UI/UnifiedTable';
 import { DeleteConfirmationModal } from '../UI/DeleteConfirmationModal';
 import { ConnectionStatus } from '../UI/ConnectionStatus';
+import { BackendOfflineMessage } from '../UI/BackendOfflineMessage';
 import { Prompt } from '../../services/promptService';
 import { getStatusIcon, getStatusText } from '../../utils/statusUtils';
 import { useBackendConnection } from '../../hooks/useBackendConnection';
@@ -98,6 +101,9 @@ const ConfigurationCompact: React.FC<{
   const { aiProviders } = useConfigStore();
   const localSelection = localSelections[item.id] || {};
 
+  // S'assurer que prompts est un tableau
+  const safePrompts = Array.isArray(prompts) ? prompts : [];
+
   return (
     <div className="space-y-2">
       {/* Provider */}
@@ -143,7 +149,7 @@ const ConfigurationCompact: React.FC<{
             color: colors.text
           }}
         >
-          {prompts.map(prompt => (
+          {safePrompts.map(prompt => (
             <option key={prompt.id} value={prompt.id}>
               {prompt.name}
             </option>
@@ -552,7 +558,8 @@ export const QueueIAAdvanced: React.FC = () => {
   const { aiProviders, loadAIProviders, refreshAIProviders, isInitialized: configInitialized } = useConfigStore();
   const { setActivePanel } = useUIStore();
 
-  const currentPrompts = prompts;
+  // S'assurer que prompts est un tableau
+  const currentPrompts = Array.isArray(prompts) ? prompts : [];
 
   // États locaux simplifiés
   const [loading, setLoading] = useState(false);
@@ -573,7 +580,7 @@ export const QueueIAAdvanced: React.FC = () => {
 
   
   // Utiliser le hook centralisé pour la détection du backend
-  const { isOnline, canMakeRequests } = useBackendConnection();
+  const { isOnline, canMakeRequests, consecutiveFailures } = useBackendConnection();
   const analysisService = useAnalysisService();
 
   // Chargement initial
@@ -584,12 +591,20 @@ export const QueueIAAdvanced: React.FC = () => {
           timestamp: new Date().toISOString()
         });
 
+        console.log('🔍 [QueueIAAdvanced] Début de l\'initialisation');
+
         // Charger les données initiales
         await Promise.all([
           loadPrompts(),
           loadAIProviders(),
           loadAnalyses()
         ]);
+
+        console.log('🔍 [QueueIAAdvanced] Données chargées:', {
+          promptsCount: currentPrompts.length,
+          providersCount: aiProviders.length,
+          analysesCount: analyses.length
+        });
 
         logService.info('Queue initialisée avec succès', 'QueueIAAdvanced', {
           promptsCount: currentPrompts.length,
@@ -781,7 +796,7 @@ export const QueueIAAdvanced: React.FC = () => {
           break;
         case 'delete':
           // Préparer la confirmation de suppression
-          const hasPDF = await pdfService.hasPDF(item.id).catch(() => false);
+          const hasPDF = await analysisService.hasPDF(item.id).catch(() => false);
           setItemsToDelete([{
             id: item.id,
             name: item.file_info?.name || `Analyse #${item.id}`,
@@ -851,7 +866,7 @@ export const QueueIAAdvanced: React.FC = () => {
           const itemsWithPDFs = await Promise.all(
             Array.from(selectedItems).map(async (itemId) => {
               try {
-                const hasPDF = await pdfService.hasPDF(parseInt(itemId));
+                const hasPDF = await analysisService.hasPDF(parseInt(itemId));
                 return { itemId, hasPDF };
               } catch (error) {
                 return { itemId, hasPDF: false };
@@ -937,7 +952,7 @@ export const QueueIAAdvanced: React.FC = () => {
           const itemsWithPDFsForCompare = await Promise.all(
             Array.from(selectedItems).map(async (itemId) => {
               try {
-                const hasPDF = await pdfService.hasPDF(parseInt(itemId));
+                const hasPDF = await analysisService.hasPDF(parseInt(itemId));
                 return { itemId, hasPDF };
               } catch (error) {
                 return { itemId, hasPDF: false };
@@ -992,7 +1007,7 @@ export const QueueIAAdvanced: React.FC = () => {
             const item = analyses.find(a => a.id.toString() === itemId);
             if (!item) return null;
             
-            const hasPDF = await pdfService.hasPDF(Number(itemId)).catch(() => false);
+            const hasPDF = await analysisService.hasPDF(Number(itemId)).catch(() => false);
             return {
               id: Number(itemId),
               name: item.file_info?.name || `Analyse #${itemId}`,
@@ -1107,6 +1122,7 @@ export const QueueIAAdvanced: React.FC = () => {
 
   return (
     <div className="h-full flex flex-col p-4 overflow-hidden" style={{ backgroundColor: colors.background }}>
+      <BackendOfflineMessage panel="queue" />
       {/* Actions globales */}
       <div className="mb-4 p-3 rounded-lg border flex-shrink-0" style={{
         backgroundColor: colors.surface,

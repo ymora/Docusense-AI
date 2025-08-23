@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { apiRequest } from '../utils/apiUtils';
 
 export interface BackendStatus {
@@ -10,7 +10,7 @@ export interface BackendStatus {
   consecutiveFailures: number; // Nombre d'échecs consécutifs
 }
 
-export const useBackendStatus = (checkInterval: number = 60000) => { // OPTIMISATION: Augmenté à 60s pour réduire les logs
+export const useBackendStatus = (checkInterval: number = 120000) => { // OPTIMISATION: Augmenté à 2 minutes pour réduire les logs
   const [status, setStatus] = useState<BackendStatus>({
     isOnline: true, // On commence optimiste
     lastCheck: null,
@@ -21,8 +21,19 @@ export const useBackendStatus = (checkInterval: number = 60000) => { // OPTIMISA
   });
 
   const [isMonitoring, setIsMonitoring] = useState(true);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastCheckRef = useRef<Date | null>(null);
 
-  const checkBackendHealth = async () => {
+  // OPTIMISATION: Utiliser useCallback pour éviter les recréations de fonction
+  const checkBackendHealth = useCallback(async () => {
+    // Éviter les vérifications trop fréquentes (minimum 30 secondes entre les vérifications)
+    const now = new Date();
+    if (lastCheckRef.current && (now.getTime() - lastCheckRef.current.getTime()) < 30000) {
+      return;
+    }
+    lastCheckRef.current = now;
+
     // Ne pas vérifier si le frontend est inactif et qu'on n'a pas de connexion
     if (status.isInactive && !status.isOnline) {
       return;
@@ -31,22 +42,32 @@ export const useBackendStatus = (checkInterval: number = 60000) => { // OPTIMISA
     const startTime = Date.now();
 
     try {
-      const response = await apiRequest('/api/health/', {
+      const response = await fetch('http://localhost:8000/api/health/', {
         method: 'GET',
-      }, 5000);
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
 
       const endTime = Date.now();
       const responseTime = endTime - startTime;
 
       // Si on arrive ici, la requête a réussi
-      setStatus({
+      setStatus(prev => ({
+        ...prev,
         isOnline: true,
         lastCheck: new Date(),
         errorMessage: null,
         responseTime,
         isInactive: false, // Réactiver quand la connexion est rétablie
         consecutiveFailures: 0, // Réinitialiser les échecs consécutifs
-      });
+      }));
     } catch (error) {
       const endTime = Date.now();
       const responseTime = endTime - startTime;
@@ -63,31 +84,34 @@ export const useBackendStatus = (checkInterval: number = 60000) => { // OPTIMISA
         }
       }
 
-      setStatus({
+      setStatus(prev => ({
+        ...prev,
         isOnline: false,
         lastCheck: new Date(),
         errorMessage,
         responseTime,
-        isInactive: status.isInactive, // Conserver l'état d'inactivité
-        consecutiveFailures: status.consecutiveFailures + 1, // Incrémenter les échecs
-      });
+        consecutiveFailures: prev.consecutiveFailures + 1, // Incrémenter les échecs
+      }));
     }
-  };
+  }, [status.isInactive, status.isOnline]);
 
-  // Détection d'inactivité
+  // Détection d'inactivité - OPTIMISATION: Utiliser useRef pour éviter les boucles
   useEffect(() => {
-    let inactivityTimer: NodeJS.Timeout;
-    const INACTIVITY_TIMEOUT = 30000; // 30 secondes d'inactivité pour réduire les logs
+    const INACTIVITY_TIMEOUT = 60000; // 60 secondes d'inactivité pour réduire les logs
 
     const resetInactivityTimer = () => {
-      clearTimeout(inactivityTimer);
-      if (status.isInactive) {
-
-        setStatus(prev => ({ ...prev, isInactive: false }));
+      if (inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current);
       }
-      inactivityTimer = setTimeout(() => {
-        // L'état inactif se déclenche indépendamment du statut du backend
+      
+      setStatus(prev => {
+        if (prev.isInactive) {
+          return { ...prev, isInactive: false };
+        }
+        return prev;
+      });
 
+      inactivityTimerRef.current = setTimeout(() => {
         setStatus(prev => ({ ...prev, isInactive: true }));
       }, INACTIVITY_TIMEOUT);
     };
@@ -103,34 +127,40 @@ export const useBackendStatus = (checkInterval: number = 60000) => { // OPTIMISA
     resetInactivityTimer();
 
     return () => {
-      clearTimeout(inactivityTimer);
+      if (inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current);
+      }
       events.forEach(event => {
         document.removeEventListener(event, resetInactivityTimer, true);
       });
     };
-  }, [status.isInactive]);
+  }, []); // OPTIMISATION: Dépendances vides pour éviter les boucles
 
+  // Vérification périodique - OPTIMISATION: Séparer la logique
   useEffect(() => {
     // Vérification immédiate au montage
     checkBackendHealth();
 
+    // Nettoyer l'intervalle précédent
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+    }
+
     // Vérification périodique seulement si on surveille
-    let interval: NodeJS.Timeout;
     if (isMonitoring) {
-      interval = setInterval(checkBackendHealth, checkInterval);
+      intervalRef.current = setInterval(checkBackendHealth, checkInterval);
     }
 
     return () => {
-      if (interval) {
-        clearInterval(interval);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
       }
     };
-  }, [checkInterval, isMonitoring, status.isInactive]);
+  }, [checkInterval, isMonitoring, checkBackendHealth]); // OPTIMISATION: Ajouter checkBackendHealth
 
   // Fonction pour forcer une vérification manuelle (reconnexion)
-  const forceCheck = async () => {
-
-    
+  const forceCheck = useCallback(async () => {
     // Réactiver la surveillance si elle était désactivée
     if (!isMonitoring) {
       setIsMonitoring(true);
@@ -141,19 +171,21 @@ export const useBackendStatus = (checkInterval: number = 60000) => { // OPTIMISA
     
     // Effectuer une vérification immédiate
     await checkBackendHealth();
-  };
+  }, [isMonitoring, checkBackendHealth]);
 
   // Fonction pour arrêter la surveillance (quand inactif)
-  const stopMonitoring = () => {
-
+  const stopMonitoring = useCallback(() => {
     setIsMonitoring(false);
-  };
+    if (intervalRef.current) {
+      clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  }, []);
 
   // Fonction pour reprendre la surveillance
-  const resumeMonitoring = () => {
-
+  const resumeMonitoring = useCallback(() => {
     setIsMonitoring(true);
-  };
+  }, []);
 
   return {
     ...status,

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { XMarkIcon, LockClosedIcon } from '@heroicons/react/24/outline';
-import { authService, AuthCredentials } from '../../services/authService';
+import { useUnifiedAuth } from '../../hooks/useUnifiedAuth';
 import { logService } from '../../services/logService';
 
 interface AuthModalProps {
@@ -9,10 +9,16 @@ interface AuthModalProps {
   onSuccess: () => void;
 }
 
+interface AuthCredentials {
+  username: string;
+  password: string;
+}
+
 const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => {
+  const { login } = useUnifiedAuth();
   const [credentials, setCredentials] = useState<AuthCredentials>({
-    username: 'avocat',
-    password: '2025*',
+    username: 'invite',
+    password: '',
   });
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -28,7 +34,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => 
     });
 
     try {
-      const response = await authService.authenticate(credentials);
+      const response = await login(credentials.username, credentials.password);
 
       if (response.success) {
         logService.info('Authentification réussie', 'AuthModal', {
@@ -40,28 +46,37 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => 
       } else {
         logService.warning('Échec de l\'authentification', 'AuthModal', {
           username: credentials.username,
-          error: response.message,
+          error: response.error,
           timestamp: new Date().toISOString()
         });
-        setError(response.message || 'Échec de l\'authentification');
+        setError(response.error || 'Échec de l\'authentification');
       }
     } catch (error) {
       logService.error('Erreur de connexion lors de l\'authentification', 'AuthModal', {
         username: credentials.username,
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Erreur inconnue',
         timestamp: new Date().toISOString()
       });
-      setError('Erreur de connexion');
+      setError(error instanceof Error ? error.message : 'Erreur de connexion');
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleInputChange = (field: keyof AuthCredentials, value: string) => {
-    setCredentials(prev => ({
-      ...prev,
-      [field]: value,
-    }));
+    setCredentials(prev => {
+      const newCredentials = {
+        ...prev,
+        [field]: value,
+      };
+      
+      // Si l'utilisateur tape "invite", vider automatiquement le mot de passe
+      if (field === 'username' && value.toLowerCase() === 'invite') {
+        newCredentials.password = '';
+      }
+      
+      return newCredentials;
+    });
   };
 
   if (!isOpen) {return null;}
@@ -119,7 +134,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => 
             {/* Mot de passe */}
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-slate-300 mb-2">
-                Mot de passe
+                Mot de passe {credentials.username.toLowerCase() === 'invite' && <span className="text-slate-500">(optionnel)</span>}
               </label>
               <input
                 type="password"
@@ -127,9 +142,9 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => 
                 value={credentials.password}
                 onChange={(e) => handleInputChange('password', e.target.value)}
                 className="w-full px-3 py-2 bg-slate-700 border border-slate-600 rounded-lg text-slate-200 placeholder-slate-400"
-                placeholder="Mot de passe"
+                placeholder={credentials.username.toLowerCase() === 'invite' ? "Laissez vide pour invité" : "Mot de passe"}
                 autoComplete="current-password"
-                required
+                required={credentials.username.toLowerCase() !== 'invite'}
               />
             </div>
 
@@ -143,9 +158,10 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => 
             {/* Informations d'aide */}
             <div className="bg-blue-900/30 border border-blue-600 rounded-lg p-3">
               <p className="text-sm text-blue-300">
-                <strong>Identifiants par défaut :</strong><br />
-                Utilisateur : <code className="bg-slate-700 px-1 rounded">avocat</code><br />
-                Mot de passe : <code className="bg-slate-700 px-1 rounded">2025*</code>
+                <strong>Identifiants disponibles :</strong><br />
+                • <strong>Invité</strong> : <code className="bg-slate-700 px-1 rounded">invite</code> (sans mot de passe)<br />
+                • <strong>Yannick</strong> : <code className="bg-slate-700 px-1 rounded">yannick</code> / <code className="bg-slate-700 px-1 rounded">yannick123</code><br />
+                • <strong>Admin</strong> : <code className="bg-slate-700 px-1 rounded">admin</code> / <code className="bg-slate-700 px-1 rounded">admin123</code>
               </p>
             </div>
 

@@ -7,6 +7,9 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy.orm import Session
 from typing import Dict, Any
 from datetime import timedelta, datetime
+import re
+import hashlib
+import time
 
 from ..core.database import get_db
 from ..services.auth_service import AuthService
@@ -28,27 +31,163 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["authentication"])
 security = HTTPBearer()
 
+# Rate limiting pour la sécurité
+login_attempts = {}
+MAX_LOGIN_ATTEMPTS = 5
+LOCKOUT_DURATION = 300  # 5 minutes
+
+def check_rate_limit(ip_address: str, username: str) -> bool:
+    """Vérifier le rate limiting pour les tentatives de connexion"""
+    current_time = time.time()
+    key = f"{ip_address}:{username}"
+    
+    if key in login_attempts:
+        attempts, first_attempt = login_attempts[key]
+        
+        # Vérifier si le lockout est expiré
+        if current_time - first_attempt > LOCKOUT_DURATION:
+            del login_attempts[key]
+            return True
+        
+        # Vérifier le nombre de tentatives
+        if attempts >= MAX_LOGIN_ATTEMPTS:
+            logger.warning(f"Rate limit exceeded for {username} from {ip_address}")
+            return False
+    
+    return True
+
+def record_login_attempt(ip_address: str, username: str, success: bool):
+    """Enregistrer une tentative de connexion"""
+    current_time = time.time()
+    key = f"{ip_address}:{username}"
+    
+    if success:
+        # Réinitialiser les tentatives en cas de succès
+        if key in login_attempts:
+            del login_attempts[key]
+    else:
+        # Incrémenter les tentatives échouées
+        if key in login_attempts:
+            attempts, first_attempt = login_attempts[key]
+            login_attempts[key] = (attempts + 1, first_attempt)
+        else:
+            login_attempts[key] = (1, current_time)
+
+def validate_password_strength(password: str) -> bool:
+    """Valider la force du mot de passe"""
+    if len(password) < 8:
+        return False
+    
+    # Au moins une lettre majuscule, une minuscule, un chiffre, un caractère spécial
+    if not re.search(r'[A-Z]', password):
+        return False
+    if not re.search(r'[a-z]', password):
+        return False
+    if not re.search(r'\d', password):
+        return False
+    if not re.search(r'[!@#$%^&*(),.?":{}|<>]', password):
+        return False
+    
+    return True
+
+def validate_username(username: str) -> bool:
+    """Valider le nom d'utilisateur"""
+    # Alphanumérique + underscore, 3-20 caractères
+    if not re.match(r'^[a-zA-Z0-9_]{3,20}$', username):
+        return False
+    return True
+
+def validate_email(email: str) -> bool:
+    """Valider l'email"""
+    pattern = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(pattern, email) is not None
+
 @router.post("/login", response_model=AuthResponse)
 async def login(
     request: LoginRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    client_request: Request = None
 ):
-    """Connexion utilisateur"""
+    """Connexion utilisateur avec sécurité renforcée"""
     auth_service = AuthService(db)
     
-    # Authentifier l'utilisateur
-    user = auth_service.authenticate_user(request.username, request.password)
-    if not user:
+    # Récupérer l'IP du client
+    ip_address = client_request.client.host if client_request and client_request.client else "unknown"
+    
+    # Validation des entrées
+    if not request.username or not request.username.strip():
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Nom d'utilisateur ou mot de passe incorrect"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Nom d'utilisateur requis"
         )
     
-    if not user.is_active:
+    if not request.password:
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Compte désactivé"
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Mot de passe requis"
         )
+    
+    # Rate limiting
+    if not check_rate_limit(ip_address, request.username):
+        # Calculer le temps restant
+        key = f"{ip_address}:{request.username}"
+        if key in login_attempts:
+            attempts, first_attempt = login_attempts[key]
+            time_elapsed = time.time() - first_attempt
+            time_remaining = max(0, LOCKOUT_DURATION - time_elapsed)
+            minutes_remaining = int(time_remaining // 60)
+            seconds_remaining = int(time_remaining % 60)
+            
+            if minutes_remaining > 0:
+                time_message = f"{minutes_remaining} minute{'s' if minutes_remaining > 1 else ''}"
+            else:
+                time_message = f"{seconds_remaining} seconde{'s' if seconds_remaining > 1 else ''}"
+        else:
+            time_message = f"{LOCKOUT_DURATION//60} minutes"
+        
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail=f"Trop de tentatives de connexion ({MAX_LOGIN_ATTEMPTS} maximum). Réessayez dans {time_message}."
+        )
+    
+    # Vérifier si c'est l'utilisateur invité (pas de mot de passe requis)
+    if request.username.lower() == "invite":
+        user = db.query(User).filter(User.username == "invite").first()
+        if not user:
+            record_login_attempt(ip_address, request.username, False)
+            logger.warning(f"Tentative de connexion invité échouée depuis {ip_address}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Utilisateur invité non trouvé"
+            )
+        if not user.is_active:
+            record_login_attempt(ip_address, request.username, False)
+            logger.warning(f"Tentative de connexion invité désactivé depuis {ip_address}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Compte invité désactivé"
+            )
+    else:
+        # Authentifier l'utilisateur normal
+        user = auth_service.authenticate_user(request.username, request.password)
+        if not user:
+            record_login_attempt(ip_address, request.username, False)
+            logger.warning(f"Tentative de connexion échouée pour {request.username} depuis {ip_address}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Nom d'utilisateur ou mot de passe incorrect"
+            )
+        
+        if not user.is_active:
+            record_login_attempt(ip_address, request.username, False)
+            logger.warning(f"Tentative de connexion compte désactivé {request.username} depuis {ip_address}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Compte désactivé"
+            )
+    
+    # Enregistrer le succès
+    record_login_attempt(ip_address, request.username, True)
     
     # Créer les tokens
     access_token = auth_service.create_access_token(
@@ -58,7 +197,7 @@ async def login(
         data={"sub": str(user.id)}
     )
     
-    logger.info(f"Connexion réussie: {user.username}")
+    logger.info(f"Connexion réussie: {user.username} depuis {ip_address}")
     
     return AuthResponse(
         access_token=access_token,
@@ -76,10 +215,51 @@ async def login(
 @router.post("/register", response_model=AuthResponse)
 async def register(
     request: RegisterRequest,
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    client_request: Request = None
 ):
-    """Inscription utilisateur"""
+    """Inscription utilisateur avec validation renforcée"""
     auth_service = AuthService(db)
+    
+    # Récupérer l'IP du client
+    ip_address = client_request.client.host if client_request and client_request.client else "unknown"
+    
+    # Validation des entrées
+    if not request.username or not request.username.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Nom d'utilisateur requis"
+        )
+    
+    if not validate_username(request.username):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Nom d'utilisateur invalide (3-20 caractères, alphanumérique + underscore)"
+        )
+    
+    if not request.email or not request.email.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email requis"
+        )
+    
+    if not validate_email(request.email):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Format d'email invalide"
+        )
+    
+    if not request.password:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Mot de passe requis"
+        )
+    
+    if not validate_password_strength(request.password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Mot de passe trop faible (minimum 8 caractères, majuscule, minuscule, chiffre, caractère spécial)"
+        )
     
     try:
         # Créer l'utilisateur
@@ -98,7 +278,7 @@ async def register(
             data={"sub": str(user.id)}
         )
         
-        logger.info(f"Inscription réussie: {user.username}")
+        logger.info(f"Inscription réussie: {user.username} depuis {ip_address}")
         
         return AuthResponse(
             access_token=access_token,
@@ -114,9 +294,16 @@ async def register(
         )
         
     except ValueError as e:
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
+        logger.warning(f"Tentative d'inscription échouée: {request.username} depuis {ip_address} - {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
+        )
+    except Exception as e:
+        logger.error(f"Erreur lors de l'inscription: {request.username} depuis {ip_address} - {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erreur interne du serveur"
         )
 
 @router.post("/guest", response_model=GuestResponse)

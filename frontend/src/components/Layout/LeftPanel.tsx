@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useFileStore } from '../../stores/fileStore';
 import { useColors } from '../../hooks/useColors';
-import { useBackendStatus } from '../../hooks/useBackendStatus';
+import { useBackendConnection } from '../../hooks/useBackendConnection';
 import { useUIStore } from '../../stores/uiStore';
 import useAuthStore from '../../stores/authStore';
 import { addInterfaceLog } from '../../utils/interfaceLogger';
@@ -14,7 +14,7 @@ import {
 
 const LeftPanel: React.FC = () => {
   const { selectedFiles, selectFile, toggleFileSelection } = useFileStore();
-  const { isOnline, consecutiveFailures } = useBackendStatus();
+  const { isOnline, consecutiveFailures } = useBackendConnection();
   const { activePanel, setActivePanel } = useUIStore();
   const { isAuthenticated } = useAuthStore();
   const { colors } = useColors();
@@ -44,19 +44,20 @@ const LeftPanel: React.FC = () => {
     addInterfaceLog('Interface', 'INFO', `🎨 Changement de thème: ${newTheme}`);
   };
 
-  const handleDiskSelect = (disk: string) => {
+  // Stabiliser la fonction avec useCallback pour éviter les boucles infinies
+  const handleDiskSelect = useCallback((disk: string) => {
     setCurrentDisk(disk);
     addInterfaceLog('Navigation', 'INFO', `📁 Sélection du disque: ${disk}`);
-  };
+  }, []);
 
-  const handleFileSelect = (file: any) => {
+  const handleFileSelect = useCallback((file: any) => {
     addInterfaceLog('Fichiers', 'INFO', `📄 Sélection du fichier: ${file.name}`);
     selectFile(file);
-  };
+  }, [selectFile]);
 
-  const handleFileSelectionChange = (fileId: string | number) => {
+  const handleFileSelectionChange = useCallback((fileId: string | number) => {
     toggleFileSelection(fileId);
-  };
+  }, [toggleFileSelection]);
 
   return (
     <div

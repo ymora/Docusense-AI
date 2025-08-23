@@ -1,4 +1,4 @@
-import { apiRequest, handleApiError } from '../utils/apiUtils';
+import { authenticatedApiRequest, handleApiError } from '../utils/apiUtils';
 import useAuthStore from '../stores/authStore';
 
 export interface LogEntry {
@@ -33,9 +33,7 @@ class LogService {
   private backendSSE: EventSource | null = null;
   private storageKey = 'docusense-frontend-logs';
   
-  // NOUVEAU: Configuration pour l'envoi au backend
-  private sendToBackend = true;
-  private criticalLevels = ['error', 'warning']; // Niveaux à envoyer au backend
+
 
   constructor() {
     this.loadPersistedLogs();
@@ -72,7 +70,7 @@ class LogService {
 
   private async loadBackendLogs() {
     try {
-      const response = await apiRequest('/api/logs/backend', {}, 5000);
+      const response = await authenticatedApiRequest('/api/logs/backend', {}, 5000);
       if (response.success && response.data) {
         this.backendLogs = response.data.map((log: any) => ({
           ...log,
@@ -82,7 +80,10 @@ class LogService {
         this.notifyListeners();
       }
     } catch (error) {
-      console.error('Erreur lors du chargement des logs backend:', error);
+      // Erreur silencieuse si utilisateur non connecté
+      if (error.message !== 'Utilisateur non connecté') {
+        console.error('Erreur lors du chargement des logs backend:', error);
+      }
     }
   }
 
@@ -264,8 +265,8 @@ class LogService {
 
     this.notifyListeners();
 
-    // NOUVEAU: Envoyer les logs critiques au backend
-    if (this.sendToBackend && this.criticalLevels.includes(level)) {
+    // Envoyer seulement les erreurs au backend si connecté
+    if (level === 'error') {
       this.sendLogToBackend(logEntry);
     }
 
@@ -274,10 +275,15 @@ class LogService {
                          level === 'warning' ? 'warn' : 
                          level === 'debug' ? 'debug' : 'info';
     
-    console[consoleMethod](`[${source}] ${message}`, details || '');
+    // Gérer l'affichage des détails de manière sécurisée
+    if (details && typeof details === 'object') {
+      console[consoleMethod](`[${source}] ${message}`, details);
+    } else {
+      console[consoleMethod](`[${source}] ${message}`, details || '');
+    }
   }
 
-  // NOUVEAU: Envoyer un log au backend pour persistance
+  // Envoyer un log au backend seulement si connecté
   private async sendLogToBackend(logEntry: LogEntry) {
     try {
       // Vérifier si l'utilisateur est connecté
@@ -286,37 +292,23 @@ class LogService {
         return; // Ne pas envoyer si pas authentifié
       }
 
-      // Préparer les données pour le backend
-      const backendLogData = {
-        level: logEntry.level === 'warning' ? 'warning' : 'error', // Mapper au format backend
-        source: `frontend_${logEntry.source}`,
-        action: logEntry.message,
-        details: {
-          frontend_log: true,
-          original_level: logEntry.level,
-          original_source: logEntry.source,
-          user_agent: navigator.userAgent,
-          url: window.location.href,
-          timestamp: logEntry.timestamp,
-          ...logEntry.details
-        }
-      };
-
-      // Envoyer au backend (ne pas attendre la réponse pour ne pas bloquer)
-      apiRequest('/api/system-logs/manual-event', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(backendLogData)
-      }).catch(error => {
-        // Erreur silencieuse pour ne pas créer une boucle de logs
-        console.warn('Impossible d\'envoyer le log au backend:', error);
-      });
-
+      // Envoyer au backend seulement pour les erreurs critiques
+      if (logEntry.level === 'error') {
+        authenticatedApiRequest('/api/system-logs/frontend-logs', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            level: 'error',
+            source: logEntry.source,
+            action: logEntry.message,
+            details: logEntry.details || {}
+          })
+        }).catch(() => {
+          // Erreur silencieuse
+        });
+      }
     } catch (error) {
       // Erreur silencieuse
-      console.warn('Erreur lors de l\'envoi du log au backend:', error);
     }
   }
 
@@ -363,7 +355,7 @@ class LogService {
 
   async clearBackendLogs(): Promise<void> {
     try {
-      await apiRequest('/api/logs/backend', { method: 'DELETE' }, 5000);
+      await authenticatedApiRequest('/api/logs/backend', { method: 'DELETE' }, 5000);
       this.backendLogs = [];
       this.notifyListeners();
     } catch (error) {

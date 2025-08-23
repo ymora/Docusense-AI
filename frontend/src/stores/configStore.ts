@@ -1,8 +1,10 @@
 import { create } from 'zustand';
 import { devtools, persist } from 'zustand/middleware';
-import { ConfigService, AIProvider, AIProvidersResponse } from '../services/configService';
-import { createLoadingActions, createCallGuard, createOptimizedUpdater } from '../utils/storeUtils';
+import { AIProvider, ConfigServiceResponse } from '../hooks/useConfigService';
 import { logService } from '../services/logService';
+import { unifiedApiService } from '../services/unifiedApiService';
+
+type AIProvidersResponse = ConfigServiceResponse<AIProvider[]>;
 
 interface ConfigState {
   // État des providers IA
@@ -18,13 +20,13 @@ interface ConfigState {
   lastUpdated: string | null;
   version: string;
 
-  // Actions pour les providers IA
-  loadAIProviders: () => Promise<void>;
-  refreshAIProviders: () => Promise<void>;
-  saveAPIKey: (provider: string, apiKey: string) => Promise<{ success: boolean; message: string }>;
-  testProvider: (provider: string) => Promise<{ success: boolean; message: string; cached?: boolean }>;
-  setProviderPriority: (provider: string, priority: number) => Promise<{ success: boolean; message: string }>;
-  setStrategy: (strategy: string) => Promise<{ success: boolean; message: string }>;
+  // Actions d'état (sans appels API)
+  setAIProviders: (providers: AIProvider[]) => void;
+  setAIProvidersResponse: (response: AIProvidersResponse | null) => void;
+  setLoading: (loading: boolean) => void;
+  setError: (error: string | null) => void;
+  setInitialized: (initialized: boolean) => void;
+  setLastUpdated: (lastUpdated: string | null) => void;
   
   // Getters
   getProviderByName: (name: string) => AIProvider | undefined;
@@ -33,6 +35,10 @@ interface ConfigState {
   getConfiguredProviders: () => AIProvider[];
   getAIProviders: () => AIProvider[];
   getProviderStatus: (name: string) => 'valid' | 'invalid' | 'testing' | 'not_configured';
+  
+  // Actions avec appels API
+  loadAIProviders: () => Promise<void>;
+  refreshAIProviders: () => Promise<void>;
   
   // Utilitaires
   clearError: () => void;
@@ -52,251 +58,29 @@ export const useConfigStore = create<ConfigState>()(
         lastUpdated: null,
         version: '1.0.0',
 
-        // Chargement initial des providers IA (protégé contre les appels multiples)
-        loadAIProviders: (() => {
-          const callGuard = createCallGuard();
-          return callGuard(async () => {
-            const loadingActions = createLoadingActions(set, get);
-            
-            if (!loadingActions.startLoading()) {
-              return;
-            }
-            
-            try {
-              const response = await ConfigService.getAIProviders();
-              
-              set({ 
-                aiProviders: response.providers || [],
-                aiProvidersResponse: response,
-                loading: false, 
-                isInitialized: true,
-                error: null,
-                lastUpdated: new Date().toISOString()
-              });
-              
-              // Vérifier et corriger les priorités au chargement
-              await get()._ensurePrioritiesAreValid();
-              
-            } catch (error) {
-              const errorMessage = error instanceof Error ? error.message : 'Erreur lors du chargement des configurations';
-              set({ 
-                error: errorMessage, 
-                loading: false,
-                isInitialized: false // Ne pas marquer comme initialisé en cas d'erreur
-              });
-              console.error('❌ Erreur lors du chargement des configurations:', error);
-            }
-          });
-        })(),
-
-        // Actualisation des providers IA (optimisée)
-        refreshAIProviders: (() => {
-          const callGuard = createCallGuard();
-          return callGuard(async () => {
-            const loadingActions = createLoadingActions(set, get);
-            const updater = createOptimizedUpdater(set, get);
-            
-            if (!loadingActions.startLoading()) {
-              return;
-            }
-            
-            try {
-
-              const response = await ConfigService.getAIProviders();
-              
-              updater.updateMultiple({
-                aiProviders: response.providers || [],
-                aiProvidersResponse: response,
-                lastUpdated: new Date().toISOString()
-              });
-              
-              loadingActions.finishLoading();
-
-            } catch (error) {
-              const errorMessage = error instanceof Error ? error.message : 'Erreur lors de l\'actualisation des configurations';
-              loadingActions.finishLoadingWithError(errorMessage);
-              console.error('❌ Erreur lors de l\'actualisation des configurations:', error);
-            }
-          });
-        })(),
-
-        // Sauvegarder une clé API (optimisée)
-        saveAPIKey: (() => {
-          const callGuard = createCallGuard();
-          return callGuard(async (provider: string, apiKey: string) => {
-            try {
-
-              const result = await ConfigService.saveAPIKey(provider, apiKey);
-              
-              if (result.success) {
-                // Mise à jour optimisée du provider
-                const currentProviders = get().aiProviders;
-                const updatedProviders = currentProviders.map(p => {
-                  if (p.name === provider) {
-                    return {
-                      ...p,
-                      has_api_key: true,
-                      api_key_configured: true
-                    };
-                  }
-                  return p;
-                });
-                
-                const updater = createOptimizedUpdater(set, get);
-                updater.updateMultiple({
-                  aiProviders: updatedProviders,
-                  lastUpdated: new Date().toISOString()
-                });
-                
-
-              }
-              
-              return result;
-            } catch (error) {
-              const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la sauvegarde';
-              logService.error(`Erreur lors de la sauvegarde de la clé API: ${errorMessage}`, 'ConfigStore', { error: error.message });
-              console.error('❌ Erreur lors de la sauvegarde de la clé API:', error);
-              return {
-                success: false,
-                message: errorMessage
-              };
-            }
-          });
-        })(),
-
-        // Tester un provider (optimisé)
-        testProvider: (() => {
-          const callGuard = createCallGuard();
-          return callGuard(async (provider: string) => {
-            try {
-
-              const result = await ConfigService.testProvider(provider);
-              
-              // Mise à jour optimisée du statut du provider
-              const currentProviders = get().aiProviders;
-              const updatedProviders = currentProviders.map(p => {
-                if (p.name === provider) {
-                  return {
-                    ...p,
-                    status: result.success ? 'valid' : 'invalid',
-                    is_functional: result.success,
-                    last_tested: new Date().toISOString()
-                  };
-                }
-                return p;
-              });
-              
-              const updater = createOptimizedUpdater(set, get);
-              updater.updateMultiple({
-                aiProviders: updatedProviders,
-                lastUpdated: new Date().toISOString()
-              });
-              
-
-              
-              return result;
-            } catch (error) {
-              const errorMessage = error instanceof Error ? error.message : 'Erreur lors du test';
-              console.error('❌ Erreur lors du test du provider:', error);
-              
-              // Mise à jour du statut en cas d'erreur
-              const currentProviders = get().aiProviders;
-              const updatedProviders = currentProviders.map(p => {
-                if (p.name === provider) {
-                  return {
-                    ...p,
-                    status: 'invalid',
-                    is_functional: false,
-                    last_tested: new Date().toISOString()
-                  };
-                }
-                return p;
-              });
-              
-              const updater = createOptimizedUpdater(set, get);
-              updater.updateMultiple({
-                aiProviders: updatedProviders,
-                lastUpdated: new Date().toISOString()
-              });
-              
-              return {
-                success: false,
-                message: errorMessage,
-                cached: false
-              };
-            }
-          });
-        })(),
-
-        // Définir la priorité d'un provider
-        setProviderPriority: async (provider: string, priority: number) => {
-          try {
-
-            const result = await ConfigService.setProviderPriority(provider, priority);
-            
-            if (result.success) {
-              // Mettre à jour localement la priorité du provider
-              const currentProviders = get().aiProviders;
-              const updatedProviders = currentProviders.map(p => {
-                if (p.name === provider) {
-                  return {
-                    ...p,
-                    priority: priority
-                  };
-                }
-                return p;
-              });
-              
-              set({ 
-                aiProviders: updatedProviders,
-                lastUpdated: new Date().toISOString()
-              });
-              
-
-            }
-            
-            return result;
-          } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la mise à jour';
-            console.error('❌ Erreur lors de la définition de la priorité:', error);
-            return {
-              success: false,
-              message: errorMessage
-            };
-          }
+        // Actions d'état
+        setAIProviders: (providers: AIProvider[]) => {
+          set({ aiProviders: providers });
         },
 
-        // Définir la stratégie
-        setStrategy: async (strategy: string) => {
-          try {
+        setAIProvidersResponse: (response: AIProvidersResponse | null) => {
+          set({ aiProvidersResponse: response });
+        },
 
-            const result = await ConfigService.setStrategy(strategy);
-            
-            if (result.success) {
-              // Mettre à jour localement la stratégie
-              const currentResponse = get().aiProvidersResponse;
-              const updatedResponse = currentResponse ? {
-                ...currentResponse,
-                strategy: strategy
-              } : { strategy: strategy, providers: [] };
-              
-              set({ 
-                aiProvidersResponse: updatedResponse,
-                lastUpdated: new Date().toISOString()
-              });
-              
+        setLoading: (loading: boolean) => {
+          set({ loading });
+        },
 
-            }
-            
-            return result;
-          } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la mise à jour';
-            console.error('❌ Erreur lors de la définition de la stratégie:', error);
-            return {
-              success: false,
-              message: errorMessage
-            };
-          }
+        setError: (error: string | null) => {
+          set({ error });
+        },
+
+        setInitialized: (initialized: boolean) => {
+          set({ isInitialized: initialized });
+        },
+
+        setLastUpdated: (lastUpdated: string | null) => {
+          set({ lastUpdated });
         },
 
         // Getters
@@ -309,11 +93,11 @@ export const useConfigStore = create<ConfigState>()(
         },
 
         getActiveProviders: () => {
-          return get().aiProviders.filter(provider => provider.is_active);
+          return get().aiProviders.filter(provider => provider.is_functional && provider.is_configured);
         },
 
         getConfiguredProviders: () => {
-          return get().aiProviders.filter(provider => provider.has_api_key);
+          return get().aiProviders.filter(provider => provider.is_configured);
         },
 
         getAIProviders: () => {
@@ -322,62 +106,87 @@ export const useConfigStore = create<ConfigState>()(
 
         getProviderStatus: (name: string) => {
           const provider = get().getProviderByName(name);
-          if (!provider) return 'not_configured';
-          if (!provider.has_api_key) return 'not_configured';
-          if (provider.is_functional) return 'valid';
-          return 'invalid';
+          return provider?.status || 'not_configured';
         },
 
-        // Utilitaires (optimisés)
+        // Actions avec appels API
+        loadAIProviders: async () => {
+          try {
+            set({ loading: true, error: null });
+            
+            logService.info('Chargement des providers IA', 'ConfigStore', {
+              timestamp: new Date().toISOString()
+            });
+
+            const response = await unifiedApiService.get('/api/config/ai/providers');
+            
+            // L'API retourne directement { providers: [...] } au lieu de { success: true, data: [...] }
+            if (response && response.providers) {
+              const formattedResponse: ConfigServiceResponse<AIProvider[]> = {
+                success: true,
+                data: response.providers,
+                message: 'Providers loaded successfully'
+              };
+              
+              set({ 
+                aiProviders: response.providers,
+                aiProvidersResponse: formattedResponse,
+                isInitialized: true,
+                lastUpdated: new Date().toISOString(),
+                loading: false
+              });
+              
+              logService.info('Providers IA chargés avec succès', 'ConfigStore', {
+                count: response.providers.length,
+                timestamp: new Date().toISOString()
+              });
+            } else {
+              throw new Error(response.error || 'Erreur lors du chargement des providers');
+            }
+          } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
+            set({ 
+              error: errorMessage,
+              loading: false
+            });
+            
+            logService.error('Erreur lors du chargement des providers IA', 'ConfigStore', {
+              error: errorMessage,
+              timestamp: new Date().toISOString()
+            });
+          }
+        },
+
+        refreshAIProviders: async () => {
+          const { loadAIProviders } = get();
+          await loadAIProviders();
+        },
+
+        // Utilitaires
         clearError: () => {
-          const loadingActions = createLoadingActions(set, get);
-          loadingActions.clearError();
+          set({ error: null });
         },
 
         reset: () => {
-          const loadingActions = createLoadingActions(set, get);
-          loadingActions.resetLoading();
           set({
             aiProviders: [],
             aiProvidersResponse: null,
+            loading: false,
+            error: null,
             isInitialized: false,
-            lastUpdated: null
+            lastUpdated: null,
           });
         },
-
-        // Méthode privée pour s'assurer que les priorités sont valides
-        _ensurePrioritiesAreValid: async () => {
-          try {
-            const providers = get().aiProviders;
-            const activeProviders = providers.filter(p => p.is_active);
-            
-            // Vérifier si les priorités sont séquentielles
-            const priorities = activeProviders.map(p => p.priority).sort((a, b) => a - b);
-            const expectedPriorities = Array.from({ length: activeProviders.length }, (_, i) => i + 1);
-            
-            const prioritiesAreValid = priorities.length === expectedPriorities.length && 
-              priorities.every((p, i) => p === expectedPriorities[i]);
-            
-            if (!prioritiesAreValid && activeProviders.length > 0) {
-      
-              
-              // Recharger les providers pour obtenir les priorités corrigées
-              await get().refreshAIProviders();
-            }
-                  } catch (error) {
-          // Erreur silencieuse pour la vérification des priorités
-        }
-        }
       }),
       {
-        name: 'config-store',
+        name: 'config-storage',
         partialize: (state) => ({
           aiProviders: state.aiProviders,
           aiProvidersResponse: state.aiProvidersResponse,
           isInitialized: state.isInitialized,
           lastUpdated: state.lastUpdated,
-          version: state.version
-        })
+          version: state.version,
+        }),
       }
     )
   )

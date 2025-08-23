@@ -1,96 +1,72 @@
-import { useBackendConnection } from '../hooks/useBackendConnection';
-import { logService } from './logService';
+import { unifiedApiService } from './unifiedApiService';
+
+export interface FileServiceResponse {
+  success: boolean;
+  data?: any;
+  error?: string;
+}
+
+export interface DirectoryData {
+  directory: string;
+  files: any[];
+  directories: any[];
+}
 
 // Service de base pour les fichiers
-const baseFileService = {
-  async getDrives() {
-    const response = await fetch('/api/files/drives');
-    const data = await response.json();
-    return data.drives || [];
+export const fileService = {
+  async getDrives(): Promise<FileServiceResponse> {
+    try {
+      const response = await unifiedApiService.get('/api/files/drives') as any;
+      // L'API retourne { drives: ["C:", "D:", ...] }, on extrait le tableau
+      const drives = response?.drives || [];
+      return { success: true, data: drives };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
+    }
   },
 
-  async listDirectory(directory: string) {
-    const encodedDirectory = encodeURIComponent(directory);
-    const response = await fetch(`/api/files/list/${encodedDirectory}`);
-    return await response.json();
+  async listDirectory(directory: string): Promise<FileServiceResponse> {
+    try {
+      const data = await unifiedApiService.get(`/api/files/list/${encodeURIComponent(directory)}`);
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
+    }
   },
 
-  async analyzeDirectory(directoryPath: string) {
-    const response = await fetch(`/api/files/analyze-directory`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ directory_path: directoryPath })
-    });
-    return await response.json();
+  async analyzeDirectory(directory: string): Promise<FileServiceResponse> {
+    try {
+      const data = await unifiedApiService.post('/api/files/analyze-directory', { directory });
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
+    }
   },
 
-  async analyzeDirectorySupported(directoryPath: string) {
-    const response = await fetch(`/api/files/analyze-directory-supported`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ directory_path: directoryPath })
-    });
-    return await response.json();
+  async getDirectoryFiles(directory: string): Promise<FileServiceResponse> {
+    try {
+      const data = await unifiedApiService.get(`/api/files/directory-files/${encodeURIComponent(directory)}`);
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
+    }
   },
 
-  async getDirectoryFiles(directoryPath: string) {
-    const response = await fetch(`/api/files/directory-files/${encodeURIComponent(directoryPath)}`);
-    return await response.json();
+  async streamByPath(path: string): Promise<FileServiceResponse> {
+    try {
+      const data = await unifiedApiService.get(`/api/files/stream-by-path/${encodeURIComponent(path)}`);
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
+    }
   },
 
-  async streamByPath(path: string) {
-    const encodedPath = encodeURIComponent(path);
-    const response = await fetch(`/api/files/stream-by-path/${encodedPath}`);
-    return response;
-  },
-
-  async downloadFile(downloadUrl: string) {
-    const response = await fetch(downloadUrl);
-    return response;
+  async downloadFile(id: string | number): Promise<FileServiceResponse> {
+    try {
+      const data = await unifiedApiService.get(`/api/files/download/${id}`);
+      return { success: true, data };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
+    }
   }
 };
-
-// Hook pour utiliser le service avec guards de connexion
-export const useFileService = () => {
-  const { conditionalRequest } = useBackendConnection();
-
-  return {
-    getDrives: () => conditionalRequest(
-      () => baseFileService.getDrives(),
-      [] // Fallback: liste vide
-    ),
-
-    listDirectory: (directory: string) => conditionalRequest(
-      () => baseFileService.listDirectory(directory),
-      { files: [], directories: [], error: 'Backend déconnecté' }
-    ),
-
-    analyzeDirectory: (directoryPath: string) => conditionalRequest(
-      () => baseFileService.analyzeDirectory(directoryPath),
-      { success: false, error: 'Backend déconnecté' }
-    ),
-
-    analyzeDirectorySupported: (directoryPath: string) => conditionalRequest(
-      () => baseFileService.analyzeDirectorySupported(directoryPath),
-      { success: false, error: 'Backend déconnecté' }
-    ),
-
-    getDirectoryFiles: (directoryPath: string) => conditionalRequest(
-      () => baseFileService.getDirectoryFiles(directoryPath),
-      { files: [], error: 'Backend déconnecté' }
-    ),
-
-    streamByPath: (path: string) => conditionalRequest(
-      () => baseFileService.streamByPath(path),
-      null
-    ),
-
-    downloadFile: (downloadUrl: string) => conditionalRequest(
-      () => baseFileService.downloadFile(downloadUrl),
-      null
-    )
-  };
-};
-
-// Export du service de base pour compatibilité
-export const fileService = baseFileService;

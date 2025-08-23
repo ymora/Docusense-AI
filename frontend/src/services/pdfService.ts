@@ -3,7 +3,7 @@
  * Handles PDF generation and management for analysis results
  */
 
-import { apiRequest, handleApiError } from '../utils/apiUtils';
+import { authenticatedApiRequest, handleApiError } from '../utils/apiUtils';
 
 export interface PDFInfo {
   analysis_id: number;
@@ -42,7 +42,7 @@ class PDFService {
    */
   async generateAnalysisPDF(analysisId: number): Promise<PDFGenerationResponse> {
     try {
-      const response = await apiRequest(`/api/pdf-files/generate/${analysisId}`, {
+      const response = await authenticatedApiRequest(`/api/pdf-files/generate/${analysisId}`, {
         method: 'POST'
       });
       return response.data;
@@ -56,7 +56,7 @@ class PDFService {
    */
   async generatePDFsForAllCompletedAnalyses(): Promise<BulkPDFGenerationResponse> {
     try {
-      const response = await apiRequest('/api/pdf-files/generate-all-completed', {
+      const response = await authenticatedApiRequest('/api/pdf-files/generate-all-completed', {
         method: 'POST'
       });
       return response.data;
@@ -111,7 +111,7 @@ class PDFService {
 
       const url = `/api/pdf-files/list${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
       
-      const response = await apiRequest(url, {
+      const response = await authenticatedApiRequest(url, {
         method: 'GET'
       });
       return response.data;
@@ -125,7 +125,7 @@ class PDFService {
    */
   async deleteAnalysisPDF(analysisId: number): Promise<void> {
     try {
-      await apiRequest(`/api/pdf-files/${analysisId}`, {
+      await authenticatedApiRequest(`/api/pdf-files/${analysisId}`, {
         method: 'DELETE'
       });
     } catch (error) {

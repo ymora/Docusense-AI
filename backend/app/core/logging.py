@@ -24,7 +24,10 @@ class LogCleanupManager:
     """Gestionnaire de nettoyage automatique des logs"""
     
     def __init__(self):
-        self.log_dir = Path("logs")
+        # CORRECTION: Utiliser le dossier logs à la racine du projet
+        current_file = Path(__file__)
+        project_root = current_file.parent.parent.parent  # Remonter depuis app/core/logging.py vers la racine
+        self.log_dir = project_root / "logs"
         self.max_log_size_mb = 10  # Taille max par fichier de log
         self.max_log_age_hours = 24  # Âge max des logs
         self.cleanup_interval_hours = 6  # Intervalle de nettoyage
@@ -221,8 +224,11 @@ def setup_logging():
     if _logging_initialized:
         return
 
-    # Create logs directory
-    log_dir = Path("logs")
+    # Create logs directory - utiliser un chemin absolu
+    # Déterminer le répertoire racine du projet
+    current_file = Path(__file__)
+    project_root = current_file.parent.parent.parent  # Remonter depuis app/core/logging.py vers la racine
+    log_dir = project_root / "logs"
     log_dir.mkdir(exist_ok=True)
 
     # Handler pour le frontend

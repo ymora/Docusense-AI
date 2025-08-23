@@ -3,7 +3,7 @@ import { XMarkIcon, CheckIcon, ChevronDownIcon } from '@heroicons/react/24/outli
 import { useColors } from '../../hooks/useColors';
 import { usePromptStore } from '../../stores/promptStore';
 import { Prompt, PromptCategory } from '../../services/promptService';
-import { analysisService, CreateAnalysisRequest } from '../../services/analysisService';
+import { useAnalysisService, CreateAnalysisRequest } from '../../hooks/useAnalysisService';
 
 interface PromptSelectorProps {
   isOpen: boolean;

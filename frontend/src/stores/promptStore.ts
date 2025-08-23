@@ -1,21 +1,26 @@
 import { create } from 'zustand';
-import { promptService, Prompt } from '../services/promptService';
-import { createLoadingActions, createCallGuard, createOptimizedUpdater } from '../utils/storeUtils';
+import { Prompt } from '../services/promptService';
 import { logService } from '../services/logService';
 
 interface PromptState {
   prompts: Prompt[];
   loading: boolean;
   error: string | null;
-  initialized: boolean; // Pour éviter les rechargements multiples
+  initialized: boolean;
 
-  // Actions
-  loadPrompts: () => Promise<void>;
-  reloadPrompts: () => Promise<void>;
+  // Actions d'état
+  setPrompts: (prompts: Prompt[]) => void;
+  setLoading: (loading: boolean) => void;
+  setError: (error: string | null) => void;
+  setInitialized: (initialized: boolean) => void;
   clearError: () => void;
-  
-  // Getter qui charge automatiquement
+
+  // Actions avec API
+  loadPrompts: (promptService: any) => Promise<void>;
+
+  // Getter
   getPrompts: () => Prompt[];
+  isInitialized: boolean;
 }
 
 export const usePromptStore = create<PromptState>((set, get) => ({
@@ -24,87 +29,82 @@ export const usePromptStore = create<PromptState>((set, get) => ({
   error: null,
   initialized: false,
 
-  // Chargement automatique au premier accès
-  loadPrompts: (() => {
-    const callGuard = createCallGuard();
-    return callGuard(async () => {
-      const { initialized } = get();
-      
-      // Éviter les rechargements multiples
-      if (initialized) {
-        return;
-      }
+  // Actions d'état
+  setPrompts: (prompts: Prompt[]) => {
+    set({ prompts });
+  },
 
-      const loadingActions = createLoadingActions(set, get);
-      const updater = createOptimizedUpdater(set, get);
-      
-      if (!loadingActions.startLoading()) {
-        return;
-      }
-      
-      try {
-        const specializedPrompts = await promptService.getSpecializedPrompts();
-        const promptsArray = Object.entries(specializedPrompts).map(([id, prompt]) => ({
-          id,
-          ...prompt
-        }));
-        
-        updater.updateMultiple({ 
-          prompts: promptsArray,
-          initialized: true 
-        });
-        loadingActions.finishLoading();
-        
-        // Log du chargement des prompts
-        logService.debug(`Chargement de ${promptsArray.length} prompts`, 'PromptStore');
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Erreur lors du chargement des prompts';
-        loadingActions.finishLoadingWithError(errorMessage);
-      }
-    });
-  })(),
+  setLoading: (loading: boolean) => {
+    set({ loading });
+  },
 
-  reloadPrompts: (() => {
-    const callGuard = createCallGuard();
-    return callGuard(async () => {
-      const loadingActions = createLoadingActions(set, get);
-      const updater = createOptimizedUpdater(set, get);
-      
-      if (!loadingActions.startLoading()) {
-        return;
-      }
-      
-      try {
-        const specializedPrompts = await promptService.getSpecializedPrompts();
-        const promptsArray = Object.entries(specializedPrompts).map(([id, prompt]) => ({
-          id,
-          ...prompt
-        }));
-        
-        updater.updateMultiple({ 
-          prompts: promptsArray,
-          initialized: true 
-        });
-        loadingActions.finishLoading();
-      } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Erreur lors du rechargement des prompts';
-        loadingActions.finishLoadingWithError(errorMessage);
-      }
-    });
-  })(),
+  setError: (error: string | null) => {
+    set({ error });
+  },
+
+  setInitialized: (initialized: boolean) => {
+    set({ initialized });
+  },
 
   clearError: () => {
     set({ error: null });
   },
 
-  // Getter qui charge automatiquement les prompts si nécessaire
-  getPrompts: () => {
-    const state = get();
-    if (!state.initialized && !state.loading) {
-      // Charger automatiquement si pas encore initialisé
-      state.loadPrompts();
+  // Actions avec API
+  loadPrompts: async (promptService: any) => {
+    try {
+      set({ loading: true, error: null });
+      
+      logService.info('Chargement des prompts', 'PromptStore', {
+        timestamp: new Date().toISOString()
+      });
+
+      const response = await promptService.getPrompts();
+      
+      if (response.success && response.data) {
+        set({ 
+          prompts: response.data, 
+          loading: false,
+          initialized: true
+        });
+        
+        logService.info('Prompts chargés avec succès', 'PromptStore', {
+          count: response.data.length,
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        const errorMessage = response.error || 'Erreur lors du chargement des prompts';
+        set({ 
+          error: errorMessage, 
+          loading: false 
+        });
+        
+        logService.error('Erreur lors du chargement des prompts', 'PromptStore', {
+          error: errorMessage,
+          timestamp: new Date().toISOString()
+        });
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
+      set({ 
+        error: errorMessage, 
+        loading: false 
+      });
+      
+      logService.error('Erreur lors du chargement des prompts', 'PromptStore', {
+        error: errorMessage,
+        timestamp: new Date().toISOString()
+      });
     }
-    return state.prompts;
+  },
+
+  // Getter
+  getPrompts: () => {
+    return get().prompts;
+  },
+
+  get isInitialized() {
+    return get().initialized;
   }
 }));
 

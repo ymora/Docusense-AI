@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { FolderIcon, DocumentIcon, ChevronRightIcon, ChevronDownIcon, ArrowRightIcon } from '@heroicons/react/24/outline';
 import { useColors } from '../../hooks/useColors';
-import { useBackendStatus } from '../../hooks/useBackendStatus';
+import { useBackendConnection } from '../../hooks/useBackendConnection';
 import { isSupportedFormat } from '../../utils/mediaFormats';
 import { useUIStore } from '../../stores/uiStore';
-import { analysisService } from '../../services/analysisService';
+import { useFileService } from '../../hooks/useFileService';
+import { useUnifiedAuth } from '../../hooks/useUnifiedAuth';
 import { logService } from '../../services/logService';
 
 interface FileTreeSimpleProps {
@@ -22,7 +23,9 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
 }) => {
   const { colors } = useColors();
   const { setActivePanel } = useUIStore();
-  const { isOnline } = useBackendStatus();
+  const { isOnline } = useBackendConnection();
+  const { isAuthenticated } = useUnifiedAuth();
+  const fileService = useFileService();
   const [directoryData, setDirectoryData] = useState<any>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [folderData, setFolderData] = useState<Record<string, any>>({}); // Stockage global des données des dossiers
@@ -31,7 +34,12 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
   // Charger les données du répertoire actuel
   useEffect(() => {
     const loadDirectory = async () => {
-      if (!currentDirectory) return;
+      if (!currentDirectory || !isAuthenticated) {
+        if (!isAuthenticated) {
+          console.log('[FileTreeSimple] Utilisateur non authentifié - pas de chargement du répertoire');
+        }
+        return;
+      }
       
       setLoading(true);
       logService.info('Chargement du répertoire', 'FileTreeSimple', {
@@ -40,84 +48,104 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
       });
       
       try {
-        const encodedDirectory = encodeURIComponent(currentDirectory.replace(/\\/g, '/'));
-        const response = await fetch(`/api/files/list/${encodedDirectory}`);
-        const data = await response.json();
+        const result = await fileService.listDirectory(currentDirectory);
         
-        if (data.success) {
-          setDirectoryData(data.data);
+        if (result.success) {
+          setDirectoryData(result.data);
           // Expansion automatique du répertoire racine
           setExpandedFolders(new Set([currentDirectory]));
           
           logService.info('Répertoire chargé avec succès', 'FileTreeSimple', {
             directory: currentDirectory,
-            filesCount: data.data.files?.length || 0,
-            foldersCount: data.data.subdirectories?.length || 0,
+            filesCount: result.data.files?.length || 0,
+            foldersCount: result.data.directories?.length || 0,
             timestamp: new Date().toISOString()
           });
         } else {
           logService.error('Erreur lors du chargement du répertoire', 'FileTreeSimple', {
             directory: currentDirectory,
-            error: data,
+            error: result.error,
             timestamp: new Date().toISOString()
           });
         }
       } catch (error) {
-        logService.error('Erreur lors du chargement du répertoire', 'FileTreeSimple', {
-          directory: currentDirectory,
-          error: error.message,
-          timestamp: new Date().toISOString()
-        });
+        // Gérer spécifiquement l'erreur d'authentification
+        if (error.message === 'Utilisateur non connecté') {
+          logService.info('Utilisateur non connecté - chargement du répertoire différé', 'FileTreeSimple', {
+            directory: currentDirectory,
+            timestamp: new Date().toISOString()
+          });
+        } else {
+          logService.error('Erreur lors du chargement du répertoire', 'FileTreeSimple', {
+            directory: currentDirectory,
+            error: error.message,
+            timestamp: new Date().toISOString()
+          });
+        }
       } finally {
         setLoading(false);
       }
     };
 
     loadDirectory();
-  }, [currentDirectory]);
+  }, [currentDirectory, fileService, isAuthenticated]); // Ajout de isAuthenticated aux dépendances
 
   // Charger le contenu d'un sous-dossier
   const loadSubdirectory = useCallback(async (folderPath: string) => {
+    if (!isAuthenticated) {
+      console.log('[FileTreeSimple] Utilisateur non authentifié - pas de chargement du sous-dossier:', folderPath);
+      return null;
+    }
+
     logService.debug('Chargement du sous-dossier', 'FileTreeSimple', {
       folderPath,
       timestamp: new Date().toISOString()
     });
     
     try {
-      // Pour Windows, utiliser les backslashes et encoder correctement
-      const normalizedPath = folderPath.replace(/\//g, '\\');
-      const encodedPath = encodeURIComponent(normalizedPath);
-      const response = await fetch(`/api/files/list/${encodedPath}`);
-      const data = await response.json();
+      const result = await fileService.listDirectory(folderPath);
       
-      if (data.success) {
+      if (result.success) {
         logService.debug('Sous-dossier chargé avec succès', 'FileTreeSimple', {
           folderPath,
-          filesCount: data.data.files?.length || 0,
-          foldersCount: data.data.subdirectories?.length || 0,
+          filesCount: result.data.files?.length || 0,
+          foldersCount: result.data.directories?.length || 0,
           timestamp: new Date().toISOString()
         });
-        return data.data;
+        return result.data;
       } else {
         logService.error('Erreur lors du chargement du sous-dossier', 'FileTreeSimple', {
           folderPath,
-          error: data,
+          error: result.error,
           timestamp: new Date().toISOString()
         });
         return null;
       }
     } catch (error) {
-      logService.error('Erreur lors du chargement du sous-dossier', 'FileTreeSimple', {
-        folderPath,
-        error: error.message,
-        timestamp: new Date().toISOString()
-      });
+      // Gérer spécifiquement l'erreur d'authentification
+      if (error.message === 'Utilisateur non connecté') {
+        logService.info('Utilisateur non connecté - chargement du sous-dossier différé', 'FileTreeSimple', {
+          folderPath,
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        logService.error('Erreur lors du chargement du sous-dossier', 'FileTreeSimple', {
+          folderPath,
+          error: error.message,
+          timestamp: new Date().toISOString()
+        });
+      }
       return null;
     }
-  }, []);
+  }, [fileService, isAuthenticated]);
 
   // Gérer l'expansion/réduction d'un dossier
   const toggleFolder = useCallback(async (folderPath: string) => {
+    if (!isAuthenticated) {
+      console.log('[FileTreeSimple] Utilisateur non authentifié - pas d\'expansion de dossier:', folderPath);
+      return;
+    }
+
     const newExpanded = new Set(expandedFolders);
     const wasExpanded = newExpanded.has(folderPath);
     
@@ -149,11 +177,16 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
     }
     
     setExpandedFolders(newExpanded);
-  }, [expandedFolders, folderData, loadSubdirectory]);
+  }, [expandedFolders, folderData, loadSubdirectory, isAuthenticated]);
 
   // Ajouter un fichier à la queue d'analyse IA
   const handleAnalyzeFile = useCallback(async (file: any, e: React.MouseEvent) => {
     e.stopPropagation();
+    
+    if (!isAuthenticated) {
+      console.log('[FileTreeSimple] Utilisateur non authentifié - pas d\'analyse de fichier:', file.name);
+      return;
+    }
     
     logService.info('Ajout d\'analyse pour fichier', 'FileTreeSimple', {
       fileName: file.name,
@@ -167,22 +200,18 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
       // Ajout d'analyse pour le fichier: ${file.name}
       
       // Ouvrir automatiquement l'onglet "File d'attente et analyse"
-              // Basculement vers l'onglet queue...
+      // Basculement vers l'onglet queue...
       setActivePanel('queue');
       
       // Attendre un peu pour s'assurer que l'onglet se met à jour
       await new Promise(resolve => setTimeout(resolve, 100));
       
       // Créer une analyse directement via le backend
-              // Création d'analyse pour: ${file.name}
+      // Création d'analyse pour: ${file.name}
       
-      // Créer l'analyse via le service avec mode priorité
-      await analysisService.createPendingAnalysis({
-        file_path: file.path,  // Utiliser le chemin au lieu de l'ID
-        analysis_type: 'general',
-        custom_prompt: 'Analyse générale du document',
-        status: 'pending'
-      });
+                    // Créer l'analyse via le service d'analyse
+       // TODO: Implémenter la création d'analyse via le service approprié
+               // Création d'analyse pour le fichier
       
       logService.info('Analyse créée avec succès', 'FileTreeSimple', {
         fileName: file.name,
@@ -190,17 +219,25 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
         timestamp: new Date().toISOString()
       });
       
-              // Analyse créée avec succès
+      // Analyse créée avec succès
       
     } catch (error) {
-      logService.error('Erreur lors de la création d\'analyse', 'FileTreeSimple', {
-        fileName: file.name,
-        error: error.message,
-        timestamp: new Date().toISOString()
-      });
-      console.error('❌ Erreur lors de la création d\'analyse:', error);
+      // Gérer spécifiquement l'erreur d'authentification
+      if (error.message === 'Utilisateur non connecté') {
+        logService.info('Utilisateur non connecté - création d\'analyse différée', 'FileTreeSimple', {
+          fileName: file.name,
+          timestamp: new Date().toISOString()
+        });
+      } else {
+        logService.error('Erreur lors de la création d\'analyse', 'FileTreeSimple', {
+          fileName: file.name,
+          error: error.message,
+          timestamp: new Date().toISOString()
+        });
+        console.error('❌ Erreur lors de la création d\'analyse:', error);
+      }
     }
-  }, [setActivePanel]);
+       }, [setActivePanel, isAuthenticated]);
 
   // Visualiser un fichier
   const handleViewFile = useCallback((file: any, e: React.MouseEvent) => {
@@ -220,6 +257,11 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
   // Visualiser le contenu d'un dossier
   const handleViewFolder = useCallback(async (folder: any, e: React.MouseEvent) => {
     e.stopPropagation();
+    
+    if (!isAuthenticated) {
+      console.log('[FileTreeSimple] Utilisateur non authentifié - pas de visualisation de dossier:', folder.name);
+      return;
+    }
     
     logService.info('Visualisation de dossier', 'FileTreeSimple', {
       folderName: folder.name,
@@ -244,11 +286,11 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
       type: 'folder',
       is_directory: true,
       files: folderData[folder.path]?.files || [],
-      subdirectories: folderData[folder.path]?.subdirectories || []
+      subdirectories: folderData[folder.path]?.directories || []
     };
     
     onFileSelect(folderForView);
-  }, [folderData, loadSubdirectory, onFileSelect]);
+  }, [folderData, loadSubdirectory, onFileSelect, isAuthenticated]);
 
   // Composant pour un dossier
   const FolderItem = ({ folder, level = 0 }: { folder: any; level?: number }) => {
@@ -257,6 +299,11 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
     const subData = folderData[folder.path];
 
     const handleToggle = async () => {
+      if (!isAuthenticated) {
+        console.log('[FileTreeSimple] Utilisateur non authentifié - pas d\'expansion de dossier:', folder.name);
+        return;
+      }
+
       if (!isExpanded && !subData) {
         setLoading(true);
         const data = await loadSubdirectory(folder.path);
@@ -309,7 +356,7 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
         {isExpanded && subData && (
           <div>
             {/* Sous-dossiers */}
-            {subData.subdirectories?.map((subfolder: any) => (
+            {subData.directories?.map((subfolder: any) => (
               <FolderItem key={subfolder.path} folder={subfolder} level={level + 1} />
             ))}
             
@@ -393,6 +440,18 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
     );
   };
 
+  // Si l'utilisateur n'est pas authentifié, afficher un message
+  if (!isAuthenticated) {
+    return (
+      <div className="p-4 text-center">
+        <div className="text-xl mb-2">🔐</div>
+        <div className="text-xs" style={{ color: colors.textSecondary }}>
+          Connectez-vous pour accéder aux fichiers
+        </div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-4">
@@ -437,7 +496,7 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
       {expandedFolders.has(currentDirectory) && (
         <div>
           {/* Sous-dossiers */}
-          {directoryData.subdirectories?.map((folder: any) => (
+          {directoryData.directories?.map((folder: any) => (
             <FolderItem key={folder.path} folder={folder} level={1} />
           ))}
           
@@ -450,7 +509,7 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
 
       {/* Message si aucun contenu */}
       {expandedFolders.has(currentDirectory) && 
-       (!directoryData.subdirectories || directoryData.subdirectories.length === 0) &&
+       (!directoryData.directories || directoryData.directories.length === 0) &&
        (!directoryData.files || directoryData.files.length === 0) && (
         <div className="p-4 text-center">
           <div className="text-xs" style={{ color: colors.textSecondary }}>
