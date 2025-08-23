@@ -25,7 +25,8 @@ export const useAdminService = () => {
         return Promise.reject(new Error('Accès non autorisé'));
       }
       return conditionalRequest(
-        () => adminService.createUser(userData)
+        () => adminService.createUser(userData),
+        null
       );
     },
     
@@ -35,7 +36,8 @@ export const useAdminService = () => {
         return Promise.reject(new Error('Accès non autorisé'));
       }
       return conditionalRequest(
-        () => adminService.updateUser(id, userData)
+        () => adminService.updateUser(id, userData),
+        null
       );
     },
     
@@ -45,7 +47,8 @@ export const useAdminService = () => {
         return Promise.reject(new Error('Accès non autorisé'));
       }
       return conditionalRequest(
-        () => adminService.deleteUser(id)
+        () => adminService.deleteUser(id),
+        null
       );
     },
     
@@ -55,7 +58,8 @@ export const useAdminService = () => {
         return Promise.reject(new Error('Accès non autorisé'));
       }
       return conditionalRequest(
-        () => adminService.getDetailedHealth()
+        () => adminService.getDetailedHealth(),
+        null
       );
     },
     
@@ -65,7 +69,8 @@ export const useAdminService = () => {
         return Promise.reject(new Error('Accès non autorisé'));
       }
       return conditionalRequest(
-        () => adminService.getPerformanceMetrics()
+        () => adminService.getPerformanceMetrics(),
+        null
       );
     },
     
@@ -75,7 +80,8 @@ export const useAdminService = () => {
         return Promise.reject(new Error('Accès non autorisé'));
       }
       return conditionalRequest(
-        () => adminService.getSystemInfo()
+        () => adminService.getSystemInfo(),
+        null
       );
     },
     

@@ -3,9 +3,10 @@ import {
   TEXT_COLORS, 
   TYPOGRAPHY, 
   getTextColor, 
-  getThemeColor,
-  type ColorMode 
+  getThemeColor
 } from '../utils/colorConstants';
+
+type ColorMode = 'light' | 'dark';
 
 /**
  * 🎨 Hook pour gérer la typographie et les couleurs de texte de manière centralisée

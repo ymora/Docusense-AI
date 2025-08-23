@@ -161,19 +161,7 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ file, onClose, onError }) => 
                   maxWidth: '100%',
                   maxHeight: '100%'
                 }}
-                config={{
-                  file: {
-                    attributes: {
-                      crossOrigin: "anonymous"
-                    },
-                    forceHLS: needsHls,
-                    forceAudio: isAudio,
-                    hlsOptions: {
-                      enableWorker: true,
-                      debug: false
-                    }
-                  }
-                }}
+                config={{}}
                 onLoadStart={() => {
 
                   setIsLoading(true);

@@ -244,19 +244,19 @@ export const useAnalysisService = () => {
       }),
 
     createAnalysis: (request: CreateAnalysisRequest) => 
-      conditionalRequest(() => baseAnalysisService.createAnalysis(request)),
+      conditionalRequest(() => baseAnalysisService.createAnalysis(request), null),
 
     startAnalysis: (analysisId: string | number) => 
-      conditionalRequest(() => baseAnalysisService.startAnalysis(analysisId)),
+      conditionalRequest(() => baseAnalysisService.startAnalysis(analysisId), null),
 
     deleteAnalysis: (analysisId: string | number) => 
-      conditionalRequest(() => baseAnalysisService.deleteAnalysis(analysisId)),
+      conditionalRequest(() => baseAnalysisService.deleteAnalysis(analysisId), null),
 
     deleteMultipleAnalyses: (analysisIds: (string | number)[]) => 
-      conditionalRequest(() => baseAnalysisService.deleteMultipleAnalyses(analysisIds)),
+      conditionalRequest(() => baseAnalysisService.deleteMultipleAnalyses(analysisIds), null),
 
     getAnalysisDetails: (analysisId: string | number) => 
-      conditionalRequest(() => baseAnalysisService.getAnalysisDetails(analysisId))
+      conditionalRequest(() => baseAnalysisService.getAnalysisDetails(analysisId), null)
   };
 };
 

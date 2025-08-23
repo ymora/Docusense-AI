@@ -60,8 +60,7 @@ const SelectionIndicator: React.FC = () => {
         </span>
         <IconButton
           icon={<XMarkIcon />}
-          onClick={(e) => {
-            e.stopPropagation();
+          onClick={() => {
             handleClearSelection();
           }}
           variant="danger"

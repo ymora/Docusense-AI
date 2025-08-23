@@ -16,7 +16,7 @@ import {
   DocumentMagnifyingGlassIcon,
   QueueListIcon,
   SparklesIcon,
-  BrainIcon,
+  // BrainIcon n'existe pas dans @heroicons/react/24/outline
   DocumentChartBarIcon,
   ArchiveBoxIcon,
   ClockIcon,
@@ -77,7 +77,7 @@ export const AppIcons = {
     };
     
     return (
-      <BrainIcon 
+             <CpuChipIcon 
         className={`${sizeClasses[size]} ${className}`}
         style={{ color: color || '#8b5cf6' }}
       />

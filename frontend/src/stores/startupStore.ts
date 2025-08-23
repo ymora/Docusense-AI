@@ -85,7 +85,7 @@ export const useStartupStore = create<StartupState>()(
               const { useConfigStore } = await import('../stores/configStore');
               const configStore = useConfigStore.getState();
               await configStore.loadAIProviders();
-              set({ initializationStep: 'queue' });
+              set({ initializationStep: 'complete' });
 
               // Initialiser les analyses
               const { useAnalysisStore } = await import('../stores/analysisStore');

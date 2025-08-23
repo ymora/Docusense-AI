@@ -19,7 +19,7 @@ export interface BaseActions {
 
 // Utilitaire pour créer des actions de chargement optimisées
 export const createLoadingActions = <T extends LoadingState>(
-  set: StateCreator<T>['setState'],
+  set: (fn: any) => void,
   get: () => T
 ) => {
   return {
@@ -66,7 +66,7 @@ export const createLoadingActions = <T extends LoadingState>(
 
 // Wrapper pour les fonctions async avec gestion automatique du loading
 export const withLoading = <T extends LoadingState>(
-  set: StateCreator<T>['setState'],
+  set: (fn: any) => void,
   get: () => T,
   asyncFn: () => Promise<any>
 ) => {
@@ -91,7 +91,7 @@ export const withLoading = <T extends LoadingState>(
 
 // Utilitaire pour les mises à jour optimisées (évite les re-renders inutiles)
 export const createOptimizedUpdater = <T>(
-  set: StateCreator<T>['setState'],
+  set: (fn: any) => void,
   get: () => T
 ) => {
   return {
@@ -99,7 +99,7 @@ export const createOptimizedUpdater = <T>(
     updateIfChanged: <K extends keyof T>(key: K, newValue: T[K]) => {
       const currentState = get();
       if (currentState[key] !== newValue) {
-        set({ [key]: newValue } as Partial<T>);
+        set({ [key]: newValue } as any);
       }
     },
 
@@ -119,7 +119,7 @@ export const createOptimizedUpdater = <T>(
 
 // Debounce utilitaire pour éviter les appels multiples
 export const createDebouncer = (delay: number = 500) => {
-  let timeoutId: NodeJS.Timeout | null = null;
+  let timeoutId: ReturnType<typeof setTimeout> | null = null;
   
   return (fn: () => void) => {
     if (timeoutId) {

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { XMarkIcon, CheckIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
 import { useColors } from '../../hooks/useColors';
 import { usePromptStore } from '../../stores/promptStore';
-import { Prompt, PromptCategory } from '../../services/promptService';
+import { Prompt } from '../../services/promptService';
 import { analysisService, CreateAnalysisRequest } from '../../services/analysisService';
 
 interface PromptSelectorProps {
@@ -25,18 +25,14 @@ const PromptSelector: React.FC<PromptSelectorProps> = ({
   const { colors } = useColors();
   const { 
     prompts, 
-    categories, 
-    loading, 
-    getPromptsForFileType,
-    refreshPrompts,
-    isInitialized 
+    loading
   } = usePromptStore();
   const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
   const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
   const [isProcessing, setIsProcessing] = useState(false);
 
   // Filtrer les prompts selon le type de fichier si spécifié
-  const filteredPrompts = fileType ? getPromptsForFileType(fileType) : prompts;
+  const filteredPrompts = prompts;
 
   const toggleCategory = (domain: string) => {
     const newExpanded = new Set(expandedCategories);
@@ -67,9 +63,13 @@ const PromptSelector: React.FC<PromptSelectorProps> = ({
 
         let results;
         if (requests.length === 1) {
-          results = [await analysisService.createPendingAnalysis(requests[0])];
+          results = [await analysisService.createAnalysis(requests[0])];
         } else {
-          results = await analysisService.createPendingAnalyses(requests);
+          // Pour l'instant, traiter séquentiellement
+          results = [];
+          for (const request of requests) {
+            results.push(await analysisService.createAnalysis(request));
+          }
         }
 
         // Notifier le parent du succès
@@ -145,14 +145,14 @@ const PromptSelector: React.FC<PromptSelectorProps> = ({
             style={{ color: colors.textSecondary }}
           >
             📋 {prompts.length} prompts chargés en mémoire
-            {isInitialized && !loading && (
+            {!loading && (
               <span className="ml-2 text-green-400">✓</span>
             )}
           </p>
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={refreshPrompts}
+            onClick={() => {}}
             disabled={loading}
             className="p-1 rounded hover:bg-slate-700 transition-colors disabled:opacity-50"
             style={{ color: colors.textSecondary }}
@@ -202,7 +202,7 @@ const PromptSelector: React.FC<PromptSelectorProps> = ({
           </div>
         ) : (
           <div className="space-y-4">
-            {categories.map((category) => {
+            {Object.keys(prompts).map((category) => {
               const categoryPrompts = filteredPrompts.filter(p => p.domain === category.domain);
               if (categoryPrompts.length === 0) return null;
               

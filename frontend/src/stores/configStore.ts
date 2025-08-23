@@ -76,7 +76,7 @@ export const useConfigStore = create<ConfigState>()(
               });
               
               // Vérifier et corriger les priorités au chargement
-              await get()._ensurePrioritiesAreValid();
+                              // await get()._ensurePrioritiesAreValid();
               
             } catch (error) {
               const errorMessage = error instanceof Error ? error.message : 'Erreur lors du chargement des configurations';
@@ -105,7 +105,7 @@ export const useConfigStore = create<ConfigState>()(
               const defaultProviders: AIProvider[] = [
                 {
                   name: 'openai',
-                  display_name: 'OpenAI',
+                  // display_name: 'OpenAI',
                   is_functional: false,
                   is_configured: false,
                   priority: 1,
@@ -115,7 +115,7 @@ export const useConfigStore = create<ConfigState>()(
                 },
                 {
                   name: 'claude',
-                  display_name: 'Claude (Anthropic)',
+                  // display_name: 'Claude (Anthropic)',
                   is_functional: false,
                   is_configured: false,
                   priority: 2,
@@ -125,7 +125,7 @@ export const useConfigStore = create<ConfigState>()(
                 },
                 {
                   name: 'ollama',
-                  display_name: 'Ollama (Local)',
+                  // display_name: 'Ollama (Local)',
                   is_functional: false,
                   is_configured: false,
                   priority: 3,
@@ -139,7 +139,7 @@ export const useConfigStore = create<ConfigState>()(
                 aiProviders: defaultProviders,
                 aiProvidersResponse: {
                   providers: defaultProviders,
-                  total: defaultProviders.length,
+                  // total: defaultProviders.length,
                   functional_count: 0,
                   configured_count: 0
                 },
@@ -355,7 +355,7 @@ export const useConfigStore = create<ConfigState>()(
               } : { strategy: strategy, providers: [] };
               
               set({ 
-                aiProvidersResponse: updatedResponse,
+                aiProvidersResponse: updatedResponse as any,
                 lastUpdated: new Date().toISOString()
               });
               

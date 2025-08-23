@@ -9,6 +9,7 @@ import { useSimpleConfirm } from '../../hooks/useSimpleConfirm';
 import { logService } from '../../services/logService';
 import { pdfService } from '../../services/pdfService';
 import { useAnalysisService } from '../../services/analysisService';
+import { useBackendConnection } from '../../hooks/useBackendConnection';
 import { Search, Filter, SortAsc, SortDesc, RefreshCw, Trash2, RotateCcw, Download, Eye } from 'lucide-react';
 import { 
   EyeIcon, 
@@ -572,6 +573,7 @@ export const QueueIAAdvanced: React.FC = () => {
 
   
   // Utiliser le hook centralisé pour la détection du backend
+  const { canMakeRequests } = useBackendConnection();
 
   const analysisService = useAnalysisService();
 
@@ -823,9 +825,9 @@ export const QueueIAAdvanced: React.FC = () => {
             
             // Créer une nouvelle analyse basée sur l'originale
             const duplicateRequest = {
-              file_id: analysisDetails.file_id,
-              file_path: analysisDetails.file_path || '',
-              prompt_id: analysisDetails.prompt_id || 'general',
+              file_id: (analysisDetails as any).file_id || '',
+              file_path: (analysisDetails as any).file_path || '',
+              prompt_id: (analysisDetails as any).prompt_id || 'general',
               analysis_type: analysisDetails.analysis_type || 'general',
               provider: analysisDetails.provider || 'ollama',
               model: analysisDetails.model || 'llama3.2',
@@ -950,9 +952,9 @@ export const QueueIAAdvanced: React.FC = () => {
               
               // Créer une nouvelle analyse basée sur l'originale
               const duplicateRequest = {
-                file_id: analysisDetails.file_id,
-                file_path: analysisDetails.file_path || '',
-                prompt_id: analysisDetails.prompt_id || 'general',
+                file_id: (analysisDetails as any).file_id || '',
+                file_path: (analysisDetails as any).file_path || '',
+                prompt_id: (analysisDetails as any).prompt_id || 'general',
                 analysis_type: analysisDetails.analysis_type || 'general',
                 provider: analysisDetails.provider || 'ollama',
                 model: analysisDetails.model || 'llama3.2',

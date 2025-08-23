@@ -138,7 +138,8 @@ class StreamService {
     if (attempts < this.maxReconnectAttempts) {
       this.reconnectAttempts.set(streamType, attempts + 1);
       
-      logService.info(`Tentative de reconnexion ${attempts + 1}/${this.maxReconnectAttempts} pour le stream ${streamType}`, 'StreamService');
+      // OPTIMISATION: Logs réduits pour éviter la pollution
+      // logService.info(`Tentative de reconnexion ${attempts + 1}/${this.maxReconnectAttempts} pour le stream ${streamType}`, 'StreamService');
       
       // Utiliser requestIdleCallback pour éviter les violations de performance
       const attemptReconnect = () => {
@@ -147,7 +148,8 @@ class StreamService {
         if (authStore.isAuthenticated) {
           this.startStream(streamType, callbacks);
         } else {
-          logService.warning(`Reconnexion annulée - Utilisateur déconnecté`, 'StreamService');
+          // OPTIMISATION: Logs réduits
+          // logService.warning(`Reconnexion annulée - Utilisateur déconnecté`, 'StreamService');
         }
       };
       
@@ -155,7 +157,7 @@ class StreamService {
       if (typeof requestIdleCallback !== 'undefined') {
         requestIdleCallback(attemptReconnect);
       } else {
-        setTimeout(attemptReconnect, 100); // Délai court en fallback
+        setTimeout(attemptReconnect, 500); // Délai augmenté à 500ms
       }
     } else {
       logService.error(`Échec de reconnexion du stream ${streamType} après ${this.maxReconnectAttempts} tentatives`, 'StreamService');

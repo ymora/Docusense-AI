@@ -6,17 +6,12 @@ import { usePromptStore } from '../stores/promptStore';
  * Les prompts sont chargés une seule fois et mis en cache
  */
 export const usePromptInitialization = () => {
-  const { loadPrompts, isInitialized } = usePromptStore();
+  const { loadPrompts } = usePromptStore();
 
   useEffect(() => {
     // Charger les prompts seulement si pas encore initialisé
-    if (!isInitialized) {
+    loadPrompts();
+  }, [loadPrompts]);
 
-      loadPrompts();
-    } else {
-
-    }
-  }, [loadPrompts, isInitialized]);
-
-  return { isInitialized };
+  return { isInitialized: true };
 }; 

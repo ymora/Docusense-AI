@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { XMarkIcon, LockClosedIcon } from '@heroicons/react/24/outline';
-import { authService, AuthCredentials } from '../../services/authService';
+import { authService } from '../../services/authService';
 import { logService } from '../../services/logService';
 
 interface AuthModalProps {
@@ -10,7 +10,7 @@ interface AuthModalProps {
 }
 
 const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => {
-  const [credentials, setCredentials] = useState<AuthCredentials>({
+  const [credentials, setCredentials] = useState<{username: string; password: string}>({
     username: 'avocat',
     password: '2025*',
   });
@@ -28,9 +28,9 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => 
     });
 
     try {
-      const response = await authService.authenticate(credentials);
+      const response = await authService.login(credentials);
 
-      if (response.success) {
+      if (response.access_token) {
         logService.info('Authentification réussie', 'AuthModal', {
           username: credentials.username,
           timestamp: new Date().toISOString()
@@ -40,10 +40,10 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => 
       } else {
         logService.warning('Échec de l\'authentification', 'AuthModal', {
           username: credentials.username,
-          error: response.message,
+          error: 'Identifiants invalides',
           timestamp: new Date().toISOString()
         });
-        setError(response.message || 'Échec de l\'authentification');
+        setError('Identifiants invalides');
       }
     } catch (error) {
       logService.error('Erreur de connexion lors de l\'authentification', 'AuthModal', {
@@ -57,7 +57,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => 
     }
   };
 
-  const handleInputChange = (field: keyof AuthCredentials, value: string) => {
+  const handleInputChange = (field: keyof {username: string; password: string}, value: string) => {
     setCredentials(prev => ({
       ...prev,
       [field]: value,

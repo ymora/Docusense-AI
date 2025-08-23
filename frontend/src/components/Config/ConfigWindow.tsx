@@ -8,6 +8,7 @@ import { useColors } from '../../hooks/useColors';
 import ConfigService from '../../services/configService';
 import { logService } from '../../services/logService';
 import { useConfigStore } from '../../stores/configStore';
+import { useBackendConnection } from '../../hooks/useBackendConnection';
 import { IconButton } from '../UI/Button';
 import { 
   getStatusColor, 
@@ -1033,6 +1034,7 @@ const ConfigWindow: React.FC<ConfigWindowProps> = ({ onClose, onMinimize }) => {
   const { colors } = useColors();
 
   const { getActiveProviders, isInitialized } = useConfigStore();
+  const { canMakeRequests } = useBackendConnection();
   
   // Obtenir les providers actifs pour l'indicateur
   const activeProviders = getActiveProviders().filter(provider => provider.is_functional);

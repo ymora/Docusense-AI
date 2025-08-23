@@ -312,7 +312,10 @@ class LogService {
                          level === 'warning' ? 'warn' : 
                          level === 'debug' ? 'debug' : 'info';
     
-    console[consoleMethod](`[${source}] ${message}`, details || '');
+    // OPTIMISATION: Réduire les logs de debug pour améliorer les performances
+    if (level !== 'debug') {
+      console[consoleMethod](`[${source}] ${message}`, details || '');
+    }
   }
 
   // NOUVEAU: Envoyer un log au backend pour persistance

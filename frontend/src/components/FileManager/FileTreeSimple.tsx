@@ -180,6 +180,7 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
       await analysisService.createAnalysis({
         file_id: file.id,
         analysis_type: 'general',
+        prompt_id: 'general_summary',
         custom_prompt: 'Analyse générale du document'
       });
       

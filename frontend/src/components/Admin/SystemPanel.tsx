@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useColors } from '../../hooks/useColors';
 import { useBackendConnection } from '../../hooks/useBackendConnection';
-import { useStreamService } from '../../hooks/useStreamService';
+import { useStreamService } from '../../services/streamService';
 import { logService } from '../../services/logService';
 import useAuthStore from '../../stores/authStore';
 import {
@@ -12,8 +12,7 @@ import {
   ExclamationTriangleIcon,
   CheckCircleIcon,
   ClockIcon,
-  WifiIcon,
-  DatabaseIcon
+  WifiIcon
 } from '@heroicons/react/24/outline';
 
 interface SystemData {
@@ -43,7 +42,7 @@ const SystemPanel: React.FC = () => {
   const { colors } = useColors();
   const { isOnline } = useBackendConnection();
   const { isAdmin } = useAuthStore();
-  const { startStream, stopStream } = useStreamService();
+  const { startStream } = useStreamService();
   const [systemData, setSystemData] = useState<SystemData | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
@@ -84,9 +83,9 @@ const SystemPanel: React.FC = () => {
     }
 
     return () => {
-      stopStream('system');
+      // stopStream('system');
     };
-  }, [isOnline, isAdmin, startStream, stopStream]);
+  }, [isOnline, isAdmin, startStream]);
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
@@ -308,7 +307,7 @@ const SystemPanel: React.FC = () => {
                   </div>
                 </div>
                 <div className="flex items-center space-x-3">
-                  <DatabaseIcon className="h-5 w-5" style={{ color: colors.primary }} />
+                  <CircleStackIcon className="h-5 w-5" style={{ color: colors.primary }} />
                   <div>
                     <div className="font-medium" style={{ color: colors.text }}>
                       Processus

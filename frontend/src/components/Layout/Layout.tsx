@@ -158,7 +158,7 @@ const Layout: React.FC = () => {
              body: JSON.stringify({ directory_path: file.path })
            });
            if (response.ok) {
-             setActivePanel('analyses');
+             setActivePanel('queue');
            } else {
              logService.error('Erreur lors de l\'analyse du dossier', 'Layout', { directory: file.path });
            }
@@ -174,7 +174,7 @@ const Layout: React.FC = () => {
              body: JSON.stringify({ directory_path: file.path })
            });
            if (response.ok) {
-             setActivePanel('analyses');
+             setActivePanel('queue');
            } else {
              logService.error('Erreur lors de l\'analyse des fichiers supportés du dossier', 'Layout', { directory: file.path });
            }
@@ -183,7 +183,7 @@ const Layout: React.FC = () => {
          }
        } else if (action === 'view_directory_analyses' && file) {
         // Voir les analyses du dossier
-        setActivePanel('analyses');
+        setActivePanel('queue');
         window.dispatchEvent(new CustomEvent('filterAnalysesByDirectory', {
           detail: { directoryPath: file.path }
         }));
@@ -191,20 +191,20 @@ const Layout: React.FC = () => {
         // Relancer l'analyse avec un nouveau prompt
         const fileIds = [file.id || file.path];
         handleAddToQueue(fileIds);
-        setActivePanel('analyses');
+        setActivePanel('queue');
       } else if (action === 'compare_analyses' && file) {
         // Comparer les analyses du fichier
-        setActivePanel('analyses');
+        setActivePanel('queue');
         window.dispatchEvent(new CustomEvent('compareAnalyses', {
           detail: { fileId: file.id, filePath: file.path }
         }));
       } else if (action === 'analyze_multiple' && file) {
         // Analyser tous les fichiers sélectionnés
         handleAddToQueue(selectedFiles);
-        setActivePanel('analyses');
+        setActivePanel('queue');
       } else if (action === 'compare_multiple' && file) {
         // Comparer les analyses des fichiers sélectionnés
-        setActivePanel('analyses');
+        setActivePanel('queue');
         window.dispatchEvent(new CustomEvent('compareMultipleAnalyses', {
           detail: { fileIds: selectedFiles }
         }));
@@ -213,7 +213,7 @@ const Layout: React.FC = () => {
         handleAddToQueue(fileIds);
       } else if (action === 'view_analyses' && file) {
         // Basculer vers l'onglet Analyses IA et filtrer par fichier
-        setActivePanel('analyses');
+        setActivePanel('queue');
         window.dispatchEvent(new CustomEvent('filterAnalysesByFile', {
           detail: { filePath: file.path }
         }));
@@ -370,7 +370,7 @@ const Layout: React.FC = () => {
           toPanel: panel,
           timestamp: new Date().toISOString()
         });
-        setActivePanel(panel as 'viewer' | 'queue' | 'logs');
+        setActivePanel(panel as 'viewer' | 'queue' | 'logs' | 'system' | 'ai-config' | 'users' | 'api-docs');
       }
     };
 

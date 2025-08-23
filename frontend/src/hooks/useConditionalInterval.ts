@@ -15,7 +15,7 @@ export const useConditionalInterval = ({
   immediate = false
 }: UseConditionalIntervalOptions) => {
   const { canMakeRequests } = useBackendConnection();
-  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const callbackRef = useRef(callback);
 
   // Mettre à jour la référence du callback

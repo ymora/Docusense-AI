@@ -25,7 +25,7 @@ let globalState: BackendConnectionState = {
 };
 
 let subscribers: Set<(state: BackendConnectionState) => void> = new Set();
-let checkInterval: NodeJS.Timeout | null = null;
+let checkInterval: ReturnType<typeof setInterval> | null = null;
 let isInitialized = false;
 let isMonitoring = false;
 
@@ -87,7 +87,7 @@ const checkBackendHealth = async () => {
   notifySubscribers();
 };
 
-const startPeriodicCheck = (interval: number = 120000) => { // 2 minutes au lieu de 30s
+const startPeriodicCheck = (interval: number = 300000) => { // 5 minutes au lieu de 2min
   if (checkInterval) {
     clearInterval(checkInterval);
   }
@@ -97,10 +97,10 @@ const startPeriodicCheck = (interval: number = 120000) => { // 2 minutes au lieu
   
   // Puis vérification périodique
   checkInterval = setInterval(() => {
-    // Vérifier si l'utilisateur est inactif (plus de 10 minutes sans activité)
+    // Vérifier si l'utilisateur est inactif (plus de 15 minutes sans activité)
     const lastActivity = localStorage.getItem('lastUserActivity');
     const now = Date.now();
-    const inactiveThreshold = 10 * 60 * 1000; // 10 minutes
+    const inactiveThreshold = 15 * 60 * 1000; // 15 minutes
     
     if (lastActivity && (now - parseInt(lastActivity)) > inactiveThreshold) {
       globalState = { ...globalState, isInactive: true };
@@ -148,7 +148,7 @@ export const useBackendConnection = (checkIntervalMs: number = 120000) => { // 2
 
   // Détection d'inactivité
   useEffect(() => {
-    let inactivityTimer: NodeJS.Timeout;
+    let inactivityTimer: ReturnType<typeof setTimeout>;
     const INACTIVITY_TIMEOUT = 30000;
 
     const resetInactivityTimer = () => {

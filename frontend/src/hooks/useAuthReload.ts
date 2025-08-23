@@ -234,7 +234,7 @@ export const useAuthReload = () => {
     }
   }, [isAuthenticated, isOnline, consecutiveFailures, logout]);
 
-  // Vérification périodique de la validité du token (réduite à 5 minutes)
+  // Vérification périodique de la validité du token (réduite à 10 minutes)
   useEffect(() => {
     if (!isAuthenticated) return;
 
@@ -243,7 +243,7 @@ export const useAuthReload = () => {
         logService.warning('Token d\'authentification expiré, déconnexion automatique', 'AuthReload');
         logout();
       }
-    }, 300000); // Vérifier toutes les 5 minutes au lieu de 1 minute
+    }, 600000); // Vérifier toutes les 10 minutes au lieu de 5 minutes
 
     return () => clearInterval(checkTokenInterval);
   }, [isAuthenticated, logout]);

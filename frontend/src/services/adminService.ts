@@ -224,22 +224,22 @@ export const useAdminService = () => {
       conditionalRequest(() => baseAdminService.getUsers(), []),
 
     createUser: (userData: { username: string; email: string; password: string; role?: string }) => 
-      conditionalRequest(() => baseAdminService.createUser(userData)),
+      conditionalRequest(() => baseAdminService.createUser(userData), null),
 
     updateUser: (id: number, userData: Partial<User>) => 
-      conditionalRequest(() => baseAdminService.updateUser(id, userData)),
+      conditionalRequest(() => baseAdminService.updateUser(id, userData), null),
 
     deleteUser: (id: number) => 
-      conditionalRequest(() => baseAdminService.deleteUser(id)),
+      conditionalRequest(() => baseAdminService.deleteUser(id), null),
 
     getDetailedHealth: () => 
-      conditionalRequest(() => baseAdminService.getDetailedHealth()),
+      conditionalRequest(() => baseAdminService.getDetailedHealth(), null),
 
     getPerformanceMetrics: () => 
-      conditionalRequest(() => baseAdminService.getPerformanceMetrics()),
+      conditionalRequest(() => baseAdminService.getPerformanceMetrics(), null),
 
     getSystemInfo: () => 
-      conditionalRequest(() => baseAdminService.getSystemInfo()),
+      conditionalRequest(() => baseAdminService.getSystemInfo(), null),
 
     getBackendLogs: () => 
       conditionalRequest(() => baseAdminService.getBackendLogs(), [])

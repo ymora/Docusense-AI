@@ -114,9 +114,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
               backgroundColor: colors.surface,
               color: colors.text,
               border: `1px solid ${colors.border}`,
-              ':hover': {
-                backgroundColor: colors.hover?.surface || colors.surface
-              }
+              // backgroundColor: colors.hover?.surface || colors.surface
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = colors.hover?.surface || colors.surface;
@@ -134,9 +132,7 @@ export const ConfirmationModal: React.FC<ConfirmationModalProps> = ({
             style={{
               backgroundColor: typeStyles.confirmButton.backgroundColor,
               color: typeStyles.confirmButton.color,
-              ':hover': {
-                backgroundColor: typeStyles.confirmButton.hoverColor
-              }
+              // backgroundColor: typeStyles.confirmButton.hoverColor
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.backgroundColor = typeStyles.confirmButton.hoverColor;

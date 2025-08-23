@@ -24,7 +24,7 @@ import {
 
 import { QueueIAAdvanced } from '../Queue/QueueIAAdvanced';
 import LogsPanel from '../Logs/LogsPanel';
-import AdminPanel from '../Admin/AdminPanel';
+// AdminPanel supprimé - intégré directement dans MainPanel
 import SystemPanel from '../Admin/SystemPanel';
 import TabNavigation from '../UI/TabNavigation';
 import SecureFileViewer from '../FileManager/SecureFileViewer';
@@ -154,15 +154,12 @@ const MainPanel: React.FC<MainPanelProps> = ({
             <div className="flex-1 overflow-hidden">
               {viewMode === 'single' ? (
                 <UnifiedFileViewer
-                  files={files.filter(f => selectedFiles.includes(f.id || f.path))}
-                  onFileSelect={selectFile}
-                  selectedFile={selectedFile}
+                  file={selectedFile}
                 />
               ) : (
                 <ThumbnailGrid
                   files={files.filter(f => selectedFiles.includes(f.id || f.path))}
                   onFileSelect={selectFile}
-                  selectedFile={selectedFile}
                 />
               )}
             </div>
@@ -197,7 +194,7 @@ const MainPanel: React.FC<MainPanelProps> = ({
                       {getFileType(fileToShow.name) === 'video' && <FilmIcon className="h-5 w-5" style={{ color: colors.primary }} />}
                       {getFileType(fileToShow.name) === 'audio' && <MusicalNoteIcon className="h-5 w-5" style={{ color: colors.primary }} />}
                       {getFileType(fileToShow.name) === 'document' && <DocumentTextIcon className="h-5 w-5" style={{ color: colors.primary }} />}
-                      {getFileType(fileToShow.name) === 'folder' && <FolderIcon className="h-5 w-5" style={{ color: colors.primary }} />}
+                      {getFileType(fileToShow.name) === 'document' && <FolderIcon className="h-5 w-5" style={{ color: colors.primary }} />}
                     </div>
                     <div>
                       <h2 className="text-lg font-semibold" style={{ color: colors.text }}>
@@ -229,12 +226,11 @@ const MainPanel: React.FC<MainPanelProps> = ({
                   <div className={`flex-1 overflow-hidden ${showFileDetails ? 'border-r' : ''}`} style={{ borderColor: colors.border }}>
                     <SecureFileViewer
                       file={fileToShow}
-                      onFileSelect={selectFile}
                     />
                   </div>
                   {showFileDetails && (
                     <div className="w-80 overflow-y-auto">
-                      <FileDetailsPanel file={fileToShow} />
+                      <FileDetailsPanel file={fileToShow} onClose={() => setShowFileDetails(false)} />
                 </div>
               )}
             </div>

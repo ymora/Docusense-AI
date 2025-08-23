@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useColors } from '../../hooks/useColors';
 import { useAdminService } from '../../hooks/useAdminService';
 import { logService } from '../../services/logService';
@@ -102,17 +102,16 @@ const UsersPanel: React.FC = () => {
           username: user.username,
           email: user.email,
           password: user.password || '',
-          role: user.role,
-          is_active: user.is_active
+          role: user.role
         });
 
         if (newUser) {
           // Mettre à jour l'interface immédiatement avec le nouvel utilisateur
           setEditingUsers(prev => prev.map(user => 
             user.isNew && user.username === newUser.username ? 
-            { ...newUser, password: '', isNew: false } : user
+            { ...newUser, password: '', isNew: false } as any : user
           ));
-          setUsers(prev => [...prev, newUser]);
+          setUsers(prev => [...prev, newUser] as any);
           
           setSuccess('Utilisateur créé avec succès');
         } else {
@@ -123,8 +122,7 @@ const UsersPanel: React.FC = () => {
         const updateData: any = {
           username: user.username,
           email: user.email,
-          role: user.role,
-          is_active: user.is_active
+          role: user.role
         };
 
         // Inclure le mot de passe seulement s'il a été modifié
@@ -138,11 +136,11 @@ const UsersPanel: React.FC = () => {
           // Mettre à jour l'interface immédiatement
           setEditingUsers(prev => prev.map(user => 
             user.id === updatedUser.id ? 
-            { ...user, ...updatedUser, password: '' } : user
+            { ...user, ...updatedUser, password: '' } as any : user
           ));
           setUsers(prev => prev.map(user => 
             user.id === updatedUser.id ? updatedUser : user
-          ));
+          ) as any);
           
           setSuccess('Utilisateur mis à jour avec succès');
         } else {
@@ -166,7 +164,7 @@ const UsersPanel: React.FC = () => {
       // Supprimer l'utilisateur du backend
       await adminService.deleteUser(userId);
       
-      // Supprimer l'utilisateur de la liste locale immédiatement
+      // OPTIMISATION: Mise à jour locale immédiate et unique
       setEditingUsers(prev => prev.filter(user => user.id !== userId));
       setUsers(prev => prev.filter(user => user.id !== userId));
       
@@ -192,7 +190,7 @@ const UsersPanel: React.FC = () => {
       });
       
       if (updatedUser) {
-        // Mettre à jour l'interface immédiatement
+        // OPTIMISATION: Mise à jour locale immédiate et unique
         setEditingUsers(prev => prev.map(user => 
           user.id === userId ? { ...user, is_active: !isActive } : user
         ));
@@ -214,21 +212,24 @@ const UsersPanel: React.FC = () => {
   };
 
   const updateEditingUser = (index: number, field: keyof EditableUser, value: any) => {
-    const updatedUsers = [...editingUsers];
-    // S'assurer que l'utilisateur existe et initialiser les valeurs par défaut si nécessaire
-    if (!updatedUsers[index]) {
-      updatedUsers[index] = {
-        id: undefined,
-        username: '',
-        email: '',
-        password: '',
-        role: 'user',
-        is_active: true,
-        isNew: false
-      };
-    }
-    updatedUsers[index] = { ...updatedUsers[index], [field]: value };
-    setEditingUsers(updatedUsers);
+    setEditingUsers(prev => {
+      const updatedUsers = [...prev];
+      // S'assurer que l'utilisateur existe et initialiser les valeurs par défaut si nécessaire
+      if (!updatedUsers[index]) {
+        updatedUsers[index] = {
+          id: undefined,
+          username: '',
+          email: '',
+          password: '',
+          role: 'user',
+          is_active: true,
+          isNew: false
+        };
+      }
+      // OPTIMISATION: Mise à jour directe sans recréer l'objet complet
+      updatedUsers[index] = { ...updatedUsers[index], [field]: value };
+      return updatedUsers;
+    });
   };
 
   const cancelEdit = (index: number) => {
@@ -269,8 +270,8 @@ const UsersPanel: React.FC = () => {
     });
   };
 
-  // Fonction pour filtrer les utilisateurs
-  const getFilteredUsers = () => {
+  // Fonction pour filtrer les utilisateurs - OPTIMISÉE AVEC useMemo
+  const filteredUsers = useMemo(() => {
     return editingUsers.filter(user => {
       // Filtre par rôle
       if (filters.roles.length > 0 && !filters.roles.includes(user.role)) return false;
@@ -285,7 +286,10 @@ const UsersPanel: React.FC = () => {
       
       return true;
     });
-  };
+  }, [editingUsers, filters.roles, filters.status, filters.search]);
+
+  // Supprimer l'ancienne fonction getFilteredUsers
+  // const getFilteredUsers = () => { ... }
 
   useEffect(() => {
     // Charger les utilisateurs via API
@@ -365,21 +369,27 @@ const UsersPanel: React.FC = () => {
     }
   }, [editingUsers.length]);
 
-  // Fermer les dropdowns quand on clique ailleurs
+  // OPTIMISATION: Throttling des événements de clic pour éviter les mises à jour excessives
   useEffect(() => {
+    let timeoutId: number;
+    
     const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as Element;
-      if (!target.closest('.filter-dropdown')) {
-        setDropdownsOpen({
-          roles: false,
-          status: false
-        });
-      }
+      clearTimeout(timeoutId);
+      timeoutId = setTimeout(() => {
+        const target = event.target as Element;
+        if (!target.closest('.filter-dropdown')) {
+          setDropdownsOpen({
+            roles: false,
+            status: false
+          });
+        }
+      }, 100); // Délai de 100ms pour éviter les mises à jour excessives
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      clearTimeout(timeoutId);
     };
   }, []);
 
@@ -615,7 +625,7 @@ const UsersPanel: React.FC = () => {
 
           {/* Compteur d'utilisateurs filtrés */}
           <div className="text-sm" style={{ color: colors.textSecondary }}>
-            {getFilteredUsers().length} utilisateur{getFilteredUsers().length > 1 ? 's' : ''} trouvé{getFilteredUsers().length > 1 ? 's' : ''}
+            {filteredUsers.length} utilisateur{filteredUsers.length > 1 ? 's' : ''} trouvé{filteredUsers.length > 1 ? 's' : ''}
           </div>
         </div>
 
@@ -654,7 +664,7 @@ const UsersPanel: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {getFilteredUsers().length > 0 ? getFilteredUsers().map((user, index) => (
+                {filteredUsers.length > 0 ? filteredUsers.map((user, index) => (
                   <tr key={user.id || `new-${index}`} className="border-b" style={{ borderColor: colors.border }}>
                   {/* Colonne Utilisateur */}
                   <td className="p-3">

@@ -33,11 +33,11 @@ export const PromptSelector: React.FC<PromptSelectorProps> = ({
   const loadPrompts = async () => {
     setLoading(true);
     try {
-      const allPrompts = await promptService.getPrompts();
-      setPrompts(allPrompts);
+      const allPrompts = await promptService.getAllPrompts();
+      setPrompts(allPrompts.specialized_prompts ? Object.values(allPrompts.specialized_prompts) : []);
       
       // Sélectionner le prompt par défaut pour le type de fichier
-      const defaultPrompt = getDefaultPromptForFile(file, allPrompts);
+      const defaultPrompt = getDefaultPromptForFile(file, allPrompts.specialized_prompts ? Object.values(allPrompts.specialized_prompts) : []);
       setSelectedPrompt(defaultPrompt?.id || 'general_summary');
     } catch (error) {
       console.error('Erreur lors du chargement des prompts:', error);
