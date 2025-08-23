@@ -18,8 +18,8 @@ class StreamService {
   private streams: Map<string, EventSource> = new Map();
   private callbacks: Map<string, StreamCallbacks> = new Map();
   private reconnectAttempts: Map<string, number> = new Map();
-  private maxReconnectAttempts = 3;
-  private reconnectDelay = 5000; // 5 secondes
+  private maxReconnectAttempts = 2; // Réduit de 3 à 2
+  private reconnectDelay = 10000; // 10 secondes au lieu de 5
 
   constructor() {
     // Nettoyer les streams à la fermeture de la page
@@ -65,8 +65,28 @@ class StreamService {
         logService.error(`Erreur stream ${streamType}`, 'StreamService', { error: error.type });
         callbacks.onError?.(error);
         
-        // Tentative de reconnexion
-        this.handleReconnect(streamType, callbacks);
+        // Vérifier si c'est une erreur d'authentification
+        if (error.type === 'error') {
+          // Vérifier le statut de la réponse si possible
+          const eventSource = this.streams.get(streamType);
+          if (eventSource && eventSource.readyState === EventSource.CLOSED) {
+            // Stream fermé - possible erreur d'authentification
+            logService.warning(`Stream ${streamType} fermé, possible erreur d'authentification`, 'StreamService');
+            
+            // Vérifier l'authentification
+            const authStore = JSON.parse(localStorage.getItem('auth-storage') || '{}');
+            if (!authStore.state?.accessToken) {
+              logService.warning('Token d\'authentification manquant, arrêt des streams', 'StreamService');
+              this.closeAllStreams();
+              return;
+            }
+          }
+        }
+        
+        // Attendre un peu avant de tenter la reconnexion pour éviter les boucles
+        setTimeout(() => {
+          this.handleReconnect(streamType, callbacks);
+        }, 2000);
       };
 
       this.streams.set(streamType, eventSource);

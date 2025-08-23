@@ -8,17 +8,18 @@ from sqlalchemy.orm import Session
 from typing import Dict, Any, List
 import psutil
 import os
+import time
 from datetime import datetime
 
 from ..core.database import get_db
-from ..core.auth import get_current_user
+from ..api.auth import get_current_user
 from ..models.user import User, UserRole
 from ..services.auth_service import AuthService
 from ..utils.response_formatter import ResponseFormatter
 from ..utils.api_utils import APIUtils
-from ..api.streams import broadcast_system_metrics_update
 
-router = APIRouter(prefix="/admin", tags=["admin"])
+
+router = APIRouter(tags=["admin"])
 
 @router.get("/users")
 @APIUtils.monitor_api_performance
@@ -199,35 +200,27 @@ async def get_system_health(
             "app_name": "DocuSense AI",
             "version": "1.0.0",
             "environment": "production",
-            "database_status": "connected",
-            "backend_status": "running",
-            "compression_enabled": True,
-            "rate_limit_enabled": True,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
+            "system": {
+                "cpu_percent": cpu_percent,
+                "memory_percent": memory.percent,
+                "disk_usage_percent": (disk.used / disk.total) * 100,
+                "uptime": time.time() - psutil.boot_time(),
+                "process_count": len(psutil.pids())
+            },
+            "database": {
+                "status": "connected",
+                "url": "sqlite:///docusense.db"
+            },
+            "features": {
+                "ocr_enabled": True,
+                "cache_enabled": True,
+                "compression_enabled": True,
+                "rate_limit_enabled": True
+            }
         }
         
-        # Diffuser les métriques via le stream admin
-        try:
-            import asyncio
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                loop.create_task(broadcast_system_metrics_update({
-                    "cpu_percent": cpu_percent,
-                    "memory_percent": memory.percent,
-                    "disk_usage_percent": (disk.used / disk.total) * 100,
-                    "uptime": psutil.boot_time(),
-                    "process_count": len(psutil.pids())
-                }))
-            else:
-                asyncio.run(broadcast_system_metrics_update({
-                    "cpu_percent": cpu_percent,
-                    "memory_percent": memory.percent,
-                    "disk_usage_percent": (disk.used / disk.total) * 100,
-                    "uptime": psutil.boot_time(),
-                    "process_count": len(psutil.pids())
-                }))
-        except Exception as e:
-            print(f"Impossible de diffuser les métriques système: {e}")
+        # TODO: Réintégrer les broadcasts SSE après résolution des imports circulaires
         
         return health_data
         
@@ -253,14 +246,20 @@ async def get_system_performance(
         )
     
     try:
-        return {
+        # Métriques de performance simulées (à remplacer par de vraies métriques)
+        performance_data = {
+            "requests_per_second": round(psutil.cpu_percent() / 10, 2),  # Simulation basée sur CPU
+            "avg_response_time": round(100 + (psutil.memory_percent() * 2), 0),  # Simulation basée sur mémoire
+            "active_connections": len(psutil.net_connections()),
             "cpu_percent": psutil.cpu_percent(interval=1),
             "memory_percent": psutil.virtual_memory().percent,
             "disk_usage_percent": (psutil.disk_usage('/').used / psutil.disk_usage('/').total) * 100,
-            "uptime": psutil.boot_time(),
+            "uptime": time.time() - psutil.boot_time(),
             "process_count": len(psutil.pids()),
             "timestamp": datetime.now().isoformat()
         }
+        
+        return performance_data
     except Exception as e:
         return {
             "error": str(e),

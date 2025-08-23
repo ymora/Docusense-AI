@@ -9,7 +9,6 @@ import {
   PencilIcon,
   EyeIcon,
   EyeSlashIcon,
-  PlusIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
   XMarkIcon
@@ -73,17 +72,7 @@ const UsersPanel: React.FC = () => {
     }
   };
 
-  const addNewUser = () => {
-    const newUser: EditableUser = {
-      username: '',
-      email: '',
-      password: '',
-      role: 'user',
-      is_active: true,
-      isNew: true
-    };
-    setEditingUsers([...editingUsers, newUser]);
-  };
+
 
   const saveUser = async (user: EditableUser, index: number) => {
     try {
@@ -267,20 +256,7 @@ const UsersPanel: React.FC = () => {
       <div className="max-w-6xl mx-auto space-y-6">
 
         {/* En-tête */}
-        <div className="flex justify-end">
-          <button
-            onClick={addNewUser}
-            disabled={loading}
-            className="px-4 py-2 rounded-lg text-sm font-medium transition-colors disabled:opacity-50 flex items-center space-x-2"
-            style={{
-              backgroundColor: colors.primary,
-              color: colors.background,
-            }}
-          >
-            <PlusIcon className="h-4 w-4" />
-            <span>Ajouter</span>
-          </button>
-        </div>
+
 
         {/* Messages d'erreur/succès */}
         {error && (
@@ -504,16 +480,6 @@ const UsersPanel: React.FC = () => {
           <div className="text-center py-8">
             <UserIcon className="h-12 w-12 mx-auto mb-4" style={{ color: colors.textSecondary }} />
             <p style={{ color: colors.textSecondary }}>Aucun utilisateur trouvé</p>
-            <button
-              onClick={addNewUser}
-              className="mt-4 px-4 py-2 rounded-lg text-sm font-medium transition-colors"
-              style={{
-                backgroundColor: colors.primary,
-                color: colors.background,
-              }}
-            >
-              Ajouter le premier utilisateur
-            </button>
           </div>
         )}
       </div>

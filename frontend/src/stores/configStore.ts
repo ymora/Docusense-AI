@@ -205,7 +205,7 @@ export const useConfigStore = create<ConfigState>()(
               if (result.success) {
                 // Mise à jour optimisée du provider
                 const currentProviders = get().aiProviders;
-                const updatedProviders = currentProviders.map(p => {
+                const updatedProviders = Array.isArray(currentProviders) ? currentProviders.map(p => {
                   if (p.name === provider) {
                     return {
                       ...p,
@@ -214,7 +214,7 @@ export const useConfigStore = create<ConfigState>()(
                     };
                   }
                   return p;
-                });
+                }) : [];
                 
                 const updater = createOptimizedUpdater(set, get);
                 updater.updateMultiple({
@@ -248,7 +248,7 @@ export const useConfigStore = create<ConfigState>()(
               
               // Mise à jour optimisée du statut du provider
               const currentProviders = get().aiProviders;
-              const updatedProviders = currentProviders.map(p => {
+              const updatedProviders = Array.isArray(currentProviders) ? currentProviders.map(p => {
                 if (p.name === provider) {
                   return {
                     ...p,
@@ -258,7 +258,7 @@ export const useConfigStore = create<ConfigState>()(
                   };
                 }
                 return p;
-              });
+              }) : [];
               
               const updater = createOptimizedUpdater(set, get);
               updater.updateMultiple({
@@ -275,7 +275,7 @@ export const useConfigStore = create<ConfigState>()(
               
               // Mise à jour du statut en cas d'erreur
               const currentProviders = get().aiProviders;
-              const updatedProviders = currentProviders.map(p => {
+              const updatedProviders = Array.isArray(currentProviders) ? currentProviders.map(p => {
                 if (p.name === provider) {
                   return {
                     ...p,
@@ -285,7 +285,7 @@ export const useConfigStore = create<ConfigState>()(
                   };
                 }
                 return p;
-              });
+              }) : [];
               
               const updater = createOptimizedUpdater(set, get);
               updater.updateMultiple({
@@ -311,7 +311,7 @@ export const useConfigStore = create<ConfigState>()(
             if (result.success) {
               // Mettre à jour localement la priorité du provider
               const currentProviders = get().aiProviders;
-              const updatedProviders = currentProviders.map(p => {
+              const updatedProviders = Array.isArray(currentProviders) ? currentProviders.map(p => {
                 if (p.name === provider) {
                   return {
                     ...p,
@@ -319,7 +319,7 @@ export const useConfigStore = create<ConfigState>()(
                   };
                 }
                 return p;
-              });
+              }) : [];
               
               set({ 
                 aiProviders: updatedProviders,
@@ -375,23 +375,44 @@ export const useConfigStore = create<ConfigState>()(
 
         // Getters
         getProviderByName: (name: string) => {
-          return get().aiProviders.find(provider => provider.name === name);
+          const providers = get().aiProviders;
+          return Array.isArray(providers) ? providers.find(provider => provider.name === name) : undefined;
         },
 
         getFunctionalProviders: () => {
-          return get().aiProviders.filter(provider => provider.is_functional);
+          const providers = get().aiProviders;
+          return Array.isArray(providers) ? providers.filter(provider => provider.is_functional) : [];
         },
 
         getActiveProviders: () => {
-          return get().aiProviders.filter(provider => provider.is_active);
+          const providers = get().aiProviders;
+          if (!Array.isArray(providers) || providers.length === 0) {
+            // Si aucun provider n'est chargé, retourner une liste vide
+            // Le loadDefaultConfig() sera appelé automatiquement si nécessaire
+            return [];
+          }
+          return providers.filter(provider => provider.is_active);
         },
 
         getConfiguredProviders: () => {
-          return get().aiProviders.filter(provider => provider.has_api_key);
+          const providers = get().aiProviders;
+          return Array.isArray(providers) ? providers.filter(provider => provider.has_api_key) : [];
         },
 
         getAIProviders: () => {
-          return get().aiProviders;
+          const providers = get().aiProviders;
+          if (!Array.isArray(providers) || providers.length === 0) {
+            // Si aucun provider n'est chargé, charger la configuration par défaut
+            const state = get();
+            if (!state.isInitialized) {
+              // Charger la configuration par défaut de manière asynchrone
+              setTimeout(() => {
+                state.loadDefaultConfig();
+              }, 100);
+            }
+            return [];
+          }
+          return providers;
         },
 
         getProviderStatus: (name: string) => {
@@ -423,7 +444,7 @@ export const useConfigStore = create<ConfigState>()(
         _ensurePrioritiesAreValid: async () => {
           try {
             const providers = get().aiProviders;
-            const activeProviders = providers.filter(p => p.is_active);
+            const activeProviders = Array.isArray(providers) ? providers.filter(p => p.is_active) : [];
             
             // Vérifier si les priorités sont séquentielles
             const priorities = activeProviders.map(p => p.priority).sort((a, b) => a - b);

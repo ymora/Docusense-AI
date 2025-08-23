@@ -11,6 +11,7 @@ import { getFileIcon } from '../../utils/fileUtils';
 import { 
   DocumentIcon
 } from '@heroicons/react/24/outline';
+import { UserIcon } from '../UI/UserIcon';
 
 const LeftPanel: React.FC = () => {
   const { selectedFiles, selectFile, toggleFileSelection } = useFileStore();
@@ -55,7 +56,7 @@ const LeftPanel: React.FC = () => {
     >
       {/* Header avec titre et contrôles */}
       <div
-        className="flex items-center p-4 border-b"
+        className="flex items-center justify-between p-4 border-b"
         style={{ borderBottomColor: colors.border }}
       >
         <div className="flex items-center space-x-3">
@@ -87,6 +88,9 @@ const LeftPanel: React.FC = () => {
             {document.body.getAttribute('data-theme') === 'light' ? '🌙' : '☀️'}
           </button>
         </div>
+
+        {/* Bouton utilisateur aligné à droite */}
+        <UserIcon />
       </div>
 
       {/* Sélecteur de disque - seulement si authentifié */}

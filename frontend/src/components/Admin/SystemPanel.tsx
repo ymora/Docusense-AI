@@ -4,7 +4,6 @@ import { useBackendConnection } from '../../hooks/useBackendConnection';
 import { useAdminService } from '../../hooks/useAdminService';
 import { logService } from '../../services/logService';
 import useAuthStore from '../../stores/authStore';
-
 import {
   ServerIcon,
   CpuChipIcon,
@@ -42,9 +41,9 @@ interface HealthData {
   };
 }
 
-const AdminPanel: React.FC = () => {
+const SystemPanel: React.FC = () => {
   const { colors } = useColors();
-  const { isOnline, errorMessage, responseTime, lastCheck, consecutiveFailures } = useBackendConnection();
+  const { isOnline } = useBackendConnection();
   const { isAdmin } = useAuthStore();
   const adminService = useAdminService();
   const [healthData, setHealthData] = useState<HealthData | null>(null);
@@ -54,7 +53,7 @@ const AdminPanel: React.FC = () => {
 
   const fetchHealthData = async () => {
     if (!isOnline) return;
-    
+
     try {
       setLoading(true);
       const response = await adminService.getDetailedHealth();
@@ -63,7 +62,7 @@ const AdminPanel: React.FC = () => {
         setLastUpdate(new Date());
       }
     } catch (error) {
-      logService.error('Erreur lors de la récupération des données de santé', 'AdminPanel', { error });
+      logService.error('Erreur lors de la récupération des données de santé', 'SystemPanel', { error });
     } finally {
       setLoading(false);
     }
@@ -71,14 +70,14 @@ const AdminPanel: React.FC = () => {
 
   const fetchPerformanceData = async () => {
     if (!isOnline) return;
-    
+
     try {
       const response = await adminService.getPerformanceMetrics();
       if (response.success) {
         setPerformanceData(response.data);
       }
     } catch (error) {
-      logService.error('Erreur lors de la récupération des métriques de performance', 'AdminPanel', { error });
+      logService.error('Erreur lors de la récupération des métriques de performance', 'SystemPanel', { error });
     }
   };
 
@@ -89,14 +88,14 @@ const AdminPanel: React.FC = () => {
     }
   }, [isOnline]);
 
-  // Actualisation automatique toutes les 30 secondes
+  // Actualisation automatique toutes les 2 minutes au lieu de 30 secondes
   useEffect(() => {
     if (!isOnline) return;
-    
+
     const interval = setInterval(() => {
       fetchHealthData();
       fetchPerformanceData();
-    }, 30000);
+    }, 120000);
 
     return () => clearInterval(interval);
   }, [isOnline]);
@@ -135,7 +134,7 @@ const AdminPanel: React.FC = () => {
     const days = Math.floor(seconds / 86400);
     const hours = Math.floor((seconds % 86400) / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
-    
+
     if (days > 0) return `${days}j ${hours}h ${minutes}m`;
     if (hours > 0) return `${hours}h ${minutes}m`;
     return `${minutes}m`;
@@ -169,21 +168,39 @@ const AdminPanel: React.FC = () => {
   return (
     <div className="h-full overflow-y-auto p-6" style={{ backgroundColor: colors.background }}>
       <div className="max-w-6xl mx-auto space-y-6">
+        {/* En-tête */}
+        <div className="flex items-center justify-between">
+          <h1 className="text-2xl font-bold" style={{ color: colors.text }}>
+            Métriques Système
+          </h1>
+          {lastUpdate && (
+            <div className="text-sm" style={{ color: colors.textSecondary }}>
+              Dernière mise à jour: {lastUpdate.toLocaleTimeString()}
+            </div>
+          )}
+        </div>
 
-
-
+        {/* Indicateur de chargement */}
+        {loading && (
+          <div className="text-center py-4">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto" style={{ borderColor: colors.primary }}></div>
+            <p className="mt-2 text-sm" style={{ color: colors.textSecondary }}>
+              Chargement des métriques...
+            </p>
+          </div>
+        )}
 
         {/* Métriques système */}
         {healthData && (
-          <div 
+          <div
             className="p-4 rounded-lg border"
-            style={{ 
+            style={{
               backgroundColor: colors.surface,
               borderColor: colors.border
             }}
           >
             <h2 className="text-lg font-semibold mb-4" style={{ color: colors.text }}>
-              Performance
+              Performance Système
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div className="flex items-center space-x-3">
@@ -236,9 +253,9 @@ const AdminPanel: React.FC = () => {
 
         {/* Informations de l'application */}
         {healthData && (
-          <div 
+          <div
             className="p-4 rounded-lg border"
-            style={{ 
+            style={{
               backgroundColor: colors.surface,
               borderColor: colors.border
             }}
@@ -294,9 +311,9 @@ const AdminPanel: React.FC = () => {
 
         {/* Base de données */}
         {healthData && (
-          <div 
+          <div
             className="p-4 rounded-lg border"
-            style={{ 
+            style={{
               backgroundColor: colors.surface,
               borderColor: colors.border
             }}
@@ -318,10 +335,62 @@ const AdminPanel: React.FC = () => {
           </div>
         )}
 
+        {/* Métriques de performance détaillées */}
+        {performanceData && (
+          <div
+            className="p-4 rounded-lg border"
+            style={{
+              backgroundColor: colors.surface,
+              borderColor: colors.border
+            }}
+          >
+            <h2 className="text-lg font-semibold mb-4" style={{ color: colors.text }}>
+              Performance Détaillée
+            </h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="text-center">
+                <div className="text-2xl font-bold" style={{ color: colors.primary }}>
+                  {performanceData.requests_per_second || 'N/A'}
+                </div>
+                <div className="text-sm" style={{ color: colors.textSecondary }}>
+                  Requêtes/sec
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold" style={{ color: colors.primary }}>
+                  {performanceData.avg_response_time || 'N/A'}ms
+                </div>
+                <div className="text-sm" style={{ color: colors.textSecondary }}>
+                  Temps de réponse moyen
+                </div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold" style={{ color: colors.primary }}>
+                  {performanceData.active_connections || 'N/A'}
+                </div>
+                <div className="text-sm" style={{ color: colors.textSecondary }}>
+                  Connexions actives
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
+        {/* Message si pas de données */}
+        {!healthData && !loading && (
+          <div className="text-center py-8">
+            <ServerIcon className="h-16 w-16 mx-auto mb-4" style={{ color: colors.textSecondary }} />
+            <h3 className="text-lg font-medium mb-2" style={{ color: colors.text }}>
+              Aucune donnée système disponible
+            </h3>
+            <p className="text-sm" style={{ color: colors.textSecondary }}>
+              Les métriques système ne sont pas encore chargées ou le backend n'est pas accessible.
+            </p>
+          </div>
+        )}
       </div>
     </div>
   );
 };
 
-export default AdminPanel;
+export default SystemPanel;

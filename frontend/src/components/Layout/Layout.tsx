@@ -3,7 +3,7 @@ import LeftPanel from './LeftPanel';
 import MainPanel from './MainPanel';
 
 import { StartupLoader } from '../UI/StartupLoader';
-import { UserIcon } from '../UI/UserIcon';
+
 import { useUIStore } from '../../stores/uiStore';
 import { useAnalysisStore } from '../../stores/analysisStore';
 import { useFileStore } from '../../stores/fileStore';
@@ -34,12 +34,15 @@ const Layout: React.FC = () => {
   // Utiliser le système centralisé de gestion du thème
   const { theme, toggleTheme, isDark } = useThemeSync();
   
-  // Vérifier le statut du backend pour la page de connexion
-  const { checkBackendOnce } = useBackendConnection();
-  const [backendStatus, setBackendStatus] = useState<boolean | null>(null);
-  
   // Hook pour gérer la connexion backend
-  const { isConnected: backendConnected, isLoading: backendLoading, forceCheck } = useBackendConnection();
+  const { 
+    isConnected: backendConnected, 
+    isLoading: backendLoading, 
+    forceCheck,
+    checkBackendOnce 
+  } = useBackendConnection();
+  
+  const [backendStatus, setBackendStatus] = useState<boolean | null>(null);
   
   // États pour l'authentification (maintenant géré par le store)
   
@@ -60,8 +63,11 @@ const Layout: React.FC = () => {
         setBackendStatus(isOnline);
       };
       checkBackend();
+    } else {
+      // Utiliser le statut du hook quand authentifié
+      setBackendStatus(backendConnected);
     }
-  }, [isAuthenticated, checkBackendOnce]);
+  }, [isAuthenticated, checkBackendOnce, backendConnected]);
 
 
 
@@ -592,27 +598,13 @@ const Layout: React.FC = () => {
               />
             </div>
 
-            {/* Panneau principal */}
-            <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-              
-              {/* En-tête avec icône utilisateur */}
-              <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: colors.border }}>
-                <div className="flex items-center space-x-4">
-                  <h1 className="text-xl font-bold" style={{ color: colors.text }}>
-                    DocuSense AI
-                  </h1>
-                </div>
-                <UserIcon />
-              </div>
-              
-              {/* Contenu principal */}
-              <div className="flex-1 min-w-0 overflow-hidden">
-                <MainPanel 
-                  activePanel={activePanel} 
-                  onSetActivePanel={setActivePanel}
-                />
-              </div>
-            </div>
+                         {/* Panneau principal */}
+             <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+               <MainPanel 
+                 activePanel={activePanel} 
+                 onSetActivePanel={setActivePanel}
+               />
+             </div>
           </>
         </>
         
@@ -679,22 +671,22 @@ const Layout: React.FC = () => {
                       await forceCheck();
                       window.dispatchEvent(new CustomEvent('openLoginModal'));
                     }}
-                    disabled={!backendConnected || backendLoading}
+                    disabled={!backendStatus || backendLoading}
                     className={`w-full flex items-center justify-center space-x-3 px-6 py-4 rounded-lg transition-all duration-300 font-semibold text-base ${
-                      backendConnected && !backendLoading 
+                      backendStatus && !backendLoading 
                         ? 'hover:scale-[1.02] active:scale-[0.98]' 
                         : 'opacity-50 cursor-not-allowed'
                     }`}
                     style={{
-                      backgroundColor: backendConnected && !backendLoading ? colors.primary : colors.border,
+                      backgroundColor: backendStatus && !backendLoading ? colors.primary : colors.border,
                       color: 'white',
-                      boxShadow: backendConnected && !backendLoading ? `0 4px 14px 0 ${colors.primary}40` : 'none',
+                      boxShadow: backendStatus && !backendLoading ? `0 4px 14px 0 ${colors.primary}40` : 'none',
                     }}
                   >
                     <span className="text-lg">👤</span>
                     <span>
                       {backendLoading ? 'Vérification...' : 
-                       backendConnected ? 'Se connecter' : 'Backend indisponible'}
+                       backendStatus ? 'Se connecter' : 'Backend indisponible'}
                     </span>
                   </button>
                   
@@ -704,22 +696,22 @@ const Layout: React.FC = () => {
                       // La méthode loginAsGuest gère maintenant le mode local automatiquement
                       await useAuthStore.getState().loginAsGuest();
                     }}
-                    disabled={!backendConnected || backendLoading}
+                    disabled={!backendStatus || backendLoading}
                     className={`w-full flex items-center justify-center space-x-3 px-6 py-4 rounded-lg transition-all duration-300 font-medium text-base ${
-                      backendConnected && !backendLoading 
+                      backendStatus && !backendLoading 
                         ? 'hover:scale-[1.02] active:scale-[0.98]' 
                         : 'opacity-50 cursor-not-allowed'
                     }`}
                     style={{
                       backgroundColor: 'transparent',
-                      border: `2px solid ${backendConnected && !backendLoading ? colors.border : colors.border}`,
-                      color: backendConnected && !backendLoading ? colors.text : colors.textSecondary,
+                      border: `2px solid ${backendStatus && !backendLoading ? colors.border : colors.border}`,
+                      color: backendStatus && !backendLoading ? colors.text : colors.textSecondary,
                     }}
                   >
                     <span className="text-lg">👁️</span>
                     <span>
                       {backendLoading ? 'Vérification...' : 
-                       backendConnected ? 'Mode invité' : 'Indisponible'}
+                       backendStatus ? 'Mode invité' : 'Indisponible'}
                     </span>
                   </button>
                   
@@ -742,21 +734,21 @@ const Layout: React.FC = () => {
                       await forceCheck();
                       window.dispatchEvent(new CustomEvent('openRegisterModal'));
                     }}
-                    disabled={!backendConnected || backendLoading}
+                    disabled={!backendStatus || backendLoading}
                     className={`w-full flex items-center justify-center space-x-3 px-6 py-3 rounded-lg transition-all duration-300 font-medium text-sm ${
-                      backendConnected && !backendLoading 
+                      backendStatus && !backendLoading 
                         ? 'hover:bg-opacity-80' 
                         : 'opacity-50 cursor-not-allowed'
                     }`}
                     style={{
                       backgroundColor: 'transparent',
-                      color: backendConnected && !backendLoading ? colors.textSecondary : colors.textSecondary,
+                      color: backendStatus && !backendLoading ? colors.textSecondary : colors.textSecondary,
                     }}
                   >
                     <span className="text-base">➕</span>
                     <span>
                       {backendLoading ? 'Vérification...' : 
-                       backendConnected ? 'Créer un compte' : 'Indisponible'}
+                       backendStatus ? 'Créer un compte' : 'Indisponible'}
                     </span>
                   </button>
                 </div>

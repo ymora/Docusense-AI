@@ -21,6 +21,7 @@ from ..services.analysis_service import AnalysisService
 from ..services.config_service import ConfigService
 from ..services.auth_service import AuthService
 
+
 router = APIRouter(tags=["streams"])
 
 # Stockage des connexions SSE actives
@@ -71,15 +72,43 @@ async def stream_analyses(db: Session = Depends(get_db)):
         
         try:
             # Envoyer les analyses existantes d'abord
-            analysis_service = AnalysisService(db)
-            recent_analyses = analysis_service.get_recent_analyses(limit=50)
-            
-            initial_data = {
-                "type": "analyses_initial",
-                "timestamp": datetime.now().isoformat(),
-                "analyses": recent_analyses
-            }
-            yield f"data: {json.dumps(initial_data, ensure_ascii=False)}\n\n"
+            try:
+                analysis_service = AnalysisService(db)
+                recent_analyses = analysis_service.get_analyses(limit=50)
+                
+                # Convertir les objets Analysis en dictionnaires
+                analyses_data = []
+                for analysis in recent_analyses:
+                    try:
+                        analyses_data.append({
+                            "id": analysis.id,
+                            "title": analysis.title,
+                            "status": analysis.status.value if analysis.status else None,
+                            "created_at": analysis.created_at.isoformat() if analysis.created_at else None,
+                            "updated_at": analysis.updated_at.isoformat() if analysis.updated_at else None,
+                            "file_path": analysis.file_path,
+                            "user_id": analysis.user_id
+                        })
+                    except Exception as analysis_error:
+                        logging.warning(f"Erreur lors de la conversion d'une analyse: {analysis_error}")
+                        continue
+                
+                initial_data = {
+                    "type": "analyses_initial",
+                    "timestamp": datetime.now().isoformat(),
+                    "analyses": analyses_data
+                }
+                yield f"data: {json.dumps(initial_data, ensure_ascii=False)}\n\n"
+            except Exception as init_error:
+                logging.error(f"Erreur lors de l'initialisation du stream analyses: {init_error}")
+                # Envoyer un message d'erreur initial
+                error_data = {
+                    "type": "analyses_initial",
+                    "timestamp": datetime.now().isoformat(),
+                    "analyses": [],
+                    "error": str(init_error)
+                }
+                yield f"data: {json.dumps(error_data, ensure_ascii=False)}\n\n"
             
             # Stream des nouvelles analyses
             while True:
@@ -97,12 +126,16 @@ async def stream_analyses(db: Session = Depends(get_db)):
                     yield f"data: {json.dumps(keepalive_data, ensure_ascii=False)}\n\n"
                     
         except Exception as e:
+            logging.error(f"Erreur dans le stream analyses: {str(e)}")
             error_data = {
                 "type": "error",
                 "message": f"Erreur dans le stream analyses: {str(e)}",
                 "timestamp": datetime.now().isoformat()
             }
-            yield f"data: {json.dumps(error_data, ensure_ascii=False)}\n\n"
+            try:
+                yield f"data: {json.dumps(error_data, ensure_ascii=False)}\n\n"
+            except:
+                pass
         finally:
             remove_connection('analyses', queue)
     
@@ -130,7 +163,7 @@ async def stream_config(db: Session = Depends(get_db)):
         try:
             # Envoyer la configuration actuelle d'abord
             config_service = ConfigService(db)
-            current_config = config_service.get_all_ai_providers()
+            current_config = await config_service.get_ai_providers_config()
             
             initial_data = {
                 "type": "config_initial",
@@ -154,12 +187,16 @@ async def stream_config(db: Session = Depends(get_db)):
                     yield f"data: {json.dumps(keepalive_data, ensure_ascii=False)}\n\n"
                     
         except Exception as e:
+            logging.error(f"Erreur dans le stream config: {str(e)}")
             error_data = {
                 "type": "error",
                 "message": f"Erreur dans le stream config: {str(e)}",
                 "timestamp": datetime.now().isoformat()
             }
-            yield f"data: {json.dumps(error_data, ensure_ascii=False)}\n\n"
+            try:
+                yield f"data: {json.dumps(error_data, ensure_ascii=False)}\n\n"
+            except:
+                pass
         finally:
             remove_connection('config', queue)
     
@@ -189,10 +226,23 @@ async def stream_users(db: Session = Depends(get_db)):
             auth_service = AuthService(db)
             active_users = auth_service.get_active_users()
             
+            # Convertir les objets User en dictionnaires
+            users_data = []
+            for user in active_users:
+                users_data.append({
+                    "id": user.id,
+                    "username": user.username,
+                    "email": user.email,
+                    "role": user.role.value if user.role else None,
+                    "is_active": user.is_active,
+                    "created_at": user.created_at.isoformat() if user.created_at else None,
+                    "last_login": user.last_login.isoformat() if user.last_login else None
+                })
+            
             initial_data = {
                 "type": "users_initial",
                 "timestamp": datetime.now().isoformat(),
-                "active_users": active_users
+                "active_users": users_data
             }
             yield f"data: {json.dumps(initial_data, ensure_ascii=False)}\n\n"
             
@@ -289,11 +339,7 @@ async def stream_admin(db: Session = Depends(get_db)):
         
         try:
             # Envoyer les données initiales d'administration
-            from ..services.auth_service import AuthService
-            from ..services.system_service import SystemService
-            
             auth_service = AuthService(db)
-            system_service = SystemService(db)
             
             # Données initiales
             initial_data = {
@@ -301,7 +347,7 @@ async def stream_admin(db: Session = Depends(get_db)):
                 "timestamp": datetime.now().isoformat(),
                 "data": {
                     "users_count": len(auth_service.get_all_users()),
-                    "system_info": system_service.get_system_info() if hasattr(system_service, 'get_system_info') else {},
+                    "system_info": {},
                     "active_connections": len(active_connections.get('admin', []))
                 }
             }
@@ -399,3 +445,5 @@ async def broadcast_system_metrics_update(metrics_data: Dict[str, Any]):
         "timestamp": datetime.now().isoformat(),
         "metrics": metrics_data
     })
+
+# TODO: Réintégrer l'initialisation des broadcasts après résolution des imports circulaires

@@ -25,6 +25,7 @@ import {
 import { QueueIAAdvanced } from '../Queue/QueueIAAdvanced';
 import LogsPanel from '../Logs/LogsPanel';
 import AdminPanel from '../Admin/AdminPanel';
+import SystemPanel from '../Admin/SystemPanel';
 import TabNavigation from '../UI/TabNavigation';
 import SecureFileViewer from '../FileManager/SecureFileViewer';
 import FileDetailsPanel from '../FileManager/FileDetailsPanel';
@@ -284,7 +285,7 @@ const MainPanel: React.FC<MainPanelProps> = ({
       case 'system':
         return (
           <div className="flex-1 overflow-hidden">
-            <AdminPanel />
+            <SystemPanel />
           </div>
         );
       

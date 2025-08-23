@@ -15,6 +15,17 @@ export const handleApiError = (error: unknown): string => {
   return 'Erreur inconnue';
 };
 
+// Fonction pour vérifier la validité du token d'authentification
+export const checkAuthToken = (): boolean => {
+  try {
+    const authStore = JSON.parse(localStorage.getItem('auth-storage') || '{}');
+    const accessToken = authStore.state?.accessToken;
+    return !!accessToken;
+  } catch {
+    return false;
+  }
+};
+
 // Fonction utilitaire pour les requêtes API avec timeout
 export const apiRequest = async (url: string, options?: RequestInit, timeout: number = DEFAULT_TIMEOUT): Promise<unknown> => {
   const controller = new AbortController();
@@ -70,6 +81,22 @@ export const apiRequest = async (url: string, options?: RequestInit, timeout: nu
         errorDetail = errorData.detail || errorData.message || response.statusText;
       } catch {
         // Si on ne peut pas parser la réponse, utiliser le status text
+      }
+      
+      // Gestion spéciale pour les erreurs d'authentification
+      if (response.status === 401) {
+        // Token invalide ou expiré - déconnecter l'utilisateur
+        try {
+          const authStore = JSON.parse(localStorage.getItem('auth-storage') || '{}');
+          if (authStore.state?.isAuthenticated) {
+            // Nettoyer le localStorage
+            localStorage.removeItem('auth-storage');
+            // Rediriger vers la page de connexion
+            window.location.href = '/';
+          }
+        } catch (e) {
+          console.error('Erreur lors de la déconnexion automatique:', e);
+        }
       }
       
       throw new Error(`Erreur HTTP: ${response.status} - ${errorDetail}`);

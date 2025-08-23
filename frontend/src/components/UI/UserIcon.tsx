@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { useColors } from '../../hooks/useColors';
 import useAuthStore from '../../stores/authStore';
 import { useBackendConnection } from '../../hooks/useBackendConnection';
-import ConfigWindow from '../Config/ConfigWindow';
 import { 
   UserCircleIcon, 
   ShieldCheckIcon, 
@@ -11,7 +10,6 @@ import {
   EyeSlashIcon,
   ArrowRightOnRectangleIcon,
   PlusIcon,
-  Cog6ToothIcon,
   ChartBarIcon,
   DocumentTextIcon,
   CpuChipIcon,
@@ -30,7 +28,6 @@ export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
   const [showMenu, setShowMenu] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
-  const [showConfigWindow, setShowConfigWindow] = useState(false);
 
   // Écouter les événements pour ouvrir les modales depuis l'overlay
   useEffect(() => {
@@ -260,23 +257,6 @@ export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
 
              {/* Actions */}
              <div className="space-y-2">
-               {/* Actions pour les utilisateurs authentifiés (pas les invités) */}
-               {!isGuest() && (
-                 <button
-                   onClick={() => {
-                     setShowMenu(false);
-                     setShowConfigWindow(true);
-                   }}
-                   className="w-full flex items-center space-x-2 px-3 py-2 text-sm rounded hover:bg-opacity-80 transition-colors"
-                   style={{ backgroundColor: colors.background }}
-                 >
-                   <Cog6ToothIcon className="w-4 h-4" style={{ color: colors.textSecondary }} />
-                   <span style={{ color: colors.text }}>Paramètres</span>
-                 </button>
-               )}
-
-
-
                {/* Déconnexion */}
                <button
                  onClick={handleLogout}
@@ -672,16 +652,7 @@ export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
         />
       )}
 
-      {/* Fenêtre de configuration */}
-      {showConfigWindow && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="w-11/12 h-5/6 max-w-6xl">
-            <ConfigWindow 
-              onClose={() => setShowConfigWindow(false)}
-            />
-          </div>
-        </div>
-      )}
+
     </div>
   );
 };

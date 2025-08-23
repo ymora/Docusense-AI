@@ -87,11 +87,29 @@ const checkBackendHealth = async () => {
   notifySubscribers();
 };
 
-const startPeriodicCheck = (interval: number = 5000) => {
+const startPeriodicCheck = (interval: number = 30000) => {
   if (checkInterval) {
     clearInterval(checkInterval);
   }
-  checkInterval = setInterval(checkBackendHealth, interval);
+  
+  // Vérification initiale immédiate
+  checkBackendHealth();
+  
+  // Puis vérification périodique
+  checkInterval = setInterval(() => {
+    // Vérifier si l'utilisateur est inactif (plus de 5 minutes sans activité)
+    const lastActivity = localStorage.getItem('lastUserActivity');
+    const now = Date.now();
+    const inactiveThreshold = 5 * 60 * 1000; // 5 minutes
+    
+    if (lastActivity && (now - parseInt(lastActivity)) > inactiveThreshold) {
+      globalState = { ...globalState, isInactive: true };
+      notifySubscribers();
+      return; // Ne pas vérifier le backend si inactif
+    }
+    
+    checkBackendHealth();
+  }, interval);
 };
 
 const stopPeriodicCheck = () => {
@@ -101,9 +119,32 @@ const stopPeriodicCheck = () => {
   }
 };
 
-export const useBackendConnection = (checkIntervalMs: number = 5000) => {
+export const useBackendConnection = (checkIntervalMs: number = 30000) => {
   const { isAuthenticated } = useAuthStore();
   const [state, setState] = useState<BackendConnectionState>(globalState);
+
+  // Détection d'activité utilisateur
+  useEffect(() => {
+    const updateActivity = () => {
+      localStorage.setItem('lastUserActivity', Date.now().toString());
+      if (globalState.isInactive) {
+        globalState = { ...globalState, isInactive: false };
+        notifySubscribers();
+      }
+    };
+
+    // Événements pour détecter l'activité
+    const events = ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'];
+    events.forEach(event => {
+      document.addEventListener(event, updateActivity, { passive: true });
+    });
+
+    return () => {
+      events.forEach(event => {
+        document.removeEventListener(event, updateActivity);
+      });
+    };
+  }, []);
 
   // Détection d'inactivité
   useEffect(() => {
@@ -149,16 +190,12 @@ export const useBackendConnection = (checkIntervalMs: number = 5000) => {
       }
     } else {
       isMonitoring = false;
-      globalState = {
-        isConnected: true,
-        isLoading: false,
-        lastCheck: null,
-        error: null,
-        responseTime: null,
-        isInactive: false,
-        consecutiveFailures: 0,
-      };
-      notifySubscribers();
+      // Ne pas forcer isConnected à true quand non authentifié
+      // Laisser la vérification réelle du backend
+      if (!isInitialized) {
+        isInitialized = true;
+        checkBackendHealth();
+      }
     }
   }, [isAuthenticated, checkIntervalMs]);
 

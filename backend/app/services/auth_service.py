@@ -10,7 +10,7 @@ import uuid
 from ..models.user import User, UserRole
 from ..core.config import settings
 from ..core.logging import logger
-from ..api.streams import broadcast_user_management_event
+# TODO: Réintégrer les broadcasts SSE après résolution des imports circulaires
 
 class AuthService:
     def __init__(self, db: Session):
@@ -95,28 +95,7 @@ class AuthService:
             self.db.refresh(user)
             logger.info(f"Utilisateur créé: {user.username}")
             
-            # Diffuser l'événement de création d'utilisateur
-            try:
-                import asyncio
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    loop.create_task(broadcast_user_management_event("created", {
-                        "id": user.id,
-                        "username": user.username,
-                        "email": user.email,
-                        "role": user.role.value,
-                        "is_active": user.is_active
-                    }))
-                else:
-                    asyncio.run(broadcast_user_management_event("created", {
-                        "id": user.id,
-                        "username": user.username,
-                        "email": user.email,
-                        "role": user.role.value,
-                        "is_active": user.is_active
-                    }))
-            except Exception as e:
-                logger.warning(f"Impossible de diffuser l'événement de création d'utilisateur: {e}")
+            # TODO: Réintégrer les broadcasts SSE après résolution des imports circulaires
             
             return user
         except IntegrityError:
@@ -190,28 +169,7 @@ class AuthService:
         self.db.refresh(user)
         logger.info(f"Utilisateur mis à jour: {user.username}")
         
-        # Diffuser l'événement de mise à jour d'utilisateur
-        try:
-            import asyncio
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                loop.create_task(broadcast_user_management_event("updated", {
-                    "id": user.id,
-                    "username": user.username,
-                    "email": user.email,
-                    "role": user.role.value,
-                    "is_active": user.is_active
-                }))
-            else:
-                asyncio.run(broadcast_user_management_event("updated", {
-                    "id": user.id,
-                    "username": user.username,
-                    "email": user.email,
-                    "role": user.role.value,
-                    "is_active": user.is_active
-                }))
-        except Exception as e:
-            logger.warning(f"Impossible de diffuser l'événement de mise à jour d'utilisateur: {e}")
+        # TODO: Réintégrer les broadcasts SSE après résolution des imports circulaires
         
         return user
     
@@ -233,16 +191,7 @@ class AuthService:
         self.db.commit()
         logger.info(f"Utilisateur supprimé: {user.username}")
         
-        # Diffuser l'événement de suppression d'utilisateur
-        try:
-            import asyncio
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                loop.create_task(broadcast_user_management_event("deleted", user_data))
-            else:
-                asyncio.run(broadcast_user_management_event("deleted", user_data))
-        except Exception as e:
-            logger.warning(f"Impossible de diffuser l'événement de suppression d'utilisateur: {e}")
+        # TODO: Réintégrer les broadcasts SSE après résolution des imports circulaires
         
         return True
     
