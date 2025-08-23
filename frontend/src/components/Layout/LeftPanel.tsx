@@ -89,49 +89,36 @@ const LeftPanel: React.FC = () => {
           </button>
         </div>
 
-        {/* Bouton utilisateur aligné à droite */}
-        <UserIcon />
+        {/* Espace réservé pour l'alignement */}
+        <div className="w-8"></div>
       </div>
 
-      {/* Sélecteur de disque - seulement si authentifié */}
-      {isAuthenticated && (
-        <div className="p-4 border-b" style={{ borderBottomColor: colors.border }}>
-          <DiskSelector
-            onDiskSelect={handleDiskSelect}
-            currentDisk={currentDisk}
-          />
-        </div>
-      )}
+      {/* Sélecteur de disque - pour tous les utilisateurs (authentifié, invité, user, admin) */}
+      <div className="p-4 border-b" style={{ borderBottomColor: colors.border }}>
+        <DiskSelector
+          onDiskSelect={handleDiskSelect}
+          currentDisk={currentDisk}
+        />
+      </div>
 
-      {/* Arborescence des fichiers - seulement si authentifié */}
-      {isAuthenticated ? (
-        <div className="flex-1 overflow-hidden">
-          {currentDisk ? (
-            <FileTreeSimple
-              currentDirectory={currentDisk}
-              onFileSelect={handleFileSelect}
-              selectedFiles={selectedFiles}
-              onFileSelectionChange={handleFileSelectionChange}
-            />
-          ) : (
-            <div className="p-4 text-center">
-              <div className="text-2xl mb-2">💾</div>
-              <div className="text-sm" style={{ color: colors.textSecondary }}>
-                Sélectionnez un disque pour voir les fichiers
-              </div>
-            </div>
-          )}
-        </div>
-      ) : (
-        <div className="flex-1 flex items-center justify-center">
+      {/* Arborescence des fichiers - pour tous les utilisateurs */}
+      <div className="flex-1 overflow-hidden">
+        {currentDisk ? (
+          <FileTreeSimple
+            currentDirectory={currentDisk}
+            onFileSelect={handleFileSelect}
+            selectedFiles={selectedFiles}
+            onFileSelectionChange={handleFileSelectionChange}
+          />
+        ) : (
           <div className="p-4 text-center">
-            <div className="text-2xl mb-2">🔐</div>
+            <div className="text-2xl mb-2">💾</div>
             <div className="text-sm" style={{ color: colors.textSecondary }}>
-              Connectez-vous pour accéder aux fichiers
+              Sélectionnez un disque pour voir les fichiers
             </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Légende des statuts - TOUJOURS en bas */}
       <div

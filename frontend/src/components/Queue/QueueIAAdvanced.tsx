@@ -812,11 +812,44 @@ export const QueueIAAdvanced: React.FC = () => {
           break;
         case 'duplicate':
           // Dupliquer l'analyse (créer une nouvelle analyse en queue)
-          // Note: duplicateAnalysis n'existe plus dans le nouveau service
-          logService.warning('Fonctionnalité de duplication non implémentée', 'QueueIAAdvanced', {
-            itemId: item.id,
-            timestamp: new Date().toISOString()
-          });
+          try {
+            logService.info('Début de la duplication d\'analyse', 'QueueIAAdvanced', {
+              itemId: item.id,
+              timestamp: new Date().toISOString()
+            });
+
+            // Récupérer les détails de l'analyse à dupliquer
+            const analysisDetails = await analysisService.getAnalysisDetails(item.id);
+            
+            // Créer une nouvelle analyse basée sur l'originale
+            const duplicateRequest = {
+              file_id: analysisDetails.file_id,
+              file_path: analysisDetails.file_path || '',
+              prompt_id: analysisDetails.prompt_id || 'general',
+              analysis_type: analysisDetails.analysis_type || 'general',
+              provider: analysisDetails.provider || 'ollama',
+              model: analysisDetails.model || 'llama3.2',
+              custom_prompt: analysisDetails.prompt || undefined
+            };
+
+            const duplicateResult = await analysisService.createAnalysis(duplicateRequest);
+            
+            logService.info('Analyse dupliquée avec succès', 'QueueIAAdvanced', {
+              originalId: item.id,
+              newId: duplicateResult.analysis_id,
+              timestamp: new Date().toISOString()
+            });
+
+            // Recharger les analyses pour afficher la nouvelle
+            loadAnalyses();
+            
+          } catch (error) {
+            logService.error('Erreur lors de la duplication', 'QueueIAAdvanced', {
+              itemId: item.id,
+              error: error.message,
+              timestamp: new Date().toISOString()
+            });
+          }
           break;
         case 'compare':
           // Comparer l'analyse (à implémenter)
@@ -910,12 +943,38 @@ export const QueueIAAdvanced: React.FC = () => {
           });
           
           // Dupliquer toutes les analyses sélectionnées
-          logService.warning('Fonctionnalité de duplication multiple non implémentée', 'QueueIAAdvanced', {
-            selectedItems: Array.from(selectedItems),
-            timestamp: new Date().toISOString()
-          });
           const duplicatePromises = Array.from(selectedItems).map(async (itemId) => {
-            return { itemId, success: false, error: 'Fonctionnalité non implémentée' };
+            try {
+              // Récupérer les détails de l'analyse à dupliquer
+              const analysisDetails = await analysisService.getAnalysisDetails(itemId);
+              
+              // Créer une nouvelle analyse basée sur l'originale
+              const duplicateRequest = {
+                file_id: analysisDetails.file_id,
+                file_path: analysisDetails.file_path || '',
+                prompt_id: analysisDetails.prompt_id || 'general',
+                analysis_type: analysisDetails.analysis_type || 'general',
+                provider: analysisDetails.provider || 'ollama',
+                model: analysisDetails.model || 'llama3.2',
+                custom_prompt: analysisDetails.prompt || undefined
+              };
+
+              const duplicateResult = await analysisService.createAnalysis(duplicateRequest);
+              
+              return { 
+                itemId, 
+                success: true, 
+                newId: duplicateResult.analysis_id,
+                error: null 
+              };
+            } catch (error) {
+              return { 
+                itemId, 
+                success: false, 
+                error: error.message,
+                newId: null 
+              };
+            }
           });
           
           const duplicateResults = await Promise.all(duplicatePromises);
@@ -928,6 +987,7 @@ export const QueueIAAdvanced: React.FC = () => {
             failed: failedDuplicates.length,
             successfulIds: successfulDuplicates.map(r => r.itemId),
             failedIds: failedDuplicates.map(r => r.itemId),
+            newAnalysisIds: successfulDuplicates.map(r => r.newId),
             timestamp: new Date().toISOString()
           });
           

@@ -161,8 +161,7 @@ const baseAdminService = {
       const response = await apiRequest('/api/admin/system/performance', {}, DEFAULT_TIMEOUT);
       
       logService.info('Métriques de performance récupérées', 'AdminService', {
-        cpu: response.cpu_percent,
-        memory: response.memory_percent,
+        status: response.status,
         timestamp: new Date().toISOString()
       });
       

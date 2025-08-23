@@ -15,7 +15,7 @@ export const BackendStatusIndicator: React.FC<BackendStatusIndicatorProps> = ({
   size = 'md' 
 }) => {
   const { colors } = useColors();
-  const { isConnected, isLoading, error } = useBackendConnection();
+  const { isConnected, error } = useBackendConnection();
 
   const getSizeClasses = () => {
     switch (size) {
@@ -40,14 +40,6 @@ export const BackendStatusIndicator: React.FC<BackendStatusIndicatorProps> = ({
   };
 
   const getStatusInfo = () => {
-    if (isLoading) {
-      return {
-        color: '#f59e0b', // Orange
-        text: 'Vérification...',
-        icon: <div className={`${getSizeClasses()} animate-pulse rounded-full bg-orange-500`} />
-      };
-    }
-    
     if (isConnected) {
       return {
         color: '#10b981', // Vert

@@ -21,16 +21,10 @@ const DiskSelector: React.FC<DiskSelectorProps> = ({ onDiskSelect, currentDisk }
   const [isLoading, setIsLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Charger les disques disponibles seulement si authentifié et backend connecté
+  // Charger les disques disponibles pour tous les utilisateurs (même si backend déconnecté pour le cache)
   useEffect(() => {
     const fetchDisks = async () => {
-      // Ne pas charger si pas authentifié ou backend déconnecté
-      if (!isAuthenticated || !canMakeRequests) {
-        setAvailableDisks([]);
-        setIsLoading(false);
-        return;
-      }
-
+      // Charger pour tous les utilisateurs (invité, user, admin)
       try {
         setIsLoading(true);
         logService.info('Chargement des disques disponibles', 'DiskSelector', {
@@ -104,30 +98,24 @@ const DiskSelector: React.FC<DiskSelectorProps> = ({ onDiskSelect, currentDisk }
       {/* Bouton principal */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full flex items-center justify-between p-2.5 rounded-lg border transition-all duration-200 ${
-          isAuthenticated && canMakeRequests ? 'hover:bg-slate-700' : 'opacity-50 cursor-not-allowed'
-        }`}
+        className={`w-full flex items-center justify-between p-2.5 rounded-lg border transition-all duration-200 hover:bg-slate-700`}
         style={{ 
           borderColor: colors.border,
           color: colors.textSecondary,
           backgroundColor: colors.surface,
         }}
         onMouseEnter={(e) => {
-          if (isAuthenticated && canMakeRequests) {
-            e.currentTarget.style.color = colors.text;
-          }
+          e.currentTarget.style.color = colors.text;
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.color = colors.textSecondary;
         }}
-        disabled={isLoading || !isAuthenticated || !canMakeRequests}
+        disabled={isLoading}
       >
         <div className="flex items-center">
           <FolderIcon className="w-4 h-4 mr-2" style={{ color: colors.primary }} />
           <span className="text-xs font-medium">
-            {!isAuthenticated ? 'Connectez-vous d\'abord' : 
-             !canMakeRequests ? 'Backend déconnecté' :
-             isLoading ? 'Chargement...' : 
+            {isLoading ? 'Chargement...' : 
              (currentDisk ? `Disque: ${currentDisk}` : 'Sélectionner un disque')}
           </span>
         </div>

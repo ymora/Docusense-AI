@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useColors } from '../../hooks/useColors';
 import useAuthStore from '../../stores/authStore';
 import { useAuthUsageService } from '../../services/authUsageService';
-import { useBackendConnection } from '../../hooks/useBackendConnection';
+
 import { 
   ExclamationTriangleIcon,
   ClockIcon,
@@ -25,7 +25,7 @@ interface FeatureUsage {
 export const UsageLimits: React.FC<UsageLimitsProps> = ({ className = '' }) => {
   const { colors } = useColors();
   const { user, isGuest } = useAuthStore();
-  const { isConnected: backendConnected, isLoading: backendLoading, forceCheck } = useBackendConnection();
+
   const authUsageService = useAuthUsageService();
 
   // Si ce n'est pas un invité, ne pas afficher
@@ -218,29 +218,18 @@ export const UsageLimits: React.FC<UsageLimitsProps> = ({ className = '' }) => {
       {/* Bouton d'action */}
       <div className="mt-4 pt-3 border-t" style={{ borderColor: colors.border }}>
         <button
-          disabled={!backendConnected || backendLoading}
-          className={`w-full px-3 py-2 text-xs font-medium rounded transition-colors ${
-            backendConnected && !backendLoading 
-              ? 'hover:bg-opacity-80' 
-              : 'opacity-50 cursor-not-allowed'
-          }`}
+          className="w-full px-3 py-2 text-xs font-medium rounded transition-colors hover:bg-opacity-80"
           style={{
-            backgroundColor: backendConnected && !backendLoading ? colors.primary : colors.border,
+            backgroundColor: colors.primary,
             color: '#ffffff'
           }}
-          onClick={async () => {
-            // Forcer une vérification immédiate du backend
-            await forceCheck();
-            
-            if (backendConnected && !backendLoading) {
-              // Ouvrir le modal d'inscription
-              const event = new CustomEvent('openRegisterModal');
-              window.dispatchEvent(event);
-            }
+          onClick={() => {
+            // Ouvrir le modal d'inscription
+            const event = new CustomEvent('openRegisterModal');
+            window.dispatchEvent(event);
           }}
         >
-          {backendLoading ? 'Vérification...' : 
-           backendConnected ? 'Créer un compte pour un accès illimité' : 'Backend indisponible'}
+          Créer un compte pour un accès illimité
         </button>
       </div>
     </div>

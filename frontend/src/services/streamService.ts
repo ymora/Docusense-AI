@@ -18,8 +18,8 @@ class StreamService {
   private streams: Map<string, EventSource> = new Map();
   private callbacks: Map<string, StreamCallbacks> = new Map();
   private reconnectAttempts: Map<string, number> = new Map();
-  private maxReconnectAttempts = 2; // Réduit de 3 à 2
-  private reconnectDelay = 10000; // 10 secondes au lieu de 5
+  private maxReconnectAttempts = 1; // Réduit à 1 seule tentative
+  private reconnectDelay = 30000; // 30 secondes au lieu de 10
 
   constructor() {
     // Nettoyer les streams à la fermeture de la page
@@ -83,10 +83,10 @@ class StreamService {
           }
         }
         
-        // Attendre un peu avant de tenter la reconnexion pour éviter les boucles
-        setTimeout(() => {
+        // Reconnexion rapide pour éviter les violations de performance
+        requestIdleCallback(() => {
           this.handleReconnect(streamType, callbacks);
-        }, 2000);
+        });
       };
 
       this.streams.set(streamType, eventSource);
@@ -140,7 +140,8 @@ class StreamService {
       
       logService.info(`Tentative de reconnexion ${attempts + 1}/${this.maxReconnectAttempts} pour le stream ${streamType}`, 'StreamService');
       
-      setTimeout(() => {
+      // Utiliser requestIdleCallback pour éviter les violations de performance
+      const attemptReconnect = () => {
         // Vérifier si l'utilisateur est toujours authentifié
         const authStore = useAuthStore.getState();
         if (authStore.isAuthenticated) {
@@ -148,7 +149,14 @@ class StreamService {
         } else {
           logService.warning(`Reconnexion annulée - Utilisateur déconnecté`, 'StreamService');
         }
-      }, this.reconnectDelay);
+      };
+      
+      // Utiliser requestIdleCallback si disponible, sinon setTimeout avec délai court
+      if (typeof requestIdleCallback !== 'undefined') {
+        requestIdleCallback(attemptReconnect);
+      } else {
+        setTimeout(attemptReconnect, 100); // Délai court en fallback
+      }
     } else {
       logService.error(`Échec de reconnexion du stream ${streamType} après ${this.maxReconnectAttempts} tentatives`, 'StreamService');
     }

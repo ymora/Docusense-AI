@@ -31,7 +31,8 @@ active_connections: Dict[str, List[asyncio.Queue]] = {
     'users': [],
     'files': [],
     'logs': [],
-    'admin': []
+    'admin': [],
+    'system': []  # Nouveau stream pour les métriques système
 }
 
 def add_connection(stream_type: str, queue: asyncio.Queue):
@@ -113,11 +114,11 @@ async def stream_analyses(db: Session = Depends(get_db)):
             # Stream des nouvelles analyses
             while True:
                 try:
-                    # Attendre un message ou un timeout
-                    message = await asyncio.wait_for(queue.get(), timeout=30.0)
+                    # Attendre un message ou un timeout (augmenté à 2 minutes)
+                    message = await asyncio.wait_for(queue.get(), timeout=120.0)
                     yield message
                 except asyncio.TimeoutError:
-                    # Keep-alive
+                    # Keep-alive (réduit à toutes les 2 minutes)
                     keepalive_data = {
                         "type": "keepalive",
                         "timestamp": datetime.now().isoformat(),
@@ -175,10 +176,10 @@ async def stream_config(db: Session = Depends(get_db)):
             # Stream des changements de configuration
             while True:
                 try:
-                    message = await asyncio.wait_for(queue.get(), timeout=30.0)
+                    message = await asyncio.wait_for(queue.get(), timeout=120.0)
                     yield message
                 except asyncio.TimeoutError:
-                    # Keep-alive
+                    # Keep-alive (réduit à toutes les 2 minutes)
                     keepalive_data = {
                         "type": "keepalive",
                         "timestamp": datetime.now().isoformat(),
@@ -222,13 +223,13 @@ async def stream_users(db: Session = Depends(get_db)):
         add_connection('users', queue)
         
         try:
-            # Envoyer les utilisateurs actifs d'abord
+            # Envoyer tous les utilisateurs d'abord (pour l'administration)
             auth_service = AuthService(db)
-            active_users = auth_service.get_active_users()
+            all_users = auth_service.get_all_users()
             
             # Convertir les objets User en dictionnaires
             users_data = []
-            for user in active_users:
+            for user in all_users:
                 users_data.append({
                     "id": user.id,
                     "username": user.username,
@@ -242,17 +243,17 @@ async def stream_users(db: Session = Depends(get_db)):
             initial_data = {
                 "type": "users_initial",
                 "timestamp": datetime.now().isoformat(),
-                "active_users": users_data
+                "users": users_data
             }
             yield f"data: {json.dumps(initial_data, ensure_ascii=False)}\n\n"
             
             # Stream des événements utilisateurs
             while True:
                 try:
-                    message = await asyncio.wait_for(queue.get(), timeout=30.0)
+                    message = await asyncio.wait_for(queue.get(), timeout=120.0)
                     yield message
                 except asyncio.TimeoutError:
-                    # Keep-alive
+                    # Keep-alive (réduit à toutes les 2 minutes)
                     keepalive_data = {
                         "type": "keepalive",
                         "timestamp": datetime.now().isoformat(),
@@ -261,12 +262,16 @@ async def stream_users(db: Session = Depends(get_db)):
                     yield f"data: {json.dumps(keepalive_data, ensure_ascii=False)}\n\n"
                     
         except Exception as e:
+            logging.error(f"Erreur dans le stream users: {str(e)}")
             error_data = {
                 "type": "error",
                 "message": f"Erreur dans le stream users: {str(e)}",
                 "timestamp": datetime.now().isoformat()
             }
-            yield f"data: {json.dumps(error_data, ensure_ascii=False)}\n\n"
+            try:
+                yield f"data: {json.dumps(error_data, ensure_ascii=False)}\n\n"
+            except:
+                pass
         finally:
             remove_connection('users', queue)
     
@@ -295,10 +300,10 @@ async def stream_files(db: Session = Depends(get_db)):
             # Stream des événements fichiers
             while True:
                 try:
-                    message = await asyncio.wait_for(queue.get(), timeout=30.0)
+                    message = await asyncio.wait_for(queue.get(), timeout=120.0)
                     yield message
                 except asyncio.TimeoutError:
-                    # Keep-alive
+                    # Keep-alive (réduit à toutes les 2 minutes)
                     keepalive_data = {
                         "type": "keepalive",
                         "timestamp": datetime.now().isoformat(),
@@ -356,10 +361,10 @@ async def stream_admin(db: Session = Depends(get_db)):
             # Stream des événements d'administration
             while True:
                 try:
-                    message = await asyncio.wait_for(queue.get(), timeout=30.0)
+                    message = await asyncio.wait_for(queue.get(), timeout=120.0)
                     yield message
                 except asyncio.TimeoutError:
-                    # Keep-alive
+                    # Keep-alive (réduit à toutes les 2 minutes)
                     keepalive_data = {
                         "type": "keepalive",
                         "timestamp": datetime.now().isoformat(),
@@ -379,6 +384,115 @@ async def stream_admin(db: Session = Depends(get_db)):
     
     return StreamingResponse(
         admin_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Cache-Control"
+        }
+    )
+
+@router.get("/system")
+@APIUtils.monitor_api_performance
+async def stream_system(db: Session = Depends(get_db)):
+    """
+    Stream des métriques système en temps réel
+    """
+    async def system_stream():
+        queue = asyncio.Queue()
+        add_connection('system', queue)
+        
+        try:
+            # Envoyer les métriques système initiales
+            import psutil
+            import time
+            
+            # Métriques système réelles
+            system_metrics = {
+                "cpu_percent": psutil.cpu_percent(interval=1),
+                "memory_percent": psutil.virtual_memory().percent,
+                "disk_usage_percent": (psutil.disk_usage('/').used / psutil.disk_usage('/').total) * 100,
+                "uptime": time.time() - psutil.boot_time(),
+                "process_count": len(psutil.pids())
+            }
+            
+            # Métriques de performance
+            from ..core.cache import cache
+            cache_stats = cache.get_stats() if hasattr(cache, 'get_stats') else {}
+            
+            # Connexions actives
+            active_connections_count = len([conn for conn in psutil.net_connections() if conn.status == 'ESTABLISHED'])
+            
+            initial_data = {
+                "type": "system_initial",
+                "timestamp": datetime.now().isoformat(),
+                "data": {
+                    "system": {
+                        "cpu_percent": system_metrics.get("cpu_percent", 0),
+                        "memory_percent": system_metrics.get("memory_percent", 0),
+                        "disk_usage_percent": system_metrics.get("disk_usage_percent", 0),
+                        "uptime": system_metrics.get("uptime", 0),
+                        "process_count": system_metrics.get("process_count", 0)
+                    },
+                    "performance": {
+                        "requests_per_second": cache_stats.get('requests_per_second', 0),
+                        "avg_response_time": cache_stats.get('avg_response_time', 0),
+                        "active_connections": active_connections_count,
+                        "cache_hits": cache_stats.get('hits', 0),
+                        "cache_misses": cache_stats.get('misses', 0)
+                    },
+                    "health": {
+                        "status": "healthy" if system_metrics.get("cpu_percent", 0) < 90 and system_metrics.get("memory_percent", 0) < 90 else "warning",
+                        "app_name": "DocuSense AI",
+                        "version": "1.0.0",
+                        "environment": "production"
+                    }
+                }
+            }
+            yield f"data: {json.dumps(initial_data, ensure_ascii=False)}\n\n"
+            
+            # Stream des mises à jour système
+            while True:
+                try:
+                    message = await asyncio.wait_for(queue.get(), timeout=120.0)
+                    yield message
+                except asyncio.TimeoutError:
+                    # Keep-alive avec métriques actualisées
+                    updated_metrics = {
+                        "cpu_percent": psutil.cpu_percent(interval=1),
+                        "memory_percent": psutil.virtual_memory().percent,
+                        "disk_usage_percent": (psutil.disk_usage('/').used / psutil.disk_usage('/').total) * 100,
+                        "uptime": time.time() - psutil.boot_time(),
+                        "process_count": len(psutil.pids())
+                    }
+                    keepalive_data = {
+                        "type": "system_update",
+                        "timestamp": datetime.now().isoformat(),
+                        "data": {
+                            "system": {
+                                "cpu_percent": updated_metrics.get("cpu_percent", 0),
+                                "memory_percent": updated_metrics.get("memory_percent", 0),
+                                "disk_usage_percent": updated_metrics.get("disk_usage_percent", 0),
+                                "uptime": updated_metrics.get("uptime", 0),
+                                "process_count": updated_metrics.get("process_count", 0)
+                            }
+                        }
+                    }
+                    yield f"data: {json.dumps(keepalive_data, ensure_ascii=False)}\n\n"
+                    
+        except Exception as e:
+            error_data = {
+                "type": "error",
+                "message": f"Erreur dans le stream system: {str(e)}",
+                "timestamp": datetime.now().isoformat()
+            }
+            yield f"data: {json.dumps(error_data, ensure_ascii=False)}\n\n"
+        finally:
+            remove_connection('system', queue)
+    
+    return StreamingResponse(
+        system_stream(),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -444,6 +558,14 @@ async def broadcast_system_metrics_update(metrics_data: Dict[str, Any]):
         "type": "system_metrics_update",
         "timestamp": datetime.now().isoformat(),
         "metrics": metrics_data
+    })
+
+async def broadcast_system_update(system_data: Dict[str, Any]):
+    """Diffuser une mise à jour système"""
+    await broadcast_to_stream('system', {
+        "type": "system_update",
+        "timestamp": datetime.now().isoformat(),
+        "data": system_data
     })
 
 # TODO: Réintégrer l'initialisation des broadcasts après résolution des imports circulaires

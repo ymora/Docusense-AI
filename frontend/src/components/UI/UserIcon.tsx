@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useColors } from '../../hooks/useColors';
 import useAuthStore from '../../stores/authStore';
-import { useBackendConnection } from '../../hooks/useBackendConnection';
+
 import { 
   UserCircleIcon, 
   ShieldCheckIcon, 
@@ -24,7 +24,7 @@ interface UserIconProps {
 export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
   const { colors } = useColors();
   const { user, isAuthenticated, isGuest, isUser, isAdmin, logout, loginAsGuest } = useAuthStore();
-  const { isConnected: backendConnected, isLoading: backendLoading, forceCheck } = useBackendConnection();
+
   const [showMenu, setShowMenu] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
@@ -58,15 +58,6 @@ export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Forcer une vérification immédiate du backend
-    await forceCheck();
-    
-    // Vérifier que le backend est connecté avant de tenter la connexion
-    if (!backendConnected || backendLoading) {
-      setLoginErrors({ username: '', password: 'Backend indisponible - impossible de se connecter' });
-      return;
-    }
     
     // Réinitialiser les erreurs
     setLoginErrors({ username: '', password: '' });
@@ -106,15 +97,6 @@ export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Forcer une vérification immédiate du backend
-    await forceCheck();
-    
-    // Vérifier que le backend est connecté avant de tenter l'inscription
-    if (!backendConnected || backendLoading) {
-      setRegisterErrors({ username: '', email: '', password: '', confirmPassword: 'Backend indisponible - impossible de créer le compte' });
-      return;
-    }
     
     // Réinitialiser les erreurs
     setRegisterErrors({ username: '', email: '', password: '', confirmPassword: '' });
@@ -295,23 +277,7 @@ export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
                </p>
              </div>
 
-                           {/* Indicateur de statut backend */}
-              {(!backendConnected || backendLoading) && (
-                <div className="mb-4 p-3 rounded-lg border" style={{ 
-                  backgroundColor: colors.background,
-                  borderColor: '#ef4444',
-                }}>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                    <span className="text-xs font-medium" style={{ color: '#ef4444' }}>
-                      {backendLoading ? 'Vérification de la connexion...' : 'Backend indisponible'}
-                    </span>
-                  </div>
-                  <p className="text-xs mt-1" style={{ color: colors.textSecondary }}>
-                    La connexion sera possible une fois le backend rétabli
-                  </p>
-                </div>
-              )}
+             
 
               <form onSubmit={handleLogin} className="space-y-6">
                <div>
@@ -385,19 +351,13 @@ export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
                <div className="space-y-3">
                  <button
                    type="submit"
-                   disabled={!backendConnected || backendLoading}
-                   className={`w-full px-6 py-3 rounded-lg text-white font-semibold transition-all duration-300 ${
-                     backendConnected && !backendLoading 
-                       ? 'hover:scale-[1.02] active:scale-[0.98]' 
-                       : 'opacity-50 cursor-not-allowed'
-                   }`}
+                   className="w-full px-6 py-3 rounded-lg text-white font-semibold transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
                    style={{ 
-                     backgroundColor: backendConnected && !backendLoading ? colors.primary : colors.border,
-                     boxShadow: backendConnected && !backendLoading ? `0 4px 14px 0 ${colors.primary}40` : 'none',
+                     backgroundColor: colors.primary,
+                     boxShadow: `0 4px 14px 0 ${colors.primary}40`,
                    }}
                  >
-                   {backendLoading ? 'Vérification...' : 
-                    backendConnected ? 'Se connecter' : 'Backend indisponible'}
+                   Se connecter
                  </button>
                  
                  <button
@@ -447,23 +407,7 @@ export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
                </p>
              </div>
 
-                           {/* Indicateur de statut backend */}
-              {(!backendConnected || backendLoading) && (
-                <div className="mb-4 p-3 rounded-lg border" style={{ 
-                  backgroundColor: colors.background,
-                  borderColor: '#ef4444',
-                }}>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 rounded-full bg-red-500"></div>
-                    <span className="text-xs font-medium" style={{ color: '#ef4444' }}>
-                      {backendLoading ? 'Vérification de la connexion...' : 'Backend indisponible'}
-                    </span>
-                  </div>
-                  <p className="text-xs mt-1" style={{ color: colors.textSecondary }}>
-                    La création de compte sera possible une fois le backend rétabli
-                  </p>
-                </div>
-              )}
+             
 
               <form onSubmit={handleRegister} className="space-y-5">
                <div>
@@ -605,19 +549,13 @@ export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
                <div className="space-y-3">
                  <button
                    type="submit"
-                   disabled={!backendConnected || backendLoading}
-                   className={`w-full px-6 py-3 rounded-lg text-white font-semibold transition-all duration-300 ${
-                     backendConnected && !backendLoading 
-                       ? 'hover:scale-[1.02] active:scale-[0.98]' 
-                       : 'opacity-50 cursor-not-allowed'
-                   }`}
+                   className="w-full px-6 py-3 rounded-lg text-white font-semibold transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
                    style={{ 
-                     backgroundColor: backendConnected && !backendLoading ? colors.primary : colors.border,
-                     boxShadow: backendConnected && !backendLoading ? `0 4px 14px 0 ${colors.primary}40` : 'none',
+                     backgroundColor: colors.primary,
+                     boxShadow: `0 4px 14px 0 ${colors.primary}40`,
                    }}
                  >
-                   {backendLoading ? 'Vérification...' : 
-                    backendConnected ? 'Créer mon compte' : 'Backend indisponible'}
+                   Créer mon compte
                  </button>
                  
                  <button

@@ -87,7 +87,7 @@ const checkBackendHealth = async () => {
   notifySubscribers();
 };
 
-const startPeriodicCheck = (interval: number = 30000) => {
+const startPeriodicCheck = (interval: number = 120000) => { // 2 minutes au lieu de 30s
   if (checkInterval) {
     clearInterval(checkInterval);
   }
@@ -97,10 +97,10 @@ const startPeriodicCheck = (interval: number = 30000) => {
   
   // Puis vérification périodique
   checkInterval = setInterval(() => {
-    // Vérifier si l'utilisateur est inactif (plus de 5 minutes sans activité)
+    // Vérifier si l'utilisateur est inactif (plus de 10 minutes sans activité)
     const lastActivity = localStorage.getItem('lastUserActivity');
     const now = Date.now();
-    const inactiveThreshold = 5 * 60 * 1000; // 5 minutes
+    const inactiveThreshold = 10 * 60 * 1000; // 10 minutes
     
     if (lastActivity && (now - parseInt(lastActivity)) > inactiveThreshold) {
       globalState = { ...globalState, isInactive: true };
@@ -119,7 +119,7 @@ const stopPeriodicCheck = () => {
   }
 };
 
-export const useBackendConnection = (checkIntervalMs: number = 30000) => {
+export const useBackendConnection = (checkIntervalMs: number = 120000) => { // 2 minutes par défaut
   const { isAuthenticated } = useAuthStore();
   const [state, setState] = useState<BackendConnectionState>(globalState);
 
@@ -157,9 +157,12 @@ export const useBackendConnection = (checkIntervalMs: number = 30000) => {
         globalState = { ...globalState, isInactive: false };
         notifySubscribers();
       }
+      // Utiliser requestIdleCallback pour éviter les violations de performance
       inactivityTimer = setTimeout(() => {
-        globalState = { ...globalState, isInactive: true };
-        notifySubscribers();
+        requestIdleCallback(() => {
+          globalState = { ...globalState, isInactive: true };
+          notifySubscribers();
+        });
       }, INACTIVITY_TIMEOUT);
     };
 

@@ -94,8 +94,13 @@ function Start-Docusense {
 
     # Vérification rapide des ports
     Write-Host "Vérification des ports..." -ForegroundColor Cyan
-    $port8000 = Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue | Where-Object { $_.State -ne "TimeWait" }
-    $port3000 = Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue | Where-Object { $_.State -ne "TimeWait" }
+    try {
+        $port8000 = netstat -an | findstr ":8000" | findstr "LISTENING"
+        $port3000 = netstat -an | findstr ":3000" | findstr "LISTENING"
+    } catch {
+        $port8000 = $null
+        $port3000 = $null
+    }
 
     if ($port8000) {
         Write-Host "❌ Port 8000 toujours occupé après cleanup" -ForegroundColor Red
@@ -160,10 +165,12 @@ function Start-DocusenseBackend {
     Write-Host "🔧 Démarrage du backend uniquement..." -ForegroundColor Yellow
 
     # Vérifier si le backend est déjà en cours d'exécution
-    $backendProcesses = Get-Process -Name "python" -ErrorAction SilentlyContinue | Where-Object { 
-        $_.CommandLine -like "*main.py*" -or $_.ProcessName -eq "python"
+    $backendProcesses = Get-Process -Name "python" -ErrorAction SilentlyContinue
+    try {
+        $port8000 = netstat -an | findstr ":8000" | findstr "LISTENING"
+    } catch {
+        $port8000 = $null
     }
-    $port8000 = Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue | Where-Object { $_.State -ne "TimeWait" }
 
     if ($backendProcesses -or $port8000) {
         Write-Host "⚠️ Backend déjà en cours d'exécution" -ForegroundColor Yellow
@@ -181,8 +188,13 @@ function Start-DocusenseBackend {
 
         # Libérer le port 8000
         if ($port8000) {
-            if ($port8000.OwningProcess -ne 0) {
-                Stop-Process -Id $port8000.OwningProcess -Force -ErrorAction SilentlyContinue
+            try {
+                $processId = (netstat -ano | findstr ":8000" | findstr "LISTENING").Split()[-1]
+                if ($processId -and $processId -ne "0") {
+                    Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
+                }
+            } catch {
+                # Ignorer les erreurs de libération de port
             }
         }
 
@@ -191,7 +203,11 @@ function Start-DocusenseBackend {
 
     # Vérifier que le port 8000 est libre
     Write-Host "Vérification du port 8000..." -ForegroundColor Cyan
-    $port8000 = Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue | Where-Object { $_.State -ne "TimeWait" }
+    try {
+        $port8000 = netstat -an | findstr ":8000" | findstr "LISTENING"
+    } catch {
+        $port8000 = $null
+    }
 
     if ($port8000) {
         Write-Host "❌ Port 8000 toujours occupé" -ForegroundColor Red
@@ -215,10 +231,12 @@ function Start-DocusenseFrontend {
     Write-Host "🎨 Démarrage du frontend uniquement..." -ForegroundColor Yellow
 
     # Vérifier si le frontend est déjà en cours d'exécution
-    $frontendProcesses = Get-Process -Name "node" -ErrorAction SilentlyContinue | Where-Object { 
-        $_.CommandLine -like "*npm*" -or $_.CommandLine -like "*vite*" -or $_.ProcessName -eq "node"
+    $frontendProcesses = Get-Process -Name "node" -ErrorAction SilentlyContinue
+    try {
+        $port3000 = netstat -an | findstr ":3000" | findstr "LISTENING"
+    } catch {
+        $port3000 = $null
     }
-    $port3000 = Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue | Where-Object { $_.State -ne "TimeWait" }
 
     if ($frontendProcesses -or $port3000) {
         Write-Host "⚠️ Frontend déjà en cours d'exécution" -ForegroundColor Yellow
@@ -236,8 +254,13 @@ function Start-DocusenseFrontend {
 
         # Libérer le port 3000
         if ($port3000) {
-            if ($port3000.OwningProcess -ne 0) {
-                Stop-Process -Id $port3000.OwningProcess -Force -ErrorAction SilentlyContinue
+            try {
+                $processId = (netstat -ano | findstr ":3000" | findstr "LISTENING").Split()[-1]
+                if ($processId -and $processId -ne "0") {
+                    Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
+                }
+            } catch {
+                # Ignorer les erreurs de libération de port
             }
         }
 
@@ -246,7 +269,11 @@ function Start-DocusenseFrontend {
 
     # Vérifier que le port 3000 est libre
     Write-Host "Vérification du port 3000..." -ForegroundColor Cyan
-    $port3000 = Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue | Where-Object { $_.State -ne "TimeWait" }
+    try {
+        $port3000 = netstat -an | findstr ":3000" | findstr "LISTENING"
+    } catch {
+        $port3000 = $null
+    }
 
     if ($port3000) {
         Write-Host "❌ Port 3000 toujours occupé" -ForegroundColor Red
@@ -320,19 +347,29 @@ function Stop-Docusense {
 
     try {
         # Libérer le port 8000
-        $port8000 = Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue
-        if ($port8000) {
-            if ($port8000.OwningProcess -ne 0) {
-                Stop-Process -Id $port8000.OwningProcess -Force -ErrorAction SilentlyContinue
+        try {
+            $port8000 = netstat -an | findstr ":8000" | findstr "LISTENING"
+            if ($port8000) {
+                $processId = (netstat -ano | findstr ":8000" | findstr "LISTENING").Split()[-1]
+                if ($processId -and $processId -ne "0") {
+                    Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
+                }
             }
+        } catch {
+            # Ignorer les erreurs de libération de port
         }
 
         # Libérer le port 3000
-        $port3000 = Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue
-        if ($port3000) {
-            if ($port3000.OwningProcess -ne 0) {
-                Stop-Process -Id $port3000.OwningProcess -Force -ErrorAction SilentlyContinue
+        try {
+            $port3000 = netstat -an | findstr ":3000" | findstr "LISTENING"
+            if ($port3000) {
+                $processId = (netstat -ano | findstr ":3000" | findstr "LISTENING").Split()[-1]
+                if ($processId -and $processId -ne "0") {
+                    Stop-Process -Id $processId -Force -ErrorAction SilentlyContinue
+                }
             }
+        } catch {
+            # Ignorer les erreurs de libération de port
         }
 
         # Attendre que les connexions TIME_WAIT se libèrent (délai réduit)
@@ -342,8 +379,13 @@ function Stop-Docusense {
         Start-Sleep -Seconds 2
 
         # Vérification finale des ports
-        $final8000 = Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue | Where-Object { $_.State -ne "TimeWait" }
-        $final3000 = Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue | Where-Object { $_.State -ne "TimeWait" }
+        try {
+            $final8000 = netstat -an | findstr ":8000" | findstr "LISTENING"
+            $final3000 = netstat -an | findstr ":3000" | findstr "LISTENING"
+        } catch {
+            $final8000 = $null
+            $final3000 = $null
+        }
 
         if (-not $Silent) {
             if (-not $final8000 -and -not $final3000) {
@@ -372,8 +414,13 @@ function Get-DocusenseStatus {
     $nodeProcesses = Get-Process -Name "node" -ErrorAction SilentlyContinue
 
     # Vérifier les ports
-    $port8000 = Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue
-    $port3000 = Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue
+    try {
+        $port8000 = netstat -an | findstr ":8000" | findstr "LISTENING"
+        $port3000 = netstat -an | findstr ":3000" | findstr "LISTENING"
+    } catch {
+        $port8000 = $null
+        $port3000 = $null
+    }
 
     # Vérifier la santé des services (optimisé)
     $backendHealth = $false

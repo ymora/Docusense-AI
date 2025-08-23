@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useColors } from '../../hooks/useColors';
 import { useBackendConnection } from '../../hooks/useBackendConnection';
-import { useAdminService } from '../../hooks/useAdminService';
+import { useStreamService } from '../../hooks/useStreamService';
 import { logService } from '../../services/logService';
 import useAuthStore from '../../stores/authStore';
 import {
@@ -11,33 +11,31 @@ import {
   ChartBarIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
-  ClockIcon
+  ClockIcon,
+  WifiIcon,
+  DatabaseIcon
 } from '@heroicons/react/24/outline';
 
-interface SystemMetrics {
-  cpu_percent: number;
-  memory_percent: number;
-  disk_usage_percent: number;
-  uptime: number;
-  process_count: number;
-}
-
-interface HealthData {
-  status: string;
-  app_name: string;
-  version: string;
-  environment: string;
-  timestamp: string;
-  system: SystemMetrics;
-  database: {
-    status: string;
-    url: string;
+interface SystemData {
+  system: {
+    cpu_percent: number;
+    memory_percent: number;
+    disk_usage_percent: number;
+    uptime: number;
+    process_count: number;
   };
-  features: {
-    ocr_enabled: boolean;
-    cache_enabled: boolean;
-    compression_enabled: boolean;
-    rate_limit_enabled: boolean;
+  performance: {
+    requests_per_second: number;
+    avg_response_time: number;
+    active_connections: number;
+    cache_hits: number;
+    cache_misses: number;
+  };
+  health: {
+    status: string;
+    app_name: string;
+    version: string;
+    environment: string;
   };
 }
 
@@ -45,70 +43,58 @@ const SystemPanel: React.FC = () => {
   const { colors } = useColors();
   const { isOnline } = useBackendConnection();
   const { isAdmin } = useAuthStore();
-  const adminService = useAdminService();
-  const [healthData, setHealthData] = useState<HealthData | null>(null);
-  const [performanceData, setPerformanceData] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
+  const { startStream, stopStream } = useStreamService();
+  const [systemData, setSystemData] = useState<SystemData | null>(null);
+  const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
-  const fetchHealthData = async () => {
-    if (!isOnline) return;
+  useEffect(() => {
+    if (!isOnline || !isAdmin) {
+      setLoading(false);
+      return;
+    }
 
-    try {
-      setLoading(true);
-      const response = await adminService.getDetailedHealth();
-      if (response.success) {
-        setHealthData(response.data);
-        setLastUpdate(new Date());
+    setLoading(true);
+
+    // Démarrer le stream système
+    const success = startStream('system', {
+      onMessage: (message) => {
+        if (message.type === 'system_initial') {
+          setSystemData(message.data);
+          setLastUpdate(new Date());
+          setLoading(false);
+          logService.info('Données système initiales reçues via stream', 'SystemPanel');
+        } else if (message.type === 'system_update') {
+          setSystemData(prev => ({ ...prev, ...message.data }));
+          setLastUpdate(new Date());
+          logService.debug('Mise à jour système reçue via stream', 'SystemPanel');
+        }
+      },
+      onError: (error) => {
+        logService.error('Erreur stream système', 'SystemPanel', { error });
+        setLoading(false);
+      },
+      onOpen: () => {
+        logService.info('Stream système connecté', 'SystemPanel');
       }
-    } catch (error) {
-      logService.error('Erreur lors de la récupération des données de santé', 'SystemPanel', { error });
-    } finally {
+    });
+
+    if (!success) {
       setLoading(false);
     }
-  };
 
-  const fetchPerformanceData = async () => {
-    if (!isOnline) return;
-
-    try {
-      const response = await adminService.getPerformanceMetrics();
-      if (response.success) {
-        setPerformanceData(response.data);
-      }
-    } catch (error) {
-      logService.error('Erreur lors de la récupération des métriques de performance', 'SystemPanel', { error });
-    }
-  };
-
-  useEffect(() => {
-    if (isOnline) {
-      fetchHealthData();
-      fetchPerformanceData();
-    }
-  }, [isOnline]);
-
-  // Actualisation automatique toutes les 2 minutes au lieu de 30 secondes
-  useEffect(() => {
-    if (!isOnline) return;
-
-    const interval = setInterval(() => {
-      fetchHealthData();
-      fetchPerformanceData();
-    }, 120000);
-
-    return () => clearInterval(interval);
-  }, [isOnline]);
+    return () => {
+      stopStream('system');
+    };
+  }, [isOnline, isAdmin, startStream, stopStream]);
 
   const getStatusColor = (status: string) => {
     switch (status.toLowerCase()) {
       case 'healthy':
-      case 'online':
         return colors.success;
       case 'warning':
         return colors.warning;
       case 'error':
-      case 'offline':
         return colors.error;
       default:
         return colors.textSecondary;
@@ -118,12 +104,10 @@ const SystemPanel: React.FC = () => {
   const getStatusIcon = (status: string) => {
     switch (status.toLowerCase()) {
       case 'healthy':
-      case 'online':
         return <CheckCircleIcon className="h-4 w-4" />;
       case 'warning':
         return <ExclamationTriangleIcon className="h-4 w-4" />;
       case 'error':
-      case 'offline':
         return <ExclamationTriangleIcon className="h-4 w-4" />;
       default:
         return <ClockIcon className="h-4 w-4" />;
@@ -140,12 +124,10 @@ const SystemPanel: React.FC = () => {
     return `${minutes}m`;
   };
 
-  const formatBytes = (bytes: number) => {
-    if (bytes === 0) return '0 B';
-    const k = 1024;
-    const sizes = ['B', 'KB', 'MB', 'GB'];
-    const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  const getPerformanceColor = (value: number, threshold: number) => {
+    if (value <= threshold * 0.7) return colors.success;
+    if (value <= threshold * 0.9) return colors.warning;
+    return colors.error;
   };
 
   // Vérification des droits d'administration
@@ -170,221 +152,243 @@ const SystemPanel: React.FC = () => {
       <div className="max-w-6xl mx-auto space-y-6">
         {/* En-tête */}
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold" style={{ color: colors.text }}>
-            Métriques Système
-          </h1>
-          {lastUpdate && (
-            <div className="text-sm" style={{ color: colors.textSecondary }}>
-              Dernière mise à jour: {lastUpdate.toLocaleTimeString()}
+          <div>
+            <h1 className="text-2xl font-bold" style={{ color: colors.text }}>
+              Administration Système
+            </h1>
+            <p className="text-sm" style={{ color: colors.textSecondary }}>
+              Monitoring et santé du backend DocuSense AI
+            </p>
+          </div>
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <div 
+                className="w-3 h-3 rounded-full"
+                style={{ backgroundColor: isOnline ? colors.success : colors.error }}
+              ></div>
+              <span className="text-sm" style={{ color: colors.textSecondary }}>
+                {isOnline ? 'Connecté' : 'Déconnecté'}
+              </span>
             </div>
-          )}
+            {lastUpdate && (
+              <div className="text-sm" style={{ color: colors.textSecondary }}>
+                Dernière mise à jour: {lastUpdate.toLocaleTimeString()}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Indicateur de chargement */}
         {loading && (
-          <div className="text-center py-4">
+          <div className="text-center py-8">
             <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto" style={{ borderColor: colors.primary }}></div>
             <p className="mt-2 text-sm" style={{ color: colors.textSecondary }}>
-              Chargement des métriques...
+              Connexion au stream système...
             </p>
           </div>
         )}
 
         {/* Métriques système */}
-        {healthData && (
-          <div
-            className="p-4 rounded-lg border"
-            style={{
-              backgroundColor: colors.surface,
-              borderColor: colors.border
-            }}
-          >
-            <h2 className="text-lg font-semibold mb-4" style={{ color: colors.text }}>
-              Performance Système
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div className="flex items-center space-x-3">
-                <CpuChipIcon className="h-5 w-5" style={{ color: colors.primary }} />
-                <div>
-                  <div className="font-medium" style={{ color: colors.text }}>
-                    CPU
-                  </div>
-                  <div className="text-sm" style={{ color: colors.textSecondary }}>
-                    {healthData.system?.cpu_percent?.toFixed(1)}%
-                  </div>
+        {systemData && (
+          <>
+            {/* Santé générale */}
+            <div
+              className="p-6 rounded-lg border"
+              style={{
+                backgroundColor: colors.surface,
+                borderColor: colors.border
+              }}
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold" style={{ color: colors.text }}>
+                  Santé du Système
+                </h2>
+                <div className="flex items-center space-x-2">
+                  {getStatusIcon(systemData.health.status)}
+                  <span 
+                    className="text-sm font-medium"
+                    style={{ color: getStatusColor(systemData.health.status) }}
+                  >
+                    {systemData.health.status === 'healthy' ? 'Opérationnel' : 'Attention'}
+                  </span>
                 </div>
               </div>
-              <div className="flex items-center space-x-3">
-                <ServerIcon className="h-5 w-5" style={{ color: colors.primary }} />
-                <div>
-                  <div className="font-medium" style={{ color: colors.text }}>
-                    Mémoire
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold" style={{ color: colors.primary }}>
+                    {systemData.health.app_name}
                   </div>
                   <div className="text-sm" style={{ color: colors.textSecondary }}>
-                    {healthData.system?.memory_percent?.toFixed(1)}%
+                    Application
                   </div>
                 </div>
-              </div>
-              <div className="flex items-center space-x-3">
-                <CircleStackIcon className="h-5 w-5" style={{ color: colors.primary }} />
-                <div>
-                  <div className="font-medium" style={{ color: colors.text }}>
-                    Disque
+                <div className="text-center">
+                  <div className="text-2xl font-bold" style={{ color: colors.primary }}>
+                    {systemData.health.version}
                   </div>
                   <div className="text-sm" style={{ color: colors.textSecondary }}>
-                    {healthData.system?.disk_usage_percent?.toFixed(1)}%
+                    Version
                   </div>
                 </div>
-              </div>
-              <div className="flex items-center space-x-3">
-                <ClockIcon className="h-5 w-5" style={{ color: colors.primary }} />
-                <div>
-                  <div className="font-medium" style={{ color: colors.text }}>
-                    Uptime
+                <div className="text-center">
+                  <div className="text-2xl font-bold" style={{ color: colors.primary }}>
+                    {systemData.health.environment}
                   </div>
                   <div className="text-sm" style={{ color: colors.textSecondary }}>
-                    {healthData.system?.uptime ? formatUptime(healthData.system.uptime) : 'N/A'}
+                    Environnement
                   </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
 
-        {/* Informations de l'application */}
-        {healthData && (
-          <div
-            className="p-4 rounded-lg border"
-            style={{
-              backgroundColor: colors.surface,
-              borderColor: colors.border
-            }}
-          >
-            <h2 className="text-lg font-semibold mb-4" style={{ color: colors.text }}>
-              Application
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h3 className="font-medium mb-3" style={{ color: colors.text }}>Général</h3>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span style={{ color: colors.textSecondary }}>Application:</span>
-                    <span style={{ color: colors.text }}>{healthData.app_name}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span style={{ color: colors.textSecondary }}>Version:</span>
-                    <span style={{ color: colors.text }}>{healthData.version}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span style={{ color: colors.textSecondary }}>Environnement:</span>
-                    <span style={{ color: colors.text }}>{healthData.environment}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span style={{ color: colors.textSecondary }}>Dernière vérification:</span>
-                    <span style={{ color: colors.text }}>
-                      {new Date(healthData.timestamp).toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              <div>
-                <h3 className="font-medium mb-3" style={{ color: colors.text }}>Fonctionnalités</h3>
-                <div className="space-y-2 text-sm">
-                  {Object.entries(healthData.features).map(([key, value]) => (
-                    <div key={key} className="flex justify-between items-center">
-                      <span style={{ color: colors.textSecondary }}>
-                        {key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase())}:
-                      </span>
-                      <div className="flex items-center space-x-2">
-                        {getStatusIcon(value ? 'healthy' : 'error')}
-                        <span style={{ color: getStatusColor(value ? 'healthy' : 'error') }}>
-                          {value ? 'Activé' : 'Désactivé'}
-                        </span>
-                      </div>
+            {/* Métriques système */}
+            <div
+              className="p-6 rounded-lg border"
+              style={{
+                backgroundColor: colors.surface,
+                borderColor: colors.border
+              }}
+            >
+              <h2 className="text-lg font-semibold mb-4" style={{ color: colors.text }}>
+                Performance Système
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+                <div className="flex items-center space-x-3">
+                  <CpuChipIcon className="h-5 w-5" style={{ color: colors.primary }} />
+                  <div>
+                    <div className="font-medium" style={{ color: colors.text }}>
+                      CPU
                     </div>
-                  ))}
+                    <div 
+                      className="text-sm font-semibold"
+                      style={{ color: getPerformanceColor(systemData.system.cpu_percent, 90) }}
+                    >
+                      {systemData.system.cpu_percent.toFixed(1)}%
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <ServerIcon className="h-5 w-5" style={{ color: colors.primary }} />
+                  <div>
+                    <div className="font-medium" style={{ color: colors.text }}>
+                      Mémoire
+                    </div>
+                    <div 
+                      className="text-sm font-semibold"
+                      style={{ color: getPerformanceColor(systemData.system.memory_percent, 90) }}
+                    >
+                      {systemData.system.memory_percent.toFixed(1)}%
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <CircleStackIcon className="h-5 w-5" style={{ color: colors.primary }} />
+                  <div>
+                    <div className="font-medium" style={{ color: colors.text }}>
+                      Disque
+                    </div>
+                    <div 
+                      className="text-sm font-semibold"
+                      style={{ color: getPerformanceColor(systemData.system.disk_usage_percent, 90) }}
+                    >
+                      {systemData.system.disk_usage_percent.toFixed(1)}%
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <ClockIcon className="h-5 w-5" style={{ color: colors.primary }} />
+                  <div>
+                    <div className="font-medium" style={{ color: colors.text }}>
+                      Uptime
+                    </div>
+                    <div className="text-sm" style={{ color: colors.textSecondary }}>
+                      {formatUptime(systemData.system.uptime)}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <DatabaseIcon className="h-5 w-5" style={{ color: colors.primary }} />
+                  <div>
+                    <div className="font-medium" style={{ color: colors.text }}>
+                      Processus
+                    </div>
+                    <div className="text-sm" style={{ color: colors.textSecondary }}>
+                      {systemData.system.process_count}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
 
-        {/* Base de données */}
-        {healthData && (
-          <div
-            className="p-4 rounded-lg border"
-            style={{
-              backgroundColor: colors.surface,
-              borderColor: colors.border
-            }}
-          >
-            <h2 className="text-lg font-semibold mb-4" style={{ color: colors.text }}>
-              Base de Données
-            </h2>
-            <div className="flex items-center space-x-3">
-              {getStatusIcon(healthData.database.status)}
-              <div>
-                <div className="font-medium" style={{ color: colors.text }}>
-                  Statut: {healthData.database.status}
+            {/* Métriques de performance */}
+            <div
+              className="p-6 rounded-lg border"
+              style={{
+                backgroundColor: colors.surface,
+                borderColor: colors.border
+              }}
+            >
+              <h2 className="text-lg font-semibold mb-4" style={{ color: colors.text }}>
+                Performance Réseau
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="text-center">
+                  <div className="text-2xl font-bold" style={{ color: colors.primary }}>
+                    {systemData.performance.requests_per_second.toFixed(1)}
+                  </div>
+                  <div className="text-sm" style={{ color: colors.textSecondary }}>
+                    Requêtes/sec
+                  </div>
                 </div>
-                <div className="text-sm" style={{ color: colors.textSecondary }}>
-                  {healthData.database.url}
+                <div className="text-center">
+                  <div className="text-2xl font-bold" style={{ color: colors.primary }}>
+                    {systemData.performance.avg_response_time.toFixed(0)}ms
+                  </div>
+                  <div className="text-sm" style={{ color: colors.textSecondary }}>
+                    Temps de réponse
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold" style={{ color: colors.primary }}>
+                    {systemData.performance.active_connections}
+                  </div>
+                  <div className="text-sm" style={{ color: colors.textSecondary }}>
+                    Connexions actives
+                  </div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold" style={{ color: colors.success }}>
+                    {systemData.performance.cache_hits}
+                  </div>
+                  <div className="text-sm" style={{ color: colors.textSecondary }}>
+                    Cache hits
+                  </div>
                 </div>
               </div>
             </div>
-          </div>
-        )}
 
-        {/* Métriques de performance détaillées */}
-        {performanceData && (
-          <div
-            className="p-4 rounded-lg border"
-            style={{
-              backgroundColor: colors.surface,
-              borderColor: colors.border
-            }}
-          >
-            <h2 className="text-lg font-semibold mb-4" style={{ color: colors.text }}>
-              Performance Détaillée
-            </h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="text-center">
-                <div className="text-2xl font-bold" style={{ color: colors.primary }}>
-                  {performanceData.requests_per_second || 'N/A'}
-                </div>
-                <div className="text-sm" style={{ color: colors.textSecondary }}>
-                  Requêtes/sec
-                </div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold" style={{ color: colors.primary }}>
-                  {performanceData.avg_response_time || 'N/A'}ms
-                </div>
-                <div className="text-sm" style={{ color: colors.textSecondary }}>
-                  Temps de réponse moyen
-                </div>
-              </div>
-              <div className="text-center">
-                <div className="text-2xl font-bold" style={{ color: colors.primary }}>
-                  {performanceData.active_connections || 'N/A'}
-                </div>
-                <div className="text-sm" style={{ color: colors.textSecondary }}>
-                  Connexions actives
-                </div>
+            {/* Indicateur de stream */}
+            <div className="text-center">
+              <div className="flex items-center justify-center space-x-2">
+                <div className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></div>
+                <span className="text-xs" style={{ color: colors.textSecondary }}>
+                  Données en temps réel via SSE
+                </span>
               </div>
             </div>
-          </div>
+          </>
         )}
 
         {/* Message si pas de données */}
-        {!healthData && !loading && (
+        {!systemData && !loading && (
           <div className="text-center py-8">
             <ServerIcon className="h-16 w-16 mx-auto mb-4" style={{ color: colors.textSecondary }} />
             <h3 className="text-lg font-medium mb-2" style={{ color: colors.text }}>
               Aucune donnée système disponible
             </h3>
             <p className="text-sm" style={{ color: colors.textSecondary }}>
-              Les métriques système ne sont pas encore chargées ou le backend n'est pas accessible.
+              Le stream système n'est pas connecté ou le backend n'est pas accessible.
             </p>
           </div>
         )}

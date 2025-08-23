@@ -11,7 +11,9 @@ import {
   EyeSlashIcon,
   ExclamationTriangleIcon,
   CheckCircleIcon,
-  XMarkIcon
+  XMarkIcon,
+  FunnelIcon,
+  ChevronDownIcon
 } from '@heroicons/react/24/outline';
 
 interface User {
@@ -44,29 +46,44 @@ const UsersPanel: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [showPasswords, setShowPasswords] = useState<Record<number, boolean>>({});
+  
+  // États pour les filtres
+  const [filters, setFilters] = useState({
+    roles: ['guest', 'user', 'admin'] as string[], // Tous les rôles par défaut
+    status: ['active', 'inactive'] as string[], // Tous les statuts par défaut
+    search: '' as string // Recherche textuelle
+  });
+  
+  // États pour les dropdowns
+  const [dropdownsOpen, setDropdownsOpen] = useState({
+    roles: false,
+    status: false
+  });
 
   const fetchUsers = async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await adminService.getUsers();
-      if (response.success) {
-        setUsers(response.data);
+      const users = await adminService.getUsers();
+      
+      if (Array.isArray(users)) {
+        setUsers(users);
         // Initialiser les utilisateurs éditables
-        setEditingUsers(response.data.map(user => ({
+        const editableUsers = users.map(user => ({
           id: user.id,
-          username: user.username,
-          email: user.email,
+          username: user.username || '',
+          email: user.email || '',
           password: '',
-          role: user.role,
-          is_active: user.is_active
-        })));
+          role: user.role || 'user',
+          is_active: user.is_active ?? true
+        }));
+        setEditingUsers(editableUsers);
       } else {
-        setError('Erreur lors de la récupération des utilisateurs');
+        setError('Format de réponse invalide');
       }
     } catch (error) {
+      console.error('[UsersPanel] Erreur lors de la récupération des utilisateurs:', error);
       setError('Erreur de connexion au serveur');
-      logService.error('Erreur lors de la récupération des utilisateurs', 'UsersPanel', { error });
     } finally {
       setLoading(false);
     }
@@ -81,7 +98,7 @@ const UsersPanel: React.FC = () => {
 
       if (user.isNew) {
         // Créer un nouvel utilisateur
-        const response = await adminService.createUser({
+        const newUser = await adminService.createUser({
           username: user.username,
           email: user.email,
           password: user.password || '',
@@ -89,9 +106,15 @@ const UsersPanel: React.FC = () => {
           is_active: user.is_active
         });
 
-        if (response.success) {
+        if (newUser) {
+          // Mettre à jour l'interface immédiatement avec le nouvel utilisateur
+          setEditingUsers(prev => prev.map(user => 
+            user.isNew && user.username === newUser.username ? 
+            { ...newUser, password: '', isNew: false } : user
+          ));
+          setUsers(prev => [...prev, newUser]);
+          
           setSuccess('Utilisateur créé avec succès');
-          await fetchUsers(); // Recharger la liste
         } else {
           setError('Erreur lors de la création de l\'utilisateur');
         }
@@ -109,16 +132,25 @@ const UsersPanel: React.FC = () => {
           updateData.password = user.password;
         }
 
-        const response = await adminService.updateUser(user.id!, updateData);
+        const updatedUser = await adminService.updateUser(user.id!, updateData);
 
-        if (response.success) {
+        if (updatedUser) {
+          // Mettre à jour l'interface immédiatement
+          setEditingUsers(prev => prev.map(user => 
+            user.id === updatedUser.id ? 
+            { ...user, ...updatedUser, password: '' } : user
+          ));
+          setUsers(prev => prev.map(user => 
+            user.id === updatedUser.id ? updatedUser : user
+          ));
+          
           setSuccess('Utilisateur mis à jour avec succès');
-          await fetchUsers(); // Recharger la liste
         } else {
           setError('Erreur lors de la mise à jour de l\'utilisateur');
         }
       }
     } catch (error) {
+      console.error('[UsersPanel] Erreur lors de la sauvegarde d\'utilisateur:', error);
       setError('Erreur de connexion au serveur');
       logService.error('Erreur lors de la sauvegarde d\'utilisateur', 'UsersPanel', { error, user });
     } finally {
@@ -130,15 +162,19 @@ const UsersPanel: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await adminService.deleteUser(userId);
-      if (response.success) {
-        setSuccess('Utilisateur supprimé avec succès');
-        await fetchUsers(); // Recharger la liste
-      } else {
-        setError('Erreur lors de la suppression de l\'utilisateur');
-      }
+      
+      // Supprimer l'utilisateur du backend
+      await adminService.deleteUser(userId);
+      
+      // Supprimer l'utilisateur de la liste locale immédiatement
+      setEditingUsers(prev => prev.filter(user => user.id !== userId));
+      setUsers(prev => prev.filter(user => user.id !== userId));
+      
+      setSuccess('Utilisateur supprimé avec succès');
+      
     } catch (error) {
-      setError('Erreur de connexion au serveur');
+      console.error('[UsersPanel] Erreur lors de la suppression d\'utilisateur:', error);
+      setError('Erreur lors de la suppression de l\'utilisateur');
       logService.error('Erreur lors de la suppression d\'utilisateur', 'UsersPanel', { error, userId });
     } finally {
       setLoading(false);
@@ -149,17 +185,28 @@ const UsersPanel: React.FC = () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await adminService.updateUser(userId, {
+      
+      // Mettre à jour le statut dans le backend
+      const updatedUser = await adminService.updateUser(userId, {
         is_active: !isActive
       });
-      if (response.success) {
+      
+      if (updatedUser) {
+        // Mettre à jour l'interface immédiatement
+        setEditingUsers(prev => prev.map(user => 
+          user.id === userId ? { ...user, is_active: !isActive } : user
+        ));
+        setUsers(prev => prev.map(user => 
+          user.id === userId ? { ...user, is_active: !isActive } : user
+        ));
+        
         setSuccess('Statut de l\'utilisateur mis à jour');
-        await fetchUsers(); // Recharger la liste
       } else {
         setError('Erreur lors de la mise à jour du statut');
       }
     } catch (error) {
-      setError('Erreur de connexion au serveur');
+      console.error('[UsersPanel] Erreur lors de la mise à jour du statut utilisateur:', error);
+      setError('Erreur lors de la mise à jour du statut');
       logService.error('Erreur lors de la mise à jour du statut utilisateur', 'UsersPanel', { error, userId });
     } finally {
       setLoading(false);
@@ -168,26 +215,38 @@ const UsersPanel: React.FC = () => {
 
   const updateEditingUser = (index: number, field: keyof EditableUser, value: any) => {
     const updatedUsers = [...editingUsers];
+    // S'assurer que l'utilisateur existe et initialiser les valeurs par défaut si nécessaire
+    if (!updatedUsers[index]) {
+      updatedUsers[index] = {
+        id: undefined,
+        username: '',
+        email: '',
+        password: '',
+        role: 'user',
+        is_active: true,
+        isNew: false
+      };
+    }
     updatedUsers[index] = { ...updatedUsers[index], [field]: value };
     setEditingUsers(updatedUsers);
   };
 
   const cancelEdit = (index: number) => {
-    if (editingUsers[index].isNew) {
+    if (editingUsers[index]?.isNew) {
       // Supprimer l'utilisateur en cours de création
       setEditingUsers(editingUsers.filter((_, i) => i !== index));
     } else {
       // Restaurer les valeurs originales
-      const originalUser = users.find(u => u.id === editingUsers[index].id);
+      const originalUser = users.find(u => u.id === editingUsers[index]?.id);
       if (originalUser) {
         const updatedUsers = [...editingUsers];
         updatedUsers[index] = {
           id: originalUser.id,
-          username: originalUser.username,
-          email: originalUser.email,
+          username: originalUser.username || '',
+          email: originalUser.email || '',
           password: '',
-          role: originalUser.role,
-          is_active: originalUser.is_active
+          role: originalUser.role || 'user',
+          is_active: originalUser.is_active ?? true
         };
         setEditingUsers(updatedUsers);
       }
@@ -201,8 +260,87 @@ const UsersPanel: React.FC = () => {
     }));
   };
 
+  // Fonction pour réinitialiser les filtres
+  const resetFilters = () => {
+    setFilters({
+      roles: ['guest', 'user', 'admin'],
+      status: ['active', 'inactive'],
+      search: ''
+    });
+  };
+
+  // Fonction pour filtrer les utilisateurs
+  const getFilteredUsers = () => {
+    return editingUsers.filter(user => {
+      // Filtre par rôle
+      if (filters.roles.length > 0 && !filters.roles.includes(user.role)) return false;
+      
+      // Filtre par statut
+      const userStatus = user.is_active ? 'active' : 'inactive';
+      if (filters.status.length > 0 && !filters.status.includes(userStatus)) return false;
+      
+      // Filtre par recherche textuelle
+      if (filters.search && !user.username.toLowerCase().includes(filters.search.toLowerCase()) && 
+          !user.email.toLowerCase().includes(filters.search.toLowerCase())) return false;
+      
+      return true;
+    });
+  };
+
   useEffect(() => {
+    // Charger les utilisateurs via API
     fetchUsers();
+    
+    // Écouter les événements de mise à jour des utilisateurs depuis le stream
+    const handleUsersUpdated = (event: CustomEvent) => {
+      const users = event.detail;
+      if (Array.isArray(users) && users.length > 0) {
+        setUsers(users);
+        // Initialiser les utilisateurs éditables
+        setEditingUsers(users.map(user => ({
+          id: user.id,
+          username: user.username || '',
+          email: user.email || '',
+          password: '',
+          role: user.role || 'user',
+          is_active: user.is_active ?? true
+        })));
+      }
+    };
+
+    const handleUsersRefreshNeeded = () => {
+      fetchUsers();
+    };
+
+    // Écouter les événements personnalisés
+    window.addEventListener('users-updated', handleUsersUpdated as EventListener);
+    window.addEventListener('users-refresh-needed', handleUsersRefreshNeeded);
+    
+    // Vérifier s'il y a des utilisateurs en cache au démarrage
+    try {
+      const cachedUsers = localStorage.getItem('admin-users-cache');
+      if (cachedUsers) {
+        const users = JSON.parse(cachedUsers);
+        if (Array.isArray(users) && users.length > 0) {
+          setUsers(users);
+          setEditingUsers(users.map(user => ({
+            id: user.id,
+            username: user.username || '',
+            email: user.email || '',
+            password: '',
+            role: user.role || 'user',
+            is_active: user.is_active ?? true
+          })));
+        }
+      }
+    } catch (error) {
+      console.error('[UsersPanel] Erreur lors du chargement du cache:', error);
+    }
+    
+    return () => {
+      window.removeEventListener('users-updated', handleUsersUpdated as EventListener);
+      window.removeEventListener('users-refresh-needed', handleUsersRefreshNeeded);
+    };
   }, []);
 
   useEffect(() => {
@@ -218,6 +356,32 @@ const UsersPanel: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [error]);
+
+  // Mettre à jour le compteur dans le cadre parent
+  useEffect(() => {
+    const usersCountElement = document.getElementById('users-count');
+    if (usersCountElement) {
+      usersCountElement.textContent = editingUsers.length.toString();
+    }
+  }, [editingUsers.length]);
+
+  // Fermer les dropdowns quand on clique ailleurs
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as Element;
+      if (!target.closest('.filter-dropdown')) {
+        setDropdownsOpen({
+          roles: false,
+          status: false
+        });
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
 
   const getRoleColor = (role: string) => {
     switch (role) {
@@ -246,16 +410,15 @@ const UsersPanel: React.FC = () => {
   };
 
   const isValidUser = (user: EditableUser) => {
-    return user.username.trim() !== '' && 
-           user.email.trim() !== '' && 
-           (user.isNew ? user.password.trim() !== '' : true);
+    return (user.username?.trim() || '') !== '' && 
+           (user.email?.trim() || '') !== '' && 
+           (user.isNew ? (user.password?.trim() || '') !== '' : true);
   };
 
   return (
     <div className="h-full overflow-y-auto p-6" style={{ backgroundColor: colors.background }}>
       <div className="max-w-6xl mx-auto space-y-6">
 
-        {/* En-tête */}
 
 
         {/* Messages d'erreur/succès */}
@@ -273,39 +436,231 @@ const UsersPanel: React.FC = () => {
           </div>
         )}
 
-        {/* Tableau des utilisateurs */}
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse" style={{ borderColor: colors.border }}>
-            <thead>
-              <tr style={{ backgroundColor: colors.surface }}>
-                <th className="p-3 text-left text-xs font-medium border-b" style={{ color: colors.text, borderColor: colors.border }}>
-                  Utilisateur
-                </th>
-                <th className="p-3 text-left text-xs font-medium border-b" style={{ color: colors.text, borderColor: colors.border }}>
-                  Email
-                </th>
-                <th className="p-3 text-left text-xs font-medium border-b" style={{ color: colors.text, borderColor: colors.border }}>
-                  Mot de passe
-                </th>
-                <th className="p-3 text-left text-xs font-medium border-b" style={{ color: colors.text, borderColor: colors.border }}>
-                  Rôle
-                </th>
-                <th className="p-3 text-left text-xs font-medium border-b" style={{ color: colors.text, borderColor: colors.border }}>
-                  Statut
-                </th>
-                <th className="p-3 text-left text-xs font-medium border-b" style={{ color: colors.text, borderColor: colors.border }}>
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {editingUsers.map((user, index) => (
-                <tr key={user.id || `new-${index}`} className="border-b" style={{ borderColor: colors.border }}>
+        {/* Section des filtres */}
+        <div className="flex items-center justify-between p-4 rounded-lg border" style={{ backgroundColor: colors.surface, borderColor: colors.border }}>
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-2">
+              <FunnelIcon className="h-4 w-4" style={{ color: colors.textSecondary }} />
+              <span className="text-sm font-medium" style={{ color: colors.text }}>Filtres</span>
+            </div>
+            
+            {/* Filtre par recherche */}
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Rechercher par nom ou email..."
+                value={filters.search}
+                onChange={(e) => setFilters(prev => ({ ...prev, search: e.target.value }))}
+                className="px-3 py-1 text-sm rounded border"
+                style={{
+                  backgroundColor: colors.background,
+                  borderColor: colors.border,
+                  color: colors.text,
+                }}
+              />
+            </div>
+
+            {/* Filtre par rôle */}
+            <div className="relative filter-dropdown">
+              <button
+                onClick={() => setDropdownsOpen(prev => ({ 
+                  status: false, 
+                  roles: !prev.roles 
+                }))}
+                className="inline-flex items-center px-2 py-1 rounded text-xs font-medium transition-all duration-300 ease-in-out hover:scale-110 active:scale-95"
+                style={{
+                  backgroundColor: 'transparent',
+                  border: `1px solid ${colors.border}`,
+                  color: colors.textSecondary
+                }}
+              >
+                <span className="text-xs mr-1">
+                  {filters.roles.length === 3 ? 'Tous les rôles' : 
+                   filters.roles.length === 0 ? 'Aucun rôle' :
+                   filters.roles.map(role => role.charAt(0).toUpperCase() + role.slice(1)).join(', ')}
+                </span>
+                <ChevronDownIcon className={`w-3 h-3 transition-transform ${dropdownsOpen.roles ? 'rotate-180' : ''}`} />
+              </button>
+              {dropdownsOpen.roles && (
+                <div className="absolute z-10 mt-1 w-48 rounded-md shadow-lg" style={{
+                  backgroundColor: colors.surface,
+                  border: `1px solid ${colors.border}`,
+                }}>
+                  <div className="py-1">
+                    {['guest', 'user', 'admin'].map(role => (
+                      <div 
+                        key={role} 
+                        className="flex items-center px-4 py-2 text-xs cursor-pointer transition-colors"
+                        style={{
+                          color: colors.text,
+                          backgroundColor: 'transparent'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = colors.hover.surface;
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={filters.roles.includes(role)}
+                          onChange={(e) => {
+                            setFilters(prev => ({
+                              ...prev,
+                              roles: e.target.checked
+                                ? [...prev.roles, role]
+                                : prev.roles.filter(r => r !== role)
+                            }));
+                          }}
+                          className="mr-2 h-3 w-3 rounded"
+                          style={{
+                            accentColor: colors.primary
+                          }}
+                        />
+                        <span className="text-xs font-medium">
+                          {role.charAt(0).toUpperCase() + role.slice(1)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Filtre par statut */}
+            <div className="relative filter-dropdown">
+              <button
+                onClick={() => setDropdownsOpen(prev => ({ 
+                  roles: false, 
+                  status: !prev.status 
+                }))}
+                className="inline-flex items-center px-2 py-1 rounded text-xs font-medium transition-all duration-300 ease-in-out hover:scale-110 active:scale-95"
+                style={{
+                  backgroundColor: 'transparent',
+                  border: `1px solid ${colors.border}`,
+                  color: colors.textSecondary
+                }}
+              >
+                <span className="text-xs mr-1">
+                  {filters.status.length === 2 ? 'Tous les statuts' : 
+                   filters.status.length === 0 ? 'Aucun statut' :
+                   filters.status.map(status => status === 'active' ? 'Actif' : 'Inactif').join(', ')}
+                </span>
+                <ChevronDownIcon className={`w-3 h-3 transition-transform ${dropdownsOpen.status ? 'rotate-180' : ''}`} />
+              </button>
+              {dropdownsOpen.status && (
+                <div className="absolute z-10 mt-1 w-48 rounded-md shadow-lg" style={{
+                  backgroundColor: colors.surface,
+                  border: `1px solid ${colors.border}`,
+                }}>
+                  <div className="py-1">
+                    {['active', 'inactive'].map(status => (
+                      <div 
+                        key={status} 
+                        className="flex items-center px-4 py-2 text-xs cursor-pointer transition-colors"
+                        style={{
+                          color: colors.text,
+                          backgroundColor: 'transparent'
+                        }}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.backgroundColor = colors.hover.surface;
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.backgroundColor = 'transparent';
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={filters.status.includes(status)}
+                          onChange={(e) => {
+                            setFilters(prev => ({
+                              ...prev,
+                              status: e.target.checked
+                                ? [...prev.status, status]
+                                : prev.status.filter(s => s !== status)
+                            }));
+                          }}
+                          className="mr-2 h-3 w-3 rounded"
+                          style={{
+                            accentColor: colors.primary
+                          }}
+                        />
+                        <span className="text-xs font-medium">
+                          {status === 'active' ? 'Actif' : 'Inactif'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Bouton réinitialiser */}
+            <div className="filter-dropdown">
+              <button
+                onClick={resetFilters}
+                className="inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95"
+                style={{
+                  backgroundColor: 'transparent',
+                  border: `1px solid ${colors.border}`,
+                  color: colors.textSecondary
+                }}
+              >
+                <XMarkIcon className="w-3 h-3 mr-1" />
+                Réinitialiser
+              </button>
+            </div>
+          </div>
+
+          {/* Compteur d'utilisateurs filtrés */}
+          <div className="text-sm" style={{ color: colors.textSecondary }}>
+            {getFilteredUsers().length} utilisateur{getFilteredUsers().length > 1 ? 's' : ''} trouvé{getFilteredUsers().length > 1 ? 's' : ''}
+          </div>
+        </div>
+
+        {/* Indicateur de chargement */}
+        {loading && (
+          <div className="text-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 mx-auto" style={{ borderColor: colors.primary }}></div>
+            <p className="mt-2" style={{ color: colors.textSecondary }}>Chargement des utilisateurs...</p>
+          </div>
+        )}
+
+        {/* Tableau des utilisateurs - toujours affiché */}
+        {!loading && (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse" style={{ borderColor: colors.border }}>
+              <thead>
+                <tr style={{ backgroundColor: colors.surface }}>
+                  <th className="p-3 text-left text-xs font-medium border-b" style={{ color: colors.text, borderColor: colors.border }}>
+                    Utilisateur
+                  </th>
+                  <th className="p-3 text-left text-xs font-medium border-b" style={{ color: colors.text, borderColor: colors.border }}>
+                    Email
+                  </th>
+                  <th className="p-3 text-left text-xs font-medium border-b" style={{ color: colors.text, borderColor: colors.border }}>
+                    Mot de passe
+                  </th>
+                  <th className="p-3 text-left text-xs font-medium border-b" style={{ color: colors.text, borderColor: colors.border }}>
+                    Rôle
+                  </th>
+                  <th className="p-3 text-left text-xs font-medium border-b" style={{ color: colors.text, borderColor: colors.border }}>
+                    Statut
+                  </th>
+                  <th className="p-3 text-left text-xs font-medium border-b" style={{ color: colors.text, borderColor: colors.border }}>
+                    Actions
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {getFilteredUsers().length > 0 ? getFilteredUsers().map((user, index) => (
+                  <tr key={user.id || `new-${index}`} className="border-b" style={{ borderColor: colors.border }}>
                   {/* Colonne Utilisateur */}
                   <td className="p-3">
                     <input
                       type="text"
-                      value={user.username}
+                      value={user.username || ''}
                       onChange={(e) => updateEditingUser(index, 'username', e.target.value)}
                       placeholder="Nom d'utilisateur"
                       className="w-full px-2 py-1 rounded border text-sm"
@@ -321,7 +676,7 @@ const UsersPanel: React.FC = () => {
                   <td className="p-3">
                     <input
                       type="email"
-                      value={user.email}
+                      value={user.email || ''}
                       onChange={(e) => updateEditingUser(index, 'email', e.target.value)}
                       placeholder="email@exemple.com"
                       className="w-full px-2 py-1 rounded border text-sm"
@@ -338,7 +693,7 @@ const UsersPanel: React.FC = () => {
                     <div className="relative">
                       <input
                         type={showPasswords[user.id || 0] ? "text" : "password"}
-                        value={user.password}
+                        value={user.password || ''}
                         onChange={(e) => updateEditingUser(index, 'password', e.target.value)}
                         placeholder={user.isNew ? "Mot de passe requis" : "Laisser vide pour ne pas changer"}
                         className="w-full px-2 py-1 pr-8 rounded border text-sm"
@@ -365,7 +720,7 @@ const UsersPanel: React.FC = () => {
                   {/* Colonne Rôle */}
                   <td className="p-3">
                     <select
-                      value={user.role}
+                      value={user.role || 'user'}
                       onChange={(e) => updateEditingUser(index, 'role', e.target.value)}
                       className="px-2 py-1 rounded border text-sm"
                       style={{
@@ -383,17 +738,18 @@ const UsersPanel: React.FC = () => {
                   {/* Colonne Statut */}
                   <td className="p-3">
                     <button
-                      onClick={() => updateEditingUser(index, 'is_active', !user.is_active)}
-                      className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
-                        user.is_active ? 'text-white' : ''
+                      onClick={() => toggleUserStatus(user.id!, user.is_active ?? true)}
+                      className={`px-3 py-1 rounded text-xs font-medium transition-all duration-200 hover:scale-105 active:scale-95 ${
+                        (user.is_active ?? true) ? 'text-white' : ''
                       }`}
                       style={{
-                        backgroundColor: user.is_active ? colors.success : 'transparent',
-                        color: user.is_active ? colors.background : colors.textSecondary,
-                        border: `1px solid ${user.is_active ? colors.success : colors.border}`,
+                        backgroundColor: (user.is_active ?? true) ? colors.success : 'transparent',
+                        color: (user.is_active ?? true) ? colors.background : colors.textSecondary,
+                        border: `1px solid ${(user.is_active ?? true) ? colors.success : colors.border}`,
                       }}
+                      title={(user.is_active ?? true) ? 'Cliquer pour désactiver' : 'Cliquer pour activer'}
                     >
-                      {user.is_active ? 'Actif' : 'Inactif'}
+                      {(user.is_active ?? true) ? '✅ Actif' : '❌ Inactif'}
                     </button>
                   </td>
 
@@ -444,13 +800,13 @@ const UsersPanel: React.FC = () => {
                             <XMarkIcon className="h-4 w-4" />
                           </button>
                           <button
-                            onClick={() => toggleUserStatus(user.id!, user.is_active)}
+                            onClick={() => toggleUserStatus(user.id!, user.is_active ?? true)}
                             disabled={loading}
                             className="p-1 rounded transition-colors disabled:opacity-50"
-                            style={{ color: user.is_active ? colors.warning : colors.success }}
-                            title={user.is_active ? 'Désactiver' : 'Activer'}
+                            style={{ color: (user.is_active ?? true) ? colors.warning : colors.success }}
+                            title={(user.is_active ?? true) ? 'Désactiver' : 'Activer'}
                           >
-                            {user.is_active ? (
+                            {(user.is_active ?? true) ? (
                               <XMarkIcon className="h-4 w-4" />
                             ) : (
                               <CheckCircleIcon className="h-4 w-4" />
@@ -469,17 +825,24 @@ const UsersPanel: React.FC = () => {
                       )}
                     </div>
                   </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Message si aucun utilisateur */}
-        {editingUsers.length === 0 && !loading && (
-          <div className="text-center py-8">
-            <UserIcon className="h-12 w-12 mx-auto mb-4" style={{ color: colors.textSecondary }} />
-            <p style={{ color: colors.textSecondary }}>Aucun utilisateur trouvé</p>
+                  </tr>
+                )) : (
+                  <tr>
+                    <td colSpan={6} className="p-8 text-center">
+                      <UserIcon className="h-12 w-12 mx-auto mb-4" style={{ color: colors.textSecondary }} />
+                      <p style={{ color: colors.textSecondary }}>
+                        {editingUsers.length === 0 ? 'Aucun utilisateur trouvé' : 'Aucun utilisateur ne correspond aux filtres'}
+                      </p>
+                      {editingUsers.length > 0 && (
+                        <p className="text-xs mt-2" style={{ color: colors.textSecondary }}>
+                          Essayez de modifier vos filtres ou de réinitialiser la recherche
+                        </p>
+                      )}
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
           </div>
         )}
       </div>

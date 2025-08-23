@@ -1,5 +1,6 @@
 import { useBackendConnection } from '../hooks/useBackendConnection';
 import { logService } from './logService';
+import { globalCache } from '../utils/cacheUtils';
 
 // Service de base pour les fichiers
 const baseFileService = {
@@ -50,45 +51,121 @@ const baseFileService = {
   }
 };
 
-// Hook pour utiliser le service avec guards de connexion
+// Hook pour utiliser le service avec cache (fonctionne pour tous les utilisateurs)
 export const useFileService = () => {
-  const { conditionalRequest } = useBackendConnection();
+  const { isOnline } = useBackendConnection();
+
+  // Fonction pour récupérer les données du cache
+  const getCachedData = (key: string) => {
+    return globalCache.get(key);
+  };
+
+  // Fonction pour sauvegarder les données en cache
+  const saveToCache = (key: string, data: any) => {
+    globalCache.set(key, data, 300000); // Cache pour 5 minutes
+  };
 
   return {
-    getDrives: () => conditionalRequest(
-      () => baseFileService.getDrives(),
-      [] // Fallback: liste vide
-    ),
+    getDrives: async () => {
+      try {
+        if (isOnline) {
+          const drives = await baseFileService.getDrives();
+          saveToCache('drives', drives);
+          return drives;
+        } else {
+          return getCachedData('drives') || [];
+        }
+      } catch (error) {
+        logService.warning('Erreur lors du chargement des disques, utilisation du cache', 'FileService', { error });
+        return getCachedData('drives') || [];
+      }
+    },
 
-    listDirectory: (directory: string) => conditionalRequest(
-      () => baseFileService.listDirectory(directory),
-      { files: [], directories: [], error: 'Backend déconnecté' }
-    ),
+    listDirectory: async (directory: string) => {
+      try {
+        if (isOnline) {
+          const data = await baseFileService.listDirectory(directory);
+          saveToCache(`directory_${directory}`, data);
+          return data;
+        } else {
+          return getCachedData(`directory_${directory}`) || { files: [], directories: [], error: 'Données en cache' };
+        }
+      } catch (error) {
+        logService.warning('Erreur lors du chargement du répertoire, utilisation du cache', 'FileService', { error, directory });
+        return getCachedData(`directory_${directory}`) || { files: [], directories: [], error: 'Données en cache' };
+      }
+    },
 
-    analyzeDirectory: (directoryPath: string) => conditionalRequest(
-      () => baseFileService.analyzeDirectory(directoryPath),
-      { success: false, error: 'Backend déconnecté' }
-    ),
+    analyzeDirectory: async (directoryPath: string) => {
+      try {
+        if (isOnline) {
+          const data = await baseFileService.analyzeDirectory(directoryPath);
+          saveToCache(`analyze_${directoryPath}`, data);
+          return data;
+        } else {
+          return getCachedData(`analyze_${directoryPath}`) || { success: false, error: 'Données en cache' };
+        }
+      } catch (error) {
+        logService.warning('Erreur lors de l\'analyse du répertoire, utilisation du cache', 'FileService', { error, directoryPath });
+        return getCachedData(`analyze_${directoryPath}`) || { success: false, error: 'Données en cache' };
+      }
+    },
 
-    analyzeDirectorySupported: (directoryPath: string) => conditionalRequest(
-      () => baseFileService.analyzeDirectorySupported(directoryPath),
-      { success: false, error: 'Backend déconnecté' }
-    ),
+    analyzeDirectorySupported: async (directoryPath: string) => {
+      try {
+        if (isOnline) {
+          const data = await baseFileService.analyzeDirectorySupported(directoryPath);
+          saveToCache(`analyze_supported_${directoryPath}`, data);
+          return data;
+        } else {
+          return getCachedData(`analyze_supported_${directoryPath}`) || { success: false, error: 'Données en cache' };
+        }
+      } catch (error) {
+        logService.warning('Erreur lors de l\'analyse des formats supportés, utilisation du cache', 'FileService', { error, directoryPath });
+        return getCachedData(`analyze_supported_${directoryPath}`) || { success: false, error: 'Données en cache' };
+      }
+    },
 
-    getDirectoryFiles: (directoryPath: string) => conditionalRequest(
-      () => baseFileService.getDirectoryFiles(directoryPath),
-      { files: [], error: 'Backend déconnecté' }
-    ),
+    getDirectoryFiles: async (directoryPath: string) => {
+      try {
+        if (isOnline) {
+          const data = await baseFileService.getDirectoryFiles(directoryPath);
+          saveToCache(`files_${directoryPath}`, data);
+          return data;
+        } else {
+          return getCachedData(`files_${directoryPath}`) || { files: [], error: 'Données en cache' };
+        }
+      } catch (error) {
+        logService.warning('Erreur lors du chargement des fichiers, utilisation du cache', 'FileService', { error, directoryPath });
+        return getCachedData(`files_${directoryPath}`) || { files: [], error: 'Données en cache' };
+      }
+    },
 
-    streamByPath: (path: string) => conditionalRequest(
-      () => baseFileService.streamByPath(path),
-      null
-    ),
+    streamByPath: async (path: string) => {
+      if (!isOnline) {
+        logService.warning('Stream non disponible hors ligne', 'FileService', { path });
+        return null;
+      }
+      try {
+        return await baseFileService.streamByPath(path);
+      } catch (error) {
+        logService.error('Erreur lors du stream', 'FileService', { error, path });
+        return null;
+      }
+    },
 
-    downloadFile: (downloadUrl: string) => conditionalRequest(
-      () => baseFileService.downloadFile(downloadUrl),
-      null
-    )
+    downloadFile: async (downloadUrl: string) => {
+      if (!isOnline) {
+        logService.warning('Téléchargement non disponible hors ligne', 'FileService', { downloadUrl });
+        return null;
+      }
+      try {
+        return await baseFileService.downloadFile(downloadUrl);
+      } catch (error) {
+        logService.error('Erreur lors du téléchargement', 'FileService', { error, downloadUrl });
+        return null;
+      }
+    }
   };
 };
 

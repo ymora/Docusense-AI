@@ -49,8 +49,10 @@ async def stream_backend_logs():
             
             # Stream des nouveaux logs
             last_log_count = len(recent_logs)
+            heartbeat_counter = 0
             while True:
-                await asyncio.sleep(1)  # Vérifier toutes les secondes
+                await asyncio.sleep(5)  # Vérifier toutes les 5 secondes au lieu de 1
+                heartbeat_counter += 1
                 
                 current_logs = frontend_handler.get_recent_logs(100)
                 if len(current_logs) > last_log_count:
@@ -60,8 +62,10 @@ async def stream_backend_logs():
                         yield f"data: {json.dumps(log, ensure_ascii=False)}\n\n"
                     last_log_count = len(current_logs)
                 
-                # Keep-alive
-                yield f"data: {json.dumps({'type': 'keepalive', 'timestamp': datetime.now().isoformat()})}\n\n"
+                # Keep-alive seulement toutes les 30 secondes (6 * 5 secondes)
+                if heartbeat_counter >= 6:
+                    yield f"data: {json.dumps({'type': 'keepalive', 'timestamp': datetime.now().isoformat()})}\n\n"
+                    heartbeat_counter = 0
                 
         except Exception as e:
             error_data = {

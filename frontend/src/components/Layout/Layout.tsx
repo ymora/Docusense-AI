@@ -14,7 +14,7 @@ import useAuthStore from '../../stores/authStore';
 import { logService } from '../../services/logService';
 import { SunIcon, MoonIcon } from '@heroicons/react/24/outline';
 import { useThemeSync } from '../../hooks/useThemeSync';
-import { useBackendConnection } from '../../hooks/useBackendConnection';
+
 import { BackendStatusIndicator } from '../UI/BackendStatusIndicator';
 
 
@@ -34,40 +34,15 @@ const Layout: React.FC = () => {
   // Utiliser le système centralisé de gestion du thème
   const { theme, toggleTheme, isDark } = useThemeSync();
   
-  // Hook pour gérer la connexion backend
-  const { 
-    isConnected: backendConnected, 
-    isLoading: backendLoading, 
-    forceCheck,
-    checkBackendOnce 
-  } = useBackendConnection();
-  
-  const [backendStatus, setBackendStatus] = useState<boolean | null>(null);
-  
   // États pour l'authentification (maintenant géré par le store)
   
   // États pour les actions de fichiers
 
   
 
-
   // L'application est maintenant initialisée automatiquement via le hook useStartupInitialization
 
   // L'authentification est maintenant gérée par le store useAuthStore
-
-  // Vérifier le statut du backend au chargement de la page de connexion
-  useEffect(() => {
-    if (!isAuthenticated) {
-      const checkBackend = async () => {
-        const isOnline = await checkBackendOnce();
-        setBackendStatus(isOnline);
-      };
-      checkBackend();
-    } else {
-      // Utiliser le statut du hook quand authentifié
-      setBackendStatus(backendConnected);
-    }
-  }, [isAuthenticated, checkBackendOnce, backendConnected]);
 
 
 
@@ -666,28 +641,18 @@ const Layout: React.FC = () => {
                 <div className="space-y-4">
                   {/* Connexion utilisateur - Bouton principal */}
                   <button
-                    onClick={async () => {
-                      // Forcer une vérification immédiate du backend
-                      await forceCheck();
+                    onClick={() => {
                       window.dispatchEvent(new CustomEvent('openLoginModal'));
                     }}
-                    disabled={!backendStatus || backendLoading}
-                    className={`w-full flex items-center justify-center space-x-3 px-6 py-4 rounded-lg transition-all duration-300 font-semibold text-base ${
-                      backendStatus && !backendLoading 
-                        ? 'hover:scale-[1.02] active:scale-[0.98]' 
-                        : 'opacity-50 cursor-not-allowed'
-                    }`}
+                    className="w-full flex items-center justify-center space-x-3 px-6 py-4 rounded-lg transition-all duration-300 font-semibold text-base hover:scale-[1.02] active:scale-[0.98]"
                     style={{
-                      backgroundColor: backendStatus && !backendLoading ? colors.primary : colors.border,
+                      backgroundColor: colors.primary,
                       color: 'white',
-                      boxShadow: backendStatus && !backendLoading ? `0 4px 14px 0 ${colors.primary}40` : 'none',
+                      boxShadow: `0 4px 14px 0 ${colors.primary}40`,
                     }}
                   >
                     <span className="text-lg">👤</span>
-                    <span>
-                      {backendLoading ? 'Vérification...' : 
-                       backendStatus ? 'Se connecter' : 'Backend indisponible'}
-                    </span>
+                    <span>Se connecter</span>
                   </button>
                   
                   {/* Connexion invité - Bouton secondaire */}
@@ -696,23 +661,15 @@ const Layout: React.FC = () => {
                       // La méthode loginAsGuest gère maintenant le mode local automatiquement
                       await useAuthStore.getState().loginAsGuest();
                     }}
-                    disabled={!backendStatus || backendLoading}
-                    className={`w-full flex items-center justify-center space-x-3 px-6 py-4 rounded-lg transition-all duration-300 font-medium text-base ${
-                      backendStatus && !backendLoading 
-                        ? 'hover:scale-[1.02] active:scale-[0.98]' 
-                        : 'opacity-50 cursor-not-allowed'
-                    }`}
+                    className="w-full flex items-center justify-center space-x-3 px-6 py-4 rounded-lg transition-all duration-300 font-medium text-base hover:scale-[1.02] active:scale-[0.98]"
                     style={{
                       backgroundColor: 'transparent',
-                      border: `2px solid ${backendStatus && !backendLoading ? colors.border : colors.border}`,
-                      color: backendStatus && !backendLoading ? colors.text : colors.textSecondary,
+                      border: `2px solid ${colors.border}`,
+                      color: colors.text,
                     }}
                   >
                     <span className="text-lg">👁️</span>
-                    <span>
-                      {backendLoading ? 'Vérification...' : 
-                       backendStatus ? 'Mode invité' : 'Indisponible'}
-                    </span>
+                    <span>Mode invité</span>
                   </button>
                   
                   {/* Séparateur */}
@@ -729,27 +686,17 @@ const Layout: React.FC = () => {
                   
                   {/* Inscription - Bouton tertiaire */}
                   <button
-                    onClick={async () => {
-                      // Forcer une vérification immédiate du backend
-                      await forceCheck();
+                    onClick={() => {
                       window.dispatchEvent(new CustomEvent('openRegisterModal'));
                     }}
-                    disabled={!backendStatus || backendLoading}
-                    className={`w-full flex items-center justify-center space-x-3 px-6 py-3 rounded-lg transition-all duration-300 font-medium text-sm ${
-                      backendStatus && !backendLoading 
-                        ? 'hover:bg-opacity-80' 
-                        : 'opacity-50 cursor-not-allowed'
-                    }`}
+                    className="w-full flex items-center justify-center space-x-3 px-6 py-3 rounded-lg transition-all duration-300 font-medium text-sm hover:bg-opacity-80"
                     style={{
                       backgroundColor: 'transparent',
-                      color: backendStatus && !backendLoading ? colors.textSecondary : colors.textSecondary,
+                      color: colors.textSecondary,
                     }}
                   >
                     <span className="text-base">➕</span>
-                    <span>
-                      {backendLoading ? 'Vérification...' : 
-                       backendStatus ? 'Créer un compte' : 'Indisponible'}
-                    </span>
+                    <span>Créer un compte</span>
                   </button>
                 </div>
                 

@@ -71,28 +71,29 @@ export const useAuthReload = () => {
                 } else if (message.type === 'analysis_update') {
                   // Mettre à jour une analyse spécifique
                   const { analysis } = message;
-                useAnalysisStore.setState((state) => {
-                  const existingIndex = state.analyses.findIndex(a => a.id === analysis.id);
-                  if (existingIndex >= 0) {
-                    const newAnalyses = [...state.analyses];
-                    newAnalyses[existingIndex] = analysis;
-                    return { analyses: newAnalyses };
-                  } else {
-                    return { analyses: [...state.analyses, analysis] };
-                  }
-                });
+                  useAnalysisStore.setState((state) => {
+                    const existingIndex = state.analyses.findIndex(a => a.id === analysis.id);
+                    if (existingIndex >= 0) {
+                      const newAnalyses = [...state.analyses];
+                      newAnalyses[existingIndex] = analysis;
+                      return { analyses: newAnalyses };
+                    } else {
+                      return { analyses: [...state.analyses, analysis] };
+                    }
+                  });
+                }
               } catch (error) {
                 logService.error('Erreur lors du traitement du message analyses', 'AuthReload', { error, message });
               }
             },
             onError: (error) => {
               logService.error('Erreur stream analyses', 'AuthReload', { error: error.type });
-              // Attendre un peu avant le fallback pour éviter les requêtes simultanées
-              setTimeout(() => {
+              // Fallback rapide pour éviter les violations de performance
+              requestIdleCallback(() => {
                 loadAnalyses().catch(err => 
                   logService.warning('Impossible de charger les analyses via API', 'AuthReload', { error: err.message })
                 );
-              }, 2000);
+              });
             }
           });
 
@@ -115,12 +116,12 @@ export const useAuthReload = () => {
             },
             onError: (error) => {
               logService.error('Erreur stream config', 'AuthReload', { error: error.type });
-              // Attendre un peu avant le fallback pour éviter les requêtes simultanées
-              setTimeout(() => {
+              // Fallback rapide pour éviter les violations de performance
+              requestIdleCallback(() => {
                 loadAIProviders().catch(err => 
                   logService.warning('Impossible de charger la config via API', 'AuthReload', { error: err.message })
                 );
-              }, 2000);
+              });
             }
           });
 
@@ -148,11 +149,33 @@ export const useAuthReload = () => {
             }
           });
 
+          // Stream des métriques système
+          streamService.startStream('system', {
+            onMessage: (message) => {
+              if (message.type === 'system_initial') {
+                logService.info('Données système initiales reçues via stream', 'AuthReload');
+              } else if (message.type === 'system_update') {
+                logService.debug('Mise à jour système reçue via stream', 'AuthReload');
+              }
+            },
+            onError: (error) => {
+              logService.error('Erreur stream système', 'AuthReload', { error: error.type });
+            }
+          });
+
           // Stream des utilisateurs
           streamService.startStream('users', {
             onMessage: (message) => {
-              if (message.type === 'user_event') {
-                logService.info('Événement utilisateur reçu', 'AuthReload', { event: message.event });
+              if (message.type === 'users_initial') {
+                // Stocker les utilisateurs dans un store global ou localStorage pour les composants admin
+                const users = message.users || [];
+                localStorage.setItem('admin-users-cache', JSON.stringify(users));
+                
+                // Émettre un événement personnalisé pour notifier les composants
+                window.dispatchEvent(new CustomEvent('users-updated', { detail: users }));
+              } else if (message.type === 'user_event') {
+                // Recharger les utilisateurs après un événement
+                window.dispatchEvent(new CustomEvent('users-refresh-needed'));
               }
             },
             onError: (error) => {
@@ -163,9 +186,7 @@ export const useAuthReload = () => {
           // Stream des fichiers
           streamService.startStream('files', {
             onMessage: (message) => {
-              if (message.type === 'file_event') {
-                logService.info('Événement fichier reçu', 'AuthReload', { event: message.event });
-              }
+              // Gestion silencieuse des événements fichiers
             },
             onError: (error) => {
               logService.error('Erreur stream files', 'AuthReload', { error: error.type });
@@ -174,8 +195,6 @@ export const useAuthReload = () => {
 
           // Redémarrer le stream SSE des logs backend
           logService.restartBackendLogStream();
-          
-          logService.info('Tous les streams SSE démarrés avec succès', 'AuthReload');
         } catch (error) {
           logService.error('Erreur lors du démarrage des streams SSE', 'AuthReload', {
             error: error instanceof Error ? error.message : String(error)
@@ -215,7 +234,7 @@ export const useAuthReload = () => {
     }
   }, [isAuthenticated, isOnline, consecutiveFailures, logout]);
 
-  // Vérification périodique de la validité du token
+  // Vérification périodique de la validité du token (réduite à 5 minutes)
   useEffect(() => {
     if (!isAuthenticated) return;
 
@@ -224,7 +243,7 @@ export const useAuthReload = () => {
         logService.warning('Token d\'authentification expiré, déconnexion automatique', 'AuthReload');
         logout();
       }
-    }, 60000); // Vérifier toutes les minutes
+    }, 300000); // Vérifier toutes les 5 minutes au lieu de 1 minute
 
     return () => clearInterval(checkTokenInterval);
   }, [isAuthenticated, logout]);

@@ -149,7 +149,8 @@ class LogService {
             this.notifyListeners();
           } else if (data.type === 'heartbeat' || data.type === 'keepalive') {
             // OPTIMISATION: Traitement des heartbeats pour maintenir la connexion
-            console.debug('💓 Heartbeat SSE reçu:', data.count || data.timestamp);
+            // Réduire les logs de debug des heartbeats (trop fréquents)
+            // console.debug('💓 Heartbeat SSE reçu:', data.count || data.timestamp);
           }
         } catch (error) {
           console.error('Erreur parsing SSE logs backend:', error);

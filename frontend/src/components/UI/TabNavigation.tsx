@@ -121,7 +121,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({ activePanel, onTabChange 
     <div
       className="flex items-center p-4 border-b"
       style={{
-        backgroundColor: colors.surface,
+        backgroundColor: 'transparent',
         borderBottomColor: colors.border,
       }}
     >
@@ -138,12 +138,12 @@ const TabNavigation: React.FC<TabNavigationProps> = ({ activePanel, onTabChange 
               className={`tab-button flex items-center space-x-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200 ${
                 isActive 
                   ? 'shadow-sm' 
-                  : 'hover:bg-slate-700/50'
+                  : 'hover:opacity-80'
               }`}
               style={{
-                backgroundColor: isActive ? colors.primary : 'transparent',
-                color: isActive ? colors.background : colors.textSecondary,
-                border: isActive ? `1px solid ${colors.primary}` : '1px solid transparent',
+                backgroundColor: 'transparent',
+                color: isActive ? colors.primary : colors.textSecondary,
+                border: `1px solid ${isActive ? colors.primary : colors.border}`,
               }}
               title={tab.description}
               aria-label={`Onglet ${tab.label}`}

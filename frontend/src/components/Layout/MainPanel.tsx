@@ -38,6 +38,7 @@ import APIDocsPanel from '../Admin/APIDocsPanel';
 import { useUIStore } from '../../stores/uiStore';
 import { useStartupInitialization } from '../../hooks/useStartupInitialization';
 import useAuthStore from '../../stores/authStore';
+import { UserIcon } from '../UI/UserIcon';
 
 
 interface MainPanelProps {
@@ -337,14 +338,24 @@ const MainPanel: React.FC<MainPanelProps> = ({
     >
       {/* Panneau haut (fixe) */}
       <div className="flex-shrink-0">
-        {/* TabNavigation (onglets) */}
-        <TabNavigation 
-          activePanel={activePanel} 
-          onTabChange={onSetActivePanel} 
-        />
+        {/* Header avec navigation et bouton utilisateur */}
+        <div className="flex items-center justify-between p-4 border-b" style={{ borderColor: colors.border }}>
+          {/* TabNavigation (onglets) */}
+          <div className="flex-1">
+            <TabNavigation 
+              activePanel={activePanel} 
+              onTabChange={onSetActivePanel} 
+            />
+          </div>
+          
+          {/* Bouton utilisateur aligné à droite */}
+          <div className="ml-4">
+            <UserIcon />
+          </div>
+        </div>
         
         {/* Description dynamique */}
-        <div className="p-4 border-b" style={{ borderColor: colors.border }}>
+        <div className="p-4" style={{ borderColor: colors.border }}>
           {activePanel === 'queue' && (
             <>
               <h1 className="text-xl font-bold" style={{ color: colors.text }}>
@@ -394,12 +405,20 @@ const MainPanel: React.FC<MainPanelProps> = ({
           )}
           {activePanel === 'users' && (
             <>
-              <h1 className="text-xl font-bold" style={{ color: colors.text }}>
-                Gestion des Utilisateurs
-              </h1>
-              <p className="text-sm" style={{ color: colors.textSecondary }}>
-                Administration des comptes utilisateurs et permissions
-              </p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-xl font-bold" style={{ color: colors.text }}>
+                    Gestion des Utilisateurs
+                  </h1>
+                  <p className="text-sm" style={{ color: colors.textSecondary }}>
+                    Administration des comptes utilisateurs et permissions
+                  </p>
+                </div>
+                <div className="text-sm px-3 py-1 rounded-full" style={{ backgroundColor: colors.primary + '20', color: colors.primary }}>
+                  {/* Le nombre d'utilisateurs sera injecté ici via un store ou prop */}
+                  <span id="users-count">-</span> utilisateur(s) trouvé(s)
+                </div>
+              </div>
             </>
           )}
           {activePanel === 'viewer' && (

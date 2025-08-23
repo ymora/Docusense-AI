@@ -246,16 +246,26 @@ async def get_system_performance(
         )
     
     try:
-        # Métriques de performance simulées (à remplacer par de vraies métriques)
+        # Métriques de performance réelles
+        from ..core.cache import cache
+        
+        # Récupérer les vraies statistiques du cache
+        cache_stats = cache.get_stats() if hasattr(cache, 'get_stats') else {}
+        
+        # Calculer les métriques réelles
+        active_connections = len([conn for conn in psutil.net_connections() if conn.status == 'ESTABLISHED'])
+        
         performance_data = {
-            "requests_per_second": round(psutil.cpu_percent() / 10, 2),  # Simulation basée sur CPU
-            "avg_response_time": round(100 + (psutil.memory_percent() * 2), 0),  # Simulation basée sur mémoire
-            "active_connections": len(psutil.net_connections()),
+            "requests_per_second": cache_stats.get('requests_per_second', 0),
+            "avg_response_time": cache_stats.get('avg_response_time', 0),
+            "active_connections": active_connections,
             "cpu_percent": psutil.cpu_percent(interval=1),
             "memory_percent": psutil.virtual_memory().percent,
             "disk_usage_percent": (psutil.disk_usage('/').used / psutil.disk_usage('/').total) * 100,
             "uptime": time.time() - psutil.boot_time(),
             "process_count": len(psutil.pids()),
+            "cache_hits": cache_stats.get('hits', 0),
+            "cache_misses": cache_stats.get('misses', 0),
             "timestamp": datetime.now().isoformat()
         }
         
