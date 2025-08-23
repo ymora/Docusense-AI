@@ -7,7 +7,7 @@ import { useColors } from '../../hooks/useColors';
 import { formatFileSize } from '../../utils/fileUtils';
 import { getFileType } from '../../utils/fileTypeUtils';
 import { isSupportedFormat } from '../../utils/mediaFormats';
-import { useFileService } from '../../hooks/useFileService';
+import { useFileService } from '../../services/fileService';
 
 import {
   Cog6ToothIcon,
@@ -37,7 +37,7 @@ import APIDocsPanel from '../Admin/APIDocsPanel';
 import { useUIStore } from '../../stores/uiStore';
 import { useStartupInitialization } from '../../hooks/useStartupInitialization';
 import useAuthStore from '../../stores/authStore';
-import { BackendOfflineMessage } from '../UI/BackendOfflineMessage';
+
 
 interface MainPanelProps {
   activePanel: 'viewer' | 'queue' | 'logs' | 'system' | 'ai-config' | 'users' | 'api-docs';
@@ -93,7 +93,6 @@ const MainPanel: React.FC<MainPanelProps> = ({
   const getViewerComponent = () => {
     return (
       <div className="flex-1 flex flex-col overflow-hidden">
-        <BackendOfflineMessage panel="viewer" />
         
         {!selectedFile && selectedFiles.length === 0 ? (
           <div className="flex-1 flex items-center justify-center p-8">

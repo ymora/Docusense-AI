@@ -29,7 +29,8 @@ active_connections: Dict[str, List[asyncio.Queue]] = {
     'config': [],
     'users': [],
     'files': [],
-    'logs': []
+    'logs': [],
+    'admin': []
 }
 
 def add_connection(stream_type: str, queue: asyncio.Queue):
@@ -276,6 +277,71 @@ async def stream_files(db: Session = Depends(get_db)):
         }
     )
 
+@router.get("/admin")
+@APIUtils.monitor_api_performance
+async def stream_admin(db: Session = Depends(get_db)):
+    """
+    Stream des événements d'administration en temps réel
+    """
+    async def admin_stream():
+        queue = asyncio.Queue()
+        add_connection('admin', queue)
+        
+        try:
+            # Envoyer les données initiales d'administration
+            from ..services.auth_service import AuthService
+            from ..services.system_service import SystemService
+            
+            auth_service = AuthService(db)
+            system_service = SystemService(db)
+            
+            # Données initiales
+            initial_data = {
+                "type": "admin_initial",
+                "timestamp": datetime.now().isoformat(),
+                "data": {
+                    "users_count": len(auth_service.get_all_users()),
+                    "system_info": system_service.get_system_info() if hasattr(system_service, 'get_system_info') else {},
+                    "active_connections": len(active_connections.get('admin', []))
+                }
+            }
+            yield f"data: {json.dumps(initial_data, ensure_ascii=False)}\n\n"
+            
+            # Stream des événements d'administration
+            while True:
+                try:
+                    message = await asyncio.wait_for(queue.get(), timeout=30.0)
+                    yield message
+                except asyncio.TimeoutError:
+                    # Keep-alive
+                    keepalive_data = {
+                        "type": "keepalive",
+                        "timestamp": datetime.now().isoformat(),
+                        "stream": "admin"
+                    }
+                    yield f"data: {json.dumps(keepalive_data, ensure_ascii=False)}\n\n"
+                    
+        except Exception as e:
+            error_data = {
+                "type": "error",
+                "message": f"Erreur dans le stream admin: {str(e)}",
+                "timestamp": datetime.now().isoformat()
+            }
+            yield f"data: {json.dumps(error_data, ensure_ascii=False)}\n\n"
+        finally:
+            remove_connection('admin', queue)
+    
+    return StreamingResponse(
+        admin_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "Access-Control-Allow-Origin": "*",
+            "Access-Control-Allow-Headers": "Cache-Control"
+        }
+    )
+
 # Fonctions utilitaires pour diffuser des événements
 async def broadcast_analysis_update(analysis_data: Dict[str, Any]):
     """Diffuser une mise à jour d'analyse"""
@@ -307,4 +373,29 @@ async def broadcast_file_event(event_data: Dict[str, Any]):
         "type": "file_event",
         "timestamp": datetime.now().isoformat(),
         "event": event_data
+    })
+
+async def broadcast_admin_event(event_data: Dict[str, Any]):
+    """Diffuser un événement d'administration"""
+    await broadcast_to_stream('admin', {
+        "type": "admin_event",
+        "timestamp": datetime.now().isoformat(),
+        "event": event_data
+    })
+
+async def broadcast_user_management_event(event_type: str, user_data: Dict[str, Any]):
+    """Diffuser un événement de gestion d'utilisateur"""
+    await broadcast_to_stream('admin', {
+        "type": "user_management",
+        "event_type": event_type,
+        "timestamp": datetime.now().isoformat(),
+        "user": user_data
+    })
+
+async def broadcast_system_metrics_update(metrics_data: Dict[str, Any]):
+    """Diffuser une mise à jour des métriques système"""
+    await broadcast_to_stream('admin', {
+        "type": "system_metrics_update",
+        "timestamp": datetime.now().isoformat(),
+        "metrics": metrics_data
     })

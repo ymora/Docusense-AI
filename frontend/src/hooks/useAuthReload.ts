@@ -59,18 +59,44 @@ export const useAuthReload = () => {
               if (message.type === 'config_initial') {
                 // Charger la configuration initiale depuis le stream
                 const providers = message.providers || [];
-                useConfigStore.setState({ aiProviders: providers, isInitialized: true });
+                useConfigStore.setState({ aiProviders: providers });
                 logService.info(`Configuration IA chargée via stream: ${providers.length} providers`, 'AuthReload');
               } else if (message.type === 'config_update') {
                 // Mettre à jour la configuration
                 const { config } = message;
-                useConfigStore.setState({ aiProviders: config.providers || [] });
+                useConfigStore.setState((state) => ({
+                  aiProviders: config.providers || state.aiProviders
+                }));
               }
             },
             onError: (error) => {
               logService.error('Erreur stream config', 'AuthReload', { error: error.type });
             }
           });
+
+          // Stream des événements d'administration
+          streamService.startStream('admin', {
+            onMessage: (message) => {
+              if (message.type === 'admin_initial') {
+                // Charger les données initiales d'administration
+                const { data } = message;
+                logService.info(`Données admin initiales chargées via stream: ${data.users_count} utilisateurs`, 'AuthReload');
+              } else if (message.type === 'user_management') {
+                // Mettre à jour la liste des utilisateurs
+                const { event_type, user } = message;
+                logService.info(`Événement utilisateur reçu: ${event_type}`, 'AuthReload', { user });
+                // Ici on pourrait mettre à jour un store d'utilisateurs si nécessaire
+              } else if (message.type === 'system_metrics_update') {
+                // Mettre à jour les métriques système
+                const { metrics } = message;
+                logService.info('Métriques système mises à jour via stream', 'AuthReload', { metrics });
+                // Ici on pourrait mettre à jour un store de métriques système
+              }
+            },
+            onError: (error) => {
+              logService.error('Erreur stream admin', 'AuthReload', { error: error.type });
+            }
+
 
           // Stream des utilisateurs
           streamService.startStream('users', {

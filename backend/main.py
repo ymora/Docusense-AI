@@ -21,7 +21,7 @@ from app.middleware.log_requests import LoggingMiddleware as OldLoggingMiddlewar
 from app.middleware.logging_middleware import LoggingMiddleware
 from app.api import (
     analysis_router, auth_router, config_router, download_router, emails_router, files_router, health_router, 
-    monitoring_router, multimedia_router, prompts_router, video_converter_router, secure_streaming_router, pdf_files_router, logs_router, streams_router
+    monitoring_router, multimedia_router, prompts_router, video_converter_router, secure_streaming_router, pdf_files_router, logs_router, streams_router, admin_router
 )
 from app.api.system_logs import router as system_logs_router
 from app.api.database import router as database_router
@@ -155,6 +155,7 @@ app.include_router(secure_streaming_router, prefix="/api/secure-streaming", tags
 app.include_router(pdf_files_router, prefix="/api/pdf-files", tags=["PDF Files"])
 app.include_router(logs_router, prefix="/api/logs", tags=["Logs"])
 app.include_router(streams_router, prefix="/api/streams", tags=["Streams"])
+app.include_router(admin_router, prefix="/api/admin", tags=["Admin"])
 app.include_router(system_logs_router, tags=["System Logs"])
 app.include_router(database_router)
 

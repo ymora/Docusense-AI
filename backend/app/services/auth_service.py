@@ -10,6 +10,7 @@ import uuid
 from ..models.user import User, UserRole
 from ..core.config import settings
 from ..core.logging import logger
+from ..api.streams import broadcast_user_management_event
 
 class AuthService:
     def __init__(self, db: Session):
@@ -93,6 +94,30 @@ class AuthService:
             self.db.commit()
             self.db.refresh(user)
             logger.info(f"Utilisateur créé: {user.username}")
+            
+            # Diffuser l'événement de création d'utilisateur
+            try:
+                import asyncio
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    loop.create_task(broadcast_user_management_event("created", {
+                        "id": user.id,
+                        "username": user.username,
+                        "email": user.email,
+                        "role": user.role.value,
+                        "is_active": user.is_active
+                    }))
+                else:
+                    asyncio.run(broadcast_user_management_event("created", {
+                        "id": user.id,
+                        "username": user.username,
+                        "email": user.email,
+                        "role": user.role.value,
+                        "is_active": user.is_active
+                    }))
+            except Exception as e:
+                logger.warning(f"Impossible de diffuser l'événement de création d'utilisateur: {e}")
+            
             return user
         except IntegrityError:
             self.db.rollback()
@@ -143,3 +168,88 @@ class AuthService:
         self.db.commit()
         logger.info(f"Supprimé {deleted_count} utilisateurs invités anciens")
         return deleted_count
+    
+    def update_user(self, user_id: int, **kwargs) -> Optional[User]:
+        """Mettre à jour un utilisateur"""
+        user = self.get_user_by_id(user_id)
+        if not user:
+            return None
+        
+        # Mettre à jour les champs fournis
+        for key, value in kwargs.items():
+            if hasattr(user, key):
+                if key == 'password' and value:
+                    # Hasher le nouveau mot de passe
+                    salt = bcrypt.gensalt()
+                    password_hash = bcrypt.hashpw(value.encode('utf-8'), salt)
+                    user.password_hash = password_hash.decode('utf-8')
+                else:
+                    setattr(user, key, value)
+        
+        self.db.commit()
+        self.db.refresh(user)
+        logger.info(f"Utilisateur mis à jour: {user.username}")
+        
+        # Diffuser l'événement de mise à jour d'utilisateur
+        try:
+            import asyncio
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                loop.create_task(broadcast_user_management_event("updated", {
+                    "id": user.id,
+                    "username": user.username,
+                    "email": user.email,
+                    "role": user.role.value,
+                    "is_active": user.is_active
+                }))
+            else:
+                asyncio.run(broadcast_user_management_event("updated", {
+                    "id": user.id,
+                    "username": user.username,
+                    "email": user.email,
+                    "role": user.role.value,
+                    "is_active": user.is_active
+                }))
+        except Exception as e:
+            logger.warning(f"Impossible de diffuser l'événement de mise à jour d'utilisateur: {e}")
+        
+        return user
+    
+    def delete_user(self, user_id: int) -> bool:
+        """Supprimer un utilisateur"""
+        user = self.get_user_by_id(user_id)
+        if not user:
+            return False
+        
+        user_data = {
+            "id": user.id,
+            "username": user.username,
+            "email": user.email,
+            "role": user.role.value,
+            "is_active": user.is_active
+        }
+        
+        self.db.delete(user)
+        self.db.commit()
+        logger.info(f"Utilisateur supprimé: {user.username}")
+        
+        # Diffuser l'événement de suppression d'utilisateur
+        try:
+            import asyncio
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                loop.create_task(broadcast_user_management_event("deleted", user_data))
+            else:
+                asyncio.run(broadcast_user_management_event("deleted", user_data))
+        except Exception as e:
+            logger.warning(f"Impossible de diffuser l'événement de suppression d'utilisateur: {e}")
+        
+        return True
+    
+    def get_all_users(self) -> list[User]:
+        """Récupérer tous les utilisateurs"""
+        return self.db.query(User).all()
+    
+    def get_active_users(self) -> list[User]:
+        """Récupérer les utilisateurs actifs"""
+        return self.db.query(User).filter(User.is_active == True).all()
