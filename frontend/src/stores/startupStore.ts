@@ -38,6 +38,43 @@ export const useStartupStore = create<StartupState>()(
             set({ initializationStep: 'prompts' });
 
             try {
+              // Vérifier l'authentification avant de charger les données
+              const { default: useAuthStore } = await import('../stores/authStore');
+              const authState = useAuthStore.getState();
+              
+              if (!authState.isAuthenticated) {
+                // Si pas authentifié, utiliser seulement les données par défaut
+                console.log('🔒 Utilisateur non authentifié - Utilisation des données par défaut');
+                
+                // Initialiser les prompts avec les données par défaut
+                const { usePromptStore } = await import('../stores/promptStore');
+                const promptStore = usePromptStore.getState();
+                await promptStore.loadDefaultPromptsOnly();
+                set({ initializationStep: 'config' });
+
+                // Initialiser les configurations avec les valeurs par défaut
+                const { useConfigStore } = await import('../stores/configStore');
+                const configStore = useConfigStore.getState();
+                await configStore.loadDefaultConfig();
+                set({ initializationStep: 'files' });
+
+                // Initialiser le fileStore (reset seulement)
+                const { useFileStore } = await import('../stores/fileStore');
+                const fileStore = useFileStore.getState();
+                fileStore.resetState();
+                set({ initializationStep: 'complete' });
+
+                // Marquer comme initialisé
+                set({ 
+                  isInitialized: true,
+                  startupTime: new Date().toISOString()
+                });
+                return;
+              }
+
+              // Si authentifié, charger toutes les données
+              console.log('✅ Utilisateur authentifié - Chargement complet des données');
+              
               // Initialiser les prompts
               const { usePromptStore } = await import('../stores/promptStore');
               const promptStore = usePromptStore.getState();

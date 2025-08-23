@@ -67,6 +67,25 @@ export const promptService = {
     }
   },
 
+  // Récupérer les prompts par défaut uniquement (sans requête API)
+  async getDefaultPromptsOnly(): Promise<Record<string, string>> {
+    // Données par défaut sans requête API
+    const defaultPrompts: Record<string, string> = {
+      'GENERAL': 'Analysez le contenu de ce document de manière générale.',
+      'LEGAL': 'Analysez ce document sous l\'angle juridique et légal.',
+      'FINANCIAL': 'Analysez ce document sous l\'angle financier et économique.',
+      'TECHNICAL': 'Analysez ce document sous l\'angle technique et technologique.',
+      'MEDICAL': 'Analysez ce document sous l\'angle médical et sanitaire.',
+      'ACADEMIC': 'Analysez ce document sous l\'angle académique et scientifique.',
+      'CONTRACT': 'Analysez ce document contractuel en détail.',
+      'REPORT': 'Analysez ce rapport de manière structurée.',
+      'EMAIL': 'Analysez cet email et son contenu.',
+      'MANUAL': 'Analysez ce manuel ou guide d\'utilisation.'
+    };
+    
+    return defaultPrompts;
+  },
+
   // Récupérer tous les prompts spécialisés
   async getSpecializedPrompts(): Promise<Record<string, Prompt>> {
     try {

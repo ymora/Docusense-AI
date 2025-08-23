@@ -39,7 +39,9 @@ class DrivesResponse(BaseModel):
 
 
 @router.get("/drives", response_model=DrivesResponse)
-async def list_drives():
+async def list_drives(
+    current_user: User = Depends(get_current_user)
+):
     """ULTRA-FAST: List available drives without slow psutil calls"""
     drives = []
     
@@ -248,7 +250,8 @@ async def list_directory_content(
     page: int = Query(1, ge=1, description="Numéro de page"),
     page_size: int = Query(50, ge=1, le=1000, description="Taille de page"),
     offset: int = Query(0, ge=0, description="Offset"),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ):
     """
     Liste le contenu d'un répertoire avec pagination
@@ -296,7 +299,8 @@ async def list_directory_content(
 
 @router.get("/directories")
 async def get_available_directories(
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
 ) -> Dict[str, Any]:
     """
     Get list of available directories for selection

@@ -98,6 +98,11 @@ class AuthService:
             self.db.rollback()
             raise ValueError("Nom d'utilisateur ou email déjà utilisé")
     
+    def check_username_exists(self, username: str) -> bool:
+        """Vérifier si un nom d'utilisateur existe déjà"""
+        user = self.db.query(User).filter(User.username == username).first()
+        return user is not None
+    
     def authenticate_user(self, username: str, password: str) -> Optional[User]:
         """Authentifier un utilisateur avec mot de passe"""
         user = self.db.query(User).filter(User.username == username).first()

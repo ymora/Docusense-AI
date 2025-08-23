@@ -1,145 +1,98 @@
 
-import { apiRequest } from '../utils/apiUtils';
+import { apiRequest, handleApiError } from '../utils/apiUtils';
 import { logService } from './logService';
 
-export interface AuthCredentials {
+export interface LoginRequest {
   username: string;
   password: string;
 }
 
+export interface RegisterRequest {
+  username: string;
+  email: string;
+  password: string;
+}
+
 export interface AuthResponse {
-  success: boolean;
-  token?: string;
-  message?: string;
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  user: {
+    id: number;
+    username: string;
+    email?: string;
+    role: string;
+    is_active: boolean;
+  };
 }
 
-class AuthService {
-  private token: string | null = null;
-  private isAuthenticated: boolean = false;
+export interface UsernameCheckResponse {
+  username: string;
+  exists: boolean;
+  available: boolean;
+}
 
-  // Détecter si l'utilisateur est local ou distant
-  isLocalUser(): boolean {
-    // Si on accède via localhost, on est local
-    return window.location.hostname === 'localhost' ||
-           window.location.hostname === '127.0.0.1' ||
-           window.location.hostname.includes('192.168.') ||
-           window.location.hostname.includes('172.');
-  }
-
-  // Vérifier si l'utilisateur est authentifié
-  getAuthStatus(): boolean {
-    return this.isAuthenticated;
-  }
-
-  // Obtenir le token d'authentification
-  getToken(): string | null {
-    return this.token;
-  }
-
-  // Authentifier l'utilisateur
-  async authenticate(credentials: AuthCredentials): Promise<AuthResponse> {
+export const authService = {
+  // Connexion utilisateur
+  async login(credentials: LoginRequest): Promise<AuthResponse> {
     try {
-      logService.info('Tentative d\'authentification', 'AuthService', {
-        username: credentials.username,
-        timestamp: new Date().toISOString()
-      });
-
-      const data = await apiRequest('/api/auth/login', {
+      const response = await apiRequest('/api/auth/login', {
         method: 'POST',
-        body: JSON.stringify({
-          username: credentials.username,
-          password: credentials.password,
-        }),
-      }) as any;
-
-      if (data.token) {
-        this.token = data.token;
-        this.isAuthenticated = true;
-
-        // Stocker le token dans le localStorage pour la persistance
-        localStorage.setItem('session_token', this.token);
-
-        logService.info('Authentification réussie', 'AuthService', {
-          username: credentials.username,
-          timestamp: new Date().toISOString()
-        });
-
-        return {
-          success: true,
-          token: this.token,
-        };
-      } else {
-        logService.warning('Échec de l\'authentification', 'AuthService', {
-          username: credentials.username,
-          error: data.detail || 'Échec de l\'authentification',
-          timestamp: new Date().toISOString()
-        });
-
-        return {
-          success: false,
-          message: data.detail || 'Échec de l\'authentification',
-        };
-      }
-    } catch (error) {
-      logService.error('Erreur de connexion lors de l\'authentification', 'AuthService', {
-        username: credentials.username,
-        error: error instanceof Error ? error.message : String(error),
-        timestamp: new Date().toISOString()
+        body: JSON.stringify(credentials)
       });
-
-      return {
-        success: false,
-        message: 'Erreur de connexion au serveur',
-      };
+      return response as AuthResponse;
+    } catch (error) {
+      throw new Error(`Erreur de connexion: ${handleApiError(error)}`);
     }
-  }
+  },
 
-  // Déconnecter l'utilisateur
-  logout(): void {
-    this.token = null;
-    this.isAuthenticated = false;
-    localStorage.removeItem('session_token');
-  }
-
-  // Restaurer l'authentification depuis le localStorage
-  restoreAuth(): boolean {
-    const savedToken = localStorage.getItem('session_token');
-    if (savedToken) {
-      this.token = savedToken;
-      this.isAuthenticated = true;
-      return true;
-    }
-    return false;
-  }
-
-  // Vérifier si l'authentification est encore valide
-  async validateToken(): Promise<boolean> {
-    if (!this.token) {
-      return false;
-    }
-
+  // Inscription utilisateur
+  async register(userData: RegisterRequest): Promise<AuthResponse> {
     try {
-      await apiRequest('/api/auth/session-info', {
-        headers: {
-          'Authorization': `Bearer ${this.token}`,
-        },
+      const response = await apiRequest('/api/auth/register', {
+        method: 'POST',
+        body: JSON.stringify(userData)
       });
-      return true;
+      return response as AuthResponse;
     } catch (error) {
-      this.logout();
-      return false;
+      throw new Error(`Erreur d'inscription: ${handleApiError(error)}`);
+    }
+  },
+
+  // Connexion invité
+  async guestLogin(): Promise<AuthResponse> {
+    try {
+      const response = await apiRequest('/api/auth/guest-login', {
+        method: 'POST'
+      });
+      return response as AuthResponse;
+    } catch (error) {
+      throw new Error(`Erreur de connexion invité: ${handleApiError(error)}`);
+    }
+  },
+
+  // Vérifier si un nom d'utilisateur existe
+  async checkUsername(username: string): Promise<UsernameCheckResponse> {
+    try {
+      const response = await apiRequest(`/api/auth/check-username/${encodeURIComponent(username)}`, {
+        method: 'GET'
+      });
+      return response as UsernameCheckResponse;
+    } catch (error) {
+      throw new Error(`Erreur de vérification du nom d'utilisateur: ${handleApiError(error)}`);
+    }
+  },
+
+  // Rafraîchir le token
+  async refreshToken(refreshToken: string): Promise<AuthResponse> {
+    try {
+      const response = await apiRequest('/api/auth/refresh', {
+        method: 'POST',
+        body: JSON.stringify({ refresh_token: refreshToken })
+      });
+      return response as AuthResponse;
+    } catch (error) {
+      throw new Error(`Erreur de rafraîchissement du token: ${handleApiError(error)}`);
     }
   }
-
-  // Obtenir les headers d'authentification pour les requêtes API
-  getAuthHeaders(): Record<string, string> {
-    if (this.token) {
-      return {
-        'Authorization': `Bearer ${this.token}`,
-      };
-    }
-    return {};
-  }
-}
-
-export const authService = new AuthService();
+};

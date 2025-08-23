@@ -149,6 +149,25 @@ async def create_guest_session(
         )
     )
 
+@router.get("/check-username/{username}")
+async def check_username(username: str, db: Session = Depends(get_db)):
+    """Vérifier si un nom d'utilisateur existe déjà"""
+    auth_service = AuthService(db)
+    
+    try:
+        exists = auth_service.check_username_exists(username)
+        return {
+            "username": username,
+            "exists": exists,
+            "available": not exists
+        }
+    except Exception as e:
+        logger.error(f"Erreur lors de la vérification du nom d'utilisateur {username}: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Erreur lors de la vérification du nom d'utilisateur"
+        )
+
 @router.post("/guest-login", response_model=AuthResponse)
 async def login_as_guest(
     request: Request,

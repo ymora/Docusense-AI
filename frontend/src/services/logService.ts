@@ -39,7 +39,9 @@ class LogService {
 
   constructor() {
     this.loadPersistedLogs();
-    this.initializeBackendLogs();
+    // OPTIMISATION: Ne pas initialiser les logs backend automatiquement
+    // Ils seront initialisés après authentification via useAuthReload
+    console.log('🔒 LogService initialisé - logs backend différés jusqu\'à authentification');
   }
 
   private loadPersistedLogs() {
@@ -63,11 +65,26 @@ class LogService {
   }
 
   private initializeBackendLogs() {
-    // Charger les logs backend initiaux
+    // OPTIMISATION: Vérifier si l'utilisateur est authentifié avant de charger les logs
+    try {
+      const authStore = JSON.parse(localStorage.getItem('auth-storage') || '{}');
+      const isAuthenticated = authStore.state?.isAuthenticated || false;
+      
+      if (!isAuthenticated) {
+        console.log('🔒 Utilisateur non authentifié - logs backend non chargés');
+        return;
+      }
+    } catch (error) {
+      console.log('🔒 Impossible de vérifier l\'authentification - logs backend non chargés');
+      return;
+    }
+    
+    // Charger les logs backend initiaux seulement si authentifié
     this.loadBackendLogs();
     
-    // Démarrer le streaming des logs backend
-    this.startBackendLogStream();
+    // OPTIMISATION: Ne pas démarrer le streaming automatiquement
+    // Le streaming sera démarré après authentification via useAuthReload
+    console.log('🔒 Stream SSE logs backend initialisé (démarrera après authentification)');
   }
 
   private async loadBackendLogs() {
@@ -82,7 +99,9 @@ class LogService {
         this.notifyListeners();
       }
     } catch (error) {
-      console.error('Erreur lors du chargement des logs backend:', error);
+      // OPTIMISATION: Ne pas afficher d'erreur si le backend n'est pas disponible
+      // C'est normal quand l'utilisateur n'est pas connecté ou le backend n'est pas démarré
+      console.log('🔒 Logs backend non disponibles (backend non démarré ou non authentifié)');
     }
   }
 
@@ -93,10 +112,19 @@ class LogService {
         this.backendSSE.close();
       }
       
+      // OPTIMISATION: Vérifier si l'utilisateur est authentifié avant de démarrer le stream
+      const authStore = JSON.parse(localStorage.getItem('auth-storage') || '{}');
+      const isAuthenticated = authStore.state?.isAuthenticated || false;
+      
+      if (!isAuthenticated) {
+        console.log('🔒 Utilisateur non authentifié - SSE logs backend désactivé');
+        return;
+      }
+      
       this.backendSSE = new EventSource('/api/logs/backend/stream');
       
       this.backendSSE.onopen = () => {
-        // SSE connecté pour les logs backend
+        console.log('✅ SSE logs backend connecté');
       };
 
       this.backendSSE.onmessage = (event) => {
@@ -119,9 +147,9 @@ class LogService {
             }
             
             this.notifyListeners();
-          } else if (data.type === 'heartbeat') {
+          } else if (data.type === 'heartbeat' || data.type === 'keepalive') {
             // OPTIMISATION: Traitement des heartbeats pour maintenir la connexion
-            console.debug('💓 Heartbeat SSE reçu:', data.count);
+            console.debug('💓 Heartbeat SSE reçu:', data.count || data.timestamp);
           }
         } catch (error) {
           console.error('Erreur parsing SSE logs backend:', error);
@@ -130,12 +158,21 @@ class LogService {
 
       this.backendSSE.onerror = (error) => {
         console.error('Erreur SSE logs backend:', error);
-        // OPTIMISATION: Tentative de reconnexion plus intelligente
+        
+        // OPTIMISATION: Tentative de reconnexion plus intelligente avec limite
         if (this.backendSSE && this.backendSSE.readyState === EventSource.CLOSED) {
-          setTimeout(() => {
-            // Tentative de reconnexion SSE...
-            this.startBackendLogStream();
-          }, 3000); // Réduit de 5s à 3s
+          // Vérifier si l'utilisateur est toujours authentifié
+          const authStore = JSON.parse(localStorage.getItem('auth-storage') || '{}');
+          const isAuthenticated = authStore.state?.isAuthenticated || false;
+          
+          if (isAuthenticated) {
+            console.log('🔄 Tentative de reconnexion SSE logs backend dans 5s...');
+            setTimeout(() => {
+              this.startBackendLogStream();
+            }, 5000); // Augmenté à 5s pour éviter les boucles
+          } else {
+            console.log('🔒 Utilisateur déconnecté - Arrêt des tentatives de reconnexion SSE');
+          }
         }
       };
     } catch (error) {
@@ -303,6 +340,9 @@ class LogService {
       };
 
       // Envoyer au backend (ne pas attendre la réponse pour ne pas bloquer)
+      // Note: L'endpoint manual-event nécessite des droits admin, donc on désactive temporairement
+      // TODO: Créer un endpoint public pour les logs frontend
+      /*
       apiRequest('/api/system-logs/manual-event', {
         method: 'POST',
         headers: {
@@ -313,6 +353,7 @@ class LogService {
         // Erreur silencieuse pour ne pas créer une boucle de logs
         console.warn('Impossible d\'envoyer le log au backend:', error);
       });
+      */
 
     } catch (error) {
       // Erreur silencieuse
@@ -402,6 +443,21 @@ class LogService {
     this.listeners.clear();
     this.logs = [];
     this.backendLogs = [];
+  }
+
+  // NOUVEAU: Méthode pour redémarrer le stream SSE après authentification
+  restartBackendLogStream() {
+    console.log('🔄 Redémarrage du stream SSE logs backend...');
+    this.startBackendLogStream();
+  }
+
+  // NOUVEAU: Méthode pour arrêter le stream SSE lors de la déconnexion
+  stopBackendLogStream() {
+    if (this.backendSSE) {
+      console.log('🛑 Arrêt du stream SSE logs backend...');
+      this.backendSSE.close();
+      this.backendSSE = null;
+    }
   }
 }
 

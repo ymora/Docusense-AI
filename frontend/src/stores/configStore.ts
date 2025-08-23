@@ -20,6 +20,7 @@ interface ConfigState {
 
   // Actions pour les providers IA
   loadAIProviders: () => Promise<void>;
+  loadDefaultConfig: () => Promise<void>;
   refreshAIProviders: () => Promise<void>;
   saveAPIKey: (provider: string, apiKey: string) => Promise<{ success: boolean; message: string }>;
   testProvider: (provider: string) => Promise<{ success: boolean; message: string; cached?: boolean }>;
@@ -85,6 +86,79 @@ export const useConfigStore = create<ConfigState>()(
                 isInitialized: false // Ne pas marquer comme initialisé en cas d'erreur
               });
               console.error('❌ Erreur lors du chargement des configurations:', error);
+            }
+          });
+        })(),
+
+        // Chargement de la configuration par défaut (sans requête API)
+        loadDefaultConfig: (() => {
+          const callGuard = createCallGuard();
+          return callGuard(async () => {
+            const loadingActions = createLoadingActions(set, get);
+            
+            if (!loadingActions.startLoading()) {
+              return;
+            }
+            
+            try {
+              // Configuration par défaut sans requête API
+              const defaultProviders: AIProvider[] = [
+                {
+                  name: 'openai',
+                  display_name: 'OpenAI',
+                  is_functional: false,
+                  is_configured: false,
+                  priority: 1,
+                  models: ['gpt-4', 'gpt-3.5-turbo'],
+                  api_key_configured: false,
+                  error_message: null
+                },
+                {
+                  name: 'claude',
+                  display_name: 'Claude (Anthropic)',
+                  is_functional: false,
+                  is_configured: false,
+                  priority: 2,
+                  models: ['claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku'],
+                  api_key_configured: false,
+                  error_message: null
+                },
+                {
+                  name: 'ollama',
+                  display_name: 'Ollama (Local)',
+                  is_functional: false,
+                  is_configured: false,
+                  priority: 3,
+                  models: ['llama2', 'mistral', 'codellama'],
+                  api_key_configured: false,
+                  error_message: null
+                }
+              ];
+              
+              set({ 
+                aiProviders: defaultProviders,
+                aiProvidersResponse: {
+                  providers: defaultProviders,
+                  total: defaultProviders.length,
+                  functional_count: 0,
+                  configured_count: 0
+                },
+                loading: false, 
+                isInitialized: true,
+                error: null,
+                lastUpdated: new Date().toISOString()
+              });
+              
+              logService.debug('Configuration par défaut chargée', 'ConfigStore');
+              
+            } catch (error) {
+              const errorMessage = error instanceof Error ? error.message : 'Erreur lors du chargement de la configuration par défaut';
+              set({ 
+                error: errorMessage, 
+                loading: false,
+                isInitialized: false
+              });
+              console.error('❌ Erreur lors du chargement de la configuration par défaut:', error);
             }
           });
         })(),

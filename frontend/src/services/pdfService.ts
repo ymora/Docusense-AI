@@ -70,7 +70,7 @@ class PDFService {
    */
   async downloadAnalysisPDF(analysisId: number): Promise<Blob> {
     try {
-      const response = await fetch(`http://localhost:8000/api/pdf-files/download/${analysisId}`, {
+      const response = await fetch(`/api/pdf-files/download/${analysisId}`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${this.getSessionToken()}`
@@ -137,14 +137,14 @@ class PDFService {
    * Get PDF download URL for a specific analysis
    */
   getPDFDownloadURL(analysisId: number): string {
-    return `http://localhost:8000/api/pdf-files/download/${analysisId}`;
+    return `/api/pdf-files/download/${analysisId}`;
   }
 
   /**
    * Get PDF generation URL for a specific analysis
    */
   getPDFGenerationURL(analysisId: number): string {
-    return `http://localhost:8000/api/pdf-files/generate/${analysisId}`;
+    return `/api/pdf-files/generate/${analysisId}`;
   }
 
   /**

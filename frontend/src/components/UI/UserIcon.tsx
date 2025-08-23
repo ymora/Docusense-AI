@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useColors } from '../../hooks/useColors';
 import useAuthStore from '../../stores/authStore';
+import { useBackendConnection } from '../../hooks/useBackendConnection';
 import ConfigWindow from '../Config/ConfigWindow';
 import { 
   UserCircleIcon, 
   ShieldCheckIcon, 
   UserIcon as UserIconHero, 
   EyeIcon,
+  EyeSlashIcon,
   ArrowRightOnRectangleIcon,
   PlusIcon,
   Cog6ToothIcon,
@@ -24,6 +26,7 @@ interface UserIconProps {
 export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
   const { colors } = useColors();
   const { user, isAuthenticated, isGuest, isUser, isAdmin, logout, loginAsGuest } = useAuthStore();
+  const { isConnected: backendConnected, isLoading: backendLoading, forceCheck } = useBackendConnection();
   const [showMenu, setShowMenu] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
   const [showRegisterModal, setShowRegisterModal] = useState(false);
@@ -50,9 +53,23 @@ export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
   // État pour les erreurs
   const [loginErrors, setLoginErrors] = useState({ username: '', password: '' });
   const [registerErrors, setRegisterErrors] = useState({ username: '', email: '', password: '', confirmPassword: '' });
+  
+  // État pour la visibilité des mots de passe
+  const [showLoginPassword, setShowLoginPassword] = useState(false);
+  const [showRegisterPassword, setShowRegisterPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Forcer une vérification immédiate du backend
+    await forceCheck();
+    
+    // Vérifier que le backend est connecté avant de tenter la connexion
+    if (!backendConnected || backendLoading) {
+      setLoginErrors({ username: '', password: 'Backend indisponible - impossible de se connecter' });
+      return;
+    }
     
     // Réinitialiser les erreurs
     setLoginErrors({ username: '', password: '' });
@@ -82,6 +99,7 @@ export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
       setShowLoginModal(false);
       setLoginForm({ username: '', password: '' });
       setLoginErrors({ username: '', password: '' });
+      setShowLoginPassword(false);
     } catch (error) {
       console.error('Erreur de connexion:', error);
       // Afficher l'erreur après la réponse du backend
@@ -91,6 +109,15 @@ export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Forcer une vérification immédiate du backend
+    await forceCheck();
+    
+    // Vérifier que le backend est connecté avant de tenter l'inscription
+    if (!backendConnected || backendLoading) {
+      setRegisterErrors({ username: '', email: '', password: '', confirmPassword: 'Backend indisponible - impossible de créer le compte' });
+      return;
+    }
     
     // Réinitialiser les erreurs
     setRegisterErrors({ username: '', email: '', password: '', confirmPassword: '' });
@@ -135,6 +162,8 @@ export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
       setShowRegisterModal(false);
       setRegisterForm({ username: '', email: '', password: '', confirmPassword: '' });
       setRegisterErrors({ username: '', email: '', password: '', confirmPassword: '' });
+      setShowRegisterPassword(false);
+      setShowConfirmPassword(false);
     } catch (error) {
       console.error('Erreur d\'inscription:', error);
       // Afficher l'erreur du backend
@@ -286,7 +315,25 @@ export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
                </p>
              </div>
 
-             <form onSubmit={handleLogin} className="space-y-6">
+                           {/* Indicateur de statut backend */}
+              {(!backendConnected || backendLoading) && (
+                <div className="mb-4 p-3 rounded-lg border" style={{ 
+                  backgroundColor: colors.background,
+                  borderColor: '#ef4444',
+                }}>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                    <span className="text-xs font-medium" style={{ color: '#ef4444' }}>
+                      {backendLoading ? 'Vérification de la connexion...' : 'Backend indisponible'}
+                    </span>
+                  </div>
+                  <p className="text-xs mt-1" style={{ color: colors.textSecondary }}>
+                    La connexion sera possible une fois le backend rétabli
+                  </p>
+                </div>
+              )}
+
+              <form onSubmit={handleLogin} className="space-y-6">
                <div>
                  <label className="block text-sm font-medium mb-2" style={{ color: colors.text }}>
                    Nom d'utilisateur
@@ -318,21 +365,35 @@ export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
                  <label className="block text-sm font-medium mb-2" style={{ color: colors.text }}>
                    Mot de passe
                  </label>
-                 <input
-                   type="password"
-                   placeholder="Entrez votre mot de passe"
-                   value={loginForm.password}
-                   onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
-                   className="w-full px-4 py-3 rounded-lg border transition-all duration-200 focus:outline-none focus:ring-2"
-                   style={{
-                     backgroundColor: colors.background,
-                     borderColor: loginErrors.password ? '#ef4444' : colors.border,
-                     color: colors.text,
-                     boxShadow: loginErrors.password ? '0 0 0 2px rgba(239, 68, 68, 0.2)' : 'none',
-                   }}
-                   autoComplete="current-password"
-                   required
-                 />
+                 <div className="relative">
+                   <input
+                     type={showLoginPassword ? "text" : "password"}
+                     placeholder="Entrez votre mot de passe"
+                     value={loginForm.password}
+                     onChange={(e) => setLoginForm({ ...loginForm, password: e.target.value })}
+                     className="w-full px-4 py-3 pr-12 rounded-lg border transition-all duration-200 focus:outline-none focus:ring-2"
+                     style={{
+                       backgroundColor: colors.background,
+                       borderColor: loginErrors.password ? '#ef4444' : colors.border,
+                       color: colors.text,
+                       boxShadow: loginErrors.password ? '0 0 0 2px rgba(239, 68, 68, 0.2)' : 'none',
+                     }}
+                     autoComplete="current-password"
+                     required
+                   />
+                   <button
+                     type="button"
+                     onClick={() => setShowLoginPassword(!showLoginPassword)}
+                     className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95"
+                     style={{
+                       backgroundColor: 'transparent',
+                       color: colors.textSecondary
+                     }}
+                     title={showLoginPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                   >
+                     {showLoginPassword ? <EyeSlashIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
+                   </button>
+                 </div>
                  {loginErrors.password && (
                    <p className="text-xs mt-2 flex items-center" style={{ color: '#ef4444' }}>
                      <span className="mr-1">⚠️</span>
@@ -344,13 +405,19 @@ export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
                <div className="space-y-3">
                  <button
                    type="submit"
-                   className="w-full px-6 py-3 rounded-lg text-white font-semibold transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+                   disabled={!backendConnected || backendLoading}
+                   className={`w-full px-6 py-3 rounded-lg text-white font-semibold transition-all duration-300 ${
+                     backendConnected && !backendLoading 
+                       ? 'hover:scale-[1.02] active:scale-[0.98]' 
+                       : 'opacity-50 cursor-not-allowed'
+                   }`}
                    style={{ 
-                     backgroundColor: colors.primary,
-                     boxShadow: `0 4px 14px 0 ${colors.primary}40`,
+                     backgroundColor: backendConnected && !backendLoading ? colors.primary : colors.border,
+                     boxShadow: backendConnected && !backendLoading ? `0 4px 14px 0 ${colors.primary}40` : 'none',
                    }}
                  >
-                   Se connecter
+                   {backendLoading ? 'Vérification...' : 
+                    backendConnected ? 'Se connecter' : 'Backend indisponible'}
                  </button>
                  
                  <button
@@ -359,6 +426,7 @@ export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
                      setShowLoginModal(false);
                      setLoginForm({ username: '', password: '' });
                      setLoginErrors({ username: '', password: '' });
+                     setShowLoginPassword(false);
                    }}
                    className="w-full px-6 py-3 rounded-lg border font-medium transition-all duration-200 hover:bg-opacity-80"
                    style={{
@@ -399,7 +467,25 @@ export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
                </p>
              </div>
 
-             <form onSubmit={handleRegister} className="space-y-5">
+                           {/* Indicateur de statut backend */}
+              {(!backendConnected || backendLoading) && (
+                <div className="mb-4 p-3 rounded-lg border" style={{ 
+                  backgroundColor: colors.background,
+                  borderColor: '#ef4444',
+                }}>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 rounded-full bg-red-500"></div>
+                    <span className="text-xs font-medium" style={{ color: '#ef4444' }}>
+                      {backendLoading ? 'Vérification de la connexion...' : 'Backend indisponible'}
+                    </span>
+                  </div>
+                  <p className="text-xs mt-1" style={{ color: colors.textSecondary }}>
+                    La création de compte sera possible une fois le backend rétabli
+                  </p>
+                </div>
+              )}
+
+              <form onSubmit={handleRegister} className="space-y-5">
                <div>
                  <label className="block text-sm font-medium mb-2" style={{ color: colors.text }}>
                    Nom d'utilisateur
@@ -458,21 +544,35 @@ export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
                  <label className="block text-sm font-medium mb-2" style={{ color: colors.text }}>
                    Mot de passe
                  </label>
-                 <input
-                   type="password"
-                   placeholder="Créez un mot de passe sécurisé"
-                   value={registerForm.password}
-                   onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
-                   className="w-full px-4 py-3 rounded-lg border transition-all duration-200 focus:outline-none focus:ring-2"
-                   style={{
-                     backgroundColor: colors.background,
-                     borderColor: registerErrors.password ? '#ef4444' : colors.border,
-                     color: colors.text,
-                     boxShadow: registerErrors.password ? '0 0 0 2px rgba(239, 68, 68, 0.2)' : 'none',
-                   }}
-                   autoComplete="new-password"
-                   required
-                 />
+                 <div className="relative">
+                   <input
+                     type={showRegisterPassword ? "text" : "password"}
+                     placeholder="Créez un mot de passe sécurisé"
+                     value={registerForm.password}
+                     onChange={(e) => setRegisterForm({ ...registerForm, password: e.target.value })}
+                     className="w-full px-4 py-3 pr-12 rounded-lg border transition-all duration-200 focus:outline-none focus:ring-2"
+                     style={{
+                       backgroundColor: colors.background,
+                       borderColor: registerErrors.password ? '#ef4444' : colors.border,
+                       color: colors.text,
+                       boxShadow: registerErrors.password ? '0 0 0 2px rgba(239, 68, 68, 0.2)' : 'none',
+                     }}
+                     autoComplete="new-password"
+                     required
+                   />
+                   <button
+                     type="button"
+                     onClick={() => setShowRegisterPassword(!showRegisterPassword)}
+                     className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95"
+                     style={{
+                       backgroundColor: 'transparent',
+                       color: colors.textSecondary
+                     }}
+                     title={showRegisterPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                   >
+                     {showRegisterPassword ? <EyeSlashIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
+                   </button>
+                 </div>
                  {registerErrors.password && (
                    <p className="text-xs mt-2 flex items-center" style={{ color: '#ef4444' }}>
                      <span className="mr-1">⚠️</span>
@@ -485,21 +585,35 @@ export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
                  <label className="block text-sm font-medium mb-2" style={{ color: colors.text }}>
                    Confirmer le mot de passe
                  </label>
-                 <input
-                   type="password"
-                   placeholder="Confirmez votre mot de passe"
-                   value={registerForm.confirmPassword}
-                   onChange={(e) => setRegisterForm({ ...registerForm, confirmPassword: e.target.value })}
-                   className="w-full px-4 py-3 rounded-lg border transition-all duration-200 focus:outline-none focus:ring-2"
-                   style={{
-                     backgroundColor: colors.background,
-                     borderColor: registerErrors.confirmPassword ? '#ef4444' : colors.border,
-                     color: colors.text,
-                     boxShadow: registerErrors.confirmPassword ? '0 0 0 2px rgba(239, 68, 68, 0.2)' : 'none',
-                   }}
-                   autoComplete="new-password"
-                   required
-                 />
+                 <div className="relative">
+                   <input
+                     type={showConfirmPassword ? "text" : "password"}
+                     placeholder="Confirmez votre mot de passe"
+                     value={registerForm.confirmPassword}
+                     onChange={(e) => setRegisterForm({ ...registerForm, confirmPassword: e.target.value })}
+                     className="w-full px-4 py-3 pr-12 rounded-lg border transition-all duration-200 focus:outline-none focus:ring-2"
+                     style={{
+                       backgroundColor: colors.background,
+                       borderColor: registerErrors.confirmPassword ? '#ef4444' : colors.border,
+                       color: colors.text,
+                       boxShadow: registerErrors.confirmPassword ? '0 0 0 2px rgba(239, 68, 68, 0.2)' : 'none',
+                     }}
+                     autoComplete="new-password"
+                     required
+                   />
+                   <button
+                     type="button"
+                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                     className="absolute right-3 top-1/2 transform -translate-y-1/2 p-1 rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95"
+                     style={{
+                       backgroundColor: 'transparent',
+                       color: colors.textSecondary
+                     }}
+                     title={showConfirmPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                   >
+                     {showConfirmPassword ? <EyeSlashIcon className="w-4 h-4" /> : <EyeIcon className="w-4 h-4" />}
+                   </button>
+                 </div>
                  {registerErrors.confirmPassword && (
                    <p className="text-xs mt-2 flex items-center" style={{ color: '#ef4444' }}>
                      <span className="mr-1">⚠️</span>
@@ -511,13 +625,19 @@ export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
                <div className="space-y-3">
                  <button
                    type="submit"
-                   className="w-full px-6 py-3 rounded-lg text-white font-semibold transition-all duration-300 hover:scale-[1.02] active:scale-[0.98]"
+                   disabled={!backendConnected || backendLoading}
+                   className={`w-full px-6 py-3 rounded-lg text-white font-semibold transition-all duration-300 ${
+                     backendConnected && !backendLoading 
+                       ? 'hover:scale-[1.02] active:scale-[0.98]' 
+                       : 'opacity-50 cursor-not-allowed'
+                   }`}
                    style={{ 
-                     backgroundColor: colors.primary,
-                     boxShadow: `0 4px 14px 0 ${colors.primary}40`,
+                     backgroundColor: backendConnected && !backendLoading ? colors.primary : colors.border,
+                     boxShadow: backendConnected && !backendLoading ? `0 4px 14px 0 ${colors.primary}40` : 'none',
                    }}
                  >
-                   Créer mon compte
+                   {backendLoading ? 'Vérification...' : 
+                    backendConnected ? 'Créer mon compte' : 'Backend indisponible'}
                  </button>
                  
                  <button
@@ -526,6 +646,8 @@ export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
                      setShowRegisterModal(false);
                      setRegisterForm({ username: '', email: '', password: '', confirmPassword: '' });
                      setRegisterErrors({ username: '', email: '', password: '', confirmPassword: '' });
+                     setShowRegisterPassword(false);
+                     setShowConfirmPassword(false);
                    }}
                    className="w-full px-6 py-3 rounded-lg border font-medium transition-all duration-200 hover:bg-opacity-80"
                    style={{

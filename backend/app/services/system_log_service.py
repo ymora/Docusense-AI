@@ -22,7 +22,7 @@ class SystemLogService(BaseService):
     """Service for managing system logs and security monitoring"""
     
     def __init__(self, db: Session):
-        super().__init__(db, SystemLog, get_logger(__name__))
+        super().__init__(db)
         self.suspicious_patterns = self._init_suspicious_patterns()
     
     def _init_suspicious_patterns(self) -> Dict[str, Any]:

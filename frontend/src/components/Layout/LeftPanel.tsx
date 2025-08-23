@@ -1,7 +1,7 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useFileStore } from '../../stores/fileStore';
 import { useColors } from '../../hooks/useColors';
-import { useBackendStatus } from '../../hooks/useBackendStatus';
+
 import { useUIStore } from '../../stores/uiStore';
 import useAuthStore from '../../stores/authStore';
 import { addInterfaceLog } from '../../utils/interfaceLogger';
@@ -14,28 +14,15 @@ import {
 
 const LeftPanel: React.FC = () => {
   const { selectedFiles, selectFile, toggleFileSelection } = useFileStore();
-  const { isOnline, consecutiveFailures } = useBackendStatus();
+
   const { activePanel, setActivePanel } = useUIStore();
   const { isAuthenticated } = useAuthStore();
   const { colors } = useColors();
   
   const [currentDisk, setCurrentDisk] = useState<string>('');
 
-  // Déterminer la couleur du titre selon l'état du backend
-  const getTitleColor = () => {
-    if (!isOnline || consecutiveFailures >= 3) {
-      return '#ff0000'; // Rouge vif flashy quand le backend ne répond pas
-    }
-    return colors.text; // Couleur normale
-  };
-
-  // Déterminer le tooltip du titre
-  const getTitleTooltip = () => {
-    if (!isOnline || consecutiveFailures >= 3) {
-      return `🚨 Backend déconnecté (${consecutiveFailures} échecs consécutifs)`;
-    }
-    return '🔗 Backend connecté';
-  };
+  // Le titre utilise maintenant toujours la couleur normale
+  // L'indicateur de statut backend est maintenant sur la page de connexion
 
   const toggleTheme = () => {
     const currentTheme = document.body.getAttribute('data-theme');
@@ -44,19 +31,19 @@ const LeftPanel: React.FC = () => {
     addInterfaceLog('Interface', 'INFO', `🎨 Changement de thème: ${newTheme}`);
   };
 
-  const handleDiskSelect = (disk: string) => {
+  const handleDiskSelect = useCallback((disk: string) => {
     setCurrentDisk(disk);
     addInterfaceLog('Navigation', 'INFO', `📁 Sélection du disque: ${disk}`);
-  };
+  }, []);
 
-  const handleFileSelect = (file: any) => {
+  const handleFileSelect = useCallback((file: any) => {
     addInterfaceLog('Fichiers', 'INFO', `📄 Sélection du fichier: ${file.name}`);
     selectFile(file);
-  };
+  }, [selectFile]);
 
-  const handleFileSelectionChange = (fileId: string | number) => {
+  const handleFileSelectionChange = useCallback((fileId: string | number) => {
     toggleFileSelection(fileId);
-  };
+  }, [toggleFileSelection]);
 
   return (
     <div
@@ -73,13 +60,11 @@ const LeftPanel: React.FC = () => {
       >
         <div className="flex items-center space-x-3">
           <span
-            className="text-lg font-semibold transition-colors duration-300"
+            className="text-lg font-semibold"
             style={{ 
-              color: getTitleColor(),
-              animation: (!isOnline || consecutiveFailures >= 3) ? 'flash 0.8s infinite' : 'none',
-              textShadow: (!isOnline || consecutiveFailures >= 3) ? '0 0 5px #ff0000' : 'none'
+              color: colors.text
             }}
-            title={getTitleTooltip()}
+            title="DocuSense IA - Analyse intelligente de documents"
           >
             DocuSense IA
           </span>
@@ -104,32 +89,45 @@ const LeftPanel: React.FC = () => {
         </div>
       </div>
 
-      {/* Sélecteur de disque */}
-      <div className="p-4 border-b" style={{ borderBottomColor: colors.border }}>
-        <DiskSelector
-          onDiskSelect={handleDiskSelect}
-          currentDisk={currentDisk}
-        />
-      </div>
-
-      {/* Arborescence des fichiers */}
-      <div className="flex-1 overflow-hidden">
-        {currentDisk ? (
-          <FileTreeSimple
-            currentDirectory={currentDisk}
-            onFileSelect={handleFileSelect}
-            selectedFiles={selectedFiles}
-            onFileSelectionChange={handleFileSelectionChange}
+      {/* Sélecteur de disque - seulement si authentifié */}
+      {isAuthenticated && (
+        <div className="p-4 border-b" style={{ borderBottomColor: colors.border }}>
+          <DiskSelector
+            onDiskSelect={handleDiskSelect}
+            currentDisk={currentDisk}
           />
-        ) : (
+        </div>
+      )}
+
+      {/* Arborescence des fichiers - seulement si authentifié */}
+      {isAuthenticated ? (
+        <div className="flex-1 overflow-hidden">
+          {currentDisk ? (
+            <FileTreeSimple
+              currentDirectory={currentDisk}
+              onFileSelect={handleFileSelect}
+              selectedFiles={selectedFiles}
+              onFileSelectionChange={handleFileSelectionChange}
+            />
+          ) : (
+            <div className="p-4 text-center">
+              <div className="text-2xl mb-2">💾</div>
+              <div className="text-sm" style={{ color: colors.textSecondary }}>
+                Sélectionnez un disque pour voir les fichiers
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="flex-1 flex items-center justify-center">
           <div className="p-4 text-center">
-            <div className="text-2xl mb-2">💾</div>
+            <div className="text-2xl mb-2">🔐</div>
             <div className="text-sm" style={{ color: colors.textSecondary }}>
-              Sélectionnez un disque pour voir les fichiers
+              Connectez-vous pour accéder aux fichiers
             </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Légende des statuts - TOUJOURS en bas */}
       <div

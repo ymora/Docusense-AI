@@ -23,10 +23,9 @@ import {
 } from '@heroicons/react/24/outline';
 import { UnifiedTable } from '../UI/UnifiedTable';
 import { DeleteConfirmationModal } from '../UI/DeleteConfirmationModal';
-import { ConnectionStatus } from '../UI/ConnectionStatus';
 import { Prompt } from '../../services/promptService';
 import { getStatusIcon, getStatusText } from '../../utils/statusUtils';
-import { useBackendConnection } from '../../hooks/useBackendConnection';
+
 
 interface TableColumn<T> {
   key: string;
@@ -573,18 +572,34 @@ export const QueueIAAdvanced: React.FC = () => {
 
   
   // Utiliser le hook centralisé pour la détection du backend
-  const { isOnline, canMakeRequests } = useBackendConnection();
+
   const analysisService = useAnalysisService();
 
-  // Chargement initial
+  // Chargement initial - avec protection contre les appels multiples
+  const [isInitialized, setIsInitialized] = useState(false);
+  
   useEffect(() => {
+    if (isInitialized) return; // Éviter les appels multiples
+    
     const initializeQueue = async () => {
       try {
+        // Vérifier l'authentification avant de charger les données
+        const { default: useAuthStore } = await import('../../stores/authStore');
+        const isAuthenticated = useAuthStore.getState().isAuthenticated;
+        
+        if (!isAuthenticated) {
+          logService.info('Utilisateur non authentifié - Initialisation de la queue différée', 'QueueIAAdvanced', {
+            timestamp: new Date().toISOString()
+          });
+          setIsInitialized(true); // Marquer comme initialisé même si pas authentifié
+          return;
+        }
+
         logService.info('Initialisation de la queue', 'QueueIAAdvanced', {
           timestamp: new Date().toISOString()
         });
 
-        // Charger les données initiales
+        // Charger les données initiales seulement si authentifié
         await Promise.all([
           loadPrompts(),
           loadAIProviders(),
@@ -597,17 +612,20 @@ export const QueueIAAdvanced: React.FC = () => {
           analysesCount: analyses.length,
           timestamp: new Date().toISOString()
         });
+        
+        setIsInitialized(true);
       } catch (error) {
         logService.error('Erreur lors de l\'initialisation de la queue', 'QueueIAAdvanced', {
           error: error.message,
           timestamp: new Date().toISOString()
         });
         console.error('❌ Erreur initialisation queue:', error);
+        setIsInitialized(true); // Marquer comme initialisé même en cas d'erreur
       }
     };
 
     initializeQueue();
-  }, []);
+  }, [isInitialized]); // Dépendance sur isInitialized pour éviter les appels multiples
 
 
 
@@ -690,10 +708,8 @@ export const QueueIAAdvanced: React.FC = () => {
 
   // Créer le message personnalisé selon l'état de la connexion
   const getEmptyMessage = () => {
-    // État de connexion: ${isOnline}, Échecs: ${consecutiveFailures}
-    
     // Si le backend n'est pas connecté
-    if (!isOnline || consecutiveFailures >= 3) {
+    if (false) { // Désactivé - plus de vérification de statut backend
       return (
         <div className="text-center">
           <h3 className="text-lg font-medium mb-2" style={{ color: '#f97316' }}>
@@ -1114,10 +1130,6 @@ export const QueueIAAdvanced: React.FC = () => {
       }}>
         <div className="flex items-center justify-between flex-wrap gap-3">
           <div className="flex items-center gap-2">
-            {/* Indicateur de statut de connexion */}
-            <div className="mr-4">
-              <ConnectionStatus />
-            </div>
             
             <span className="text-sm font-medium" style={{ color: colors.text }}>
               Actions globales:

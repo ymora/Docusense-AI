@@ -11,6 +11,7 @@ interface PromptState {
 
   // Actions
   loadPrompts: () => Promise<void>;
+  loadDefaultPromptsOnly: () => Promise<void>;
   reloadPrompts: () => Promise<void>;
   clearError: () => void;
   
@@ -59,6 +60,51 @@ export const usePromptStore = create<PromptState>((set, get) => ({
         logService.debug(`Chargement de ${promptsArray.length} prompts`, 'PromptStore');
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Erreur lors du chargement des prompts';
+        loadingActions.finishLoadingWithError(errorMessage);
+      }
+    });
+  })(),
+
+  // Chargement des prompts par défaut uniquement (sans requête API)
+  loadDefaultPromptsOnly: (() => {
+    const callGuard = createCallGuard();
+    return callGuard(async () => {
+      const { initialized } = get();
+      
+      // Éviter les rechargements multiples
+      if (initialized) {
+        return;
+      }
+
+      const loadingActions = createLoadingActions(set, get);
+      const updater = createOptimizedUpdater(set, get);
+      
+      if (!loadingActions.startLoading()) {
+        return;
+      }
+      
+      try {
+        // Utiliser directement les données par défaut du service
+        const defaultPrompts = await promptService.getDefaultPromptsOnly();
+        const promptsArray = Object.entries(defaultPrompts).map(([id, prompt]) => ({
+          id,
+          name: id.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+          description: `Prompt par défaut pour ${id.replace(/_/g, ' ')}`,
+          domain: 'général',
+          type: 'analysis',
+          content: prompt
+        }));
+        
+        updater.updateMultiple({ 
+          prompts: promptsArray,
+          initialized: true 
+        });
+        loadingActions.finishLoading();
+        
+        // Log du chargement des prompts par défaut
+        logService.debug(`Chargement de ${promptsArray.length} prompts par défaut`, 'PromptStore');
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Erreur lors du chargement des prompts par défaut';
         loadingActions.finishLoadingWithError(errorMessage);
       }
     });

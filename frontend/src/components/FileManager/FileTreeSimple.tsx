@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { FolderIcon, DocumentIcon, ChevronRightIcon, ChevronDownIcon, ArrowRightIcon } from '@heroicons/react/24/outline';
 import { useColors } from '../../hooks/useColors';
-import { useBackendStatus } from '../../hooks/useBackendStatus';
+
 import { isSupportedFormat } from '../../utils/mediaFormats';
 import { useUIStore } from '../../stores/uiStore';
 import { analysisService } from '../../services/analysisService';
@@ -22,7 +22,7 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
 }) => {
   const { colors } = useColors();
   const { setActivePanel } = useUIStore();
-  const { isOnline } = useBackendStatus();
+
   const [directoryData, setDirectoryData] = useState<any>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [folderData, setFolderData] = useState<Record<string, any>>({}); // Stockage global des données des dossiers
@@ -176,12 +176,11 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
       // Créer une analyse directement via le backend
               // Création d'analyse pour: ${file.name}
       
-      // Créer l'analyse via le service avec mode priorité
-      await analysisService.createPendingAnalysis({
-        file_path: file.path,  // Utiliser le chemin au lieu de l'ID
+      // Créer l'analyse via le service
+      await analysisService.createAnalysis({
+        file_id: file.id,
         analysis_type: 'general',
-        custom_prompt: 'Analyse générale du document',
-        status: 'pending'
+        custom_prompt: 'Analyse générale du document'
       });
       
       logService.info('Analyse créée avec succès', 'FileTreeSimple', {
@@ -340,7 +339,7 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
     // Déterminer la couleur de l'icône selon l'état du backend et l'analysabilité
     const getFileIconColor = () => {
       if (isSelected) return 'white';
-      if (!isOnline) return colors.warning; // Orange quand backend déconnecté
+      return colors.success; // Toujours vert maintenant
       if (isAnalyzable) return colors.success; // Vert si analysable
       return colors.textSecondary; // Gris si non analysable
     };
@@ -384,9 +383,9 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
         {!isSelected && isAnalyzable && (
           <ArrowRightIcon 
             className="h-3 w-3 ml-1.5 flex-shrink-0 cursor-pointer hover:scale-125 transition-transform"
-            style={{ color: !isOnline ? colors.warning : colors.success }}
+            style={{ color: colors.success }}
             onClick={(e) => handleAnalyzeFile(file, e)}
-            title={!isOnline ? "Attente connexion backend" : "Analyser avec l'IA"}
+            title="Analyser avec l'IA"
           />
         )}
       </div>

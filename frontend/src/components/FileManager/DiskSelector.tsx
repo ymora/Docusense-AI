@@ -3,6 +3,8 @@ import { FolderIcon } from '@heroicons/react/24/outline';
 import { useColors } from '../../hooks/useColors';
 import { useFileService } from '../../services/fileService';
 import { logService } from '../../services/logService';
+import { useBackendConnection } from '../../hooks/useBackendConnection';
+import useAuthStore from '../../stores/authStore';
 
 interface DiskSelectorProps {
   onDiskSelect: (disk: string) => void;
@@ -12,14 +14,23 @@ interface DiskSelectorProps {
 const DiskSelector: React.FC<DiskSelectorProps> = ({ onDiskSelect, currentDisk }) => {
   const { colors } = useColors();
   const fileService = useFileService();
+  const { canMakeRequests } = useBackendConnection();
+  const { isAuthenticated } = useAuthStore();
   const [isOpen, setIsOpen] = useState(false);
   const [availableDisks, setAvailableDisks] = useState<string[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Charger les disques disponibles
+  // Charger les disques disponibles seulement si authentifié et backend connecté
   useEffect(() => {
     const fetchDisks = async () => {
+      // Ne pas charger si pas authentifié ou backend déconnecté
+      if (!isAuthenticated || !canMakeRequests) {
+        setAvailableDisks([]);
+        setIsLoading(false);
+        return;
+      }
+
       try {
         setIsLoading(true);
         logService.info('Chargement des disques disponibles', 'DiskSelector', {
@@ -59,7 +70,7 @@ const DiskSelector: React.FC<DiskSelectorProps> = ({ onDiskSelect, currentDisk }
     };
 
     fetchDisks();
-  }, [currentDisk, onDiskSelect, fileService]);
+  }, [currentDisk, onDiskSelect, isAuthenticated, canMakeRequests]);
 
   // Fermer le menu si clic à l'extérieur
   useEffect(() => {
@@ -93,24 +104,31 @@ const DiskSelector: React.FC<DiskSelectorProps> = ({ onDiskSelect, currentDisk }
       {/* Bouton principal */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="w-full flex items-center justify-between p-2.5 hover:bg-slate-700 rounded-lg border transition-all duration-200"
+        className={`w-full flex items-center justify-between p-2.5 rounded-lg border transition-all duration-200 ${
+          isAuthenticated && canMakeRequests ? 'hover:bg-slate-700' : 'opacity-50 cursor-not-allowed'
+        }`}
         style={{ 
           borderColor: colors.border,
           color: colors.textSecondary,
           backgroundColor: colors.surface,
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.color = colors.text;
+          if (isAuthenticated && canMakeRequests) {
+            e.currentTarget.style.color = colors.text;
+          }
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.color = colors.textSecondary;
         }}
-        disabled={isLoading}
+        disabled={isLoading || !isAuthenticated || !canMakeRequests}
       >
         <div className="flex items-center">
           <FolderIcon className="w-4 h-4 mr-2" style={{ color: colors.primary }} />
           <span className="text-xs font-medium">
-            {isLoading ? 'Chargement...' : (currentDisk ? `Disque: ${currentDisk}` : 'Sélectionner un disque')}
+            {!isAuthenticated ? 'Connectez-vous d\'abord' : 
+             !canMakeRequests ? 'Backend déconnecté' :
+             isLoading ? 'Chargement...' : 
+             (currentDisk ? `Disque: ${currentDisk}` : 'Sélectionner un disque')}
           </span>
         </div>
         <svg 

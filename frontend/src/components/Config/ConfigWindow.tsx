@@ -4,7 +4,7 @@ import {
   CpuChipIcon, ChatBubbleLeftRightIcon, SparklesIcon, CommandLineIcon, BeakerIcon
 } from '@heroicons/react/24/outline';
 import { useColors } from '../../hooks/useColors';
-import { useBackendConnection } from '../../hooks/useBackendConnection';
+
 import ConfigService from '../../services/configService';
 import { logService } from '../../services/logService';
 import { useConfigStore } from '../../stores/configStore';
@@ -41,7 +41,7 @@ interface ProviderState {
 // Composant de contenu simplifié pour utilisation dans MainPanel
 export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimize, isStandalone = false }) => {
   const { colors } = useColors();
-  const { isOnline, canMakeRequests } = useBackendConnection();
+
   const { aiProviders, loadAIProviders, refreshAIProviders, isInitialized } = useConfigStore();
   const [loading, setLoading] = useState(false);
   const [providers, setProviders] = useState<ProviderState[]>([]);
@@ -350,7 +350,7 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
       logService.error(`Erreur changement priorité ${providerName}`, 'ConfigWindow', { 
         error: error.message, 
         provider: providerName,
-        oldPriority: provider?.priority,
+        oldPriority: providers.find(p => p.name === providerName)?.priority,
         newPriority: newPriority,
         timestamp: new Date().toISOString()
       });
@@ -396,7 +396,7 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
      // Obtenir le statut visuel d'un provider
    const getProviderStatusInfo = (provider: ProviderState) => {
      // Si le backend est déconnecté, afficher "Attente connexion" pour tous les providers
-     if (!isOnline) {
+     if (false) { // Désactivé - plus de vérification de statut backend
        return { 
          text: 'Attente connexion', 
          color: '#f97316', // Orange
@@ -523,7 +523,7 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
         <div className="h-full overflow-y-auto p-4">
           <div className="space-y-6">
             
-            {!isOnline && (
+            {false && ( // Désactivé - plus d'indicateur de statut backend
               <div className="p-3 rounded-lg border" style={{ backgroundColor: '#fef3c7', borderColor: '#f97316' }}>
                 <div className="flex items-center space-x-2">
                   <span style={{ color: '#f97316' }}>⚠️</span>
@@ -746,25 +746,25 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                                             handleTestProvider(provider.name);
                                           }
                                         }}
-                                        disabled={isTesting || !isOnline || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty')}
+                                        disabled={isTesting || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty')}
                                         className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
-                                          isTesting || !isOnline || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty') ? 'opacity-50 cursor-not-allowed' : ''
+                                          isTesting || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty') ? 'opacity-50 cursor-not-allowed' : ''
                                         }`}
                                         style={{
                                           backgroundColor: 'transparent',
                                           border: `1px solid ${(() => {
-                                            if (isTesting) return getActionColor('primary');
+                                            if (isTesting) return getActionColor('view');
                                             if (provider.status === 'active') return getActionColor('delete');
                                             if (provider.status === 'configured' || provider.status === 'functional') return getActionColor('start');
                                             if (provider.status === 'pending') return getActionColor('pause');
-                                            return getActionColor('primary');
+                                            return getActionColor('view');
                                           })()}`,
                                           color: (() => {
-                                            if (isTesting) return getActionColor('primary');
+                                            if (isTesting) return getActionColor('view');
                                             if (provider.status === 'active') return getActionColor('delete');
                                             if (provider.status === 'configured' || provider.status === 'functional') return getActionColor('start');
                                             if (provider.status === 'pending') return getActionColor('pause');
-                                            return getActionColor('primary');
+                                            return getActionColor('view');
                                           })()
                                         }}
                                       >
@@ -933,25 +933,25 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
                                            handleTestProvider(provider.name);
                                          }
                                        }}
-                                       disabled={isTesting || !isOnline || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty')}
+                                       disabled={isTesting || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty')}
                                        className={`inline-flex items-center px-2 py-1 text-xs font-medium rounded transition-all duration-300 ease-in-out hover:scale-110 active:scale-95 ${
-                                         isTesting || !isOnline || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty') ? 'opacity-50 cursor-not-allowed' : ''
+                                         isTesting || (provider.name.toLowerCase() !== 'ollama' && provider.status === 'empty') ? 'opacity-50 cursor-not-allowed' : ''
                                        }`}
                                        style={{
                                          backgroundColor: 'transparent',
                                          border: `1px solid ${(() => {
-                                           if (isTesting) return getActionColor('primary');
+                                           if (isTesting) return getActionColor('view');
                                            if (provider.status === 'active') return getActionColor('delete');
                                            if (provider.status === 'configured' || provider.status === 'functional') return getActionColor('start');
                                            if (provider.status === 'pending') return getActionColor('pause');
-                                           return getActionColor('primary');
+                                           return getActionColor('view');
                                          })()}`,
                                          color: (() => {
-                                           if (isTesting) return getActionColor('primary');
+                                           if (isTesting) return getActionColor('view');
                                            if (provider.status === 'active') return getActionColor('delete');
                                            if (provider.status === 'configured' || provider.status === 'functional') return getActionColor('start');
                                            if (provider.status === 'pending') return getActionColor('pause');
-                                           return getActionColor('primary');
+                                           return getActionColor('view');
                                          })()
                                        }}
                                      >
@@ -1031,7 +1031,7 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
 
 const ConfigWindow: React.FC<ConfigWindowProps> = ({ onClose, onMinimize }) => {
   const { colors } = useColors();
-  const { isOnline, canMakeRequests } = useBackendConnection();
+
   const { getActiveProviders, isInitialized } = useConfigStore();
   
   // Obtenir les providers actifs pour l'indicateur

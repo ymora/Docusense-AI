@@ -28,7 +28,7 @@ class AnalysisService(BaseService):
         self.pdf_generator = PDFGeneratorService(db)
 
     @log_service_operation("create_analysis")
-    def create_analysis(
+    async def create_analysis(
         self,
         file_id: int,
         analysis_type: AnalysisType,
@@ -41,9 +41,9 @@ class AnalysisService(BaseService):
         """
         Create a new analysis
         """
-        return self.safe_execute("create_analysis", self._create_analysis_logic, file_id, analysis_type, provider, model, custom_prompt, start_processing, user_id)
+        return await self.safe_execute_async("create_analysis", self._create_analysis_logic, file_id, analysis_type, provider, model, custom_prompt, start_processing, user_id)
 
-    def _create_analysis_logic(self, file_id: int, analysis_type: AnalysisType, provider: str, model: str, custom_prompt: Optional[str], start_processing: bool, user_id: int = None) -> Analysis:
+    async def _create_analysis_logic(self, file_id: int, analysis_type: AnalysisType, provider: str, model: str, custom_prompt: Optional[str], start_processing: bool, user_id: int = None) -> Analysis:
         """Logic for creating analysis"""
         # Check if file exists
         file = self.db.query(File).filter(File.id == file_id).first()
@@ -86,12 +86,12 @@ class AnalysisService(BaseService):
         # Start processing if requested
         if start_processing:
             # Start processing in background
-            self._start_processing(analysis.id)
+            await self._start_processing(analysis.id)
 
         self.logger.info(f"Created analysis {analysis.id} for file {file_id}")
         return analysis
 
-    def start_analysis(self, analysis_id: int) -> bool:
+    async def start_analysis(self, analysis_id: int) -> bool:
         """Start processing an analysis - returns True if started successfully"""
         try:
             # Check if analysis exists and is in pending status
@@ -103,14 +103,14 @@ class AnalysisService(BaseService):
                 raise ValueError(f"Analysis {analysis_id} is not in pending status (current: {analysis.status})")
             
             # Start processing
-            self._start_processing(analysis_id)
+            await self._start_processing(analysis_id)
             return True
             
         except Exception as e:
             self.logger.error(f"Error starting analysis {analysis_id}: {str(e)}")
             return False
 
-    def _start_processing(self, analysis_id: int) -> None:
+    async def _start_processing(self, analysis_id: int) -> None:
         """Start processing an analysis with automatic fallback"""
         try:
             # Update status to processing
@@ -126,10 +126,10 @@ class AnalysisService(BaseService):
                         priority_string = analysis.analysis_metadata["provider_priority"]
                     
                     # Use priority-based processing with fallback
-                    self._process_with_priority_fallback(analysis, priority_string)
+                    await self._process_with_priority_fallback(analysis, priority_string)
                 else:
                     # Standard processing
-                    self._process_analysis(analysis)
+                    await self._process_analysis(analysis)
         except Exception as e:
             self.logger.error(f"Error starting processing for analysis {analysis_id}: {str(e)}")
             # Mark analysis as failed
@@ -139,7 +139,9 @@ class AnalysisService(BaseService):
                 analysis.error_message = str(e)
                 self.db.commit()
 
-    def _process_with_priority_fallback(self, analysis: Analysis, priority_string: str = None) -> None:
+
+
+    async def _process_with_priority_fallback(self, analysis: Analysis, priority_string: str = None) -> None:
         """Process analysis with automatic fallback to next provider in priority list"""
         try:
             # Get priority list
@@ -147,7 +149,7 @@ class AnalysisService(BaseService):
                 priority_list = [p.strip().lower() for p in priority_string.split(';') if p.strip()]
             else:
                 # Build priority string from available providers
-                available_providers = self.ai_service.get_available_providers_async()
+                available_providers = await self.ai_service.get_available_providers_async()
                 functional_providers = [p for p in available_providers if p.get("is_functional", False)]
                 sorted_providers = sorted(functional_providers, key=lambda x: x["priority"])
                 priority_list = [p["name"].lower() for p in sorted_providers]
@@ -155,10 +157,16 @@ class AnalysisService(BaseService):
             if not priority_list:
                 raise ValueError("No providers available for priority fallback")
             
+            # Initialize metadata for tracking
+            attempts = []
+            fallback_used = False
+            final_provider = None
+            
             # Try each provider in order
             for provider_name in priority_list:
                 try:
                     self.logger.info(f"Trying provider {provider_name} for analysis {analysis.id}")
+                    attempts.append(provider_name)
                     
                     # Update analysis with current provider
                     analysis.provider = provider_name
@@ -166,21 +174,46 @@ class AnalysisService(BaseService):
                     self.db.commit()
                     
                     # Attempt processing with this provider
-                    success = self._process_analysis(analysis)
+                    success = await self._process_analysis(analysis)
                     if success:
+                        final_provider = provider_name
                         self.logger.info(f"Analysis {analysis.id} completed successfully with provider {provider_name}")
+                        
+                        # Update metadata
+                        if not analysis.analysis_metadata:
+                            analysis.analysis_metadata = {}
+                        analysis.analysis_metadata.update({
+                            "provider_priority": priority_string,
+                            "fallback_used": fallback_used,
+                            "final_provider": final_provider,
+                            "attempts": attempts
+                        })
+                        self.db.commit()
                         return
                     else:
+                        fallback_used = True
                         self.logger.warning(f"Provider {provider_name} failed for analysis {analysis.id}, trying next...")
                         continue
                         
                 except Exception as e:
+                    fallback_used = True
                     self.logger.warning(f"Provider {provider_name} failed for analysis {analysis.id}: {str(e)}")
                     continue
             
             # If all providers failed
             analysis.status = AnalysisStatus.FAILED
             analysis.error_message = f"All providers in priority list failed: {priority_list}"
+            
+            # Update metadata even on failure
+            if not analysis.analysis_metadata:
+                analysis.analysis_metadata = {}
+            analysis.analysis_metadata.update({
+                "provider_priority": priority_string,
+                "fallback_used": fallback_used,
+                "final_provider": final_provider,
+                "attempts": attempts
+            })
+            
             self.db.commit()
             self.logger.error(f"All providers failed for analysis {analysis.id}")
             
@@ -190,49 +223,49 @@ class AnalysisService(BaseService):
             analysis.error_message = str(e)
             self.db.commit()
 
-    def _process_analysis(self, analysis: Analysis) -> bool:
+    async def _process_analysis(self, analysis: Analysis) -> bool:
         """Process analysis with single provider - returns True if successful"""
         try:
-            # Standard processing logic here
-            # This would contain the actual AI processing code
-            # For now, we'll just simulate success
+            # Get file content for analysis
+            file = self.db.query(File).filter(File.id == analysis.file_id).first()
+            if not file:
+                self.logger.error(f"File {analysis.file_id} not found for analysis {analysis.id}")
+                return False
+            
+            # Use AI service to analyze the content
+            # For now, we'll simulate AI processing
+            # In a real implementation, this would call:
+            # result = await self.ai_service.analyze_text(
+            #     text=file_content,
+            #     analysis_type=analysis.analysis_type,
+            #     provider=analysis.provider,
+            #     model=analysis.model,
+            #     custom_prompt=analysis.prompt
+            # )
+            
+            # Simulate processing time
+            import time
+            time.sleep(1)
+            
+            # Simulate success
             analysis.status = AnalysisStatus.COMPLETED
             analysis.progress = 100.0
             analysis.started_at = datetime.now()
+            analysis.completed_at = datetime.now()
+            analysis.result = f"Analysis completed for file {file.name} using {analysis.provider}/{analysis.model}"
             self.db.commit()
+            
+            self.logger.info(f"Analysis {analysis.id} completed successfully with {analysis.provider}")
             return True
+            
         except Exception as e:
             self.logger.error(f"Error processing analysis {analysis.id}: {str(e)}")
+            analysis.status = AnalysisStatus.FAILED
+            analysis.error_message = str(e)
+            self.db.commit()
             return False
 
-    def _process_analysis_async(self, analysis_id: int) -> None:
-        """Process analysis asynchronously"""
-        # This would be implemented with a proper task queue (Celery, RQ, etc.)
-        # For now, we'll just simulate processing
-        import threading
-        import time
-        
-        def process():
-            try:
-                time.sleep(2)  # Simulate processing time
-                analysis = self.db.query(Analysis).filter(Analysis.id == analysis_id).first()
-                if analysis:
-                    analysis.status = AnalysisStatus.COMPLETED
-                    analysis.progress = 1.0
-                    analysis.completed_at = datetime.now()
-                    analysis.result = f"Analysis completed for file {analysis.file_id}"
-                    self.db.commit()
-            except Exception as e:
-                self.logger.error(f"Error processing analysis {analysis_id}: {str(e)}")
-                analysis = self.db.query(Analysis).filter(Analysis.id == analysis_id).first()
-                if analysis:
-                    analysis.status = AnalysisStatus.FAILED
-                    analysis.error_message = str(e)
-                    self.db.commit()
-        
-        thread = threading.Thread(target=process)
-        thread.daemon = True
-        thread.start()
+
 
     @log_service_operation("get_analysis")
     def get_analysis(self, analysis_id: int) -> Optional[Analysis]:
@@ -345,26 +378,25 @@ class AnalysisService(BaseService):
             return False
 
     @log_service_operation("create_bulk_analyses")
-    def create_bulk_analyses(
+    async def create_bulk_analyses(
         self,
         file_ids: List[int],
         analysis_type: AnalysisType,
         provider: str,
         model: str,
-        custom_prompt: Optional[str] = None,
-        # Priorité supprimée - ordre chronologique uniquement
+        custom_prompt: Optional[str] = None
     ) -> List[Analysis]:
         """
         Create multiple analyses for multiple files
         """
-        return self.safe_execute("create_bulk_analyses", self._create_bulk_analyses_logic, file_ids, analysis_type, provider, model, custom_prompt)
+        return await self.safe_execute_async("create_bulk_analyses", self._create_bulk_analyses_logic, file_ids, analysis_type, provider, model, custom_prompt)
 
-    def _create_bulk_analyses_logic(self, file_ids: List[int], analysis_type: AnalysisType, provider: str, model: str, custom_prompt: Optional[str]) -> List[Analysis]:
+    async def _create_bulk_analyses_logic(self, file_ids: List[int], analysis_type: AnalysisType, provider: str, model: str, custom_prompt: Optional[str]) -> List[Analysis]:
         """Logic for creating bulk analyses"""
         analyses = []
 
         for file_id in file_ids:
-            analysis = self.create_analysis(
+            analysis = await self.create_analysis(
                 file_id=file_id,
                 analysis_type=analysis_type,
                 provider=provider,
@@ -424,13 +456,13 @@ class AnalysisService(BaseService):
         }
 
     @log_service_operation("retry_failed_analysis")
-    def retry_failed_analysis(self, analysis_id: int) -> Optional[Analysis]:
+    async def retry_failed_analysis(self, analysis_id: int) -> Optional[Analysis]:
         """
         Retry a failed analysis
         """
-        return self.safe_execute("retry_failed_analysis", self._retry_failed_analysis_logic, analysis_id)
+        return await self.safe_execute_async("retry_failed_analysis", self._retry_failed_analysis_logic, analysis_id)
 
-    def _retry_failed_analysis_logic(self, analysis_id: int) -> Optional[Analysis]:
+    async def _retry_failed_analysis_logic(self, analysis_id: int) -> Optional[Analysis]:
         """Logic for retrying failed analysis"""
         analysis = self.db.query(Analysis).filter(Analysis.id == analysis_id).first()
         if not analysis:
@@ -455,7 +487,7 @@ class AnalysisService(BaseService):
         self.db.commit()
 
         # Start processing
-        self._start_processing(analysis_id)
+        await self._start_processing(analysis_id)
 
         self.logger.info(f"Retried failed analysis {analysis_id}")
         return analysis
@@ -499,7 +531,7 @@ class AnalysisService(BaseService):
         """
         Analyze text using AI service
         """
-        return await self.safe_execute("analyze_text", self._analyze_text_logic, text, analysis_type, provider, model, custom_prompt)
+        return await self.safe_execute_async("analyze_text", self._analyze_text_logic, text, analysis_type, provider, model, custom_prompt)
 
     async def _analyze_text_logic(self, text: str, analysis_type: AnalysisType, provider: Optional[str], model: Optional[str], custom_prompt: Optional[str]) -> Dict[str, Any]:
         """Logic for analyzing text"""

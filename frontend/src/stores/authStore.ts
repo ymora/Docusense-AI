@@ -5,7 +5,7 @@ export interface User {
   id: number;
   username: string;
   email?: string;
-  role: 'guest' | 'user' | 'master';
+  role: 'guest' | 'user' | 'admin';
   is_active: boolean;
 }
 
@@ -56,13 +56,13 @@ const useAuthStore = create<AuthStore>()(
         set({ isLoading: true, error: null });
         
         try {
-          const response = await fetch('http://localhost:8000/api/auth/login', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ username, password }),
-          });
+                  const response = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ username, password }),
+        });
 
           if (!response.ok) {
             const error = await response.json();
@@ -92,7 +92,7 @@ const useAuthStore = create<AuthStore>()(
         set({ isLoading: true, error: null });
         
         try {
-          const response = await fetch('http://localhost:8000/api/auth/register', {
+          const response = await fetch('/api/auth/register', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -128,35 +128,49 @@ const useAuthStore = create<AuthStore>()(
         set({ isLoading: true, error: null });
         
         try {
-          const response = await fetch('http://localhost:8000/api/auth/guest-login', {
+          // Essayer d'abord le backend si disponible
+          const response = await fetch('/api/auth/guest-login', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
           });
 
-          if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.detail || 'Erreur de connexion invité');
+          if (response.ok) {
+            // Backend disponible - utiliser la réponse du serveur
+            const data = await response.json();
+            
+            set({
+              user: data.user,
+              accessToken: data.access_token,
+              refreshToken: data.refresh_token,
+              isAuthenticated: true,
+              isLoading: false,
+              error: null,
+            });
+            return;
           }
-
-          const data = await response.json();
-          
-          set({
-            user: data.user,
-            accessToken: data.access_token,
-            refreshToken: data.refresh_token,
-            isAuthenticated: true,
-            isLoading: false,
-            error: null,
-          });
         } catch (error) {
-          set({
-            isLoading: false,
-            error: error instanceof Error ? error.message : 'Erreur inconnue',
-          });
-          throw error;
+          // Backend non disponible - continuer en mode local
+          console.log('Backend non disponible, connexion invité en mode local');
         }
+
+        // Mode local - créer un utilisateur invité sans backend
+        const guestUser: User = {
+          id: 0,
+          username: 'invité',
+          role: 'guest',
+          is_active: true,
+        };
+
+        set({
+          user: guestUser,
+          accessToken: 'local-guest-token',
+          refreshToken: 'local-guest-refresh',
+          isAuthenticated: true,
+          isLoading: false,
+          error: null,
+        });
       },
 
       logout: () => {
@@ -177,7 +191,7 @@ const useAuthStore = create<AuthStore>()(
         }
 
         try {
-          const response = await fetch('http://localhost:8000/api/auth/refresh', {
+          const response = await fetch('/api/auth/refresh', {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',

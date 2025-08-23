@@ -1,4 +1,4 @@
-# Script principal unifié pour Docusense AI
+# Script principal unifié pour Docusense AI - Version Optimisée
 param(
     [Parameter(Position=0)]
     [ValidateSet("start", "stop", "restart", "cleanup", "monitor", "status", "help", "links", "backend", "frontend", "menu")]
@@ -12,22 +12,17 @@ function Show-InteractiveMenu {
         Write-Host "=================================" -ForegroundColor Gray
         Write-Host ""
 
-        # Vérifier le statut actuel
-        $pythonProcesses = Get-Process -Name "python" -ErrorAction SilentlyContinue
-        $nodeProcesses = Get-Process -Name "node" -ErrorAction SilentlyContinue
-        $port8000 = Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue
-        $port3000 = Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue
-
+        # Vérification rapide du statut
         $backendHealth = $false
         $frontendHealth = $false
 
         try {
-            $response = Invoke-WebRequest -Uri "http://localhost:8000/api/health/" -TimeoutSec 2 -ErrorAction Stop
+            $response = Invoke-WebRequest -Uri "http://localhost:8000/api/health/" -TimeoutSec 1 -ErrorAction Stop
             $backendHealth = $response.StatusCode -eq 200
         } catch { $backendHealth = $false }
 
         try {
-            $response = Invoke-WebRequest -Uri "http://localhost:3000" -TimeoutSec 2 -ErrorAction Stop
+            $response = Invoke-WebRequest -Uri "http://localhost:3000" -TimeoutSec 1 -ErrorAction Stop
             $frontendHealth = $response.StatusCode -eq 200
         } catch { $frontendHealth = $false }
 
@@ -42,8 +37,6 @@ function Show-InteractiveMenu {
         Write-Host "  1. 🚀 Démarrer Docusense AI (démarrage complet)" -ForegroundColor White
         Write-Host "  2. 🔧 Démarrer backend uniquement (debug)" -ForegroundColor White
         Write-Host "  3. 🎨 Démarrer frontend uniquement (debug)" -ForegroundColor White
-        Write-Host "  4. 🔄 Redémarrer Docusense AI" -ForegroundColor White
-        Write-Host "  5. 🛑 Arrêter Docusense AI" -ForegroundColor White
         Write-Host ""
 
         Write-Host "❓ Autres:" -ForegroundColor Yellow
@@ -51,48 +44,34 @@ function Show-InteractiveMenu {
         Write-Host ""
 
         # Demander le choix
-        $choice = Read-Host "Choisissez une option (0-5)"
+        $choice = Read-Host "Choisissez une option (0-3)"
 
         switch ($choice.ToLower()) {
             "1" {
                 Write-Host "`n🚀 Démarrage de Docusense AI..." -ForegroundColor Green
                 Start-Docusense
-                Write-Host "`n✅ Action terminée. Retour au menu dans 3 secondes..." -ForegroundColor Green  
-                Start-Sleep -Seconds 3
+                Write-Host "`n✅ Action terminée. Retour au menu dans 2 secondes..." -ForegroundColor Green  
+                Start-Sleep -Seconds 2
             }
             "2" {
                 Write-Host "`n🔧 Démarrage du backend uniquement..." -ForegroundColor Yellow
                 Start-DocusenseBackend
-                Write-Host "`n✅ Action terminée. Retour au menu dans 3 secondes..." -ForegroundColor Green  
-                Start-Sleep -Seconds 3
+                Write-Host "`n✅ Action terminée. Retour au menu dans 2 secondes..." -ForegroundColor Green  
+                Start-Sleep -Seconds 2
             }
             "3" {
                 Write-Host "`n🎨 Démarrage du frontend uniquement..." -ForegroundColor Yellow
                 Start-DocusenseFrontend
-                Write-Host "`n✅ Action terminée. Retour au menu dans 3 secondes..." -ForegroundColor Green  
-                Start-Sleep -Seconds 3
-            }
-            "4" {
-                Write-Host "`n🔄 Redémarrage de Docusense AI..." -ForegroundColor Yellow
-                Stop-Docusense
-                Start-Sleep -Seconds 3
-                Start-Docusense -NoBrowser
-                Write-Host "`n✅ Action terminée. Retour au menu dans 3 secondes..." -ForegroundColor Green  
-                Start-Sleep -Seconds 3
-            }
-            "5" {
-                Write-Host "`n🛑 Arrêt de Docusense AI..." -ForegroundColor Red
-                Stop-Docusense
-                Write-Host "`n✅ Action terminée. Retour au menu dans 3 secondes..." -ForegroundColor Green  
-                Start-Sleep -Seconds 3
+                Write-Host "`n✅ Action terminée. Retour au menu dans 2 secondes..." -ForegroundColor Green  
+                Start-Sleep -Seconds 2
             }
             "0" {
                 Write-Host "`n👋 Au revoir !" -ForegroundColor Green
                 return
             }
             default {
-                Write-Host "`n❌ Option invalide. Retour au menu dans 3 secondes..." -ForegroundColor Red    
-                Start-Sleep -Seconds 3
+                Write-Host "`n❌ Option invalide. Retour au menu dans 2 secondes..." -ForegroundColor Red    
+                Start-Sleep -Seconds 2
             }
         }
     } while ($true)
@@ -105,15 +84,15 @@ function Start-Docusense {
 
     Write-Host "🚀 Démarrage de Docusense AI..." -ForegroundColor Green
 
-    # Cleanup automatique avant démarrage
-    Write-Host "🧹 Nettoyage automatique des processus..." -ForegroundColor Yellow
+    # Cleanup rapide avant démarrage
+    Write-Host "🧹 Nettoyage rapide des processus..." -ForegroundColor Yellow
     Stop-Docusense -Silent
 
-    # Attendre que les processus se terminent et que les ports soient libérés
-    Write-Host "Attente de la libération complète des ressources..." -ForegroundColor Yellow
-    Start-Sleep -Seconds 8
+    # Attendre que les processus se terminent (délai réduit)
+    Write-Host "Attente de la libération des ressources..." -ForegroundColor Yellow
+    Start-Sleep -Seconds 3
 
-    # Vérifier que les ports sont libres (ignorer les connexions TIME_WAIT)
+    # Vérification rapide des ports
     Write-Host "Vérification des ports..." -ForegroundColor Cyan
     $port8000 = Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue | Where-Object { $_.State -ne "TimeWait" }
     $port3000 = Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue | Where-Object { $_.State -ne "TimeWait" }
@@ -130,173 +109,157 @@ function Start-Docusense {
 
     Write-Host "✅ Ports libres" -ForegroundColor Green
 
-    # Démarrer le backend dans un terminal externe avec logs visibles
-    Write-Host "`n🔧 Démarrage du backend dans un terminal externe..." -ForegroundColor Yellow
-    Start-Process -FilePath "powershell.exe" -ArgumentList "-NoExit", "-Command", "cd '$PWD\backend'; venv\Scripts\python.exe main.py" -WindowStyle Normal
-
-    # Attendre que le backend démarre
-    Write-Host "Attente du démarrage du backend..." -ForegroundColor Cyan
-    $backendReady = $false
-    $attempts = 0
-    $maxAttempts = 5
-
-    while (-not $backendReady -and $attempts -lt $maxAttempts) {
-        Start-Sleep -Seconds 2
-        $attempts++
-
-        try {
-            $response = Invoke-WebRequest -Uri "http://localhost:8000/api/health/" -TimeoutSec 5 -ErrorAction Stop
-
-            if ($response.StatusCode -eq 200) {
-                $backendReady = $true
-                Write-Host "✅ Backend prêt (tentative $attempts)" -ForegroundColor Green
-            }
-        } catch {
-            Write-Host "⏳ Attente backend... ($attempts/$maxAttempts)" -ForegroundColor Yellow
-        }
-    }
-
-    if (-not $backendReady) {
-        Write-Host "❌ Backend non accessible après $maxAttempts tentatives" -ForegroundColor Red
-        return
-    }
-
-    # Démarrer le frontend dans un terminal externe avec logs visibles
-    Write-Host "`n🎨 Démarrage du frontend dans un terminal externe..." -ForegroundColor Yellow
+    # DÉMARRER LE FRONTEND EN PREMIER (il démarre vite)
+    Write-Host "`n🎨 Démarrage du frontend en premier (démarrage rapide)..." -ForegroundColor Yellow
     Start-Process -FilePath "powershell.exe" -ArgumentList "-NoExit", "-Command", "cd '$PWD\frontend'; npm run dev" -WindowStyle Normal
 
     # Attendre que le frontend démarre
     Write-Host "Attente du démarrage du frontend..." -ForegroundColor Cyan
-    $frontendReady = $false
-    $attempts = 0
-    $maxAttempts = 5
+    Start-Sleep -Seconds 3
+    Write-Host "✅ Frontend en cours de démarrage" -ForegroundColor Green
 
-    while (-not $frontendReady -and $attempts -lt $maxAttempts) {
-        Start-Sleep -Seconds 2
-        $attempts++
+    # Démarrer le backend dans un terminal externe avec logs visibles
+    Write-Host "`n🔧 Démarrage du backend dans un terminal externe..." -ForegroundColor Yellow
+    Start-Process -FilePath "powershell.exe" -ArgumentList "-NoExit", "-Command", "cd '$PWD\backend'; & '.\venv\Scripts\python.exe' main.py" -WindowStyle Normal
 
-        try {
-            $response = Invoke-WebRequest -Uri "http://localhost:3000" -TimeoutSec 5 -ErrorAction Stop
-
-            if ($response.StatusCode -eq 200) {
-                $frontendReady = $true
-                Write-Host "✅ Frontend prêt (tentative $attempts)" -ForegroundColor Green
-            }
-        } catch {
-            Write-Host "⏳ Attente frontend... ($attempts/$maxAttempts)" -ForegroundColor Yellow
-        }
-    }
-
-    if (-not $frontendReady) {
-        Write-Host "❌ Frontend non accessible après $maxAttempts tentatives" -ForegroundColor Red
-        return
-    }
+    # Attendre que le backend démarre
+    Write-Host "Attente du démarrage du backend..." -ForegroundColor Cyan
+    Start-Sleep -Seconds 5
+    Write-Host "✅ Backend en cours de démarrage" -ForegroundColor Green
 
     # Vérification finale
     Write-Host "`n🔍 Vérification finale..." -ForegroundColor Cyan
-    Start-Sleep -Seconds 3
+    Start-Sleep -Seconds 1
 
-    $backendCheck = Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue
-    $frontendCheck = Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue
+    Write-Host "`n🎉 Docusense AI en cours de démarrage!" -ForegroundColor Green
+    Write-Host "Frontend: http://localhost:3000" -ForegroundColor Cyan
+    Write-Host "Backend: http://localhost:8000" -ForegroundColor Cyan
 
-    if ($backendCheck -and $frontendCheck) {
-        Write-Host "`n🎉 Docusense AI démarré avec succès!" -ForegroundColor Green
-        Write-Host "Backend: http://localhost:8000" -ForegroundColor Cyan
-        Write-Host "Frontend: http://localhost:3000" -ForegroundColor Cyan
-
-        # Ouvrir automatiquement le frontend dans le navigateur seulement si -NoBrowser n'est pas spécifié
-        if (-not $NoBrowser) {
-            Write-Host "`n🌐 Ouverture automatique du frontend..." -ForegroundColor Cyan
-            Start-Process "http://localhost:3000"
-        }
-
-        # Instructions pour l'utilisateur
-        Write-Host "`n💡 Instructions:" -ForegroundColor Yellow
-        Write-Host "  • Frontend et backend ouverts automatiquement dans le navigateur" -ForegroundColor Gray
-        Write-Host "  • Utilisez 'stop' pour arrêter les services" -ForegroundColor Gray
-
-        # Afficher les logs après démarrage
-        Write-Host "`n📋 Affichage des logs récents..." -ForegroundColor Cyan
-        Show-DocusenseLogs
-
-        # Afficher le statut final
-        Write-Host "`n📊 Statut final des services..." -ForegroundColor Cyan
-        Get-DocusenseStatus
-    } else {
-        Write-Host "❌ Problème lors du démarrage" -ForegroundColor Red
+    # Ouvrir automatiquement le frontend dans le navigateur seulement si -NoBrowser n'est pas spécifié
+    if (-not $NoBrowser) {
+        Write-Host "`n🌐 Ouverture automatique du frontend..." -ForegroundColor Cyan
+        Start-Process "http://localhost:3000"
     }
+
+    # Instructions pour l'utilisateur
+    Write-Host "`n💡 Instructions:" -ForegroundColor Yellow
+    Write-Host "  • Frontend disponible sur http://localhost:3000" -ForegroundColor Gray
+    Write-Host "  • Backend en cours de démarrage - vérifiez le terminal backend" -ForegroundColor Gray
+    Write-Host "  • Utilisez 'stop' pour arrêter les services" -ForegroundColor Gray
+
+    # Afficher les logs après démarrage
+    Write-Host "`n📋 Affichage des logs récents..." -ForegroundColor Cyan
+    Show-DocusenseLogs
+
+    # Afficher le statut final
+    Write-Host "`n📊 Statut final des services..." -ForegroundColor Cyan
+    Get-DocusenseStatus
 }
 
 function Start-DocusenseBackend {
     Write-Host "🔧 Démarrage du backend uniquement..." -ForegroundColor Yellow
 
-    # Cleanup automatique avant démarrage
-    Write-Host "🧹 Nettoyage automatique des processus..." -ForegroundColor Yellow
-    Stop-Docusense -Silent
+    # Vérifier si le backend est déjà en cours d'exécution
+    $backendProcesses = Get-Process -Name "python" -ErrorAction SilentlyContinue | Where-Object { 
+        $_.CommandLine -like "*main.py*" -or $_.ProcessName -eq "python"
+    }
+    $port8000 = Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue | Where-Object { $_.State -ne "TimeWait" }
 
-    # Attendre que les processus se terminent et que les ports soient libérés
-    Write-Host "Attente de la libération complète des ressources..." -ForegroundColor Yellow
-    Start-Sleep -Seconds 8
+    if ($backendProcesses -or $port8000) {
+        Write-Host "⚠️ Backend déjà en cours d'exécution" -ForegroundColor Yellow
+        Write-Host "💡 Arrêt du backend existant..." -ForegroundColor Cyan
+        
+        # Arrêter seulement les processus Python (backend)
+        try {
+            Get-Process -Name "python" -ErrorAction SilentlyContinue | ForEach-Object {
+                Write-Host "Arrêt du processus Python PID: $($_.Id)" -ForegroundColor Cyan
+                $_.Kill()
+            }
+        } catch {
+            Write-Host "Erreur lors de l'arrêt des processus Python: $($_.Exception.Message)" -ForegroundColor Red
+        }
+
+        # Libérer le port 8000
+        if ($port8000) {
+            if ($port8000.OwningProcess -ne 0) {
+                Stop-Process -Id $port8000.OwningProcess -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        Start-Sleep -Seconds 2
+    }
 
     # Vérifier que le port 8000 est libre
     Write-Host "Vérification du port 8000..." -ForegroundColor Cyan
     $port8000 = Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue | Where-Object { $_.State -ne "TimeWait" }
 
     if ($port8000) {
-        Write-Host "❌ Port 8000 toujours occupé après cleanup" -ForegroundColor Red
+        Write-Host "❌ Port 8000 toujours occupé" -ForegroundColor Red
         return
     }
 
     Write-Host "✅ Port 8000 libre" -ForegroundColor Green
 
     # Démarrer le backend avec logs visibles
-    Write-Host "`n🔧 Démarrage du backend avec logs..." -ForegroundColor Yellow
-    Write-Host "💡 Les logs du backend s'afficheront dans cette fenêtre" -ForegroundColor Cyan
-    Write-Host "💡 Appuyez sur Ctrl+C pour arrêter le backend" -ForegroundColor Cyan
-    Write-Host "`n" -ForegroundColor White
-
-    # Démarrer le backend en mode debug (terminal externe)
     Write-Host "`n🔧 Démarrage du backend en mode debug..." -ForegroundColor Yellow
     Write-Host "💡 Le backend démarre dans un terminal externe avec logs visibles" -ForegroundColor Cyan
     Write-Host "💡 Fermez le terminal pour arrêter le backend" -ForegroundColor Cyan
+    Write-Host "💡 Le frontend reste actif si il était déjà démarré" -ForegroundColor Cyan
     Write-Host "`n" -ForegroundColor White
 
     # Démarrer le backend dans un terminal externe pour voir les logs
-    Start-Process -FilePath "powershell.exe" -ArgumentList "-NoExit", "-Command", "cd '$PWD\backend'; venv\Scripts\python.exe main.py" -WindowStyle Normal
+    Start-Process -FilePath "powershell.exe" -ArgumentList "-NoExit", "-Command", "cd '$PWD\backend'; & '.\venv\Scripts\python.exe' main.py" -WindowStyle Normal
 }
 
 function Start-DocusenseFrontend {
     Write-Host "🎨 Démarrage du frontend uniquement..." -ForegroundColor Yellow
 
-    # Cleanup automatique avant démarrage
-    Write-Host "🧹 Nettoyage automatique des processus..." -ForegroundColor Yellow
-    Stop-Docusense -Silent
+    # Vérifier si le frontend est déjà en cours d'exécution
+    $frontendProcesses = Get-Process -Name "node" -ErrorAction SilentlyContinue | Where-Object { 
+        $_.CommandLine -like "*npm*" -or $_.CommandLine -like "*vite*" -or $_.ProcessName -eq "node"
+    }
+    $port3000 = Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue | Where-Object { $_.State -ne "TimeWait" }
 
-    # Attendre que les processus se terminent et que les ports soient libérés
-    Write-Host "Attente de la libération complète des ressources..." -ForegroundColor Yellow
-    Start-Sleep -Seconds 8
+    if ($frontendProcesses -or $port3000) {
+        Write-Host "⚠️ Frontend déjà en cours d'exécution" -ForegroundColor Yellow
+        Write-Host "💡 Arrêt du frontend existant..." -ForegroundColor Cyan
+        
+        # Arrêter seulement les processus Node.js (frontend)
+        try {
+            Get-Process -Name "node" -ErrorAction SilentlyContinue | ForEach-Object {
+                Write-Host "Arrêt du processus Node.js PID: $($_.Id)" -ForegroundColor Cyan
+                $_.Kill()
+            }
+        } catch {
+            Write-Host "Erreur lors de l'arrêt des processus Node.js: $($_.Exception.Message)" -ForegroundColor Red
+        }
+
+        # Libérer le port 3000
+        if ($port3000) {
+            if ($port3000.OwningProcess -ne 0) {
+                Stop-Process -Id $port3000.OwningProcess -Force -ErrorAction SilentlyContinue
+            }
+        }
+
+        Start-Sleep -Seconds 2
+    }
 
     # Vérifier que le port 3000 est libre
     Write-Host "Vérification du port 3000..." -ForegroundColor Cyan
     $port3000 = Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue | Where-Object { $_.State -ne "TimeWait" }
 
     if ($port3000) {
-        Write-Host "❌ Port 3000 toujours occupé après cleanup" -ForegroundColor Red
+        Write-Host "❌ Port 3000 toujours occupé" -ForegroundColor Red
         return
     }
 
     Write-Host "✅ Port 3000 libre" -ForegroundColor Green
 
     # Démarrer le frontend avec logs visibles
-    Write-Host "`n🎨 Démarrage du frontend avec logs..." -ForegroundColor Yellow
-    Write-Host "💡 Les logs du frontend s'afficheront dans cette fenêtre" -ForegroundColor Cyan
-    Write-Host "💡 Appuyez sur Ctrl+C pour arrêter le frontend" -ForegroundColor Cyan
-    Write-Host "`n" -ForegroundColor White
-
-    # Démarrer le frontend en mode debug (terminal externe)
     Write-Host "`n🎨 Démarrage du frontend en mode debug..." -ForegroundColor Yellow
     Write-Host "💡 Le frontend démarre dans un terminal externe avec logs visibles" -ForegroundColor Cyan
     Write-Host "💡 Fermez le terminal pour arrêter le frontend" -ForegroundColor Cyan
+    Write-Host "💡 Le backend reste actif si il était déjà démarré" -ForegroundColor Cyan
     Write-Host "`n" -ForegroundColor White
 
     # Démarrer le frontend dans un terminal externe pour voir les logs
@@ -310,7 +273,7 @@ function Stop-Docusense {
         Write-Host "🛑 Arrêt de Docusense AI..." -ForegroundColor Red
     }
 
-    # Arrêter tous les processus Python
+    # Arrêter tous les processus Python (optimisé)
     if (-not $Silent) {
         Write-Host "Arrêt des processus Python..." -ForegroundColor Yellow
     }
@@ -327,7 +290,7 @@ function Stop-Docusense {
         }
     }
 
-    # Arrêter tous les processus Node.js
+    # Arrêter tous les processus Node.js (optimisé)
     if (-not $Silent) {
         Write-Host "Arrêt des processus Node.js..." -ForegroundColor Yellow
     }
@@ -344,18 +307,17 @@ function Stop-Docusense {
         }
     }
 
-    # Attendre que les processus se terminent
+    # Attendre que les processus se terminent (délai réduit)
     if (-not $Silent) {
         Write-Host "Attente de la terminaison des processus..." -ForegroundColor Yellow
     }
-    Start-Sleep -Seconds 5
+    Start-Sleep -Seconds 2
 
-    # Libérer les ports
+    # Libérer les ports (optimisé)
     if (-not $Silent) {
         Write-Host "Libération des ports..." -ForegroundColor Yellow
     }
 
-    # Forcer la libération des ports avec netstat
     try {
         # Libérer le port 8000
         $port8000 = Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue
@@ -373,22 +335,11 @@ function Stop-Docusense {
             }
         }
 
-        # Attendre que les connexions TIME_WAIT se libèrent
+        # Attendre que les connexions TIME_WAIT se libèrent (délai réduit)
         if (-not $Silent) {
             Write-Host "Attente de la libération des connexions TIME_WAIT..." -ForegroundColor Yellow
         }
-        Start-Sleep -Seconds 5
-
-        # Vérifier à nouveau et forcer si nécessaire
-        $remaining8000 = Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue
-        $remaining3000 = Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue
-
-        if ($remaining8000 -or $remaining3000) {
-            if (-not $Silent) {
-                Write-Host "Attente supplémentaire pour libération des ports..." -ForegroundColor Yellow
-            }
-            Start-Sleep -Seconds 8
-        }
+        Start-Sleep -Seconds 2
 
         # Vérification finale des ports
         $final8000 = Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue | Where-Object { $_.State -ne "TimeWait" }
@@ -424,19 +375,19 @@ function Get-DocusenseStatus {
     $port8000 = Get-NetTCPConnection -LocalPort 8000 -ErrorAction SilentlyContinue
     $port3000 = Get-NetTCPConnection -LocalPort 3000 -ErrorAction SilentlyContinue
 
-    # Vérifier la santé des services
+    # Vérifier la santé des services (optimisé)
     $backendHealth = $false
     $frontendHealth = $false
 
     try {
-        $response = Invoke-WebRequest -Uri "http://localhost:8000/api/health/" -TimeoutSec 3 -ErrorAction Stop
+        $response = Invoke-WebRequest -Uri "http://localhost:8000/api/health/" -TimeoutSec 1 -ErrorAction Stop
         $backendHealth = $response.StatusCode -eq 200
     } catch {
         $backendHealth = $false
     }
 
     try {
-        $response = Invoke-WebRequest -Uri "http://localhost:3000" -TimeoutSec 3 -ErrorAction Stop
+        $response = Invoke-WebRequest -Uri "http://localhost:3000" -TimeoutSec 1 -ErrorAction Stop
         $frontendHealth = $response.StatusCode -eq 200
     } catch {
         $frontendHealth = $false
@@ -540,8 +491,11 @@ switch ($Action.ToLower()) {
     "stop" { Stop-Docusense }
     "restart" {
         Stop-Docusense
-        Start-Sleep -Seconds 3
+        Start-Sleep -Seconds 2
         Start-Docusense -NoBrowser
     }
+    "backend" { Start-DocusenseBackend }
+    "frontend" { Start-DocusenseFrontend }
+    "status" { Get-DocusenseStatus }
     default { Show-InteractiveMenu }
 }
