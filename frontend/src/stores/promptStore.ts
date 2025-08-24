@@ -1,32 +1,38 @@
 import { create } from 'zustand';
-import { promptService, Prompt } from '../services/promptService';
+import { promptService, UniversalPrompt, PromptRecommendation } from '../services/promptService';
 import { createLoadingActions, createCallGuard, createOptimizedUpdater } from '../utils/storeUtils';
 import { logService } from '../services/logService';
 
 interface PromptState {
-  prompts: Prompt[];
+  universalPrompts: Record<string, UniversalPrompt>;
+  recommendations: PromptRecommendation[];
   loading: boolean;
   error: string | null;
-  initialized: boolean; // Pour éviter les rechargements multiples
+  initialized: boolean;
 
   // Actions
-  loadPrompts: () => Promise<void>;
+  loadUniversalPrompts: () => Promise<void>;
   loadDefaultPromptsOnly: () => Promise<void>;
   reloadPrompts: () => Promise<void>;
+  getPromptRecommendations: (fileType?: string, context?: string) => Promise<void>;
   clearError: () => void;
   
-  // Getter qui charge automatiquement
-  getPrompts: () => Prompt[];
+  // Getters
+  getUniversalPrompts: () => Record<string, UniversalPrompt>;
+  getPromptById: (id: string) => UniversalPrompt | undefined;
+  getPromptsByType: (type: string) => UniversalPrompt[];
+  getPromptsByUseCase: (useCase: string) => UniversalPrompt[];
 }
 
 export const usePromptStore = create<PromptState>((set, get) => ({
-  prompts: [],
+  universalPrompts: {},
+  recommendations: [],
   loading: false,
   error: null,
   initialized: false,
 
   // Chargement automatique au premier accès
-  loadPrompts: (() => {
+  loadUniversalPrompts: (() => {
     const callGuard = createCallGuard();
     return callGuard(async () => {
       const { initialized } = get();
@@ -44,22 +50,17 @@ export const usePromptStore = create<PromptState>((set, get) => ({
       }
       
       try {
-        const specializedPrompts = await promptService.getSpecializedPrompts();
-        const promptsArray = Object.entries(specializedPrompts).map(([id, prompt]) => ({
-          id,
-          ...prompt
-        }));
+        const universalPrompts = await promptService.getAllUniversalPrompts();
         
         updater.updateMultiple({ 
-          prompts: promptsArray,
+          universalPrompts,
           initialized: true 
         });
         loadingActions.finishLoading();
         
-        // Log du chargement des prompts
-        logService.debug(`Chargement de ${promptsArray.length} prompts`, 'PromptStore');
+        logService.debug(`Chargement de ${Object.keys(universalPrompts).length} prompts universels`, 'PromptStore');
       } catch (error) {
-        const errorMessage = error instanceof Error ? error.message : 'Erreur lors du chargement des prompts';
+        const errorMessage = error instanceof Error ? error.message : 'Erreur lors du chargement des prompts universels';
         loadingActions.finishLoadingWithError(errorMessage);
       }
     });
@@ -69,13 +70,6 @@ export const usePromptStore = create<PromptState>((set, get) => ({
   loadDefaultPromptsOnly: (() => {
     const callGuard = createCallGuard();
     return callGuard(async () => {
-      const { initialized } = get();
-      
-      // Éviter les rechargements multiples
-      if (initialized) {
-        return;
-      }
-
       const loadingActions = createLoadingActions(set, get);
       const updater = createOptimizedUpdater(set, get);
       
@@ -84,25 +78,67 @@ export const usePromptStore = create<PromptState>((set, get) => ({
       }
       
       try {
-        // Utiliser directement les données par défaut du service
-        const defaultPrompts = await promptService.getDefaultPromptsOnly();
-        const promptsArray = Object.entries(defaultPrompts).map(([id, prompt]) => ({
-          id,
-          name: id.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
-          description: `Prompt par défaut pour ${id.replace(/_/g, ' ')}`,
-          domain: 'général',
-          type: 'analysis',
-          content: prompt
-        }));
+        // Créer des prompts universels par défaut
+        const defaultPrompts: Record<string, UniversalPrompt> = {
+          'problem_analysis': {
+            id: 'problem_analysis',
+            name: '🔍 Analyse de Problème',
+            description: 'Détecte et analyse les problèmes dans vos documents pour vous aider à agir',
+            domain: 'universal',
+            type: 'analysis',
+            prompt: 'Tu es un expert en analyse de problèmes documentaires...',
+            output_format: 'structured',
+            use_cases: ['construction_litigation', 'contract_disputes', 'quality_issues', 'compliance_problems', 'communication_conflicts']
+          },
+          'contract_comparison': {
+            id: 'contract_comparison',
+            name: '⚖️ Comparaison de Contrats',
+            description: 'Compare plusieurs documents pour identifier les différences et opportunités',
+            domain: 'universal',
+            type: 'comparison',
+            prompt: 'Tu es un expert en analyse comparative de documents...',
+            output_format: 'structured',
+            use_cases: ['insurance_comparison', 'contract_negotiation', 'supplier_selection', 'service_comparison', 'proposal_evaluation']
+          },
+          'dossier_preparation': {
+            id: 'dossier_preparation',
+            name: '📋 Préparation de Dossier',
+            description: 'Prépare un dossier complet pour procédure, action ou décision',
+            domain: 'universal',
+            type: 'preparation',
+            prompt: 'Tu es un expert en préparation de dossiers...',
+            output_format: 'structured',
+            use_cases: ['litigation_preparation', 'expert_report', 'insurance_claim', 'administrative_appeal', 'contract_termination']
+          },
+          'compliance_verification': {
+            id: 'compliance_verification',
+            name: '🛡️ Vérification de Conformité',
+            description: 'Vérifie la conformité aux normes, règles et obligations',
+            domain: 'universal',
+            type: 'verification',
+            prompt: 'Tu es un expert en vérification de conformité...',
+            output_format: 'structured',
+            use_cases: ['technical_compliance', 'legal_compliance', 'contract_compliance', 'regulatory_audit', 'quality_control']
+          },
+          'communication_analysis': {
+            id: 'communication_analysis',
+            name: '📧 Analyse de Communication',
+            description: 'Analyse les échanges et communications pour identifier les problèmes et opportunités',
+            domain: 'universal',
+            type: 'analysis',
+            prompt: 'Tu es un expert en analyse de communication...',
+            output_format: 'structured',
+            use_cases: ['email_analysis', 'correspondence_tracking', 'response_monitoring', 'communication_strategy', 'evidence_collection']
+          }
+        };
         
         updater.updateMultiple({ 
-          prompts: promptsArray,
+          universalPrompts: defaultPrompts,
           initialized: true 
         });
         loadingActions.finishLoading();
         
-        // Log du chargement des prompts par défaut
-        logService.debug(`Chargement de ${promptsArray.length} prompts par défaut`, 'PromptStore');
+        logService.debug('Chargement des prompts universels par défaut', 'PromptStore');
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Erreur lors du chargement des prompts par défaut';
         loadingActions.finishLoadingWithError(errorMessage);
@@ -121,19 +157,43 @@ export const usePromptStore = create<PromptState>((set, get) => ({
       }
       
       try {
-        const specializedPrompts = await promptService.getSpecializedPrompts();
-        const promptsArray = Object.entries(specializedPrompts).map(([id, prompt]) => ({
-          id,
-          ...prompt
-        }));
+        const universalPrompts = await promptService.getAllUniversalPrompts();
         
         updater.updateMultiple({ 
-          prompts: promptsArray,
+          universalPrompts,
           initialized: true 
         });
         loadingActions.finishLoading();
+        
+        logService.debug('Prompts universels rechargés', 'PromptStore');
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : 'Erreur lors du rechargement des prompts';
+        loadingActions.finishLoadingWithError(errorMessage);
+      }
+    });
+  })(),
+
+  getPromptRecommendations: (() => {
+    const callGuard = createCallGuard();
+    return callGuard(async (fileType?: string, context?: string) => {
+      const loadingActions = createLoadingActions(set, get);
+      const updater = createOptimizedUpdater(set, get);
+      
+      if (!loadingActions.startLoading()) {
+        return;
+      }
+      
+      try {
+        const recommendations = await promptService.getPromptRecommendations(fileType, context);
+        
+        updater.updateMultiple({ 
+          recommendations
+        });
+        loadingActions.finishLoading();
+        
+        logService.debug(`Recommandations générées pour ${fileType || 'tous types'}`, 'PromptStore');
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la génération des recommandations';
         loadingActions.finishLoadingWithError(errorMessage);
       }
     });
@@ -143,14 +203,30 @@ export const usePromptStore = create<PromptState>((set, get) => ({
     set({ error: null });
   },
 
-  // Getter qui charge automatiquement les prompts si nécessaire
-  getPrompts: () => {
+  // Getters
+  getUniversalPrompts: () => {
     const state = get();
     if (!state.initialized && !state.loading) {
-      // Charger automatiquement si pas encore initialisé
-      state.loadPrompts();
+      state.loadUniversalPrompts();
     }
-    return state.prompts;
+    return state.universalPrompts;
+  },
+
+  getPromptById: (id: string) => {
+    const state = get();
+    return state.universalPrompts[id];
+  },
+
+  getPromptsByType: (type: string) => {
+    const state = get();
+    return Object.values(state.universalPrompts).filter(prompt => prompt.type === type);
+  },
+
+  getPromptsByUseCase: (useCase: string) => {
+    const state = get();
+    return Object.values(state.universalPrompts).filter(prompt => 
+      prompt.use_cases.includes(useCase)
+    );
   }
 }));
 

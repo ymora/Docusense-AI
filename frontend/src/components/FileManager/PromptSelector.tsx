@@ -2,13 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { XMarkIcon, CheckIcon, ChevronDownIcon } from '@heroicons/react/24/outline';
 import { useColors } from '../../hooks/useColors';
 import { usePromptStore } from '../../stores/promptStore';
-import { Prompt } from '../../services/promptService';
+import { UniversalPrompt } from '../../services/promptService';
 import { analysisService, CreateAnalysisRequest } from '../../services/analysisService';
 
 interface PromptSelectorProps {
   isOpen: boolean;
   onClose: () => void;
-  onPromptSelect: (promptId: string, prompt: Prompt) => void;
+  onPromptSelect: (promptId: string, prompt: UniversalPrompt) => void;
   fileIds: number[];
   mode: 'single' | 'comparison' | 'batch' | 'multiple_ai';
   fileType?: string;
@@ -24,27 +24,24 @@ const PromptSelector: React.FC<PromptSelectorProps> = ({
 }) => {
   const { colors } = useColors();
   const { 
-    prompts, 
-    loading
+    universalPrompts, 
+    loading,
+    getPromptRecommendations,
+    recommendations
   } = usePromptStore();
-  const [selectedPrompt, setSelectedPrompt] = useState<Prompt | null>(null);
-  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  const [selectedPrompt, setSelectedPrompt] = useState<UniversalPrompt | null>(null);
+  const [showRecommendations, setShowRecommendations] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
 
-  // Filtrer les prompts selon le type de fichier si spécifié
-  const filteredPrompts = prompts;
-
-  const toggleCategory = (domain: string) => {
-    const newExpanded = new Set(expandedCategories);
-    if (newExpanded.has(domain)) {
-      newExpanded.delete(domain);
-    } else {
-      newExpanded.add(domain);
+  // Charger les recommandations basées sur le type de fichier
+  useEffect(() => {
+    if (fileType && Object.keys(universalPrompts).length > 0) {
+      getPromptRecommendations(fileType);
+      setShowRecommendations(true);
     }
-    setExpandedCategories(newExpanded);
-  };
+  }, [fileType, universalPrompts, getPromptRecommendations]);
 
-  const handlePromptSelect = (prompt: Prompt) => {
+  const handlePromptSelect = (prompt: UniversalPrompt) => {
     setSelectedPrompt(prompt);
   };
 
@@ -57,7 +54,7 @@ const PromptSelector: React.FC<PromptSelectorProps> = ({
         const requests: CreateAnalysisRequest[] = fileIds.map(fileId => ({
           file_id: fileId,
           prompt_id: selectedPrompt.id,
-          analysis_type: selectedPrompt.type || 'general',
+          analysis_type: selectedPrompt.type || 'analysis',
           custom_prompt: selectedPrompt.prompt
         }));
 
@@ -76,12 +73,8 @@ const PromptSelector: React.FC<PromptSelectorProps> = ({
         onPromptSelect(selectedPrompt.id, selectedPrompt);
         onClose();
         
-        // Afficher un message de succès
-
-        
       } catch (error) {
-        // OPTIMISATION: Suppression des console.error pour éviter la surcharge // console.error('Erreur lors de la création des analyses:', error);
-        // Ici on pourrait afficher une notification d'erreur
+        // Gestion d'erreur silencieuse
       } finally {
         setIsProcessing(false);
       }
@@ -102,23 +95,30 @@ const PromptSelector: React.FC<PromptSelectorProps> = ({
   };
 
   const getPromptIcon = (type: string) => {
-    switch (type) {
-      case 'analysis':
-        return '🔍';
-      case 'summary':
-        return '📝';
-      case 'verification':
-        return '✅';
-      case 'extraction':
-        return '📊';
-      case 'comparison':
-        return '🔄';
-      default:
-        return '📄';
-    }
+    const iconMap: Record<string, string> = {
+      'analysis': '🔍',
+      'comparison': '⚖️',
+      'preparation': '📋',
+      'verification': '🛡️',
+      'communication': '📧'
+    };
+    return iconMap[type] || '📄';
+  };
+
+  const getPromptColor = (type: string) => {
+    const colorMap: Record<string, string> = {
+      'analysis': 'text-blue-500',
+      'comparison': 'text-green-500',
+      'preparation': 'text-purple-500',
+      'verification': 'text-orange-500',
+      'communication': 'text-pink-500'
+    };
+    return colorMap[type] || 'text-gray-500';
   };
 
   if (!isOpen) return null;
+
+  const promptsArray = Object.values(universalPrompts);
 
   return (
     <div className="h-full flex flex-col bg-slate-900">
@@ -132,7 +132,7 @@ const PromptSelector: React.FC<PromptSelectorProps> = ({
             className="text-lg font-semibold"
             style={{ color: colors.text }}
           >
-            Sélectionner un prompt
+            Sélectionner un prompt universel
           </h2>
           <p 
             className="text-sm"
@@ -144,7 +144,7 @@ const PromptSelector: React.FC<PromptSelectorProps> = ({
             className="text-xs mt-1"
             style={{ color: colors.textSecondary }}
           >
-            📋 {prompts.length} prompts chargés en mémoire
+            🎯 {promptsArray.length} prompts universels intelligents
             {!loading && (
               <span className="ml-2 text-green-400">✓</span>
             )}
@@ -152,14 +152,14 @@ const PromptSelector: React.FC<PromptSelectorProps> = ({
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => {}}
+            onClick={() => setShowRecommendations(!showRecommendations)}
             disabled={loading}
             className="p-1 rounded hover:bg-slate-700 transition-colors disabled:opacity-50"
             style={{ color: colors.textSecondary }}
-            title="Actualiser les prompts"
+            title={showRecommendations ? "Voir tous les prompts" : "Voir les recommandations"}
           >
             <svg className="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
             </svg>
           </button>
           <button
@@ -181,10 +181,10 @@ const PromptSelector: React.FC<PromptSelectorProps> = ({
               className="ml-3"
               style={{ color: colors.textSecondary }}
             >
-              Actualisation des prompts...
+              Chargement des prompts...
             </span>
           </div>
-        ) : filteredPrompts.length === 0 ? (
+        ) : promptsArray.length === 0 ? (
           <div className="text-center py-8">
             <div className="text-4xl mb-4">🤖</div>
             <p 
@@ -197,78 +197,142 @@ const PromptSelector: React.FC<PromptSelectorProps> = ({
               className="text-sm"
               style={{ color: colors.textSecondary }}
             >
-              Aucun prompt ne correspond aux critères sélectionnés.
+              Les prompts universels n'ont pas pu être chargés.
             </p>
           </div>
         ) : (
           <div className="space-y-4">
-            {Object.keys(prompts).map((category) => {
-              const categoryPrompts = filteredPrompts.filter(p => p.domain === category.domain);
-              if (categoryPrompts.length === 0) return null;
-              
-              const isExpanded = expandedCategories.has(category.domain);
-              
-              return (
-                <div key={category.domain} className="border rounded-lg" style={{ borderColor: colors.border }}>
-                  <button
-                    onClick={() => toggleCategory(category.domain)}
-                    className="w-full flex items-center justify-between p-3 hover:bg-slate-700 transition-colors"
+            {/* Section Recommandations */}
+            {showRecommendations && recommendations.length > 0 && (
+              <div className="border rounded-lg" style={{ borderColor: colors.border }}>
+                <div className="p-3 border-b" style={{ borderColor: colors.border }}>
+                  <h3 
+                    className="font-medium flex items-center"
                     style={{ color: colors.text }}
                   >
-                    <div className="flex items-center">
-                      <span className="text-lg mr-2">
-                        {category.domain === 'juridical' ? '⚖️' :
-                         category.domain === 'technical' ? '🔧' :
-                         category.domain === 'administrative' ? '📋' : '📄'}
-                      </span>
-                      <span className="font-medium">{category.name}</span>
-                      <span 
-                        className="ml-2 text-xs px-2 py-1 rounded"
-                        style={{ backgroundColor: colors.hover.surface, color: colors.textSecondary }}
+                    <span className="text-yellow-500 mr-2">⭐</span>
+                    Recommandations pour {fileType}
+                  </h3>
+                  <p 
+                    className="text-xs mt-1"
+                    style={{ color: colors.textSecondary }}
+                  >
+                    Prompts les plus adaptés à votre type de fichier
+                  </p>
+                </div>
+                <div>
+                  {recommendations.slice(0, 3).map((recommendation) => {
+                    const prompt = universalPrompts[recommendation.id];
+                    if (!prompt) return null;
+                    
+                    return (
+                      <button
+                        key={recommendation.id}
+                        onClick={() => handlePromptSelect(prompt)}
+                        className={`w-full flex items-start p-3 text-left hover:bg-slate-700 transition-colors ${
+                          selectedPrompt?.id === prompt.id ? 'bg-slate-600' : ''
+                        }`}
+                        style={{ color: colors.text }}
                       >
-                        {categoryPrompts.length}
-                      </span>
-                    </div>
-                    <ChevronDownIcon 
-                      className={`h-5 w-5 transition-transform ${isExpanded ? 'rotate-180' : ''}`}
-                    />
-                  </button>
-                  
-                  {isExpanded && (
-                    <div className="border-t" style={{ borderColor: colors.border }}>
-                      {categoryPrompts.map((prompt) => (
-                        <button
-                          key={prompt.id}
-                          onClick={() => handlePromptSelect(prompt)}
-                          className={`w-full flex items-start p-3 text-left hover:bg-slate-700 transition-colors ${
-                            selectedPrompt?.id === prompt.id ? 'bg-slate-600' : ''
-                          }`}
-                          style={{ color: colors.text }}
-                        >
-                          <div className="flex items-center mr-3">
-                            {selectedPrompt?.id === prompt.id && (
-                              <CheckIcon className="h-4 w-4 text-blue-400 mr-2" />
-                            )}
-                            <span className="text-lg">
-                              {getPromptIcon(prompt.type)}
+                        <div className="flex items-center mr-3">
+                          {selectedPrompt?.id === prompt.id && (
+                            <CheckIcon className="h-4 w-4 text-blue-400 mr-2" />
+                          )}
+                          <span className="text-lg">
+                            {getPromptIcon(prompt.type)}
+                          </span>
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center justify-between">
+                            <h4 className="font-medium">{prompt.name}</h4>
+                            <span 
+                              className="text-xs px-2 py-1 rounded"
+                              style={{ backgroundColor: colors.hover.surface, color: colors.textSecondary }}
+                            >
+                              {Math.round(recommendation.relevance_score * 100)}% pertinent
                             </span>
                           </div>
-                          <div className="flex-1">
-                            <h4 className="font-medium mb-1">{prompt.name}</h4>
-                            <p 
-                              className="text-sm"
-                              style={{ color: colors.textSecondary }}
-                            >
-                              {prompt.description}
-                            </p>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                          <p 
+                            className="text-sm mt-1"
+                            style={{ color: colors.textSecondary }}
+                          >
+                            {prompt.description}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
-              );
-            })}
+              </div>
+            )}
+
+            {/* Section Tous les Prompts */}
+            <div className="border rounded-lg" style={{ borderColor: colors.border }}>
+              <div className="p-3 border-b" style={{ borderColor: colors.border }}>
+                <h3 
+                  className="font-medium flex items-center"
+                  style={{ color: colors.text }}
+                >
+                  <span className="text-blue-500 mr-2">🎯</span>
+                  Tous les prompts universels
+                </h3>
+                <p 
+                  className="text-xs mt-1"
+                  style={{ color: colors.textSecondary }}
+                >
+                  5 prompts intelligents qui s'adaptent à votre contexte
+                </p>
+              </div>
+              <div>
+                {promptsArray.map((prompt) => (
+                  <button
+                    key={prompt.id}
+                    onClick={() => handlePromptSelect(prompt)}
+                    className={`w-full flex items-start p-3 text-left hover:bg-slate-700 transition-colors ${
+                      selectedPrompt?.id === prompt.id ? 'bg-slate-600' : ''
+                    }`}
+                    style={{ color: colors.text }}
+                  >
+                    <div className="flex items-center mr-3">
+                      {selectedPrompt?.id === prompt.id && (
+                        <CheckIcon className="h-4 w-4 text-blue-400 mr-2" />
+                      )}
+                      <span className="text-lg">
+                        {getPromptIcon(prompt.type)}
+                      </span>
+                    </div>
+                    <div className="flex-1">
+                      <h4 className="font-medium">{prompt.name}</h4>
+                      <p 
+                        className="text-sm mt-1"
+                        style={{ color: colors.textSecondary }}
+                      >
+                        {prompt.description}
+                      </p>
+                      <div className="flex flex-wrap gap-1 mt-2">
+                        {prompt.use_cases.slice(0, 3).map((useCase) => (
+                          <span 
+                            key={useCase}
+                            className="text-xs px-2 py-1 rounded"
+                            style={{ backgroundColor: colors.hover.surface, color: colors.textSecondary }}
+                          >
+                            {useCase.replace(/_/g, ' ')}
+                          </span>
+                        ))}
+                        {prompt.use_cases.length > 3 && (
+                          <span 
+                            className="text-xs px-2 py-1 rounded"
+                            style={{ backgroundColor: colors.hover.surface, color: colors.textSecondary }}
+                          >
+                            +{prompt.use_cases.length - 3} autres
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -287,14 +351,14 @@ const PromptSelector: React.FC<PromptSelectorProps> = ({
           </div>
           <button
             onClick={handleConfirm}
-            disabled={loading}
+            disabled={loading || isProcessing}
             className={`w-full font-medium py-2 px-4 rounded-lg transition-colors ${
-              loading 
+              loading || isProcessing
                 ? 'bg-slate-600 text-slate-400 cursor-not-allowed' 
                 : 'bg-blue-600 hover:bg-blue-700 text-white'
             }`}
           >
-            {loading ? 'Création en cours...' : `Créer ${fileIds.length} analyse(s) en attente`}
+            {isProcessing ? 'Création en cours...' : `Créer ${fileIds.length} analyse(s) en attente`}
           </button>
         </div>
       )}

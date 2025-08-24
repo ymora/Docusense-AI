@@ -2,11 +2,11 @@
 Prompts API endpoints for DocuSense AI
 """
 
-from fastapi import APIRouter, HTTPException
-from typing import Dict, Any
+from fastapi import APIRouter, HTTPException, Query
+from typing import Dict, Any, List, Optional
 import logging
 
-from ..services.prompt_service import PromptService, PromptDomain, PromptType
+from ..services.prompt_service import PromptService, PromptType
 from ..utils.api_utils import APIUtils, ResponseFormatter
 
 logger = logging.getLogger(__name__)
@@ -18,16 +18,13 @@ router = APIRouter(tags=["prompts"])
 @APIUtils.handle_errors
 async def get_all_prompts() -> Dict[str, Any]:
     """
-    Get all available prompts
+    Get all available universal prompts
     """
     prompt_service = PromptService()
-    prompts_data = {
-        "default_prompts": prompt_service.get_all_default_prompts(),
-        "specialized_prompts": prompt_service.get_all_prompts()
-    }
+    prompts_data = prompt_service.get_all_universal_prompts()
     return ResponseFormatter.success_response(
         data=prompts_data,
-        message="Tous les prompts récupérés"
+        message="Tous les prompts universels récupérés"
     )
 
 
@@ -35,134 +32,115 @@ async def get_all_prompts() -> Dict[str, Any]:
 @APIUtils.handle_errors
 async def get_prompts_summary() -> Dict[str, Any]:
     """
-    Get a summary of all prompts organized by domain
+    Get a summary of all universal prompts
     """
     prompt_service = PromptService()
     summary_data = prompt_service.get_prompts_summary()
     return ResponseFormatter.success_response(
         data=summary_data,
-        message="Résumé des prompts récupéré"
+        message="Résumé des prompts universels récupéré"
     )
 
 
-@router.get("/default")
+@router.get("/universal")
 @APIUtils.handle_errors
-async def get_default_prompts() -> Dict[str, str]:
+async def get_universal_prompts() -> Dict[str, Any]:
     """
-    Get all default prompts
+    Get all universal prompts
     """
     prompt_service = PromptService()
-    default_prompts = prompt_service.get_all_default_prompts()
+    universal_prompts = prompt_service.get_all_universal_prompts()
     return ResponseFormatter.success_response(
-        data=default_prompts,
-        message="Prompts par défaut récupérés"
+        data=universal_prompts,
+        message="Prompts universels récupérés"
     )
 
 
-@router.get("/default/{analysis_type}")
+@router.get("/universal/{prompt_id}")
 @APIUtils.handle_errors
-async def get_default_prompt(analysis_type: str) -> Dict[str, str]:
+async def get_universal_prompt(prompt_id: str) -> Dict[str, Any]:
     """
-    Get default prompt for a specific analysis type
+    Get a specific universal prompt by ID
     """
     prompt_service = PromptService()
-    prompt = prompt_service.get_default_prompt(analysis_type.upper())
+    prompt = prompt_service.get_universal_prompt(prompt_id)
     if not prompt:
         raise HTTPException(
             status_code=404,
-            detail=f"Default prompt not found for {analysis_type}")
+            detail=f"Universal prompt not found: {prompt_id}")
     
     return ResponseFormatter.success_response(
-        data={"analysis_type": analysis_type, "prompt": prompt},
-        message=f"Prompt par défaut pour {analysis_type} récupéré"
+        data=prompt,
+        message=f"Prompt universel {prompt_id} récupéré"
     )
 
 
-@router.get("/specialized")
-def get_specialized_prompts() -> Dict[str, Any]:
-    """
-    Get all specialized prompts
-    """
-    try:
-        prompt_service = PromptService()
-        specialized_prompts = prompt_service.get_all_prompts()
-        return {
-            "success": True,
-            "message": "Prompts spécialisés récupérés",
-            "data": specialized_prompts,
-            "timestamp": "2025-08-19T08:15:00.000000"
-        }
-    except Exception as e:
-        logger.error(f"Error in get_specialized_prompts: {str(e)}")
-        return {
-            "success": False,
-            "message": f"Erreur lors du chargement des prompts: {str(e)}",
-            "data": {},
-            "timestamp": "2025-08-19T08:15:00.000000"
-        }
-
-
-@router.get("/specialized/{prompt_id}")
+@router.get("/recommendations")
 @APIUtils.handle_errors
-async def get_specialized_prompt(prompt_id: str) -> Dict[str, Any]:
+async def get_prompt_recommendations(
+    file_type: Optional[str] = Query(None, description="Type de fichier (pdf, docx, jpg, etc.)"),
+    context: Optional[str] = Query(None, description="Contexte (construction, contract, insurance, etc.)")
+) -> Dict[str, Any]:
     """
-    Get a specific specialized prompt by ID
+    Get prompt recommendations based on file type and context
     """
     prompt_service = PromptService()
-    prompt = prompt_service.get_prompt(prompt_id)
-    if not prompt:
-        raise HTTPException(
-            status_code=404,
-            detail=f"Prompt {prompt_id} not found")
-    
+    recommendations = prompt_service.get_prompt_recommendations(file_type, context)
     return ResponseFormatter.success_response(
-        data={"id": prompt_id, **prompt},
-        message=f"Prompt spécialisé {prompt_id} récupéré"
+        data={
+            "recommendations": recommendations,
+            "file_type": file_type,
+            "context": context
+        },
+        message="Recommandations de prompts générées"
     )
 
 
-@router.get("/domain/{domain}")
+@router.get("/use-case/{use_case}")
 @APIUtils.handle_errors
-async def get_prompts_by_domain(domain: str) -> Dict[str, Dict[str, Any]]:
+async def get_prompts_by_use_case(use_case: str) -> Dict[str, Any]:
     """
-    Get all prompts for a specific domain
+    Get prompts that are relevant for a specific use case
     """
-    try:
-        prompt_service = PromptService()
-        domain_enum = PromptDomain(domain.lower())
-        prompts = prompt_service.get_prompts_by_domain(domain_enum)
-        return ResponseFormatter.success_response(
-            data={"domain": domain, "prompts": prompts},
-            message=f"Prompts pour le domaine {domain} récupérés"
-        )
-    except ValueError:
+    prompt_service = PromptService()
+    prompts = prompt_service.get_prompts_by_use_case(use_case)
+    return ResponseFormatter.success_response(
+        data={
+            "use_case": use_case,
+            "prompts": prompts
+        },
+        message=f"Prompts pour le cas d'usage {use_case} récupérés"
+    )
+
+
+@router.get("/format/{prompt_id}")
+@APIUtils.handle_errors
+async def format_prompt(
+    prompt_id: str,
+    text: str = Query(..., description="Texte à insérer dans le prompt")
+) -> Dict[str, Any]:
+    """
+    Format a universal prompt with the given text
+    """
+    prompt_service = PromptService()
+    formatted_prompt = prompt_service.format_prompt(prompt_id, text)
+    if not formatted_prompt:
         raise HTTPException(
-            status_code=400,
-            detail=f"Invalid domain: {domain}")
-
-
-@router.get("/type/{prompt_type}")
-@APIUtils.handle_errors
-async def get_prompts_by_type(prompt_type: str) -> Dict[str, Dict[str, Any]]:
-    """
-    Get all prompts of a specific type
-    """
-    try:
-        prompt_service = PromptService()
-        type_enum = PromptType(prompt_type.lower())
-        prompts = prompt_service.get_prompts_by_type(type_enum)
-        return ResponseFormatter.success_response(
-            data={"type": prompt_type, "prompts": prompts},
-            message=f"Prompts de type {prompt_type} récupérés"
-        )
-    except ValueError:
-        raise HTTPException(status_code=400,
-                            detail=f"Invalid prompt type: {prompt_type}")
+            status_code=404,
+            detail=f"Universal prompt not found: {prompt_id}")
+    
+    return ResponseFormatter.success_response(
+        data={
+            "prompt_id": prompt_id,
+            "formatted_prompt": formatted_prompt
+        },
+        message="Prompt formaté avec succès"
+    )
 
 
 @router.post("/reload")
 @APIUtils.handle_errors
-async def reload_prompts() -> Dict[str, str]:
+async def reload_prompts() -> Dict[str, Any]:
     """
     Reload prompts from JSON file
     """
@@ -173,4 +151,114 @@ async def reload_prompts() -> Dict[str, str]:
             status_code=500,
             detail="Failed to reload prompts")
     
-    return ResponseFormatter.success_response(message="Prompts rechargés avec succès")
+    return ResponseFormatter.success_response(
+        data={"reloaded": True},
+        message="Prompts universels rechargés avec succès"
+    )
+
+
+# Endpoints de compatibilité pour l'ancienne API
+@router.get("/default")
+@APIUtils.handle_errors
+async def get_default_prompts() -> Dict[str, Any]:
+    """
+    Get all default prompts (compatibility endpoint)
+    """
+    prompt_service = PromptService()
+    # Retourner les prompts universels comme "default"
+    universal_prompts = prompt_service.get_all_universal_prompts()
+    default_prompts = {}
+    
+    # Mapper les prompts universels vers les anciens types
+    mapping = {
+        "problem_analysis": "GENERAL",
+        "compliance_verification": "TECHNICAL",
+        "dossier_preparation": "ADMINISTRATIVE",
+        "contract_comparison": "JURIDICAL",
+        "communication_analysis": "GENERAL"
+    }
+    
+    for prompt_id, prompt in universal_prompts.items():
+        old_type = mapping.get(prompt_id, "GENERAL")
+        default_prompts[old_type] = prompt["prompt"]
+    
+    return ResponseFormatter.success_response(
+        data=default_prompts,
+        message="Prompts par défaut récupérés (compatibilité)"
+    )
+
+
+@router.get("/default/{analysis_type}")
+@APIUtils.handle_errors
+async def get_default_prompt(analysis_type: str) -> Dict[str, Any]:
+    """
+    Get default prompt for a specific analysis type (compatibility endpoint)
+    """
+    prompt_service = PromptService()
+    prompt = prompt_service.get_default_prompt(analysis_type.upper())
+    if not prompt:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Default prompt not found for {analysis_type}")
+    
+    return ResponseFormatter.success_response(
+        data={"analysis_type": analysis_type, "prompt": prompt},
+        message=f"Prompt par défaut pour {analysis_type} récupéré (compatibilité)"
+    )
+
+
+@router.get("/specialized")
+@APIUtils.handle_errors
+async def get_specialized_prompts() -> Dict[str, Any]:
+    """
+    Get all specialized prompts (compatibility endpoint)
+    """
+    prompt_service = PromptService()
+    # Retourner les prompts universels comme "specialized"
+    universal_prompts = prompt_service.get_all_universal_prompts()
+    specialized_prompts = {}
+    
+    # Convertir le format pour la compatibilité
+    for prompt_id, prompt in universal_prompts.items():
+        specialized_prompts[prompt_id] = {
+            "domain": "universal",
+            "type": prompt["type"],
+            "name": prompt["name"],
+            "description": prompt["description"],
+            "prompt": prompt["prompt"],
+            "output_format": prompt["output_format"]
+        }
+    
+    return ResponseFormatter.success_response(
+        data=specialized_prompts,
+        message="Prompts spécialisés récupérés (compatibilité)"
+    )
+
+
+@router.get("/specialized/{prompt_id}")
+@APIUtils.handle_errors
+async def get_specialized_prompt(prompt_id: str) -> Dict[str, Any]:
+    """
+    Get a specific specialized prompt by ID (compatibility endpoint)
+    """
+    prompt_service = PromptService()
+    prompt = prompt_service.get_universal_prompt(prompt_id)
+    if not prompt:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Specialized prompt not found: {prompt_id}")
+    
+    # Convertir le format pour la compatibilité
+    specialized_prompt = {
+        "domain": "universal",
+        "type": prompt["type"],
+        "name": prompt["name"],
+        "description": prompt["description"],
+        "prompt": prompt["prompt"],
+        "output_format": prompt["output_format"]
+    }
+    
+    return ResponseFormatter.success_response(
+        data=specialized_prompt,
+        message=f"Prompt spécialisé {prompt_id} récupéré (compatibilité)"
+    )

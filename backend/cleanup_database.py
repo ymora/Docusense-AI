@@ -1,38 +1,27 @@
 #!/usr/bin/env python3
 """
 Script de nettoyage complet de la base de données DocuSense AI
-Permet de nettoyer différents types de données selon les besoins
+Utilise le service de nettoyage unifié pour une meilleure organisation
 """
 
 import os
 import sys
-import shutil
-from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, List, Any
 
 # Ajouter le répertoire parent au path pour les imports
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from sqlalchemy.orm import Session
-from app.core.database import SessionLocal, engine
-from app.models.file import File, FileStatus
-from app.models.analysis import Analysis, AnalysisStatus
-from app.core.database_migration import DatabaseMigrationManager, check_database_consistency
+from app.core.database import SessionLocal
+from app.services.unified_cleanup_service import UnifiedCleanupService
 
 
 class DatabaseCleaner:
-    """Classe pour nettoyer la base de données"""
+    """Classe pour nettoyer la base de données - Utilise le service unifié"""
     
     def __init__(self):
         self.db = SessionLocal()
-        self.cleanup_stats = {
-            'files_deleted': 0,
-            'analyses_deleted': 0,
-            'orphaned_files_marked': 0,
-            'invalid_statuses_fixed': 0,
-            'temp_files_cleaned': 0
-        }
+        self.cleanup_service = UnifiedCleanupService(self.db)
     
     def __del__(self):
         if hasattr(self, 'db'):
@@ -48,10 +37,13 @@ class DatabaseCleaner:
         print("3. 🧪 Nettoyer les analyses échouées")
         print("4. ⏰ Nettoyer les analyses anciennes")
         print("5. 📁 Nettoyer les fichiers temporaires")
-        print("6. 🔧 Corriger les statuts invalides")
-        print("7. 🚀 Nettoyage complet (toutes les opérations)")
-        print("8. 💾 Créer une sauvegarde avant nettoyage")
-        print("9. 🔄 Restaurer depuis une sauvegarde")
+        print("6. 📝 Nettoyer les fichiers de logs")
+        print("7. 🗂️  Nettoyer le cache")
+        print("8. 🎬 Nettoyer les anciennes conversions")
+        print("9. 🔧 Corriger les statuts invalides")
+        print("10. 🚀 Nettoyage complet (toutes les opérations)")
+        print("11. 💾 Créer une sauvegarde avant nettoyage")
+        print("12. 🔄 Restaurer depuis une sauvegarde")
         print("0. ❌ Quitter")
         print("="*60)
     
@@ -59,11 +51,11 @@ class DatabaseCleaner:
         """Récupère le choix de l'utilisateur"""
         while True:
             try:
-                choice = int(input("\nVotre choix (0-9): "))
-                if 0 <= choice <= 9:
+                choice = int(input("\nVotre choix (0-12): "))
+                if 0 <= choice <= 12:
                     return choice
                 else:
-                    print("❌ Choix invalide. Veuillez entrer un nombre entre 0 et 9.")
+                    print("❌ Choix invalide. Veuillez entrer un nombre entre 0 et 12.")
             except ValueError:
                 print("❌ Veuillez entrer un nombre valide.")
     
@@ -72,32 +64,21 @@ class DatabaseCleaner:
         print("\n📊 ÉTAT ACTUEL DE LA BASE DE DONNÉES")
         print("-" * 40)
         
-        # Compter les fichiers
-        total_files = self.db.query(File).count()
-        files_by_status = {}
-        for status in FileStatus:
-            count = self.db.query(File).filter(File.status == status).count()
-            if count > 0:
-                files_by_status[status.value] = count
+        # Utiliser le service unifié pour obtenir les statistiques
+        stats = self.cleanup_service.get_cleanup_stats()
         
-        # Compter les analyses
-        total_analyses = self.db.query(Analysis).count()
+        db_stats = stats['database']
+        temp_stats = stats['temp_files']
         
-        # Compter les analyses (qui remplacent les tâches de queue)
-        total_analyses = self.db.query(Analysis).count()
-        analyses_by_status = {}
-        for status in AnalysisStatus:
-            count = self.db.query(Analysis).filter(Analysis.status == status).count()
-            if count > 0:
-                analyses_by_status[status.value] = count
-        
-        print(f"📁 Fichiers: {total_files}")
-        for status, count in files_by_status.items():
+        print(f"📁 Fichiers: {db_stats['total_files']}")
+        for status, count in db_stats['files_by_status'].items():
             print(f"   - {status}: {count}")
         
-        print(f"📋 Analyses: {total_analyses}")
-        for status, count in analyses_by_status.items():
+        print(f"📋 Analyses: {db_stats['total_analyses']}")
+        for status, count in db_stats['analyses_by_status'].items():
             print(f"   - {status}: {count}")
+        
+        print(f"🗂️ Fichiers temporaires: {temp_stats['count']} ({temp_stats['size_mb']} MB)")
         
         # Vérifier la cohérence
         print("\n🔍 VÉRIFICATION DE COHÉRENCE")
@@ -107,142 +88,122 @@ class DatabaseCleaner:
         print(f"   - Fichiers orphelins: {consistency_report['orphaned_files']}")
         print(f"   - Types MIME manquants: {consistency_report['missing_mime_types']}")
     
-    def cleanup_orphaned_files(self):
+    def cleanup_orphaned_files(self, directory_path: str = None):
         """Nettoie les fichiers orphelins (fichiers introuvables)"""
         print("\n🗑️  NETTOYAGE DES FICHIERS ORPHELINS")
         print("-" * 40)
         
-        files = self.db.query(File).all()
-        orphaned_count = 0
+        count = self.cleanup_service.cleanup_orphaned_files(directory_path)
         
-        for file in files:
-            if not Path(file.path).exists():
-                print(f"   ❌ Fichier introuvable: {file.name}")
-                self.db.delete(file)
-                orphaned_count += 1
-        
-        if orphaned_count > 0:
-            self.db.commit()
-            self.cleanup_stats['files_deleted'] += orphaned_count
-            print(f"✅ {orphaned_count} fichiers orphelins supprimés")
+        if count > 0:
+            print(f"✅ {count} fichiers orphelins marqués")
         else:
             print("✅ Aucun fichier orphelin trouvé")
+        
+        return count
     
-    def cleanup_failed_analyses(self):
+    def cleanup_failed_analyses(self, max_age_hours: int = 24):
         """Nettoie les analyses échouées"""
-        print("\n🧪 NETTOYAGE DES ANALYSES ÉCHOUÉES")
+        print(f"\n🧪 NETTOYAGE DES ANALYSES ÉCHOUÉES (plus de {max_age_hours}h)")
         print("-" * 40)
         
-        # Supprimer les analyses échouées
-        failed_analyses = self.db.query(Analysis).filter(
-            Analysis.status == AnalysisStatus.FAILED
-        ).all()
+        count = self.cleanup_service.cleanup_failed_analyses(max_age_hours)
         
-        failed_count = 0
-        for analysis in failed_analyses:
-            print(f"   ❌ Analyse échouée supprimée: {analysis.id}")
-            self.db.delete(analysis)
-            failed_count += 1
-        
-        if failed_count > 0:
-            self.db.commit()
-            self.cleanup_stats['analyses_deleted'] += failed_count
-            print(f"✅ {failed_count} analyses échouées supprimées")
+        if count > 0:
+            print(f"✅ {count} analyses échouées supprimées")
         else:
             print("✅ Aucune analyse échouée trouvée")
+        
+        return count
     
-    def cleanup_old_analyses(self, max_age_hours: int = 24):
+    def cleanup_old_analyses(self, max_age_hours: int = 168):
         """Nettoie les analyses anciennes"""
         print(f"\n⏰ NETTOYAGE DES ANALYSES ANCIENNES (plus de {max_age_hours}h)")
         print("-" * 40)
         
-        cutoff_time = datetime.now() - timedelta(hours=max_age_hours)
+        count = self.cleanup_service.cleanup_old_analyses(max_age_hours)
         
-        # Supprimer les analyses terminées anciennes
-        old_completed = self.db.query(Analysis).filter(
-            Analysis.status == AnalysisStatus.COMPLETED,
-            Analysis.completed_at < cutoff_time
-        ).all()
-        
-        # Supprimer les analyses échouées anciennes
-        old_failed = self.db.query(Analysis).filter(
-            Analysis.status == AnalysisStatus.FAILED,
-            Analysis.completed_at < cutoff_time
-        ).all()
-        
-        deleted_count = 0
-        for analysis in old_completed + old_failed:
-            print(f"   ⏰ Analyse ancienne supprimée: {analysis.id}")
-            self.db.delete(analysis)
-            deleted_count += 1
-        
-        if deleted_count > 0:
-            self.db.commit()
-            self.cleanup_stats['analyses_deleted'] += deleted_count
-            print(f"✅ {deleted_count} analyses anciennes supprimées")
+        if count > 0:
+            print(f"✅ {count} analyses anciennes supprimées")
         else:
             print("✅ Aucune analyse ancienne trouvée")
+        
+        return count
     
-    def cleanup_temp_files(self):
+    def cleanup_temp_files(self, max_age_hours: int = 1, max_total_size_gb: int = 2):
         """Nettoie les fichiers temporaires"""
-        print("\n📁 NETTOYAGE DES FICHIERS TEMPORAIRES")
+        print(f"\n📁 NETTOYAGE DES FICHIERS TEMPORAIRES (max {max_age_hours}h, {max_total_size_gb}GB)")
         print("-" * 40)
         
-        temp_dir = Path("temp_downloads")
-        if not temp_dir.exists():
-            print("✅ Aucun dossier temporaire trouvé")
-            return
+        result = self.cleanup_service.cleanup_temp_files(max_age_hours, max_total_size_gb)
         
-        cleaned_count = 0
-        for file_path in temp_dir.iterdir():
-            if file_path.is_file():
-                try:
-                    file_path.unlink()
-                    print(f"   🗑️  Fichier temporaire supprimé: {file_path.name}")
-                    cleaned_count += 1
-                except Exception as e:
-                    print(f"   ❌ Erreur suppression {file_path.name}: {e}")
+        print(f"✅ {result['files_deleted']} fichiers temporaires supprimés")
+        print(f"📊 Taille restante: {result['remaining_size_gb']} GB")
         
-        self.cleanup_stats['temp_files_cleaned'] += cleaned_count
-        print(f"✅ {cleaned_count} fichiers temporaires supprimés")
+        return result
     
     def fix_invalid_statuses(self):
         """Corrige les statuts invalides"""
         print("\n🔧 CORRECTION DES STATUTS INVALIDES")
         print("-" * 40)
         
-        # Utiliser le système de migration existant
-        migration_manager = DatabaseMigrationManager(self.db)
-        results = migration_manager.run_migrations()
+        result = self.cleanup_service.fix_invalid_statuses()
         
-        if results['warnings']:
-            for warning in results['warnings']:
-                print(f"   ⚠️  {warning}")
+        print(f"✅ {result['items_fixed']} statuts corrigés")
         
-        if results['migrations_applied']:
-            print(f"✅ {len(results['migrations_applied'])} corrections appliquées")
-        else:
-            print("✅ Aucune correction nécessaire")
+        return result
+    
+    def cleanup_logs(self, max_age_days: int = 7, max_size_mb: int = 100):
+        """Nettoie les fichiers de logs"""
+        print(f"\n📝 NETTOYAGE DES LOGS (max {max_age_days}j, {max_size_mb}MB)")
+        print("-" * 40)
+        
+        result = self.cleanup_service.cleanup_logs(max_age_days, max_size_mb)
+        
+        print(f"✅ {result['files_deleted']} fichiers de logs supprimés")
+        print(f"📊 Taille restante: {result['remaining_size_mb']} MB")
+        
+        return result
+    
+    def cleanup_cache(self, max_age_hours: int = 24):
+        """Nettoie le cache"""
+        print(f"\n🗂️ NETTOYAGE DU CACHE (max {max_age_hours}h)")
+        print("-" * 40)
+        
+        result = self.cleanup_service.cleanup_cache(max_age_hours)
+        
+        return result
+    
+    def cleanup_conversions(self, max_age_hours: int = 24):
+        """Nettoie les anciennes conversions"""
+        print(f"\n🎬 NETTOYAGE DES CONVERSIONS (max {max_age_hours}h)")
+        print("-" * 40)
+        
+        result = self.cleanup_service.cleanup_old_conversions(max_age_hours)
+        
+        print(f"✅ {result['items_deleted']} conversions supprimées")
+        
+        return result
     
     def full_cleanup(self):
         """Effectue un nettoyage complet"""
         print("\n🚀 NETTOYAGE COMPLET EN COURS...")
         print("=" * 50)
         
-        self.cleanup_orphaned_files()
-        self.cleanup_failed_analyses()
-        self.cleanup_old_analyses()
-        self.cleanup_temp_files()
-        self.fix_invalid_statuses()
+        result = self.cleanup_service.full_cleanup()
         
         print("\n" + "=" * 50)
         print("📊 RÉSUMÉ DU NETTOYAGE")
         print("=" * 50)
-        for key, value in self.cleanup_stats.items():
+        
+        total_stats = result['total_stats']
+        for key, value in total_stats.items():
             if value > 0:
                 print(f"   - {key}: {value}")
         
         print("✅ Nettoyage complet terminé !")
+        
+        return result
     
     def create_backup(self):
         """Crée une sauvegarde de la base de données"""
@@ -321,16 +282,42 @@ class DatabaseCleaner:
             elif choice == 5:
                 self.cleanup_temp_files()
             elif choice == 6:
-                self.fix_invalid_statuses()
+                days = input("Âge maximum en jours (défaut: 7): ")
+                size = input("Taille maximale en MB (défaut: 100): ")
+                try:
+                    days = int(days) if days.strip() else 7
+                    size = int(size) if size.strip() else 100
+                    self.cleanup_logs(days, size)
+                except ValueError:
+                    print("❌ Valeur invalide, utilisation des valeurs par défaut")
+                    self.cleanup_logs()
             elif choice == 7:
+                hours = input("Âge maximum en heures (défaut: 24): ")
+                try:
+                    hours = int(hours) if hours.strip() else 24
+                    self.cleanup_cache(hours)
+                except ValueError:
+                    print("❌ Valeur invalide, utilisation de 24h par défaut")
+                    self.cleanup_cache()
+            elif choice == 8:
+                hours = input("Âge maximum en heures (défaut: 24): ")
+                try:
+                    hours = int(hours) if hours.strip() else 24
+                    self.cleanup_conversions(hours)
+                except ValueError:
+                    print("❌ Valeur invalide, utilisation de 24h par défaut")
+                    self.cleanup_conversions()
+            elif choice == 9:
+                self.fix_invalid_statuses()
+            elif choice == 10:
                 confirm = input("⚠️  Êtes-vous sûr de vouloir effectuer un nettoyage complet ? (oui/non): ")
                 if confirm.lower() in ['oui', 'o', 'yes', 'y']:
                     self.full_cleanup()
                 else:
                     print("❌ Nettoyage annulé")
-            elif choice == 8:
+            elif choice == 11:
                 self.create_backup()
-            elif choice == 9:
+            elif choice == 12:
                 self.restore_backup()
             
             input("\nAppuyez sur Entrée pour continuer...")

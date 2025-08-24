@@ -1,0 +1,281 @@
+# ==========================
+# PROTECTION FICHIERS SOURCES ET SAUVEGARDES - CURSOR
+# ==========================
+
+# ==========================
+# SUPPRESSION SYSTÈME INTERDITE
+# ==========================
+
+# Suppression récursive des disques système
+rm -rf /
+rm -rf C:\
+rm -rf D:\
+rm -rf E:\
+
+# Suppression de répertoires système critiques
+del /s /q C:\Windows
+del /s /q C:\Program Files
+del /s /q C:\Program Files (x86)
+del /s /q C:\Users
+Remove-Item C:\Windows -Recurse -Force
+Remove-Item C:\Program Files -Recurse -Force
+Remove-Item C:\Program Files (x86) -Recurse -Force
+Remove-Item C:\Users -Recurse -Force
+
+# ==========================
+# PROTECTION RÉPERTOIRES DE SAUVEGARDE (D: et E:)
+# ==========================
+
+# Modification interdite des répertoires de sauvegarde
+Remove-Item D:\* -Recurse -Force
+Remove-Item E:\* -Recurse -Force
+del /s /q D:\
+del /s /q E:\
+mkdir D:\
+mkdir E:\
+Move-Item D:\* -Destination
+Move-Item E:\* -Destination
+Copy-Item D:\* -Destination
+Copy-Item E:\* -Destination
+
+# ==========================
+# FORMATAGE DISQUES INTERDIT
+# ==========================
+
+# Formatage des disques système
+format C:
+format D:
+format E:
+diskpart
+
+# ==========================
+# COMMANDES SYSTÈME CRITIQUES
+# ==========================
+
+# Arrêt système
+shutdown /s /t 0
+shutdown /r /t 0
+Restart-Computer -Force
+Stop-Computer -Force
+
+# Modification registre système
+reg add "HKLM\SOFTWARE"
+reg delete "HKLM\SOFTWARE"
+reg add "HKLM\SYSTEM"
+reg delete "HKLM\SYSTEM"
+
+# Commandes système avancées
+wmic process call create
+wmic service call startservice
+wmic service call stopservice
+wmic computerystem call shutdown
+
+# Contournement sécurité
+powershell -ExecutionPolicy Bypass
+powershell -NoProfile -ExecutionPolicy Bypass
+cmd /c "powershell -ExecutionPolicy Bypass"
+
+# ==========================
+# MODIFICATION UTILISATEURS SYSTÈME
+# ==========================
+
+# Création/suppression utilisateurs
+net user administrator /add
+net user administrator /delete
+net localgroup administrators /add
+net localgroup administrators /delete
+
+# ==========================
+# COMMANDES DE MODIFICATION SYSTÈME
+# ==========================
+
+# Modification système
+fsutil
+chkdsk /f
+sfc /scannow
+dism /online /cleanup-image
+
+# Services système
+sc create
+sc delete
+sc start
+sc stop
+sc config
+
+# Tâches planifiées
+schtasks /create
+schtasks /delete
+schtasks /run
+schtasks /end
+
+# Permissions système
+icacls C:\Windows /grant
+icacls C:\Windows /deny
+takeown /f C:\Windows
+cacls C:\Windows
+
+# Variables système
+setx PATH
+setx TEMP
+setx TMP
+
+# Politique d'exécution
+Set-ExecutionPolicy -ExecutionPolicy Unrestricted -Scope LocalMachine
+Set-ExecutionPolicy -ExecutionPolicy Bypass -Scope LocalMachine
+
+# ==========================
+# RÉSEAU SYSTÈME
+# ==========================
+
+# Configuration réseau
+netsh firewall
+netsh interface
+netsh wlan
+netsh advfirewall
+netsh advfirewall set allprofiles state off
+netsh advfirewall set allprofiles state on
+
+# ==========================
+# SAUVEGARDE ET RÉCUPÉRATION
+# ==========================
+
+# Sauvegarde système
+wbadmin start backup
+wbadmin start recovery
+wbadmin start systemstaterecovery
+
+# Restauration système
+rstrui.exe
+rstrui.exe /restorepoint
+
+# Récupération système
+reagentc /enable
+reagentc /disable
+reagentc /setreimage
+
+# ==========================
+# DÉMARRAGE ET PARTITION
+# ==========================
+
+# Configuration démarrage
+bcdedit /set
+bcdedit /delete
+bcdedit /create
+
+# Partition disque
+diskpart /s
+diskpart /f
+diskpart /p
+
+# ==========================
+# CHIFFREMENT ET SÉCURITÉ
+# ==========================
+
+# Chiffrement disque
+manage-bde -on C:
+manage-bde -off C:
+manage-bde -lock C:
+
+# Chiffrement fichiers
+cipher /e
+cipher /d
+cipher /w
+
+# ==========================
+# SURVEILLANCE ET DIAGNOSTIC
+# ==========================
+
+# Surveillance système
+logman create
+logman delete
+logman start
+logman stop
+
+# Journalisation système
+wevtutil qe
+wevtutil cl
+wevtutil sl
+
+# Diagnostic système
+perfmon /res
+perfmon /relog
+perfmon /report
+
+# ==========================
+# DOMAINE ET RÉPERTOIRE ACTIF
+# ==========================
+
+# Gestion domaine
+netdom join
+netdom remove
+netdom reset
+netdom trust
+netdom trust /add
+netdom trust /remove
+
+# Répertoire actif
+dsadd user
+dsdelete user
+dsmod user
+dsadd group
+dsdelete group
+dsmod group
+dsadd ou
+dsdelete ou
+dsmod ou
+
+# Réplication
+repadmin /showrepl
+repadmin /syncall
+repadmin /replicate
+repadmin /showattr
+repadmin /showobjmeta
+repadmin /showreps
+
+# ==========================
+# OUTILS D'ADMINISTRATION SYSTÈME
+# ==========================
+
+# Outils de gestion
+gpedit.msc
+secpol.msc
+schmmgmt.msc
+dssite.msc
+dsa.msc
+gpmc.msc
+services.msc
+devmgmt.msc
+diskmgmt.msc
+eventvwr.msc
+certmgr.msc
+
+# ==========================
+# POLITIQUES DE SÉCURITÉ
+# ==========================
+
+# Politique de sécurité
+secedit /configure
+secedit /export
+secedit /import
+
+# Politique de groupe
+gpresult /r
+gpresult /h
+gpresult /z
+gpupdate /force
+
+# Politique de mot de passe
+net accounts /minpwlen
+net accounts /maxpwage
+net accounts /minpwage
+net accounts /lockoutthreshold
+net accounts /lockoutduration
+net accounts /lockoutwindow
+net accounts /forcelogoff
+
+# ==========================
+# RÈGLE GÉNÉRALE DE SÉCURITÉ
+# ==========================
+
+# Toute commande qui pourrait affecter les fichiers sources ou sauvegardes
+# sur les disques C:, D:, E: nécessite une autorisation explicite

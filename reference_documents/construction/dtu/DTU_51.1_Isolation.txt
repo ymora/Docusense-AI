@@ -1,31 +1,160 @@
 # DTU 51.1 - Isolation thermique
 
 Document Technique Unifié pour l'isolation thermique
+Source officielle : Centre Scientifique et Technique du Bâtiment (CSTB)
+URL : https://www.cstb.fr/fr/produits-solutions/dtu/
 
 ==================================================
 
-
-# DTU 51.1 - Isolation thermique
-
 ## Généralités
-Le DTU 51.1 définit les règles d'exécution des isolations thermiques.
+Le DTU 51.1 définit les règles de conception et d'exécution des isolations thermiques par l'intérieur dans les bâtiments d'habitation et assimilés.
 
 ## Domaine d'application
-- Isolation des murs
-- Isolation des planchers
-- Isolation des toitures
-- Isolation des combles
+- Isolation thermique par l'intérieur
+- Murs extérieurs et cloisons
+- Plafonds et planchers
+- Bâtiments d'habitation et assimilés
+- Rénovation et construction neuve
 
-## Exigences techniques
-- Matériaux isolants autorisés
-- Épaisseur minimale
-- Pose continue
-- Élimination des ponts thermiques
-- Vapeur d'eau
+## Matériaux d'isolation
 
-## Points de contrôle
-- Qualité des isolants
-- Épaisseur respectée
-- Pose continue
-- Ponts thermiques éliminés
-- Perméance à la vapeur
+### Isolants minéraux
+- **Laine de verre** : λ = 0,030 à 0,045 W/(m.K)
+- **Laine de roche** : λ = 0,032 à 0,045 W/(m.K)
+- **Laine de laitier** : λ = 0,035 à 0,045 W/(m.K)
+- **Vermiculite** : λ = 0,065 à 0,085 W/(m.K)
+- **Perlite** : λ = 0,040 à 0,060 W/(m.K)
+
+### Isolants organiques
+- **Polyuréthane** : λ = 0,022 à 0,035 W/(m.K)
+- **Polystyrène expansé** : λ = 0,030 à 0,040 W/(m.K)
+- **Polystyrène extrudé** : λ = 0,025 à 0,035 W/(m.K)
+- **Fibre de bois** : λ = 0,035 à 0,050 W/(m.K)
+- **Liège** : λ = 0,035 à 0,045 W/(m.K)
+
+### Isolants naturels
+- **Laine de mouton** : λ = 0,035 à 0,045 W/(m.K)
+- **Chanvre** : λ = 0,040 à 0,050 W/(m.K)
+- **Lin** : λ = 0,035 à 0,045 W/(m.K)
+- **Ouate de cellulose** : λ = 0,035 à 0,045 W/(m.K)
+
+## Épaisseurs minimales
+
+### Résistance thermique minimale
+- **RT2012** : R ≥ 2,5 m².K/W
+- **RE2020** : R ≥ 3,0 m².K/W
+- **Rénovation** : R ≥ 2,0 m².K/W
+
+### Épaisseurs selon matériau
+- **Laine de verre** : 100 mm minimum
+- **Laine de roche** : 100 mm minimum
+- **Polyuréthane** : 80 mm minimum
+- **Polystyrène** : 100 mm minimum
+- **Fibre de bois** : 120 mm minimum
+
+## Mise en œuvre
+
+### Préparation du support
+- **Nettoyage** : Suppression des salissures
+- **Réparation** : Fissures et défauts
+- **Séchage** : Humidité < 20%
+- **Primaire** : Si nécessaire
+
+### Pose de l'isolant
+- **Contact** : Parfait avec le support
+- **Jointoiement** : Joints fermés
+- **Fixation** : Cheville ou colle
+- **Recouvrement** : Chevauchement 5 cm
+
+### Pare-vapeur
+- **Matériau** : Feuille d'aluminium ou polyéthylène
+- **Pose** : Côté chaud de l'isolant
+- **Jointoiement** : Joints étanches
+- **Fixation** : Agrafes ou adhésif
+
+## Ponts thermiques
+
+### Types de ponts thermiques
+- **Ponts thermiques linéiques** : Linteaux, planchers
+- **Ponts thermiques ponctuels** : Fixations, traversées
+
+### Traitement
+- **Isolation continue** : Éviter les interruptions
+- **Rupteurs thermiques** : Si nécessaire
+- **Calcul** : Vérification Ψ ≤ 0,01 W/(m.K)
+
+## Contrôle qualité
+
+### Contrôles visuels
+- **Planéité** : Tolérance ± 5 mm/m
+- **Jointoiement** : Pas de vides
+- **Fixation** : Solidité vérifiée
+- **Pare-vapeur** : Intégrité
+
+### Contrôles techniques
+- **Épaisseur** : Mesure sur chantier
+- **Résistance thermique** : Calcul ou mesure
+- **Étanchéité à l'air** : Test si nécessaire
+
+## Performance énergétique
+
+### Coefficients de transmission
+- **Mur extérieur** : U ≤ 0,36 W/(m².K)
+- **Plancher bas** : U ≤ 0,28 W/(m².K)
+- **Toiture** : U ≤ 0,20 W/(m².K)
+
+### Calcul de résistance
+R = e / λ
+- R : Résistance thermique (m².K/W)
+- e : Épaisseur (m)
+- λ : Conductivité thermique (W/(m.K))
+
+## Sécurité
+
+### Résistance au feu
+- **Réaction au feu** : Classement A1 à B
+- **Résistance au feu** : Selon usage
+- **Désenfumage** : Si nécessaire
+
+### Santé
+- **Émissions** : Composés organiques volatils
+- **Fibres** : Protection respiratoire
+- **Poussières** : Aspiration
+
+## Maintenance
+
+### Entretien
+- **Inspection** : Annuelle
+- **Réparation** : Dégâts visibles
+- **Remplacement** : Si dégradation
+
+### Durabilité
+- **Vieillissement** : Résistance mécanique
+- **Humidité** : Protection contre l'eau
+- **UV** : Protection contre la lumière
+
+## Documents de contrôle
+
+### Obligatoires
+- Fiches de contrôle
+- Certificats de conformité
+- Plans d'exécution
+- Rapport de réception
+
+### Recommandés
+- Photos de chantier
+- Journal de bord
+- Contrôles intermédiaires
+
+## Références normatives
+- NF EN 13162 : Laines minérales
+- NF EN 13163 : Polystyrène expansé
+- NF EN 13164 : Polystyrène extrudé
+- NF EN 13165 : Polyuréthane
+- NF EN 13166 : Fibre de bois
+- NF EN 13167 : Liège
+- NF EN 13168 : Laine de bois
+- NF EN 13169 : Vermiculite
+- NF EN 13170 : Perlite
+- NF EN 13171 : Fibres végétales
+- NF EN 13172 : Évaluation de la conformité

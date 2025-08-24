@@ -1,10 +1,20 @@
-# Script de test simple
-param(
-    [string]$Action = "status"
-)
+#!/usr/bin/env pwsh
+<#
+.SYNOPSIS
+    Script de monitoring pour vérifier le statut de DocuSense AI
 
+.DESCRIPTION
+    Ce script vérifie le statut des services backend et frontend,
+    ainsi que l'état des processus et des ports.
+    Version optimisée et consolidée.
+
+.EXAMPLE
+    .\status.ps1
+#>
+
+# Fonction consolidée pour la vérification du statut
 function Get-DocusenseStatus {
-    Write-Host "📊 Statut de Docusense AI" -ForegroundColor Green
+    Write-Host "📊 Statut de DocuSense AI" -ForegroundColor Green
     Write-Host "================================" -ForegroundColor Gray
 
     # Vérifier les processus
@@ -38,6 +48,7 @@ function Get-DocusenseStatus {
         $frontendHealth = $false
     }
 
+    # Affichage des résultats
     Write-Host "Backend: $(if ($backendHealth) { '✅ Connecté' } else { '❌ Déconnecté' })" -ForegroundColor $(if ($backendHealth) { 'Green' } else { 'Red' })
     Write-Host "Frontend: $(if ($frontendHealth) { '✅ Connecté' } else { '❌ Déconnecté' })" -ForegroundColor $(if ($frontendHealth) { 'Green' } else { 'Red' })
     Write-Host "Processus Python: $($pythonProcesses.Count)" -ForegroundColor $(if ($pythonProcesses.Count -le 2) { 'Green' } else { 'Yellow' })
@@ -47,7 +58,4 @@ function Get-DocusenseStatus {
 }
 
 # Exécution principale
-switch ($Action.ToLower()) {
-    "status" { Get-DocusenseStatus }
-    default { Get-DocusenseStatus }
-}
+Get-DocusenseStatus

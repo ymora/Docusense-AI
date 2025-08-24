@@ -42,7 +42,7 @@ class AuthMiddleware:
             from sqlalchemy import create_engine
             from sqlalchemy.orm import sessionmaker
             
-            engine = create_engine('sqlite:///./docusense.db')
+            engine = create_engine('sqlite:///./backend/docusense.db')
             SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
             db = SessionLocal()
             

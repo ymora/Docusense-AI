@@ -49,7 +49,7 @@ async def get_application_info():
             "package_json": os.path.exists("frontend/package.json"),
             "pytest_config": os.path.exists("backend/pytest.ini") or os.path.exists("backend/pyproject.toml"),
             "vitest_config": os.path.exists("frontend/vitest.config.ts"),
-            "audit_config": os.path.exists("audit-config.json")
+            "audit_config": os.path.exists("docs/audit/audit-config.json")
         }
         
         app_info["config_files"] = config_files
@@ -115,20 +115,20 @@ async def trigger_test_execution(test_type: str = "all"):
 async def get_audit_config():
     """Fournir la configuration d'audit pour l'application externe"""
     try:
-        config_path = "audit-config.json"
+        config_path = "docs/audit/audit-config.json"
         if os.path.exists(config_path):
             with open(config_path, 'r', encoding='utf-8') as f:
                 config = json.load(f)
             return {
                 "timestamp": datetime.now().isoformat(),
                 "config": config,
-                "source": "audit-config.json"
+                "source": "docs/audit/audit-config.json"
             }
         else:
             return {
                 "timestamp": datetime.now().isoformat(),
                 "config": None,
-                "note": "Fichier audit-config.json non trouvé"
+                "note": "Fichier docs/audit/audit-config.json non trouvé"
             }
             
     except Exception as e:

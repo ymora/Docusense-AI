@@ -1,0 +1,243 @@
+# NF S 60-601 - Sécurité incendie des bâtiments
+
+Norme française pour la sécurité incendie des bâtiments
+Source officielle : AFNOR
+URL : https://www.afnor.org/
+
+==================================================
+
+## Généralités
+La norme NF S 60-601 définit les règles de sécurité incendie applicables aux bâtiments d'habitation et assimilés.
+
+## Domaine d'application
+- Bâtiments d'habitation collectifs
+- Bâtiments d'habitation individuels
+- Établissements recevant du public (ERP)
+- Immeubles de grande hauteur (IGH)
+- Bâtiments industriels
+
+## CLASSIFICATION DES BÂTIMENTS
+
+### Catégorie d'établissement
+- **1re catégorie** : Plus de 1500 personnes
+- **2e catégorie** : 701 à 1500 personnes
+- **3e catégorie** : 301 à 700 personnes
+- **4e catégorie** : 301 personnes et moins
+- **5e catégorie** : Moins de 300 personnes
+
+### Type d'établissement
+- **J** : Structures d'accueil pour personnes âgées
+- **L** : Salles d'auditions, de conférences, de réunions
+- **M** : Magasins de vente, centres commerciaux
+- **N** : Restaurants et débits de boissons
+- **O** : Hôtels et pensions de famille
+- **P** : Salles de danse et salles de jeux
+- **R** : Établissements d'éveil, d'enseignement
+- **S** : Bibliothèques, centres de documentation
+- **T** : Salles d'exposition à vocation commerciale
+- **U** : Établissements de soins
+- **V** : Établissements de culte
+- **W** : Administrations, banques, bureaux
+- **X** : Établissements sportifs couverts
+- **Y** : Musées
+- **Z** : Établissements de plein air
+
+## RÈGLES DE CONSTRUCTION
+
+### Résistance au feu
+
+#### Éléments porteurs
+- **Résistance minimale** : R60 pour les éléments principaux
+- **Résistance secondaire** : R30 pour les éléments secondaires
+- **Méthode de calcul** : Selon NF EN 1992-1-2 (béton), NF EN 1993-1-2 (acier), NF EN 1995-1-2 (bois)
+
+#### Parois et planchers
+- **Parois coupe-feu** : CF 2h minimum
+- **Parois pare-feu** : PF 2h minimum
+- **Planchers coupe-feu** : CF 2h minimum
+
+#### Portes et fermetures
+- **Portes coupe-feu** : CF 1h ou CF 2h selon usage
+- **Portes pare-feu** : PF 1h ou PF 2h selon usage
+- **Fermetures automatiques** : Obligatoires sur les issues de secours
+
+### Réaction au feu
+
+#### Classement des matériaux
+- **A1** : Incombustible, sans développement de fumée
+- **A2** : Incombustible, développement de fumée limité
+- **B** : Combustible, très difficilement inflammable
+- **C** : Combustible, difficilement inflammable
+- **D** : Combustible, inflammable
+- **E** : Combustible, facilement inflammable
+- **F** : Combustible, très facilement inflammable
+
+#### Exigences selon usage
+- **Circulations** : A1 ou A2 obligatoire
+- **Locaux techniques** : A1 ou A2 recommandé
+- **Locaux d'habitation** : B minimum
+- **Décors** : C minimum
+
+## MOYENS DE SECOURS
+
+### Issues de secours
+
+#### Nombre d'issues
+- **Moins de 50 personnes** : 1 issue minimum
+- **50 à 100 personnes** : 2 issues minimum
+- **Plus de 100 personnes** : 3 issues minimum
+- **Plus de 500 personnes** : 4 issues minimum
+
+#### Caractéristiques
+- **Largeur** : 0,90 m minimum pour 100 personnes
+- **Hauteur** : 2,10 m minimum
+- **Déclivité** : 15% maximum
+- **Éclairage** : Éclairage de sécurité obligatoire
+
+### Escaliers de secours
+
+#### Types d'escaliers
+- **Escalier protégé** : Enclos coupe-feu
+- **Escalier à l'air libre** : Sans protection
+- **Escalier pressurisé** : Surpression d'air
+
+#### Caractéristiques
+- **Largeur** : 1,20 m minimum
+- **Hauteur de marche** : 0,17 m maximum
+- **Giron** : 0,28 m minimum
+- **Main courante** : Obligatoire
+
+### Éclairage de sécurité
+
+#### Types d'éclairage
+- **Éclairage d'évacuation** : Dans les circulations
+- **Éclairage d'ambiance** : Dans les locaux
+- **Éclairage d'antipanique** : Dans les grands locaux
+
+#### Caractéristiques
+- **Durée** : 1 heure minimum
+- **Intensité** : 5 lux minimum
+- **Allumage** : Automatique en cas de panne
+- **Alimentation** : Source autonome
+
+## DÉTECTION ET ALARME
+
+### Système de détection
+
+#### Types de détecteurs
+- **Détecteurs de fumée** : Ioniques ou optiques
+- **Détecteurs de chaleur** : À seuil fixe ou différentiel
+- **Détecteurs de flamme** : Infrarouge ou ultraviolet
+- **Détecteurs de gaz** : CO, CO2, etc.
+
+#### Implantation
+- **Densité** : Selon surface et type de local
+- **Hauteur** : 0,30 m du plafond maximum
+- **Distance** : 6 m maximum entre détecteurs
+- **Zones** : Division en zones de détection
+
+### Système d'alarme
+
+#### Types d'alarme
+- **Alarme générale** : Évacuation de tout l'établissement
+- **Alarme sectorielle** : Évacuation d'une zone
+- **Alarme différée** : Évacuation progressive
+
+#### Caractéristiques
+- **Signal sonore** : 85 dB(A) minimum
+- **Signal visuel** : Clignotant obligatoire
+- **Diffusion** : Dans tous les locaux
+- **Redondance** : Système de secours
+
+## EXTINCTION
+
+### Extincteurs
+
+#### Types d'extincteurs
+- **Eau pulvérisée** : Classe A
+- **Poudre** : Classes A, B, C
+- **CO2** : Classes B, C
+- **Mousse** : Classes A, B
+
+#### Implantation
+- **Distance** : 15 m maximum de tout point
+- **Hauteur** : 1,30 m maximum du sol
+- **Signalisation** : Panneau obligatoire
+- **Vérification** : Annuelle obligatoire
+
+### RIA (Robinet d'Incendie Armé)
+
+#### Caractéristiques
+- **Débit** : 60 L/min minimum
+- **Portée** : 6 m minimum
+- **Pression** : 2 bars minimum
+- **Alimentation** : Réseau d'eau incendie
+
+#### Implantation
+- **Distance** : 50 m maximum de tout point
+- **Accessibilité** : Libre accès obligatoire
+- **Signalisation** : Panneau obligatoire
+- **Vérification** : Semestrielle obligatoire
+
+### Sprinklers
+
+#### Types de sprinklers
+- **Sprinklers à fusible** : Température de déclenchement
+- **Sprinklers à bulbe** : Bulbe de verre
+- **Sprinklers ESFR** : Débit élevé
+
+#### Implantation
+- **Densité** : Selon classe de risque
+- **Espacement** : 3 m maximum
+- **Hauteur** : Selon type de sprinkler
+- **Alimentation** : Réservoir ou réseau
+
+## MAINTENANCE ET VÉRIFICATIONS
+
+### Vérifications périodiques
+
+#### Fréquence
+- **Extincteurs** : Annuelle
+- **RIA** : Semestrielle
+- **Détecteurs** : Annuelle
+- **Alarme** : Mensuelle
+- **Éclairage** : Mensuelle
+
+#### Contenu des vérifications
+- **État général** : Propreté, intégrité
+- **Fonctionnement** : Tests de mise en œuvre
+- **Conformité** : Respect des prescriptions
+- **Documentation** : Mise à jour des registres
+
+### Registre de sécurité
+
+#### Contenu obligatoire
+- **Plans** : Plans d'évacuation
+- **Consignes** : Consignes d'incendie
+- **Vérifications** : Rapports de vérification
+- **Interventions** : Interventions de maintenance
+
+#### Tenue du registre
+- **Responsable** : Chef d'établissement
+- **Mise à jour** : Après chaque intervention
+- **Conservation** : 5 ans minimum
+- **Accessibilité** : Consultation libre
+
+## RÉFÉRENCES NORMATIVES
+
+- **NF EN 1992-1-2** : Calcul au feu des structures en béton
+- **NF EN 1993-1-2** : Calcul au feu des structures en acier
+- **NF EN 1995-1-2** : Calcul au feu des structures en bois
+- **NF EN 54** : Systèmes de détection et d'alarme incendie
+- **NF EN 3** : Extincteurs portatifs
+- **NF EN 671** : Robinet d'incendie armé
+- **NF EN 12845** : Systèmes fixes d'extinction automatique
+- **NF EN 1838** : Éclairage de sécurité
+
+## NOTES IMPORTANTES
+
+1. **Respect obligatoire** : Toutes les prescriptions sont obligatoires
+2. **Vérification** : Contrôle par commission de sécurité
+3. **Modification** : Avis de la commission en cas de modification
+4. **Responsabilité** : Chef d'établissement responsable
+5. **Formation** : Personnel formé aux consignes

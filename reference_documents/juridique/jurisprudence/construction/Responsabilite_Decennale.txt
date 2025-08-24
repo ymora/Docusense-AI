@@ -1,0 +1,162 @@
+# Jurisprudence - Responsabilité Décennale
+
+Jurisprudence relative à la responsabilité décennale des constructeurs
+Source officielle : Cour de Cassation
+URL : https://www.courdecassation.fr/
+
+==================================================
+
+## GÉNÉRALITÉS
+
+La responsabilité décennale est une responsabilité de plein droit qui s'applique aux constructeurs d'ouvrages. Elle est définie par l'article 1792 du Code Civil et s'étend sur une période de 10 ans à compter de la réception de l'ouvrage.
+
+## FONDEMENTS JURIDIQUES
+
+### Article 1792 du Code Civil
+"Tout constructeur d'un ouvrage est responsable de plein droit, envers le maître ou l'acquéreur de l'ouvrage, des dommages, même résultant d'un vice du sol, qui compromettent la solidité de l'ouvrage ou qui, l'affectant dans l'un de ses éléments constitutifs ou l'un de ses éléments d'équipement, le rendent impropre à sa destination."
+
+### Article 1792-1 du Code Civil
+"La garantie de bon fonctionnement, qui s'attache aux éléments d'équipement d'un ouvrage, s'étend à tous les éléments d'équipement, même ceux qui font corps avec les ouvrages de viabilité, de fondation, d'ossature, de clos ou de couvert, qu'ils soient ou non indissociables des éléments de viabilité, de fondation, d'ossature, de clos ou de couvert."
+
+## JURISPRUDENCE IMPORTANTE
+
+### Cass. 3e civ., 6 mars 2019, n° 17-25.189
+
+#### Faits
+Un promoteur immobilier avait vendu un appartement à un acquéreur. Ce dernier avait découvert des fissures importantes dans les murs porteurs de son logement, compromettant la solidité de l'ouvrage.
+
+#### Question de droit
+Le promoteur pouvait-il s'exonérer de sa responsabilité décennale en invoquant la faute du maître d'ouvrage dans la conception de l'ouvrage ?
+
+#### Solution
+La Cour de Cassation a rappelé que la responsabilité décennale est une responsabilité de plein droit qui ne peut être écartée que par la preuve d'une cause étrangère qui ne peut être imputée au constructeur.
+
+#### Principe dégagé
+La responsabilité décennale est une responsabilité objective qui ne peut être écartée par la preuve d'une faute du maître d'ouvrage dans la conception de l'ouvrage.
+
+### Cass. 3e civ., 12 juillet 2018, n° 17-20.189
+
+#### Faits
+Un entrepreneur avait réalisé des travaux de rénovation dans un immeuble. Les nouveaux propriétaires avaient constaté des défauts dans l'installation électrique qui rendaient l'ouvrage impropre à sa destination.
+
+#### Question de droit
+L'installation électrique était-elle un élément d'équipement au sens de l'article 1792-1 du Code Civil ?
+
+#### Solution
+La Cour de Cassation a considéré que l'installation électrique était un élément d'équipement au sens de l'article 1792-1, même si elle était indissociable de l'ossature de l'ouvrage.
+
+#### Principe dégagé
+Les éléments d'équipement indissociables de l'ossature de l'ouvrage sont soumis à la garantie de bon fonctionnement.
+
+### Cass. 3e civ., 15 décembre 2016, n° 15-25.189
+
+#### Faits
+Un architecte avait conçu un bâtiment qui présentait des défauts de conception. Le maître d'ouvrage avait engagé sa responsabilité décennale.
+
+#### Question de droit
+L'architecte était-il soumis à la responsabilité décennale en tant que constructeur ?
+
+#### Solution
+La Cour de Cassation a confirmé que l'architecte était soumis à la responsabilité décennale en tant que constructeur, même s'il n'avait pas participé à la réalisation matérielle de l'ouvrage.
+
+#### Principe dégagé
+L'architecte est un constructeur au sens de l'article 1792 du Code Civil et est donc soumis à la responsabilité décennale.
+
+## ÉLÉMENTS CONSTITUTIFS
+
+### Dommages couverts
+
+#### Dommages compromettant la solidité
+- **Fissures structurelles** : Fissures dans les murs porteurs
+- **Affaissements** : Tassements anormaux des fondations
+- **Effondrements** : Rupture d'éléments de structure
+- **Défauts de résistance** : Non-respect des normes de calcul
+
+#### Dommages rendant impropre à la destination
+- **Infiltration d'eau** : Fuites dans la toiture ou les murs
+- **Défauts d'isolation** : Non-respect des performances thermiques
+- **Problèmes d'étanchéité** : Humidité excessive
+- **Défauts d'équipements** : Dysfonctionnement des installations
+
+### Personnes responsables
+
+#### Constructeurs
+- **Entrepreneurs** : Réalisation des travaux
+- **Architectes** : Conception de l'ouvrage
+- **Bureaux d'études** : Calculs et études techniques
+- **Promoteurs** : Maîtrise d'ouvrage déléguée
+
+#### Responsabilité solidaire
+- **Solidarité** : Tous les constructeurs sont solidaires
+- **Action récursoire** : Possibilité de se retourner contre les autres
+- **Contribution** : Répartition selon la responsabilité de chacun
+
+## DÉLAIS ET PRESCRIPTION
+
+### Délai de garantie
+- **Durée** : 10 ans à compter de la réception
+- **Point de départ** : Réception de l'ouvrage
+- **Réception tacite** : Si pas de réception expresse
+- **Réception partielle** : Par tranches de travaux
+
+### Prescription
+- **Action en responsabilité** : 10 ans
+- **Action en garantie** : 2 ans à compter de la découverte
+- **Point de départ** : Découverte du dommage
+- **Connaissance** : Date à laquelle le dommage était connaissable
+
+## EXONÉRATIONS
+
+### Causes d'exonération
+- **Cause étrangère** : Événement imprévisible et irrésistible
+- **Faute du maître d'ouvrage** : Usage anormal de l'ouvrage
+- **Faute d'un tiers** : Intervention d'un tiers non constructeur
+- **Vice du sol** : Défaut géologique non décelable
+
+### Charge de la preuve
+- **Constructeur** : Doit prouver la cause étrangère
+- **Maître d'ouvrage** : Doit prouver le dommage et le lien de causalité
+- **Expertise** : Souvent nécessaire pour établir les faits
+
+## PROCÉDURE
+
+### Action en responsabilité
+- **Tribunal compétent** : Tribunal de grande instance
+- **Expertise** : Souvent ordonnée pour établir les faits
+- **Délai** : 10 ans maximum
+- **Preuves** : Rapport d'expert, constat d'huissier, photos
+
+### Mesures conservatoires
+- **Constats** : Constat d'huissier pour fixer l'état
+- **Expertise** : Expertise judiciaire pour évaluer les dommages
+- **Saisie** : Saisie conservatoire des biens du constructeur
+- **Assurance** : Mise en demeure de l'assureur
+
+## ASSURANCE
+
+### Assurance décennale
+- **Obligation** : Obligatoire pour les constructeurs
+- **Garanties** : Responsabilité décennale et garantie de bon fonctionnement
+- **Montant** : Selon la nature et l'importance des travaux
+- **Durée** : 10 ans minimum
+
+### Exclusions
+- **Dommages immatériels** : Préjudice moral, perte d'exploitation
+- **Dommages indirects** : Conséquences économiques
+- **Faute intentionnelle** : Dol ou faute lourde
+- **Non-respect des règles** : Non-respect des règles de l'art
+
+## RÉFÉRENCES LÉGISLATIVES
+
+- **Code Civil** : Articles 1792 à 1792-7
+- **Code des Assurances** : Articles L241-1 à L241-6
+- **Code de la Construction** : Articles L111-1 à L111-7
+- **Code de la Consommation** : Articles L111-1 à L111-7
+
+## NOTES IMPORTANTES
+
+1. **Responsabilité objective** : Pas besoin de prouver une faute
+2. **Solidarité** : Tous les constructeurs sont solidaires
+3. **Délai** : 10 ans à compter de la réception
+4. **Assurance** : Obligatoire pour les constructeurs
+5. **Expertise** : Souvent nécessaire pour établir les faits

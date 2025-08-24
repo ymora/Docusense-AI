@@ -25,7 +25,7 @@ class Settings(BaseSettings):
 
     # Database
     database_url: str = Field(
-        default="sqlite:///docusense.db",
+        default="sqlite:///backend/docusense.db",
         env="DATABASE_URL"
     )
 

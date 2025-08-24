@@ -1,31 +1,151 @@
 # DTU 40.1 - Plomberie sanitaire
 
 Document Technique Unifié pour la plomberie sanitaire
+Source officielle : Centre Scientifique et Technique du Bâtiment (CSTB)
+URL : https://www.cstb.fr/fr/produits-solutions/dtu/
 
 ==================================================
 
-
-# DTU 40.1 - Plomberie sanitaire
-
 ## Généralités
-Le DTU 40.1 définit les règles d'exécution des installations de plomberie sanitaire.
+Le DTU 40.1 définit les règles de conception et d'exécution des installations de plomberie sanitaire dans les bâtiments d'habitation et assimilés.
 
 ## Domaine d'application
-- Installations d'eau froide et chaude
-- Installations d'évacuation
-- Installations de ventilation
-- Raccordements
+- Installations d'eau froide et chaude sanitaire
+- Installations d'évacuation des eaux usées
+- Installations d'évacuation des eaux pluviales
+- Bâtiments d'habitation et assimilés
+- Installations collectives et individuelles
 
-## Exigences techniques
-- Matériaux autorisés
-- Pression et débit
-- Pente des canalisations
-- Ventilation des évacuations
-- Raccordement au réseau
+## Matériaux autorisés
 
-## Points de contrôle
-- Qualité des matériaux
-- Respect des pentes
-- Ventilation correcte
-- Raccordement conforme
-- Tests d'étanchéité
+### Tuyauteries d'alimentation
+- **Cuivre** : NF EN 1057, épaisseur minimale selon diamètre
+- **PER** : Polyéthylène réticulé, NF EN ISO 15875
+- **PEX** : Polyéthylène réticulé, NF EN ISO 15875
+- **Multicouche** : NF EN ISO 21003
+- **PVC-C** : Chlorure de polyvinyle chloré, NF EN 1452
+
+### Tuyauteries d'évacuation
+- **PVC** : Chlorure de polyvinyle, NF EN 1329
+- **Fonte** : NF EN 877
+- **Polypropylène** : NF EN 1451
+- **Grès** : NF EN 295
+
+## Pression et débits
+
+### Pression de service
+- **Pression minimale** : 1 bar (0,1 MPa)
+- **Pression maximale** : 5 bars (0,5 MPa)
+- **Pression de mise en service** : 6 bars (0,6 MPa)
+
+### Débits de base
+- **Lavabo** : 0,07 L/s
+- **Évier** : 0,14 L/s
+- **Douche** : 0,20 L/s
+- **Baignoire** : 0,30 L/s
+- **WC** : 0,13 L/s
+
+## Règles de dimensionnement
+
+### Diamètres minimaux
+- **Alimentation générale** : 20 mm
+- **Alimentation appartement** : 16 mm
+- **Alimentation point d'eau** : 12 mm
+- **Évacuation lavabo** : 32 mm
+- **Évacuation évier** : 40 mm
+- **Évacuation douche** : 40 mm
+- **Évacuation baignoire** : 40 mm
+- **Évacuation WC** : 100 mm
+
+### Pentes d'évacuation
+- **32 mm** : 2% minimum
+- **40 mm** : 1,5% minimum
+- **100 mm** : 1% minimum
+
+## Protection et isolation
+
+### Protection contre le gel
+- **Température critique** : -5°C
+- **Isolation thermique** : Épaisseur selon zone climatique
+- **Traçage électrique** : Si nécessaire
+
+### Protection contre la corrosion
+- **Isolation diélectrique** : Entre métaux différents
+- **Protection cathodique** : Si nécessaire
+- **Revêtements** : Conformes aux normes
+
+## Raccords et assemblages
+
+### Types de raccords
+- **Soudure** : Pour cuivre
+- **Collage** : Pour PVC, PER, PEX
+- **Compression** : Pour multicouche
+- **Brasage** : Pour cuivre (température < 250°C)
+
+### Règles d'assemblage
+- **Propreté** : Surfaces propres et sèches
+- **Préparation** : Chanfreinage, dégraissage
+- **Contrôle** : Vérification visuelle et étanchéité
+
+## Équipements sanitaires
+
+### Types d'équipements
+- **Lavabos** : NF EN 31
+- **Éviers** : NF EN 31
+- **Douches** : NF EN 14428
+- **Baignoires** : NF EN 14516
+- **WC** : NF EN 997
+
+### Installation
+- **Fixation** : Solide et stable
+- **Étanchéité** : Joints conformes
+- **Accessibilité** : Respect des normes handicap
+
+## Contrôle et essais
+
+### Essais obligatoires
+1. **Essai d'étanchéité** : Pression 6 bars, 1 heure
+2. **Essai de débit** : Vérification des débits
+3. **Essai d'évacuation** : Vérification des pentes
+4. **Essai de fonctionnement** : Test des équipements
+
+### Contrôles visuels
+- **Alignement** : Tuyauteries droites
+- **Fixation** : Supports espacés correctement
+- **Isolation** : Épaisseur conforme
+- **Raccords** : Pas de fuites visibles
+
+## Maintenance
+
+### Entretien préventif
+- **Détartrage** : Selon dureté de l'eau
+- **Vérification** : Fuites, corrosion
+- **Nettoyage** : Équipements sanitaires
+
+### Réparations
+- **Identification** : Cause de la panne
+- **Réparation** : Conforme aux règles
+- **Contrôle** : Vérification post-réparation
+
+## Documents de contrôle
+
+### Obligatoires
+- Plans d'exécution
+- Fiches de contrôle
+- Certificats de conformité
+- Rapport de réception
+
+### Recommandés
+- Photos de chantier
+- Journal de bord
+- Contrôles intermédiaires
+
+## Références normatives
+- NF EN 1057 : Tuyaux en cuivre
+- NF EN 1329 : Tuyaux PVC évacuation
+- NF EN 1451 : Tuyaux polypropylène
+- NF EN 877 : Tuyaux fonte
+- NF EN 31 : Équipements sanitaires
+- NF EN 14428 : Cabines de douche
+- NF EN 14516 : Baignoires
+- NF EN 997 : WC

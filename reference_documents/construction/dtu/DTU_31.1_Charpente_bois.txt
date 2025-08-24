@@ -1,30 +1,122 @@
 # DTU 31.1 - Charpente en bois
 
 Document Technique Unifié pour la charpente en bois
+Source officielle : Centre Scientifique et Technique du Bâtiment (CSTB)
+URL : https://www.cstb.fr/fr/produits-solutions/dtu/
 
 ==================================================
 
-
-# DTU 31.1 - Charpente en bois
-
 ## Généralités
-Le DTU 31.1 définit les règles de conception et d'exécution des charpentes en bois.
+Le DTU 31.1 définit les règles de conception et d'exécution des charpentes en bois pour les bâtiments d'habitation et assimilés.
 
 ## Domaine d'application
 - Charpentes traditionnelles en bois massif
 - Charpentes industrielles en bois massif
 - Charpentes en lamellé-collé
+- Bâtiments d'habitation et assimilés
+- Hauteur maximale : 28 mètres
 
-## Exigences techniques
-- Essences de bois autorisées
-- Classes de résistance mécanique
-- Traitements de préservation
-- Assemblage et fixation
-- Contrôle d'exécution
+## Essences de bois autorisées
 
-## Points de contrôle
-- Qualité du bois
-- Respect des cotes
-- Assemblage correct
-- Fixation conforme
-- Traitement appliqué
+### Bois résineux
+- **Sapin-épicéa** : Classes C18 à C30
+- **Pin maritime** : Classes C18 à C30
+- **Pin sylvestre** : Classes C18 à C30
+- **Douglas** : Classes C24 à C30
+- **Mélèze** : Classes C24 à C30
+
+### Bois feuillus
+- **Chêne** : Classes D24 à D40
+- **Châtaignier** : Classes D24 à D30
+- **Hêtre** : Classes D30 à D40
+
+## Classes de résistance mécanique
+
+### Classes C (résineux)
+- C18 : Résistance caractéristique 18 MPa
+- C24 : Résistance caractéristique 24 MPa
+- C30 : Résistance caractéristique 30 MPa
+
+### Classes D (feuillus)
+- D24 : Résistance caractéristique 24 MPa
+- D30 : Résistance caractéristique 30 MPa
+- D40 : Résistance caractéristique 40 MPa
+
+## Traitements de préservation
+
+### Classes d'emploi
+- **Classe 1** : Intérieur, sec (humidité < 20%)
+- **Classe 2** : Intérieur, risque d'humidité temporaire
+- **Classe 3** : Extérieur, sans contact avec le sol
+- **Classe 4** : Extérieur, en contact avec le sol ou l'eau douce
+
+### Traitements requis
+- **Classe 1** : Aucun traitement obligatoire
+- **Classe 2** : Traitement fongicide préventif
+- **Classe 3** : Traitement fongicide et insecticide
+- **Classe 4** : Traitement fongicide et insecticide renforcé
+
+## Assemblage et fixation
+
+### Types d'assemblages
+- **Assemblages traditionnels** : Tenon-mortaise, queue d'aronde
+- **Assemblages mécaniques** : Boulons, tire-fonds, connecteurs
+- **Assemblages collés** : Colles structurales conformes
+
+### Fixations
+- **Boulons** : Diamètre minimum 12 mm
+- **Tire-fonds** : Diamètre minimum 8 mm
+- **Connecteurs** : Conformes aux normes NF EN 912
+
+## Contrôle d'exécution
+
+### Points de contrôle obligatoires
+1. **Qualité du bois**
+   - Essence conforme
+   - Classe de résistance vérifiée
+   - Traitement appliqué correctement
+
+2. **Géométrie**
+   - Respect des cotes de fabrication
+   - Équerrage des assemblages
+   - Alignement des éléments
+
+3. **Assemblage**
+   - Serrage correct des fixations
+   - Qualité des assemblages traditionnels
+   - Respect des tolérances
+
+4. **Mise en œuvre**
+   - Pose conforme au projet
+   - Respect des règles de l'art
+   - Protection contre les intempéries
+
+## Règles de calcul
+
+### Combinaisons d'actions
+- **ELU** : État Limite Ultime (résistance)
+- **ELS** : État Limite de Service (déformation)
+
+### Coefficients de sécurité
+- **γM** : Coefficient partiel matériau = 1,3
+- **γG** : Coefficient actions permanentes = 1,35
+- **γQ** : Coefficient actions variables = 1,5
+
+## Documents de contrôle
+
+### Obligatoires
+- Fiches de contrôle de fabrication
+- Certificats de traitement
+- Plans d'exécution
+- Rapport de réception
+
+### Recommandés
+- Photos de chantier
+- Journal de bord
+- Contrôles intermédiaires
+
+## Références normatives
+- NF EN 338 : Classes de résistance du bois
+- NF EN 350 : Durabilité du bois
+- NF EN 912 : Connecteurs pour charpentes
+- NF EN 1995-1-1 : Eurocode 5 - Calcul des structures bois

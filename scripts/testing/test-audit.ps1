@@ -28,7 +28,7 @@ foreach ($test in $testStructure.GetEnumerator()) {
 Write-Host "`n⚙️ Test 2: Configuration" -ForegroundColor Yellow
 
 $configFiles = @{
-    "audit-config.json" = Test-Path "audit-config.json"
+            "audit-config.json" = Test-Path "docs/audit/audit-config.json"
     "run-tests.ps1" = Test-Path "run-tests.ps1"
     "docs/AUDIT_RECOMMANDATIONS.md" = Test-Path "docs/AUDIT_RECOMMANDATIONS.md"
     "backend/app/api/audit.py" = Test-Path "backend/app/api/audit.py"
@@ -78,9 +78,9 @@ Write-Host "  📈 Couverture estimée: $estimatedCoverage%" -ForegroundColor $(
 # Test 5: Validation de la configuration d'audit
 Write-Host "`n🔍 Test 5: Configuration d'audit" -ForegroundColor Yellow
 
-if (Test-Path "audit-config.json") {
+if (Test-Path "docs/audit/audit-config.json") {
     try {
-        $auditConfig = Get-Content "audit-config.json" | ConvertFrom-Json
+        $auditConfig = Get-Content "docs/audit/audit-config.json" | ConvertFrom-Json
         Write-Host "  ✅ Configuration d'audit valide" -ForegroundColor Green
         
         # Afficher quelques métriques clés

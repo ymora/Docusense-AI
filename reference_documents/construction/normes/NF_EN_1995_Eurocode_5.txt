@@ -1,0 +1,217 @@
+# NF EN 1995 - Eurocode 5 - Calcul des structures en bois
+
+Norme européenne pour le calcul des structures en bois
+Source officielle : AFNOR
+URL : https://www.afnor.org/
+
+==================================================
+
+## Généralités
+L'Eurocode 5 (NF EN 1995) définit les règles de calcul et de dimensionnement des structures en bois et des assemblages bois.
+
+## Domaine d'application
+- Structures en bois massif
+- Structures en lamellé-collé
+- Structures en panneaux dérivés du bois
+- Assemblages mécaniques
+- Bâtiments et ouvrages de génie civil
+
+## PARTIE 1-1 : RÈGLES GÉNÉRALES ET RÈGLES POUR LES BÂTIMENTS
+
+### Chapitre 1 - Généralités
+
+#### 1.1 Domaine d'application
+- Bâtiments et ouvrages de génie civil
+- Structures temporaires
+- Structures en service et en construction
+
+#### 1.2 Références normatives
+- NF EN 338 : Classes de résistance du bois
+- NF EN 350 : Durabilité du bois
+- NF EN 912 : Connecteurs pour charpentes
+- NF EN 1990 : Bases de calcul des structures
+
+### Chapitre 2 - Bases de calcul
+
+#### 2.1 Principes
+- États limites ultimes (ELU)
+- États limites de service (ELS)
+- Combinaisons d'actions
+- Coefficients partiels
+
+#### 2.2 Coefficients de sécurité
+- **γM** : Coefficient partiel matériau = 1,3
+- **γG** : Coefficient actions permanentes = 1,35
+- **γQ** : Coefficient actions variables = 1,5
+- **γM,connection** : Coefficient assemblages = 1,3
+
+### Chapitre 3 - Matériaux
+
+#### 3.1 Classes de résistance
+- **Bois massif** : C14 à C50, D18 à D70
+- **Lamellé-collé** : GL20h à GL48h
+- **Panneaux** : OSB, contreplaqué, MDF
+
+#### 3.2 Propriétés mécaniques
+- **Résistance en flexion** : fm,k
+- **Résistance en traction** : ft,0,k, ft,90,k
+- **Résistance en compression** : fc,0,k, fc,90,k
+- **Résistance en cisaillement** : fv,k
+- **Module d'élasticité** : E0,mean, E90,mean
+- **Module de cisaillement** : Gmean
+
+#### 3.3 Facteurs de modification
+- **kmod** : Facteur de modification selon classe de service
+- **kh** : Facteur de hauteur pour le bois massif
+- **ksys** : Facteur système pour les éléments multiples
+
+### Chapitre 4 - Durabilité
+
+#### 4.1 Classes d'emploi
+- **Classe 1** : Intérieur, sec (humidité < 20%)
+- **Classe 2** : Intérieur, risque d'humidité temporaire
+- **Classe 3** : Extérieur, sans contact avec le sol
+- **Classe 4** : Extérieur, en contact avec le sol
+- **Classe 5** : Eau salée
+
+#### 4.2 Traitements
+- **Traitement fongicide** : Classes 2 à 5
+- **Traitement insecticide** : Classes 3 à 5
+- **Traitement contre les termites** : Selon zone
+
+### Chapitre 5 - Bases de calcul des structures
+
+#### 5.1 États limites ultimes
+- **Résistance** : σ ≤ fk / γM
+- **Stabilité** : Vérification du flambement
+- **Fatigue** : Si applicable
+
+#### 5.2 États limites de service
+- **Déformation** : w ≤ wlim
+- **Vibration** : Fréquence propre ≥ 8 Hz
+- **Comportement en service** : Pas de fissuration excessive
+
+### Chapitre 6 - Éléments en bois massif
+
+#### 6.1 Flexion
+- **Contrainte normale** : σm,y,d ≤ fm,y,d
+- **Contrainte de cisaillement** : τd ≤ fv,d
+- **Flèche** : wfin ≤ L/300
+
+#### 6.2 Compression
+- **Contrainte normale** : σc,0,d ≤ fc,0,d
+- **Flambement** : σc,0,d ≤ kc × fc,0,d
+
+#### 6.3 Traction
+- **Contrainte normale** : σt,0,d ≤ ft,0,d
+- **Rupture nette** : Anet × ft,0,d
+
+### Chapitre 7 - Assemblages
+
+#### 7.1 Types d'assemblages
+- **Assemblages par tiges** : Boulons, tire-fonds, clous
+- **Assemblages par entailles** : Tenon-mortaise, queue d'aronde
+- **Assemblages collés** : Colles structurales
+- **Connecteurs** : Plaques, anneaux, dents
+
+#### 7.2 Capacité de charge
+- **Résistance caractéristique** : Fv,Rk
+- **Résistance de calcul** : Fv,Rd = Fv,Rk / γM
+- **Effort de calcul** : Fv,Ed ≤ Fv,Rd
+
+#### 7.3 Dispositions constructives
+- **Distances minimales** : Selon type de tige
+- **Épaisseurs minimales** : Selon diamètre
+- **Préperçage** : Si nécessaire
+
+### Chapitre 8 - Lamellé-collé
+
+#### 8.1 Classes de résistance
+- **GL20h** : Résistance caractéristique 20 MPa
+- **GL24h** : Résistance caractéristique 24 MPa
+- **GL28h** : Résistance caractéristique 28 MPa
+- **GL32h** : Résistance caractéristique 32 MPa
+- **GL36h** : Résistance caractéristique 36 MPa
+- **GL48h** : Résistance caractéristique 48 MPa
+
+#### 8.2 Facteurs de modification
+- **kl** : Facteur de longueur
+- **kcrit** : Facteur de stabilité latérale
+- **kdef** : Facteur de déformation différée
+
+### Chapitre 9 - Panneaux dérivés du bois
+
+#### 9.1 Types de panneaux
+- **Contreplaqué** : NF EN 636
+- **OSB** : NF EN 300
+- **MDF** : NF EN 622-5
+- **Panneaux de particules** : NF EN 312
+
+#### 9.2 Propriétés mécaniques
+- **Résistance en flexion** : Selon type et épaisseur
+- **Module d'élasticité** : Selon type et épaisseur
+- **Résistance en traction** : Selon direction
+
+## PARTIE 1-2 : CALCUL AU FEU
+
+### Chapitre 1 - Généralités
+- **Résistance au feu** : R30, R60, R90, R120
+- **Réaction au feu** : Classes A1 à F
+- **Méthodes de calcul** : Simplifiée et avancée
+
+### Chapitre 2 - Méthode simplifiée
+- **Section efficace** : Réduction de section
+- **Température critique** : 300°C
+- **Coefficient de réduction** : kmod,fi
+
+### Chapitre 3 - Méthode avancée
+- **Modélisation thermique** : Transfert de chaleur
+- **Modélisation mécanique** : Comportement structural
+- **Calcul par éléments finis** : Si nécessaire
+
+## PARTIE 2 : PONTS
+
+### Chapitre 1 - Spécificités
+- **Actions** : Charges routières, ferroviaires
+- **Fatigue** : Cycles de charge
+- **Durabilité** : Environnement agressif
+
+### Chapitre 2 - Dispositions constructives
+- **Protection** : Contre l'humidité
+- **Ventilation** : Éviter la condensation
+- **Inspection** : Accès pour maintenance
+
+## RÉFÉRENCES NORMATIVES
+
+- **NF EN 1990** : Bases de calcul des structures
+- **NF EN 1991** : Actions sur les structures
+- **NF EN 338** : Classes de résistance du bois
+- **NF EN 350** : Durabilité du bois
+- **NF EN 912** : Connecteurs pour charpentes
+- **NF EN 636** : Contreplaqué
+- **NF EN 300** : Panneaux OSB
+- **NF EN 622-5** : Panneaux MDF
+- **NF EN 312** : Panneaux de particules
+
+## EXEMPLES DE CALCUL
+
+### Poutre en bois massif
+- **Portée** : 6,00 m
+- **Section** : 200 × 400 mm
+- **Classe** : C24
+- **Charge** : 5,0 kN/m
+- **Vérification** : Flexion, cisaillement, flèche
+
+### Assemblage par boulons
+- **Diamètre** : 16 mm
+- **Épaisseur** : 80 mm
+- **Classe** : C24
+- **Capacité** : 12,8 kN par plan de cisaillement
+
+## NOTES IMPORTANTES
+
+1. **Vérification obligatoire** : Tous les éléments doivent être vérifiés
+2. **Documentation** : Plans de calcul obligatoires
+3. **Contrôle** : Vérification sur chantier
+4. **Maintenance** : Inspection régulière
+5. **Modification** : Avis technique si nécessaire

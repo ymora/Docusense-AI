@@ -1,59 +1,52 @@
 import { useBackendConnection } from '../hooks/useBackendConnection';
 import { logService } from './logService';
 import { globalCache } from '../utils/cacheUtils';
+import { useUnifiedApiService } from './unifiedApiService';
 
-// Service de base pour les fichiers
+// Service de base pour les fichiers (utilise le service unifié)
 const baseFileService = {
   async getDrives() {
-    const response = await fetch('/api/files/drives');
-    const data = await response.json();
-    return data.drives || [];
+    const apiService = new (await import('./unifiedApiService')).default();
+    return await apiService.get('/files/drives', true, 'drives');
   },
 
   async listDirectory(directory: string) {
+    const apiService = new (await import('./unifiedApiService')).default();
     const encodedDirectory = encodeURIComponent(directory);
-    const response = await fetch(`/api/files/list/${encodedDirectory}`);
-    return await response.json();
+    return await apiService.get(`/files/list/${encodedDirectory}`, true, `directory_${directory}`);
   },
 
   async analyzeDirectory(directoryPath: string) {
-    const response = await fetch(`/api/files/analyze-directory`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ directory_path: directoryPath })
-    });
-    return await response.json();
+    const apiService = new (await import('./unifiedApiService')).default();
+    return await apiService.post('/files/analyze-directory', { directory_path: directoryPath });
   },
 
   async analyzeDirectorySupported(directoryPath: string) {
-    const response = await fetch(`/api/files/analyze-directory-supported`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ directory_path: directoryPath })
-    });
-    return await response.json();
+    const apiService = new (await import('./unifiedApiService')).default();
+    return await apiService.post('/files/analyze-directory-supported', { directory_path: directoryPath });
   },
 
   async getDirectoryFiles(directoryPath: string) {
-    const response = await fetch(`/api/files/directory-files/${encodeURIComponent(directoryPath)}`);
-    return await response.json();
+    const apiService = new (await import('./unifiedApiService')).default();
+    const encodedPath = encodeURIComponent(directoryPath);
+    return await apiService.get(`/files/directory-files/${encodedPath}`, true, `directory_files_${directoryPath}`);
   },
 
   async streamByPath(path: string) {
-    const encodedPath = encodeURIComponent(path);
-    const response = await fetch(`/api/files/stream-by-path/${encodedPath}`);
-    return response;
+    const apiService = new (await import('./unifiedApiService')).default();
+    return await apiService.streamFile(path);
   },
 
   async downloadFile(downloadUrl: string) {
-    const response = await fetch(downloadUrl);
-    return response;
+    const apiService = new (await import('./unifiedApiService')).default();
+    return await apiService.downloadFile(downloadUrl);
   }
 };
 
-// Hook pour utiliser le service avec cache (fonctionne pour tous les utilisateurs)
+// Hook pour utiliser le service avec cache (utilise le service unifié)
 export const useFileService = () => {
   const { isOnline } = useBackendConnection();
+  const { get, post, downloadFile, streamFile } = useUnifiedApiService();
 
   // Fonction pour récupérer les données du cache
   const getCachedData = (key: string) => {
@@ -69,9 +62,8 @@ export const useFileService = () => {
     getDrives: async () => {
       try {
         if (isOnline) {
-          const drives = await baseFileService.getDrives();
-          saveToCache('drives', drives);
-          return drives;
+          const drives = await get('/files/drives', true, 'drives');
+          return drives.drives || drives || [];
         } else {
           return getCachedData('drives') || [];
         }
@@ -100,8 +92,7 @@ export const useFileService = () => {
     listDirectory: async (directory: string) => {
       try {
         if (isOnline) {
-          const data = await baseFileService.listDirectory(directory);
-          saveToCache(`directory_${directory}`, data);
+          const data = await get(`/files/list/${encodeURIComponent(directory)}`, true, `directory_${directory}`);
           return data;
         } else {
           return getCachedData(`directory_${directory}`) || { files: [], directories: [], error: 'Données en cache' };

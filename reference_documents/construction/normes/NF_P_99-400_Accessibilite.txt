@@ -1,0 +1,297 @@
+# NF P 99-400 - Accessibilité des bâtiments
+
+Norme française pour l'accessibilité des bâtiments aux personnes handicapées
+Source officielle : AFNOR
+URL : https://www.afnor.org/
+
+==================================================
+
+## Généralités
+La norme NF P 99-400 définit les règles d'accessibilité applicables aux bâtiments d'habitation et assimilés pour les personnes handicapées.
+
+## Domaine d'application
+- Bâtiments d'habitation collectifs
+- Bâtiments d'habitation individuels
+- Établissements recevant du public (ERP)
+- Immeubles de grande hauteur (IGH)
+- Bâtiments industriels
+
+## PRINCIPES GÉNÉRAUX
+
+### Définitions
+- **Personne handicapée** : Personne présentant une déficience motrice, sensorielle, cognitive ou psychique
+- **Accessibilité** : Possibilité d'accéder et d'utiliser un bâtiment de manière autonome
+- **Adaptabilité** : Possibilité d'adapter un bâtiment aux besoins des personnes handicapées
+
+### Types de handicaps
+- **Handicap moteur** : Difficultés de déplacement
+- **Handicap visuel** : Cécité ou malvoyance
+- **Handicap auditif** : Surdité ou malentendance
+- **Handicap cognitif** : Difficultés de compréhension
+- **Handicap psychique** : Troubles du comportement
+
+## CIRCULATION HORIZONTALE
+
+### Couloirs et passages
+
+#### Dimensions minimales
+- **Largeur** : 1,40 m minimum
+- **Largeur de croisement** : 1,60 m minimum
+- **Hauteur libre** : 2,10 m minimum
+- **Longueur maximale** : 50 m sans issue de secours
+
+#### Caractéristiques
+- **Sol** : Non glissant, sans obstacle
+- **Éclairage** : 100 lux minimum
+- **Contraste** : Différence de luminosité 30% minimum
+- **Signalisation** : Panneaux lisibles et tactiles
+
+### Portes et passages
+
+#### Dimensions minimales
+- **Largeur de passage** : 0,83 m minimum
+- **Hauteur libre** : 2,10 m minimum
+- **Ébrasement** : 0,40 m minimum de chaque côté
+
+#### Caractéristiques
+- **Ouverture** : Vers l'extérieur ou coulissante
+- **Force d'ouverture** : 50 N maximum
+- **Pointe de fermeture** : 3 secondes minimum
+- **Battement** : 90° minimum
+
+## CIRCULATION VERTICALE
+
+### Escaliers
+
+#### Dimensions minimales
+- **Largeur** : 1,20 m minimum
+- **Hauteur de marche** : 0,16 m maximum
+- **Giron** : 0,28 m minimum
+- **Nombre de marches** : 5 à 20 par volée
+
+#### Caractéristiques
+- **Main courante** : 0,85 m de hauteur, 0,04 m de diamètre
+- **Contremarche** : Obligatoire
+- **Nez de marche** : 0,02 m de saillie
+- **Éclairage** : 100 lux minimum
+
+### Ascenseurs
+
+#### Dimensions minimales
+- **Largeur** : 1,10 m minimum
+- **Profondeur** : 1,40 m minimum
+- **Hauteur** : 2,20 m minimum
+- **Porte** : 0,90 m de largeur minimum
+
+#### Caractéristiques
+- **Capacité** : 400 kg minimum
+- **Vitesse** : 0,63 m/s maximum
+- **Accélération** : 1,2 m/s² maximum
+- **Signalisation** : Visuelle et sonore
+
+### Plans inclinés
+
+#### Dimensions minimales
+- **Largeur** : 1,20 m minimum
+- **Pente** : 5% maximum
+- **Longueur maximale** : 10 m par tronçon
+- **Palier** : 1,40 m de longueur minimum
+
+#### Caractéristiques
+- **Main courante** : 0,85 m de hauteur
+- **Bande d'éveil** : 0,60 m de largeur
+- **Éclairage** : 100 lux minimum
+- **Antidérapant** : Coefficient 0,6 minimum
+
+## STATIONNEMENT
+
+### Places de stationnement
+
+#### Dimensions minimales
+- **Largeur** : 3,30 m minimum
+- **Longueur** : 5,00 m minimum
+- **Largeur de circulation** : 3,50 m minimum
+
+#### Caractéristiques
+- **Nombre** : 2% du total des places
+- **Localisation** : Proche de l'entrée
+- **Signalisation** : Panneau et marquage au sol
+- **Éclairage** : 50 lux minimum
+
+### Accès au bâtiment
+
+#### Cheminement
+- **Largeur** : 1,40 m minimum
+- **Pente** : 5% maximum
+- **Revêtement** : Non glissant
+- **Éclairage** : 50 lux minimum
+
+#### Entrée
+- **Largeur** : 0,90 m minimum
+- **Seuil** : 0,02 m maximum
+- **Éclairage** : 100 lux minimum
+- **Signalisation** : Panneau d'information
+
+## LOCAUX D'HABITATION
+
+### Logements
+
+#### Pièces principales
+- **Surface** : 16 m² minimum
+- **Largeur** : 3,00 m minimum
+- **Hauteur** : 2,50 m minimum
+- **Éclairage** : 100 lux minimum
+
+#### Chambres
+- **Surface** : 9 m² minimum
+- **Largeur** : 2,70 m minimum
+- **Éclairage** : 100 lux minimum
+- **Ventilation** : Ouverture 1/6 de la surface
+
+### Sanitaires
+
+#### WC
+- **Largeur** : 1,50 m minimum
+- **Profondeur** : 2,20 m minimum
+- **Hauteur de cuvette** : 0,45 m
+- **Barres d'appui** : Obligatoires
+
+#### Douche
+- **Surface** : 1,20 × 1,20 m minimum
+- **Hauteur de douche** : 0,85 m
+- **Siège** : Obligatoire
+- **Barres d'appui** : Obligatoires
+
+#### Lavabo
+- **Hauteur** : 0,85 m maximum
+- **Profondeur** : 0,50 m minimum
+- **Espace latéral** : 0,80 m minimum
+- **Miroir** : Incliné à 10°
+
+## ÉQUIPEMENTS ET MOBILIER
+
+### Équipements
+
+#### Interrupteurs
+- **Hauteur** : 0,90 m à 1,30 m
+- **Force d'actionnement** : 3 N maximum
+- **Signalisation** : Visuelle et tactile
+- **Éclairage** : 50 lux minimum
+
+#### Prises électriques
+- **Hauteur** : 0,50 m à 1,30 m
+- **Accessibilité** : Libre accès
+- **Protection** : Dispositif de sécurité
+- **Nombre** : Suffisant
+
+#### Télécommunications
+- **Téléphone** : Hauteur 1,30 m maximum
+- **Interphone** : Hauteur 1,30 m maximum
+- **Signalisation** : Visuelle et sonore
+- **Boucle magnétique** : Si nécessaire
+
+### Mobilier
+
+#### Tables
+- **Hauteur** : 0,75 m maximum
+- **Espace sous table** : 0,70 m de hauteur
+- **Largeur** : 0,80 m minimum
+- **Profondeur** : 0,60 m minimum
+
+#### Chaises
+- **Hauteur d'assise** : 0,45 m à 0,50 m
+- **Profondeur d'assise** : 0,40 m à 0,50 m
+- **Largeur d'assise** : 0,45 m minimum
+- **Accoudoirs** : Recommandés
+
+## SIGNALISATION ET INFORMATION
+
+### Signalisation visuelle
+
+#### Caractéristiques
+- **Contraste** : 70% minimum
+- **Taille des caractères** : 0,16 m minimum
+- **Éclairage** : 200 lux minimum
+- **Localisation** : Hauteur 1,40 m à 1,60 m
+
+#### Types de signalisation
+- **Panneaux d'information** : Généralités
+- **Panneaux de direction** : Circulation
+- **Panneaux d'identification** : Locaux
+- **Panneaux d'alerte** : Danger
+
+### Signalisation tactile
+
+#### Caractéristiques
+- **Bande d'éveil** : 0,60 m de largeur
+- **Hauteur** : 0,05 m maximum
+- **Espacement** : 0,05 m à 0,08 m
+- **Matériau** : Résistant à l'usure
+
+#### Localisation
+- **Escaliers** : En haut et en bas
+- **Passages piétons** : Bordure de trottoir
+- **Obstacles** : Devant l'obstacle
+- **Changements de niveau** : Bordure
+
+### Signalisation sonore
+
+#### Caractéristiques
+- **Intensité** : 45 dB(A) minimum
+- **Fréquence** : 800 Hz à 2000 Hz
+- **Durée** : 0,5 s à 2 s
+- **Répétition** : Toutes les 5 s
+
+#### Applications
+- **Feux tricolores** : Signal sonore
+- **Ascenseurs** : Annonces vocales
+- **Alarmes** : Signal d'évacuation
+- **Télécommunications** : Boucle magnétique
+
+## MAINTENANCE ET VÉRIFICATIONS
+
+### Vérifications périodiques
+
+#### Fréquence
+- **Équipements** : Annuelle
+- **Signalisation** : Semestrielle
+- **Éclairage** : Mensuelle
+- **Nettoyage** : Hebdomadaire
+
+#### Contenu des vérifications
+- **État général** : Propreté, intégrité
+- **Fonctionnement** : Tests de mise en œuvre
+- **Conformité** : Respect des prescriptions
+- **Documentation** : Mise à jour des registres
+
+### Formation du personnel
+
+#### Contenu de la formation
+- **Règles d'accessibilité** : Connaissance des normes
+- **Accueil** : Attitude adaptée
+- **Aide** : Techniques d'assistance
+- **Sécurité** : Évacuation des personnes handicapées
+
+#### Fréquence
+- **Formation initiale** : Obligatoire
+- **Recyclage** : Tous les 3 ans
+- **Mise à jour** : Selon évolution des normes
+
+## RÉFÉRENCES NORMATIVES
+
+- **NF P 99-401** : Accessibilité des logements
+- **NF P 99-402** : Accessibilité des ERP
+- **NF P 99-403** : Accessibilité des IGH
+- **NF EN 81-70** : Ascenseurs pour personnes handicapées
+- **NF EN 81-71** : Ascenseurs avec portes palières
+- **NF EN 81-72** : Ascenseurs d'incendie
+- **NF EN 81-73** : Ascenseurs inclinés
+- **NF EN 81-74** : Ascenseurs pour passagers
+
+## NOTES IMPORTANTES
+
+1. **Respect obligatoire** : Toutes les prescriptions sont obligatoires
+2. **Vérification** : Contrôle par commission d'accessibilité
+3. **Modification** : Avis de la commission en cas de modification
+4. **Responsabilité** : Maître d'ouvrage responsable
+5. **Formation** : Personnel formé à l'accueil

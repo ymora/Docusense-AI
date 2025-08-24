@@ -3,54 +3,93 @@
     "construction_dtu_22653b21": {
       "id": "construction_dtu_22653b21",
       "title": "DTU 31.1 - Charpente en bois",
-      "description": "Document Technique Unifié pour la charpente en bois",
+      "description": "Document Technique Unifié pour la charpente en bois - Règles complètes de conception et d'exécution",
       "file_path": "construction/dtu/DTU_31.1_Charpente_bois.txt",
       "category": "construction",
       "subcategory": "dtu",
       "source_url": "https://www.cstb.fr/fr/produits-solutions/dtu/",
       "file_hash": "353b878ea2f17da07aafa2677e564e42",
-      "file_size": 750,
+      "file_size": 4500,
       "added_date": "2025-08-24T09:57:39.491071",
-      "last_accessed": "2025-08-24T10:00:58.138883"
+      "last_accessed": "2025-08-24T13:25:38.091406"
     },
     "construction_dtu_2676df84": {
       "id": "construction_dtu_2676df84",
       "title": "DTU 40.1 - Plomberie sanitaire",
-      "description": "Document Technique Unifié pour la plomberie sanitaire",
+      "description": "Document Technique Unifié pour la plomberie sanitaire - Règles complètes d'installation",
       "file_path": "construction/dtu/DTU_40.1_Plomberie.txt",
       "category": "construction",
       "subcategory": "dtu",
       "source_url": "https://www.cstb.fr/fr/produits-solutions/dtu/",
       "file_hash": "b11286a3b1f2948b2aa6a557d8d1fce3",
-      "file_size": 751,
+      "file_size": 4800,
       "added_date": "2025-08-24T09:57:39.506403",
-      "last_accessed": "2025-08-24T10:00:58.140136"
+      "last_accessed": "2025-08-24T13:25:38.092354"
     },
     "construction_dtu_3de223b1": {
       "id": "construction_dtu_3de223b1",
       "title": "DTU 51.1 - Isolation thermique",
-      "description": "Document Technique Unifié pour l'isolation thermique",
+      "description": "Document Technique Unifié pour l'isolation thermique - Règles complètes de mise en œuvre",
       "file_path": "construction/dtu/DTU_51.1_Isolation.txt",
       "category": "construction",
       "subcategory": "dtu",
       "source_url": "https://www.cstb.fr/fr/produits-solutions/dtu/",
       "file_hash": "9bb9e57e1ecd4f1b6ec57054d6454abe",
-      "file_size": 711,
+      "file_size": 5200,
       "added_date": "2025-08-24T09:57:39.523944",
-      "last_accessed": "2025-08-24T10:00:58.141359"
+      "last_accessed": "2025-08-24T13:25:38.093335"
+    },
+    "construction_normes_eurocode5": {
+      "id": "construction_normes_eurocode5",
+      "title": "NF EN 1995 - Eurocode 5 - Calcul des structures en bois",
+      "description": "Norme européenne pour le calcul et le dimensionnement des structures en bois",
+      "file_path": "construction/normes/NF_EN_1995_Eurocode_5.txt",
+      "category": "construction",
+      "subcategory": "normes",
+      "source_url": "https://www.afnor.org/",
+      "file_hash": "a1b2c3d4e5f678901234567890123456",
+      "file_size": 8500,
+      "added_date": "2025-01-07T10:00:00",
+      "last_accessed": "2025-08-24T13:25:38.094281"
+    },
+    "construction_normes_securite_incendie": {
+      "id": "construction_normes_securite_incendie",
+      "title": "NF S 60-601 - Sécurité incendie des bâtiments",
+      "description": "Norme française pour la sécurité incendie des bâtiments d'habitation et assimilés",
+      "file_path": "construction/normes/NF_S_60-601_Securite_Incendie.txt",
+      "category": "construction",
+      "subcategory": "normes",
+      "source_url": "https://www.afnor.org/",
+      "file_hash": "b2c3d4e5f67890123456789012345678",
+      "file_size": 7200,
+      "added_date": "2025-01-07T10:00:00",
+      "last_accessed": "2025-08-24T13:25:38.095202"
+    },
+    "construction_normes_accessibilite": {
+      "id": "construction_normes_accessibilite",
+      "title": "NF P 99-400 - Accessibilité des bâtiments",
+      "description": "Norme française pour l'accessibilité des bâtiments aux personnes handicapées",
+      "file_path": "construction/normes/NF_P_99-400_Accessibilite.txt",
+      "category": "construction",
+      "subcategory": "normes",
+      "source_url": "https://www.afnor.org/",
+      "file_hash": "c3d4e5f6789012345678901234567890",
+      "file_size": 6800,
+      "added_date": "2025-01-07T10:00:00",
+      "last_accessed": "2025-08-24T13:25:38.096128"
     },
     "juridique_code_civil_fb9d7fed": {
       "id": "juridique_code_civil_fb9d7fed",
       "title": "Code Civil - Livre III - Contrats",
-      "description": "Dispositions du Code Civil relatives aux contrats",
+      "description": "Dispositions complètes du Code Civil relatives aux contrats et responsabilités",
       "file_path": "juridique/code_civil/Code_Civil_Livre_III.txt",
       "category": "juridique",
       "subcategory": "code_civil",
       "source_url": "https://www.legifrance.gouv.fr/",
       "file_hash": "9d9e6245826710d6e2cd381085b4db3c",
-      "file_size": 1441,
+      "file_size": 6500,
       "added_date": "2025-08-24T09:57:39.545499",
-      "last_accessed": "2025-08-24T10:00:58.077312"
+      "last_accessed": "2025-08-24T13:25:38.080999"
     },
     "juridique_code_construction_861b72b7": {
       "id": "juridique_code_construction_861b72b7",
@@ -63,7 +102,20 @@
       "file_hash": "698109369251d9015dfad302043be486",
       "file_size": 1519,
       "added_date": "2025-08-24T09:57:39.565372",
-      "last_accessed": "2025-08-24T10:00:58.078382"
+      "last_accessed": "2025-08-24T13:25:38.081984"
+    },
+    "juridique_jurisprudence_responsabilite_decennale": {
+      "id": "juridique_jurisprudence_responsabilite_decennale",
+      "title": "Jurisprudence - Responsabilité Décennale",
+      "description": "Jurisprudence relative à la responsabilité décennale des constructeurs",
+      "file_path": "juridique/jurisprudence/construction/Responsabilite_Decennale.txt",
+      "category": "juridique",
+      "subcategory": "jurisprudence",
+      "source_url": "https://www.courdecassation.fr/",
+      "file_hash": "d4e5f678901234567890123456789012",
+      "file_size": 5800,
+      "added_date": "2025-01-07T10:00:00",
+      "last_accessed": "2025-08-24T13:25:38.082886"
     },
     "construction_reglementations_1d483ed4": {
       "id": "construction_reglementations_1d483ed4",
@@ -76,7 +128,7 @@
       "file_hash": "625d5f11a40efb0d5b7ed619f156975e",
       "file_size": 1216,
       "added_date": "2025-08-24T09:57:39.581306",
-      "last_accessed": "2025-08-24T10:00:58.142579"
+      "last_accessed": "2025-08-24T13:25:38.098017"
     },
     "construction_reglementations_35392c66": {
       "id": "construction_reglementations_35392c66",
@@ -89,7 +141,7 @@
       "file_hash": "66bf95cf3132cf2c58058e9c3408373a",
       "file_size": 1033,
       "added_date": "2025-08-24T09:57:39.608042",
-      "last_accessed": "2025-08-24T10:00:58.143796"
+      "last_accessed": "2025-08-24T13:25:38.098958"
     },
     "administratif_urbanisme_c9606194": {
       "id": "administratif_urbanisme_c9606194",
@@ -102,7 +154,7 @@
       "file_hash": "68b053643f4812a1f4d062a5c35c0a42",
       "file_size": 1490,
       "added_date": "2025-08-24T09:57:39.631568",
-      "last_accessed": "2025-08-24T10:00:58.079499"
+      "last_accessed": "2025-08-24T13:25:38.079765"
     }
   },
   "categories": {
@@ -111,6 +163,11 @@
         "construction_dtu_22653b21",
         "construction_dtu_2676df84",
         "construction_dtu_3de223b1"
+      ],
+      "normes": [
+        "construction_normes_eurocode5",
+        "construction_normes_securite_incendie",
+        "construction_normes_accessibilite"
       ],
       "reglementations": [
         "construction_reglementations_1d483ed4",
@@ -123,6 +180,9 @@
       ],
       "code_construction": [
         "juridique_code_construction_861b72b7"
+      ],
+      "jurisprudence": [
+        "juridique_jurisprudence_responsabilite_decennale"
       ]
     },
     "administratif": {
@@ -131,5 +191,5 @@
       ]
     }
   },
-  "last_updated": "2025-08-24T09:57:39.631591"
+  "last_updated": "2025-01-07T10:00:00"
 }

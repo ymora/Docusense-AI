@@ -1,207 +1,96 @@
 {
-  "version": "1.0",
+  "version": "2.0",
   "last_updated": "2025-01-07",
-  "description": "Prompts centralisés pour DocuSense AI - Tous les prompts sont conservés dans leur forme originale",
+  "description": "Prompts universels simplifiés pour DocuSense AI - 5 prompts intelligents qui s'adaptent au contexte",
   
-  "default_prompts": {
-    "JURIDICAL": "Analysez ce document juridique de manière approfondie. Identifiez :\n1. Les parties impliquées\n2. Les clauses importantes\n3. Les obligations et droits\n4. Les échéances et délais\n5. Les risques potentiels\n6. La conformité avec la législation française\n7. Les recommandations d'actions",
-    
-    "TECHNICAL": "Analysez ce document technique en détail. Identifiez :\n1. Les spécifications techniques\n2. Les normes applicables (DTU, NF, EN, ISO)\n3. Les exigences réglementaires (RE2020, RT2012)\n4. Les points de conformité\n5. Les anomalies ou incohérences\n6. Les recommandations techniques",
-    
-    "ADMINISTRATIVE": "Analysez ce document administratif. Identifiez :\n1. La nature du document\n2. Les procédures administratives\n3. Les délais et échéances\n4. Les pièces justificatives requises\n5. Les points d'attention\n6. Les actions à entreprendre",
-    
-    "GENERAL": "Analysez ce document de manière générale. Fournissez :\n1. Un résumé exécutif\n2. Les points clés\n3. Les informations importantes\n4. Les actions recommandées\n5. Les questions à clarifier",
-    
-    "OCR": "Ce texte a été extrait par OCR. Analysez-le pour :\n1. Identifier les erreurs de reconnaissance\n2. Corriger les fautes évidentes\n3. Structurer le contenu\n4. Extraire les informations clés"
-  },
-  
-  "specialized_prompts": {
-    "juridical_contract_analysis": {
-      "domain": "juridical",
+  "universal_prompts": {
+    "problem_analysis": {
+      "id": "problem_analysis",
+      "name": "🔍 Analyse de Problème",
+      "description": "Détecte et analyse les problèmes dans vos documents pour vous aider à agir",
+      "domain": "universal",
       "type": "analysis",
-      "name": "Analyse de Contrat",
-      "description": "Analyse juridique complète d'un contrat",
-      "prompt": "Tu es un expert juridique spécialisé dans l'analyse de contrats. Analyse le document suivant en identifiant :\n\n1. **Parties contractantes** : Noms, adresses, rôles\n2. **Objet du contrat** : Description claire de l'objet\n3. **Obligations principales** : De chaque partie\n4. **Clauses importantes** : \n   - Clauses de résiliation\n   - Clauses de responsabilité\n   - Clauses de force majeure\n   - Clauses de confidentialité\n5. **Risques juridiques** : Points d'attention, clauses déséquilibrées\n6. **Conformité légale** : Respect du Code civil, Code de commerce\n7. **Recommandations** : Actions à entreprendre, points à négocier\n\nDocument à analyser :\n{text}\n\nFournis une analyse structurée et détaillée.",
-      "output_format": "structured"
+      "prompt": "Tu es un expert en analyse de problèmes documentaires. Analyse le document suivant pour identifier et analyser tous les problèmes potentiels :\n\n## 🔍 ANALYSE DES PROBLÈMES\n\n### 1. **Problèmes Détectés**\n- Identifiez tous les problèmes, défauts, incohérences ou points d'attention\n- Classez-les par gravité (Critique/Important/Mineur)\n- Expliquez l'impact de chaque problème\n\n### 2. **Causes et Responsabilités**\n- Déterminez les causes possibles de chaque problème\n- Identifiez les responsabilités (qui est en tort)\n- Analysez les manquements constatés\n\n### 3. **Contexte Juridique et Technique**\n- Vérifiez la conformité aux normes applicables (DTU, Code civil, etc.)\n- Identifiez les violations de règles ou obligations\n- Analysez les risques juridiques et techniques\n\n### 4. **Preuves et Éléments Probants**\n- Listez les éléments qui prouvent les problèmes\n- Identifiez les documents probants\n- Analysez la force probante des éléments\n\n### 5. **Actions Recommandées**\n- Proposez des actions immédiates\n- Suggérez des démarches à entreprendre\n- Recommandez des spécialistes à consulter\n\n### 6. **Stratégie de Résolution**\n- Évaluez les chances de succès\n- Proposez une approche (négociation/médiation/procédure)\n- Estimez les coûts et délais\n\nDocument à analyser :\n{text}\n\nFournis une analyse structurée et actionnable pour résoudre les problèmes identifiés.",
+      "output_format": "structured",
+      "use_cases": ["construction_litigation", "contract_disputes", "quality_issues", "compliance_problems", "communication_conflicts"]
     },
     
-    "juridical_litigation_analysis": {
-      "domain": "juridical",
-      "type": "analysis",
-      "name": "Analyse de Litige",
-      "description": "Analyse juridique d'un litige ou contentieux",
-      "prompt": "Tu es un expert juridique spécialisé dans l'analyse de litiges. Analyse le document suivant en identifiant :\n\n1. **Faits principaux** : Chronologie des événements\n2. **Parties au litige** : Demandeur, défendeur, tiers\n3. **Fondements juridiques** : Bases légales invoquées\n4. **Preuves** : Éléments probatoires mentionnés\n5. **Procédure** : Type de procédure, juridiction compétente\n6. **Enjeux** : Montants, conséquences\n7. **Stratégie de défense** : Arguments possibles, chances de succès\n8. **Recommandations** : Actions à entreprendre\n\nDocument à analyser :\n{text}\n\nFournis une analyse structurée et stratégique.",
-      "output_format": "structured"
-    },
-    
-    "technical_norm_verification": {
-      "domain": "technical",
-      "type": "verification",
-      "name": "Vérification Normative",
-      "description": "Vérification de conformité aux normes techniques",
-      "prompt": "Tu es un expert technique spécialisé dans la vérification normative. Analyse le document suivant en vérifiant :\n\n1. **Normes applicables** : NF, EN, ISO, DTU mentionnées\n2. **Conformité** : Respect des exigences normatives\n3. **Incohérences** : Contradictions avec les normes\n4. **Manques** : Exigences normatives non respectées\n5. **Règles de l'art** : Respect des pratiques professionnelles\n6. **Risques techniques** : Points d'attention\n7. **Recommandations** : Actions correctives nécessaires\n\nDocument à analyser :\n{text}\n\nFournis une vérification détaillée avec références normatives.",
-      "output_format": "structured"
-    },
-    
-    "technical_dtu_analysis": {
-      "domain": "technical",
-      "type": "analysis",
-      "name": "Analyse DTU",
-      "description": "Analyse de conformité aux Documents Techniques Unifiés",
-      "prompt": "Tu es un expert technique spécialisé dans l'analyse DTU. Analyse le document suivant en vérifiant :\n\n1. **DTU applicables** : Identification des DTU concernés\n2. **Conformité DTU** : Respect des prescriptions techniques\n3. **Cahiers des clauses techniques** : CCT, CCA, CCP\n4. **Spécifications particulières** : SP mentionnées\n5. **Écarts** : Non-conformités détectées\n6. **Risques** : Conséquences des non-conformités\n7. **Actions correctives** : Mesures à prendre\n\nDocument à analyser :\n{text}\n\nFournis une analyse technique détaillée avec références DTU.",
-      "output_format": "structured"
-    },
-    
-    "technical_re2020_analysis": {
-      "domain": "technical",
-      "type": "verification",
-      "name": "Analyse RE2020",
-      "description": "Vérification de conformité à la réglementation environnementale RE2020",
-      "prompt": "Tu es un expert technique spécialisé dans la réglementation environnementale RE2020. Analyse le document suivant en vérifiant :\n\n1. **Conformité RE2020** : Respect des exigences de la réglementation environnementale 2020\n2. **Indicateurs environnementaux** :\n   - Bbio (besoin bioclimatique)\n   - Cep (consommation d'énergie primaire)\n   - Ic (impact carbone)\n3. **Exigences techniques** :\n   - Isolation thermique\n   - Systèmes de chauffage et refroidissement\n   - Production d'énergie renouvelable\n   - Qualité de l'air intérieur\n4. **Écarts de conformité** : Non-respect des seuils RE2020\n5. **Risques réglementaires** : Sanctions, refus de permis\n6. **Actions correctives** : Mesures pour atteindre la conformité\n7. **Recommandations** : Optimisations techniques et réglementaires\n\nDocument à analyser :\n{text}\n\nFournis une analyse détaillée avec références aux articles de la RE2020.",
-      "output_format": "structured"
-    },
-    
-    "technical_rt2012_analysis": {
-      "domain": "technical",
-      "type": "verification",
-      "name": "Analyse RT2012",
-      "description": "Vérification de conformité à la réglementation thermique RT2012",
-      "prompt": "Tu es un expert technique spécialisé dans la réglementation thermique RT2012. Analyse le document suivant en vérifiant :\n\n1. **Conformité RT2012** : Respect des exigences de la réglementation thermique 2012\n2. **Indicateurs de performance** :\n   - Bbio (besoin bioclimatique) ≤ 60\n   - Cep (consommation d'énergie primaire) ≤ 50 kWh/m²/an\n   - Tic (température intérieure conventionnelle) ≤ 26°C\n3. **Exigences techniques** :\n   - Isolation thermique des parois\n   - Perméabilité à l'air\n   - Étanchéité à l'air\n   - Ponts thermiques\n   - Systèmes de chauffage et refroidissement\n4. **Écarts de conformité** : Dépassements des seuils RT2012\n5. **Risques réglementaires** : Sanctions, refus de permis de construire\n6. **Actions correctives** : Mesures pour atteindre la conformité\n7. **Recommandations** : Optimisations thermiques et énergétiques\n\nDocument à analyser :\n{text}\n\nFournis une analyse détaillée avec références aux articles de la RT2012.",
-      "output_format": "structured"
-    },
-    
-    "administrative_document_analysis": {
-      "domain": "administrative",
-      "type": "analysis",
-      "name": "Analyse Administrative",
-      "description": "Analyse de documents administratifs",
-      "prompt": "Tu es un expert administratif. Analyse le document suivant en identifiant :\n\n1. **Type de document** : Nature administrative\n2. **Autorité compétente** : Organisme émetteur\n3. **Procédure** : Étapes administratives\n4. **Délais** : Échéances importantes\n5. **Formalités** : Documents requis\n6. **Recours possibles** : Voies de recours\n7. **Actions à entreprendre** : Prochaines étapes\n\nDocument à analyser :\n{text}\n\nFournis une analyse administrative structurée.",
-      "output_format": "structured"
-    },
-    
-    "general_summary": {
-      "domain": "general",
-      "type": "summary",
-      "name": "Résumé Général",
-      "description": "Résumé général du document",
-      "prompt": "Analyse le document suivant et fournis :\n\n1. **Résumé exécutif** : Points essentiels en 2-3 paragraphes\n2. **Informations clés** : Données importantes extraites\n3. **Structure** : Organisation du document\n4. **Contexte** : Cadre général\n5. **Actions requises** : Éléments nécessitant une action\n\nDocument à analyser :\n{text}\n\nFournis un résumé clair et structuré.",
-      "output_format": "structured"
-    },
-    
-    "general_extraction": {
-      "domain": "general",
-      "type": "extraction",
-      "name": "Extraction de Données",
-      "description": "Extraction structurée de données",
-      "prompt": "Extrais les données suivantes du document :\n\n- **Dates** : Toutes les dates importantes\n- **Montants** : Sommes, prix, coûts\n- **Noms** : Personnes, entreprises, organisations\n- **Adresses** : Lieux, adresses\n- **Références** : Numéros, codes, identifiants\n- **Contacts** : Téléphones, emails\n- **Échéances** : Délais, échéances\n\nDocument à analyser :\n{text}\n\nFournis une extraction structurée sous forme de liste.",
-      "output_format": "structured"
-    },
-    
-    "general_comparison": {
-      "domain": "general",
+    "contract_comparison": {
+      "id": "contract_comparison", 
+      "name": "⚖️ Comparaison de Contrats",
+      "description": "Compare plusieurs documents pour identifier les différences et opportunités",
+      "domain": "universal",
       "type": "comparison",
-      "name": "Comparaison de Documents",
-      "description": "Comparaison détaillée de plusieurs documents",
-      "prompt": "Tu es un expert en analyse comparative de documents. Compare les documents suivants en identifiant :\n\n1. **Points communs** : Éléments identiques ou similaires\n2. **Différences** : Éléments spécifiques à chaque document\n3. **Incohérences** : Contradictions entre les documents\n4. **Complémentarité** : Comment les documents se complètent\n5. **Hiérarchie** : Relations entre les documents (si applicable)\n6. **Risques** : Points d'attention liés aux différences\n7. **Recommandations** : Actions à entreprendre\n\nDocuments à comparer :\n{text}\n\nFournis une comparaison structurée et détaillée.",
-      "output_format": "structured"
+      "prompt": "Tu es un expert en analyse comparative de documents. Compare les documents suivants pour identifier les différences et opportunités :\n\n## ⚖️ ANALYSE COMPARATIVE\n\n### 1. **Points Communs**\n- Éléments identiques ou similaires entre les documents\n- Clauses standard respectées\n- Obligations communes\n\n### 2. **Différences Clés**\n- Éléments spécifiques à chaque document\n- Variations dans les conditions\n- Avantages et inconvénients de chaque version\n\n### 3. **Analyse des Risques**\n- Clauses déséquilibrées ou dangereuses\n- Points d'attention particuliers\n- Risques juridiques ou techniques\n\n### 4. **Opportunités Identifiées**\n- Meilleures conditions à négocier\n- Éléments à transférer d'un document à l'autre\n- Optimisations possibles\n\n### 5. **Recommandations Stratégiques**\n- Quel document privilégier et pourquoi\n- Points à négocier\n- Actions à entreprendre\n\n### 6. **Tableau Comparatif**\nPrésentez un tableau clair des différences principales :\n| Critère | Document A | Document B | Recommandation |\n|---------|------------|------------|----------------|\n| [Critères à comparer] | | | |\n\nDocuments à comparer :\n{text}\n\nFournis une comparaison structurée avec des recommandations actionnables.",
+      "output_format": "structured",
+      "use_cases": ["insurance_comparison", "contract_negotiation", "supplier_selection", "service_comparison", "proposal_evaluation"]
     },
     
-    "email_analysis": {
-      "domain": "general",
-      "type": "analysis",
-      "name": "Analyse d'Email",
-      "description": "Analyse complète d'un email",
-      "prompt": "Tu es un expert en analyse d'emails. Analyse l'email suivant en identifiant :\n\n1. **Informations de base** :\n   - Expéditeur et destinataires\n   - Objet et date\n   - Type d'email (professionnel, personnel, spam, etc.)\n\n2. **Contenu principal** :\n   - Sujet principal\n   - Points clés\n   - Actions demandées\n   - Urgence ou priorité\n\n3. **Pièces jointes** :\n   - Types de fichiers attachés\n   - Importance des pièces jointes\n   - Risques potentiels\n\n4. **Analyse de sécurité** :\n   - Signes de phishing ou spam\n   - Liens suspects\n   - Expéditeur légitime\n\n5. **Actions recommandées** :\n   - Réponse nécessaire\n   - Actions à entreprendre\n   - Suivi requis\n\nEmail à analyser :\n{text}\n\nFournis une analyse structurée et détaillée.",
-      "output_format": "structured"
+    "dossier_preparation": {
+      "id": "dossier_preparation",
+      "name": "📋 Préparation de Dossier", 
+      "description": "Prépare un dossier complet pour procédure, action ou décision",
+      "domain": "universal",
+      "type": "preparation",
+      "prompt": "Tu es un expert en préparation de dossiers. Analyse les documents fournis pour préparer un dossier complet et structuré :\n\n## 📋 PRÉPARATION DE DOSSIER\n\n### 1. **Résumé Exécutif**\n- Synthèse de la situation en 2-3 paragraphes\n- Points clés à retenir\n- Enjeux principaux\n\n### 2. **Chronologie des Événements**\n- Timeline détaillée des événements importants\n- Dates clés et échéances\n- Séquence des actions entreprises\n\n### 3. **Éléments de Preuve**\n- Documents probants classés par importance\n- Témoignages et déclarations\n- Photos, vidéos, rapports d'experts\n- Échanges de correspondance\n\n### 4. **Analyse Juridique et Technique**\n- Bases légales applicables\n- Violations constatées\n- Responsabilités identifiées\n- Arguments juridiques\n\n### 5. **Calcul des Préjudices**\n- Préjudice matériel (coûts, pertes)\n- Préjudice moral\n- Préjudice d'usage\n- Frais annexes\n\n### 6. **Stratégie de Défense**\n- Points forts du dossier\n- Faiblesses de l'adversaire\n- Arguments à développer\n- Risques à anticiper\n\n### 7. **Actions Recommandées**\n- Prochaines étapes immédiates\n- Documents à produire\n- Spécialistes à consulter\n- Délais à respecter\n\n### 8. **Documents Manquants**\n- Pièces à récupérer\n- Informations à obtenir\n- Expertises à demander\n\nDocuments à analyser :\n{text}\n\nFournis un dossier structuré et complet pour une action efficace.",
+      "output_format": "structured", 
+      "use_cases": ["litigation_preparation", "expert_report", "insurance_claim", "administrative_appeal", "contract_termination"]
     },
     
-    "email_summary": {
-      "domain": "general",
-      "type": "summary",
-      "name": "Résumé d'Email",
-      "description": "Résumé concis d'un email",
-      "prompt": "Analyse l'email suivant et fournis un résumé concis :\n\n1. **Expéditeur** : Qui envoie l'email\n2. **Objet** : Sujet principal\n3. **Contenu essentiel** : Points clés en 2-3 phrases\n4. **Actions requises** : Ce qui doit être fait\n5. **Priorité** : Urgence (Haute/Moyenne/Basse)\n6. **Pièces jointes** : Fichiers importants\n\nEmail à résumer :\n{text}\n\nFournis un résumé clair et concis.",
-      "output_format": "structured"
+    "compliance_verification": {
+      "id": "compliance_verification",
+      "name": "🛡️ Vérification de Conformité",
+      "description": "Vérifie la conformité aux normes, règles et obligations",
+      "domain": "universal", 
+      "type": "verification",
+      "prompt": "Tu es un expert en vérification de conformité. Analyse le document suivant pour vérifier sa conformité aux normes et règles applicables :\n\n## 🛡️ VÉRIFICATION DE CONFORMITÉ\n\n### 1. **Normes et Règles Applicables**\n- Identification des normes concernées (DTU, NF, EN, ISO, Code civil, etc.)\n- Réglementations spécifiques (RE2020, RT2012, etc.)\n- Obligations contractuelles\n- Règles de l'art\n\n### 2. **Points de Conformité**\n- Éléments conformes aux exigences\n- Bonnes pratiques respectées\n- Obligations honorées\n\n### 3. **Non-Conformités Détectées**\n- Violations des normes ou règles\n- Manquements aux obligations\n- Écarts par rapport aux standards\n- Incohérences constatées\n\n### 4. **Analyse des Risques**\n- Risques techniques\n- Risques juridiques\n- Risques financiers\n- Risques de sécurité\n\n### 5. **Impact des Non-Conformités**\n- Conséquences immédiates\n- Dégâts potentiels\n- Sanctions possibles\n- Coûts de remise en conformité\n\n### 6. **Actions Correctives**\n- Mesures immédiates à prendre\n- Corrections nécessaires\n- Délais de mise en conformité\n- Contrôles à effectuer\n\n### 7. **Recommandations Préventives**\n- Mesures pour éviter les non-conformités\n- Contrôles à mettre en place\n- Procédures à améliorer\n\nDocument à vérifier :\n{text}\n\nFournis une vérification détaillée avec références aux normes et actions correctives.",
+      "output_format": "structured",
+      "use_cases": ["technical_compliance", "legal_compliance", "contract_compliance", "regulatory_audit", "quality_control"]
     },
     
-    "email_extraction": {
-      "domain": "general",
-      "type": "extraction",
-      "name": "Extraction d'Email",
-      "description": "Extraction structurée des données d'un email",
-      "prompt": "Extrais les informations suivantes de l'email :\n\n- **Expéditeur** : Nom, email, organisation\n- **Destinataires** : À, CC, CCI\n- **Objet** : Sujet de l'email\n- **Date** : Date et heure d'envoi\n- **Contenu** : Texte principal\n- **Pièces jointes** : Noms et types de fichiers\n- **Liens** : URLs mentionnées\n- **Contacts** : Emails et téléphones\n- **Actions** : Actions demandées ou requises\n- **Échéances** : Délais mentionnés\n\nEmail à analyser :\n{text}\n\nFournis une extraction structurée sous forme de liste.",
-      "output_format": "structured"
-    },
-    
-    "email_security_analysis": {
-      "domain": "general",
-      "type": "analysis",
-      "name": "Analyse de Sécurité Email",
-      "description": "Analyse de sécurité d'un email",
-      "prompt": "Tu es un expert en cybersécurité spécialisé dans l'analyse d'emails. Analyse l'email suivant pour détecter les risques de sécurité :\n\n1. **Analyse de l'expéditeur** :\n   - Adresse email légitime\n   - Domaine suspect\n   - Usurpation d'identité\n\n2. **Contenu suspect** :\n   - Demande d'informations sensibles\n   - Urgence injustifiée\n   - Offres trop alléchantes\n   - Erreurs grammaticales suspectes\n\n3. **Liens et pièces jointes** :\n   - URLs suspectes\n   - Fichiers malveillants potentiels\n   - Extensions dangereuses\n\n4. **Techniques de phishing** :\n   - Urgence créée artificiellement\n   - Autorité usurpée\n   - Menaces ou récompenses\n\n5. **Recommandations** :\n   - Actions à éviter\n   - Mesures de sécurité\n   - Signalement si nécessaire\n\nEmail à analyser :\n{text}\n\nFournis une analyse de sécurité détaillée.",
-      "output_format": "structured"
-    },
-
-    "construction_litigation_analysis": {
-      "domain": "juridical",
-      "type": "analysis",
-      "name": "Analyse de Litige Construction",
-      "description": "Analyse juridique spécialisée pour litiges de construction",
-      "prompt": "Tu es un expert juridique spécialisé dans les litiges de construction. Analyse le document suivant pour identifier les éléments de défense :\n\n1. **Chronologie des événements** :\n   - Dates importantes (signature contrat, début travaux, problèmes)\n   - Séquence des événements\n   - Délais respectés ou non\n\n2. **Manquements du constructeur** :\n   - Non-respect des DTU (Documents Techniques Unifiés)\n   - Retards dans les délais contractuels\n   - Travaux non conformes\n   - Absence de réponses aux demandes\n   - Défauts de construction\n\n3. **Obligations contractuelles** :\n   - Clauses du contrat non respectées\n   - Garanties non honorées\n   - Pénalités de retard applicables\n   - Responsabilités du constructeur\n\n4. **Preuves documentées** :\n   - Échanges de courriers/emails\n   - Photos des défauts\n   - Rapports d'experts\n   - Devis et factures\n   - Réserves formulées\n\n5. **Calcul des préjudices** :\n   - Coûts de remise en conformité\n   - Préjudice moral\n   - Perte de jouissance\n   - Frais annexes\n\n6. **Arguments juridiques** :\n   - Bases légales (Code civil, Code de la construction)\n   - Jurisprudence applicable\n   - Responsabilité du constructeur\n   - Garanties légales\n\n7. **Stratégie de défense** :\n   - Points forts de votre dossier\n   - Faiblesses du constructeur\n   - Actions recommandées\n   - Documents à produire\n\nDocument à analyser :\n{text}\n\nFournis une analyse juridique structurée pour votre défense.",
-      "output_format": "structured"
-    },
-
-    "construction_contract_analysis": {
-      "domain": "juridical",
-      "type": "analysis",
-      "name": "Analyse de Contrat Construction",
-      "description": "Analyse juridique spécialisée des contrats de construction",
-      "prompt": "Tu es un expert juridique spécialisé dans l'analyse des contrats de construction. Analyse le contrat suivant en identifiant :\n\n1. **Parties contractantes** :\n   - Maître d'ouvrage (vous)\n   - Constructeur/Entrepreneur\n   - Garanties et assurances\n\n2. **Obligations du constructeur** :\n   - Délais d'exécution\n   - Qualité des travaux\n   - Respect des DTU\n   - Garanties contractuelles\n   - Responsabilités\n\n3. **Clauses importantes** :\n   - Clauses de résiliation\n   - Pénalités de retard\n   - Garantie de parfait achèvement\n   - Garantie décennale\n   - Clauses de force majeure\n\n4. **Points de défaut** :\n   - Clauses déséquilibrées\n   - Obligations floues\n   - Délais imprécis\n   - Garanties insuffisantes\n   - Responsabilités mal définies\n\n5. **Conformité légale** :\n   - Respect du Code civil\n   - Code de la construction\n   - Réglementation applicable\n   - Obligations légales\n\n6. **Risques identifiés** :\n   - Points d'attention\n   - Clauses dangereuses\n   - Manquements potentiels\n   - Sanctions possibles\n\n7. **Recommandations** :\n   - Points à négocier\n   - Clauses à modifier\n   - Garanties à exiger\n   - Actions préventives\n\nContrat à analyser :\n{text}\n\nFournis une analyse juridique détaillée et stratégique.",
-      "output_format": "structured"
-    },
-
-    "construction_chronology_analysis": {
-      "domain": "juridical",
-      "type": "analysis",
-      "name": "Analyse Chronologique Construction",
-      "description": "Établissement d'une chronologie détaillée des événements",
-      "prompt": "Tu es un expert juridique spécialisé dans l'analyse chronologique de litiges de construction. Analyse les documents suivants pour établir une chronologie précise :\n\n1. **Timeline des événements** :\n   - Date de signature du contrat\n   - Date de début des travaux\n   - Dates des problèmes rencontrés\n   - Dates des relances effectuées\n   - Dates des réponses reçues\n   - Dates des expertises\n\n2. **Comptage des relances** :\n   - Nombre de relances par type (email, courrier, téléphone)\n   - Délais entre les relances\n   - Réponses reçues ou absence de réponse\n   - Délais de réponse du constructeur\n\n3. **Périodes d'absence de réponse** :\n   - Durée des silences du constructeur\n   - Impact sur l'avancement des travaux\n   - Préjudice subi\n   - Manquements constatés\n\n4. **Échanges documentés** :\n   - Courriers envoyés/reçus\n   - Emails échangés\n   - SMS ou appels téléphoniques\n   - Comptes-rendus de réunions\n\n5. **Délais non respectés** :\n   - Délais contractuels dépassés\n   - Délais de réponse non respectés\n   - Délais d'intervention\n   - Délais de remise en conformité\n\n6. **Éléments de preuve** :\n   - Documents probants\n   - Témoignages\n   - Photos/vidéos\n   - Rapports d'experts\n\n7. **Impact sur le litige** :\n   - Points forts de votre dossier\n   - Faiblesses du constructeur\n   - Arguments juridiques\n   - Préjudices subis\n\nDocuments à analyser :\n{text}\n\nFournis une chronologie détaillée et structurée pour votre défense.",
-      "output_format": "structured"
-    },
-
-    "construction_photo_analysis": {
-      "domain": "technical",
-      "type": "analysis",
-      "name": "Analyse de Photos Construction",
-      "description": "Analyse technique des photos de chantier et défauts",
-      "prompt": "Tu es un expert technique spécialisé dans l'analyse de photos de chantier. Analyse les photos suivantes pour identifier :\n\n1. **État des travaux** :\n   - Progression des travaux\n   - Qualité d'exécution\n   - Respect des plans\n   - Finitions\n\n2. **Défauts visibles** :\n   - Fissures, infiltrations\n   - Désordres structurels\n   - Non-conformités techniques\n   - Défauts d'étanchéité\n   - Problèmes d'isolation\n\n3. **Non-respect des DTU** :\n   - Écarts par rapport aux normes\n   - Techniques non conformes\n   - Matériaux inappropriés\n   - Mise en œuvre défectueuse\n\n4. **Risques techniques** :\n   - Dangers potentiels\n   - Dégradations futures\n   - Coûts de remise en conformité\n   - Impact sur la durabilité\n\n5. **Éléments de preuve** :\n   - Photos probantes\n   - Détails visibles\n   - Comparaisons avant/après\n   - Échelle et proportions\n\n6. **Expertise technique** :\n   - Diagnostic technique\n   - Causes des défauts\n   - Responsabilités\n   - Solutions techniques\n\n7. **Impact juridique** :\n   - Preuves pour le litige\n   - Arguments techniques\n   - Évaluation des préjudices\n   - Recommandations\n\nPhotos à analyser :\n{text}\n\nFournis une analyse technique détaillée avec références aux normes.",
-      "output_format": "structured"
-    },
-
-    "construction_email_analysis": {
-      "domain": "juridical",
-      "type": "analysis",
-      "name": "Analyse d'Emails Construction",
-      "description": "Analyse juridique des échanges emails avec le constructeur",
-      "prompt": "Tu es un expert juridique spécialisé dans l'analyse d'échanges emails pour litiges de construction. Analyse les emails suivants en identifiant :\n\n1. **Demandes formulées** :\n   - Problèmes signalés\n   - Actions demandées\n   - Délais exigés\n   - Garanties réclamées\n\n2. **Réponses du constructeur** :\n   - Reconnaissance des problèmes\n   - Refus ou déni\n   - Promesses non tenues\n   - Délais de réponse\n   - Qualité des réponses\n\n3. **Délais de réponse** :\n   - Temps de réponse du constructeur\n   - Délais raisonnables ou non\n   - Absence de réponse\n   - Impact sur les travaux\n\n4. **Éléments de preuve** :\n   - Reconnaissance de responsabilité\n   - Aveux implicites\n   - Promesses non tenues\n   - Manquements constatés\n   - Absence de professionnalisme\n\n5. **Manquements constatés** :\n   - Non-respect des délais\n   - Absence de réponse\n   - Réponses insuffisantes\n   - Refus d'intervention\n   - Manque de professionnalisme\n\n6. **Impact sur le litige** :\n   - Points forts de votre dossier\n   - Faiblesses du constructeur\n   - Arguments juridiques\n   - Preuves documentées\n\n7. **Stratégie juridique** :\n   - Utilisation des emails comme preuves\n   - Arguments à développer\n   - Actions recommandées\n   - Documents complémentaires\n\nEmails à analyser :\n{text}\n\nFournis une analyse juridique structurée pour votre défense.",
-      "output_format": "structured"
-    },
-
-    "construction_expert_report_analysis": {
-      "domain": "technical",
-      "type": "analysis",
-      "name": "Analyse de Rapport d'Expert Construction",
-      "description": "Analyse technique et juridique des rapports d'experts",
-      "prompt": "Tu es un expert technique et juridique spécialisé dans l'analyse de rapports d'experts pour litiges de construction. Analyse le rapport suivant en identifiant :\n\n1. **Méthodologie d'expertise** :\n   - Compétence de l'expert\n   - Méthodes utilisées\n   - Investigations réalisées\n   - Documents consultés\n\n2. **Défauts constatés** :\n   - Nature des défauts\n   - Gravité des désordres\n   - Causes techniques\n   - Responsabilités identifiées\n\n3. **Non-conformités techniques** :\n   - Écarts aux DTU\n   - Non-respect des normes\n   - Défauts de conception\n   - Erreurs d'exécution\n\n4. **Évaluation des préjudices** :\n   - Coûts de remise en conformité\n   - Préjudice d'usage\n   - Préjudice moral\n   - Frais d'expertise\n\n5. **Responsabilités** :\n   - Responsabilité du constructeur\n   - Responsabilité du maître d'œuvre\n   - Responsabilité du contrôleur technique\n   - Part de responsabilité de chaque intervenant\n\n6. **Recommandations techniques** :\n   - Solutions techniques\n   - Délais de réalisation\n   - Coûts estimés\n   - Garanties à exiger\n\n7. **Impact juridique** :\n   - Force probante du rapport\n   - Arguments juridiques\n   - Utilisation en justice\n   - Stratégie de défense\n\nRapport d'expert à analyser :\n{text}\n\nFournis une analyse technique et juridique détaillée.",
-      "output_format": "structured"
+    "communication_analysis": {
+      "id": "communication_analysis",
+      "name": "📧 Analyse de Communication",
+      "description": "Analyse les échanges et communications pour identifier les problèmes et opportunités",
+      "domain": "universal",
+      "type": "analysis", 
+      "prompt": "Tu es un expert en analyse de communication. Analyse les échanges suivants pour identifier les problèmes et opportunités :\n\n## 📧 ANALYSE DE COMMUNICATION\n\n### 1. **Contexte de la Communication**\n- Nature des échanges (emails, courriers, SMS, etc.)\n- Parties impliquées\n- Période couverte\n- Objet principal\n\n### 2. **Chronologie des Échanges**\n- Timeline détaillée des communications\n- Délais de réponse\n- Fréquence des échanges\n- Périodes de silence\n\n### 3. **Analyse du Contenu**\n- Demandes formulées\n- Réponses apportées\n- Promesses faites\n- Engagements pris\n- Refus ou dénis\n\n### 4. **Problèmes de Communication**\n- Absence de réponse\n- Réponses insuffisantes\n- Délais excessifs\n- Manque de professionnalisme\n- Incohérences dans les réponses\n\n### 5. **Éléments Probants**\n- Reconnaissances de responsabilité\n- Aveux implicites\n- Promesses non tenues\n- Manquements constatés\n- Preuves de mauvaise foi\n\n### 6. **Impact sur la Situation**\n- Conséquences des problèmes de communication\n- Préjudice subi\n- Délais perdus\n- Coûts engendrés\n\n### 7. **Stratégie de Communication**\n- Actions à entreprendre\n- Type de communication à privilégier\n- Arguments à développer\n- Documents à produire\n\n### 8. **Recommandations**\n- Approche recommandée (patienter/relancer/attaquer)\n- Timing des actions\n- Spécialistes à consulter\n\nÉchanges à analyser :\n{text}\n\nFournis une analyse structurée avec des recommandations actionnables.",
+      "output_format": "structured",
+      "use_cases": ["email_analysis", "correspondence_tracking", "response_monitoring", "communication_strategy", "evidence_collection"]
     }
   },
   
   "metadata": {
-    "domains": ["juridical", "technical", "administrative", "general"],
-    "types": ["analysis", "summary", "verification", "extraction", "comparison"],
-    "total_prompts": 22,
-    "total_default_prompts": 5,
-    "construction_specialized_prompts": 6
+    "version": "2.0",
+    "total_prompts": 5,
+    "strategy": "universal_prompts",
+    "description": "5 prompts universels qui s'adaptent intelligemment au contexte et remplacent 27 prompts spécialisés",
+    "use_cases_covered": [
+      "construction_litigation",
+      "contract_disputes", 
+      "quality_issues",
+      "compliance_problems",
+      "communication_conflicts",
+      "insurance_comparison",
+      "contract_negotiation",
+      "supplier_selection",
+      "service_comparison",
+      "proposal_evaluation",
+      "litigation_preparation",
+      "expert_report",
+      "insurance_claim",
+      "administrative_appeal",
+      "contract_termination",
+      "technical_compliance",
+      "legal_compliance",
+      "contract_compliance",
+      "regulatory_audit",
+      "quality_control",
+      "email_analysis",
+      "correspondence_tracking",
+      "response_monitoring",
+      "communication_strategy",
+      "evidence_collection"
+    ]
   }
 } 

@@ -1,0 +1,48 @@
+# Backend Dependencies - Version Optimisée Automatique
+# Généré automatiquement par maintenance.py
+# Date: 2025-08-24 11:55:21
+
+# ==========================
+# CORE FRAMEWORK
+# ==========================
+sqlalchemy>=0.0.0
+uvicorn[standard]>=0.0.0
+fastapi>=0.0.0
+xlrd>=0.0.0
+rarfile>=0.0.0
+pytest>=0.0.0
+alembic>=0.0.0
+pydantic>=0.0.0
+anthropic>=0.0.0
+av>=0.0.0
+imageio>=0.0.0
+python-jose[cryptography]>=0.0.0
+matplotlib>=0.0.0
+scikit-learn>=0.0.0
+markdown>=0.0.0
+Pillow>=0.0.0
+mistralai>=0.0.0
+moviepy>=0.0.0
+python-dotenv>=0.0.0
+psutil>=0.0.0
+openai>=0.0.0
+passlib[bcrypt]>=0.0.0
+py7zr>=0.0.0
+pygments>=0.0.0
+pysrt>=0.0.0
+pytube>=0.0.0
+reportlab>=0.0.0
+yt-dlp>=0.0.0
+PyJWT>=0.0.0
+opencv-python>=0.0.0
+openpyxl>=0.0.0
+soundfile>=0.0.0
+audioread>=0.0.0
+soxr>=0.0.0
+pydantic-settings>=0.0.0
+PyPDF2>=0.0.0
+librosa>=0.0.0
+ffmpeg-python>=0.0.0
+pytesseract>=0.0.0
+pdfplumber>=0.0.0
+weasyprint>=0.0.0

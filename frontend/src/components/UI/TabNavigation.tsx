@@ -10,7 +10,8 @@ import {
   ServerIcon,
   CpuChipIcon,
   UsersIcon,
-  BookOpenIcon
+  BookOpenIcon,
+  ChartBarIcon
 } from '@heroicons/react/24/outline';
 
 interface Tab {
@@ -82,6 +83,7 @@ const TabNavigation: React.FC<TabNavigationProps> = ({ activePanel, onTabChange 
           icon: ServerIcon,
           description: 'Monitoring et santé du système'
         },
+
         {
           id: 'ai-config',
           label: 'Configuration IA',
@@ -99,6 +101,12 @@ const TabNavigation: React.FC<TabNavigationProps> = ({ activePanel, onTabChange 
           label: 'API Docs',
           icon: BookOpenIcon,
           description: 'Documentation de l\'API'
+        },
+        {
+          id: 'reference-docs',
+          label: 'Documentation',
+          icon: DocumentTextIcon,
+          description: 'Gestion des documents de référence'
         }
       ];
     }

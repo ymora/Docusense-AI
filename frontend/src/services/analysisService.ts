@@ -2,6 +2,7 @@
 import { apiRequest, handleApiError } from '../utils/apiUtils';
 import { logService } from './logService';
 import { useBackendConnection } from '../hooks/useBackendConnection';
+import { useUnifiedApiService } from './unifiedApiService';
 
 const DEFAULT_TIMEOUT = 30000; // 30 secondes
 
@@ -62,7 +63,7 @@ export interface CreateAnalysisResponse {
   message: string;
 }
 
-// Service de base sans vérification de connexion
+// Service de base sans vérification de connexion (utilise le service unifié)
 const baseAnalysisService = {
   // Récupérer la liste des analyses avec tri et filtrage
   async getAnalysesList(params: AnalysisListParams = {}): Promise<AnalysisListResponse> {
@@ -77,9 +78,9 @@ const baseAnalysisService = {
       if (params.limit) queryParams.append('limit', params.limit.toString());
       if (params.offset) queryParams.append('offset', params.offset.toString());
       
-      const url = `/api/analysis/list${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
-  
-      const response = await apiRequest(url, {}, DEFAULT_TIMEOUT);
+      const url = `/analysis/list${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+      const apiService = new (await import('./unifiedApiService')).default();
+      const response = await apiService.get(url);
       
       logService.info('Liste des analyses récupérée', 'AnalysisService', {
         count: response.data?.length || 0,
@@ -208,7 +209,8 @@ const baseAnalysisService = {
   // Obtenir les détails d'une analyse
   async getAnalysisDetails(analysisId: string | number): Promise<Analysis> {
     try {
-      const response = await apiRequest(`/api/analysis/${analysisId}`, {}, DEFAULT_TIMEOUT) as Analysis;
+      const apiService = new (await import('./unifiedApiService')).default();
+      const response = await apiService.get(`/analysis/${analysisId}`) as Analysis;
       
       logService.info('Détails de l\'analyse récupérés', 'AnalysisService', {
         analysisId,
@@ -224,6 +226,50 @@ const baseAnalysisService = {
         timestamp: new Date().toISOString()
       });
       throw new Error(`Erreur lors de la récupération des détails: ${handleApiError(error)}`);
+    }
+  },
+
+  // Obtenir l'analyse d'un fichier (intégré depuis analysisFileService)
+  async getAnalysisFile(fileId: number) {
+    try {
+      const apiService = new (await import('./unifiedApiService')).default();
+      const response = await apiService.get(`/analysis/file/${fileId}`);
+      
+      logService.info('Analyse de fichier récupérée', 'AnalysisService', {
+        fileId,
+        timestamp: new Date().toISOString()
+      });
+
+      return response;
+    } catch (error) {
+      logService.error('Erreur lors de la récupération de l\'analyse de fichier', 'AnalysisService', {
+        error: handleApiError(error),
+        fileId,
+        timestamp: new Date().toISOString()
+      });
+      throw new Error(`Erreur lors de la récupération de l'analyse de fichier: ${handleApiError(error)}`);
+    }
+  },
+
+  // Relancer une analyse (intégré depuis analysisFileService)
+  async retryAnalysis(analysisId: number) {
+    try {
+      const apiService = new (await import('./unifiedApiService')).default();
+      const response = await apiService.post(`/analysis/${analysisId}/retry`, {});
+      
+      logService.info('Analyse relancée', 'AnalysisService', {
+        analysisId,
+        timestamp: new Date().toISOString()
+      });
+
+      return response;
+    } catch (error) {
+      logService.error('Erreur lors du relancement de l\'analyse', 'AnalysisService', {
+        error: handleApiError(error),
+        analysisId,
+        timestamp: new Date().toISOString()
+      });
+      throw new Error(`Erreur lors du relancement de l'analyse: ${handleApiError(error)}`);
     }
   }
 };
@@ -256,7 +302,14 @@ export const useAnalysisService = () => {
       conditionalRequest(() => baseAnalysisService.deleteMultipleAnalyses(analysisIds), null),
 
     getAnalysisDetails: (analysisId: string | number) => 
-      conditionalRequest(() => baseAnalysisService.getAnalysisDetails(analysisId), null)
+      conditionalRequest(() => baseAnalysisService.getAnalysisDetails(analysisId), null),
+
+    // Nouvelles méthodes intégrées depuis analysisFileService
+    getAnalysisFile: (fileId: number) => 
+      conditionalRequest(() => baseAnalysisService.getAnalysisFile(fileId), { success: false, error: 'Backend déconnecté', file: null }),
+
+    retryAnalysis: (analysisId: number) => 
+      conditionalRequest(() => baseAnalysisService.retryAnalysis(analysisId), { success: false, error: 'Backend déconnecté' })
   };
 };
 

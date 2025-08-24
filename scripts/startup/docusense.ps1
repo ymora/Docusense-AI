@@ -5,6 +5,97 @@ param(
     [string]$Action = "menu"
 )
 
+function Test-NodeJSInstallation {
+    Write-Host "🔍 Vérification de Node.js et npm..." -ForegroundColor Cyan
+    
+    $nodeInstalled = $false
+    $npmInstalled = $false
+    
+    try {
+        $nodeVersion = node --version 2>$null
+        if ($nodeVersion) {
+            Write-Host "✅ Node.js installé: $nodeVersion" -ForegroundColor Green
+            $nodeInstalled = $true
+        }
+    } catch {
+        Write-Host "❌ Node.js non installé" -ForegroundColor Red
+    }
+    
+    try {
+        $npmVersion = npm --version 2>$null
+        if ($npmVersion) {
+            Write-Host "✅ npm installé: $npmVersion" -ForegroundColor Green
+            $npmInstalled = $true
+        }
+    } catch {
+        Write-Host "❌ npm non installé" -ForegroundColor Red
+    }
+    
+    if (-not $nodeInstalled -or -not $npmInstalled) {
+        Write-Host "`n⚠️ Node.js et/ou npm ne sont pas installés!" -ForegroundColor Yellow
+        Write-Host "📥 Installation automatique de Node.js..." -ForegroundColor Cyan
+        
+        $choice = Read-Host "Voulez-vous installer Node.js automatiquement ? (O/N)"
+        
+        if ($choice -eq "O" -or $choice -eq "o" -or $choice -eq "Y" -or $choice -eq "y") {
+            Install-NodeJS
+        } else {
+            Write-Host "`n📋 Instructions d'installation manuelle:" -ForegroundColor Yellow
+            Write-Host "1. Téléchargez Node.js depuis: https://nodejs.org/" -ForegroundColor White
+            Write-Host "2. Installez Node.js (npm sera installé automatiquement)" -ForegroundColor White
+            Write-Host "3. Redémarrez PowerShell" -ForegroundColor White
+            Write-Host "4. Relancez ce script" -ForegroundColor White
+            Write-Host "`n⏸️ Appuyez sur une touche pour continuer..." -ForegroundColor Cyan
+            $null = $Host.UI.RawUI.ReadKey("NoEcho,IncludeKeyDown")
+            return $false
+        }
+    }
+    
+    return $true
+}
+
+function Install-NodeJS {
+    Write-Host "🚀 Installation automatique de Node.js..." -ForegroundColor Green
+    
+    try {
+        # Vérifier si winget est disponible
+        $wingetAvailable = Get-Command winget -ErrorAction SilentlyContinue
+        
+        if ($wingetAvailable) {
+            Write-Host "📦 Installation via winget..." -ForegroundColor Cyan
+            winget install OpenJS.NodeJS
+        } else {
+            # Téléchargement manuel
+            Write-Host "🌐 Téléchargement de Node.js..." -ForegroundColor Cyan
+            
+            $nodeUrl = "https://nodejs.org/dist/v20.11.0/node-v20.11.0-x64.msi"
+            $nodeInstaller = "$env:TEMP\node-installer.msi"
+            
+            Invoke-WebRequest -Uri $nodeUrl -OutFile $nodeInstaller
+            
+            Write-Host "🔧 Installation de Node.js..." -ForegroundColor Cyan
+            Start-Process -FilePath "msiexec.exe" -ArgumentList "/i", $nodeInstaller, "/quiet", "/norestart" -Wait
+            
+            # Nettoyer
+            Remove-Item $nodeInstaller -Force -ErrorAction SilentlyContinue
+        }
+        
+        Write-Host "✅ Node.js installé avec succès!" -ForegroundColor Green
+        Write-Host "🔄 Redémarrage de PowerShell requis..." -ForegroundColor Yellow
+        Write-Host "💡 Fermez cette fenêtre et relancez le script" -ForegroundColor Cyan
+        
+        $choice = Read-Host "Voulez-vous redémarrer PowerShell maintenant ? (O/N)"
+        if ($choice -eq "O" -or $choice -eq "o" -or $choice -eq "Y" -or $choice -eq "y") {
+            Start-Process "powershell.exe" -ArgumentList "-NoExit", "-Command", "cd '$PWD'; .\scripts\startup\docusense.ps1"
+            exit
+        }
+        
+    } catch {
+        Write-Host "❌ Erreur lors de l'installation: $($_.Exception.Message)" -ForegroundColor Red
+        Write-Host "📋 Installation manuelle requise: https://nodejs.org/" -ForegroundColor Yellow
+    }
+}
+
 function Show-InteractiveMenu {
     do {
         Clear-Host
@@ -12,7 +103,7 @@ function Show-InteractiveMenu {
         Write-Host "=================================" -ForegroundColor Gray
         Write-Host ""
 
-        # Vérification rapide du statut
+        # Vérification rapide du statut (optimisée)
         $backendHealth = $false
         $frontendHealth = $false
 
@@ -83,6 +174,12 @@ function Start-Docusense {
     )
 
     Write-Host "🚀 Démarrage de Docusense AI..." -ForegroundColor Green
+
+    # Vérifier Node.js avant de continuer
+    if (-not (Test-NodeJSInstallation)) {
+        Write-Host "❌ Impossible de continuer sans Node.js" -ForegroundColor Red
+        return
+    }
 
     # Cleanup rapide avant démarrage
     Write-Host "🧹 Nettoyage rapide des processus..." -ForegroundColor Yellow
@@ -229,6 +326,12 @@ function Start-DocusenseBackend {
 
 function Start-DocusenseFrontend {
     Write-Host "🎨 Démarrage du frontend uniquement..." -ForegroundColor Yellow
+
+    # Vérifier Node.js avant de continuer
+    if (-not (Test-NodeJSInstallation)) {
+        Write-Host "❌ Impossible de continuer sans Node.js" -ForegroundColor Red
+        return
+    }
 
     # Vérifier si le frontend est déjà en cours d'exécution
     $frontendProcesses = Get-Process -Name "node" -ErrorAction SilentlyContinue

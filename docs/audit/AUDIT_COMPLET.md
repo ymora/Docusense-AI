@@ -1,4 +1,4 @@
-# 🎯 RÉSUMÉ D'AUDIT - DOCUSENSE AI
+# 🎯 AUDIT COMPLET - DOCUSENSE AI
 
 ## 📊 **État Actuel de l'Application**
 
@@ -22,7 +22,7 @@
 ### **1. Système d'Audit Automatisé**
 - ✅ **API d'audit** : `/api/audit/*` endpoints créés
 - ✅ **Service d'audit** : AuditService avec métriques complètes
-- ✅ **Configuration** : `audit-config.json` avec seuils de qualité
+- ✅ **Configuration** : `docs/audit/audit-config.json` avec seuils de qualité
 - ✅ **Scripts automatisés** : `run-tests.ps1` et `test-audit.ps1`
 
 ### **2. Tests Implémentés**
@@ -30,11 +30,6 @@
 - ✅ **Tests de performance** : Métriques de charge et mémoire
 - ✅ **Configuration frontend** : Vitest avec React Testing Library
 - ✅ **Tests de composants** : FileList et autres composants principaux
-
-### **3. Documentation et Recommandations**
-- ✅ **Plan d'action détaillé** : 4 phases sur 4 semaines
-- ✅ **Métriques de qualité** : Seuils définis pour la commercialisation
-- ✅ **Checklist de conformité** : RGPD, sécurité, performance
 
 ## 🎯 **Point d'Entrée pour l'Application d'Audit**
 
@@ -63,32 +58,6 @@
 2. **Lancer l'audit** : `GET http://localhost:8000/api/audit/comprehensive`
 3. **Analyser les résultats** : Vérifier les scores et recommandations
 4. **Suivre les recommandations** : Implémenter les améliorations prioritaires
-
-## 📋 **Plan d'Action pour la Commercialisation**
-
-### **Semaine 1 : Fondations (Priorité Critique)**
-- [ ] **Tests unitaires backend** : Couvrir AuthService, FileService, AnalysisService
-- [ ] **Tests de sécurité** : Injection SQL, XSS, authentification
-- [ ] **Configuration CI/CD** : Intégration continue avec quality gates
-- [ ] **Audit de sécurité** : Scan de vulnérabilités
-
-### **Semaine 2 : Tests et Qualité (Priorité Haute)**
-- [ ] **Tests frontend** : Composants principaux et interactions
-- [ ] **Tests d'intégration** : Workflows complets utilisateur
-- [ ] **Tests de performance** : Charge et optimisation
-- [ ] **Conformité RGPD** : Chiffrement, consentement, droit à l'oubli
-
-### **Semaine 3 : Optimisation (Priorité Moyenne)**
-- [ ] **Optimisations backend** : Cache, requêtes, base de données
-- [ ] **Optimisations frontend** : Lazy loading, bundle splitting
-- [ ] **Monitoring** : Métriques en temps réel
-- [ ] **Documentation utilisateur** : Guides et tutoriels
-
-### **Semaine 4 : Finalisation (Priorité Moyenne)**
-- [ ] **Tests E2E** : Scénarios complets utilisateur
-- [ ] **Audit final** : Validation complète
-- [ ] **Préparation déploiement** : Production ready
-- [ ] **Support client** : Documentation et formation
 
 ## 🎯 **Seuils de Qualité pour la Commercialisation**
 
@@ -172,13 +141,13 @@
 
 **📄 Documents de référence :**
 - `docs/AUDIT_RECOMMANDATIONS.md` : Recommandations détaillées
-- `audit-config.json` : Configuration d'audit
+- `docs/audit/audit-config.json` : Configuration d'audit
 - `run-tests.ps1` : Script de tests automatisés
 - `test-audit.ps1` : Validation de l'infrastructure
 
 **🚀 Point d'entrée pour l'application d'audit :**
 - URL : `http://localhost:8000/api/audit/comprehensive`
-- Configuration : `audit-config.json`
+- Configuration : `docs/audit/audit-config.json`
 - Scripts : `run-tests.ps1` et `test-audit.ps1`
 
 *Audit réalisé le : $(Get-Date)*

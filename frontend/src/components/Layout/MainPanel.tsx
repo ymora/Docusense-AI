@@ -34,6 +34,7 @@ import UnifiedFileViewer from '../FileManager/UnifiedFileViewer';
 import { ConfigContent } from '../Config/ConfigWindow';
 import UsersPanel from '../Admin/UsersPanel';
 import APIDocsPanel from '../Admin/APIDocsPanel';
+import { ReferenceDocumentsPanel } from '../ReferenceDocuments/ReferenceDocumentsPanel';
 
 import { useUIStore } from '../../stores/uiStore';
 import { useStartupInitialization } from '../../hooks/useStartupInitialization';
@@ -42,8 +43,8 @@ import { UserIcon } from '../UI/UserIcon';
 
 
 interface MainPanelProps {
-  activePanel: 'viewer' | 'queue' | 'logs' | 'system' | 'ai-config' | 'users' | 'api-docs';
-  onSetActivePanel?: (panel: 'viewer' | 'queue' | 'logs' | 'system' | 'ai-config' | 'users' | 'api-docs') => void;
+  activePanel: 'viewer' | 'queue' | 'logs' | 'system' | 'ai-config' | 'users' | 'api-docs' | 'reference-docs';
+  onSetActivePanel?: (panel: 'viewer' | 'queue' | 'logs' | 'system' | 'ai-config' | 'users' | 'api-docs' | 'reference-docs') => void;
 }
 
 const MainPanel: React.FC<MainPanelProps> = ({ 
@@ -245,7 +246,7 @@ const MainPanel: React.FC<MainPanelProps> = ({
   // Rendu du contenu selon l'onglet actif
   const renderTabContent = () => {
     // Vérifier les permissions pour les onglets admin
-    if ((activePanel === 'system' || activePanel === 'ai-config' || activePanel === 'users' || activePanel === 'api-docs') && !isAdmin()) {
+    if ((activePanel === 'system' || activePanel === 'ai-config' || activePanel === 'users' || activePanel === 'api-docs' || activePanel === 'reference-docs') && !isAdmin()) {
       return (
         <div className="flex-1 flex items-center justify-center p-8">
           <div className="text-center">
@@ -304,6 +305,13 @@ const MainPanel: React.FC<MainPanelProps> = ({
         return (
           <div className="flex-1 overflow-hidden">
             <APIDocsPanel />
+                  </div>
+        );
+      
+      case 'reference-docs':
+        return (
+          <div className="flex-1 overflow-hidden">
+            <ReferenceDocumentsPanel isAdminMode={true} />
                   </div>
         );
       
@@ -389,6 +397,7 @@ const MainPanel: React.FC<MainPanelProps> = ({
               </div>
             </>
           )}
+
           {activePanel === 'ai-config' && (
             <>
               <h1 className="text-xl font-bold" style={{ color: colors.text }}>
@@ -435,6 +444,23 @@ const MainPanel: React.FC<MainPanelProps> = ({
               <p className="text-sm" style={{ color: colors.textSecondary }}>
                 Documentation de l'API DocuSense AI
               </p>
+            </>
+          )}
+          {activePanel === 'reference-docs' && (
+            <>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h1 className="text-xl font-bold" style={{ color: colors.text }}>
+                    Documentation de Référence
+                  </h1>
+                  <p className="text-sm" style={{ color: colors.textSecondary }}>
+                    Gestion complète de la base de connaissances
+                  </p>
+                </div>
+                <div className="text-sm px-3 py-1 rounded-full" style={{ backgroundColor: colors.primary + '20', color: colors.primary }}>
+                  <span id="docs-count">-</span> document(s) disponible(s)
+                </div>
+              </div>
             </>
           )}
         </div>

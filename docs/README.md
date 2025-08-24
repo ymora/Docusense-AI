@@ -2,46 +2,129 @@
 
 ## 🎯 Vue d'ensemble
 
-Bienvenue dans la documentation complète de **DocuSense AI**, la plateforme d'analyse intelligente de documents avec interface épurée et IA avancée.
+Bienvenue dans la documentation complète de **DocuSense AI**, la plateforme d'analyse intelligente de documents avec interface épurée et IA avancée pour le secteur de la construction.
 
 ## 📁 Structure de la Documentation
 
 ### 👥 **Pour les Utilisateurs**
+- **[📋 Documentation Utilisateur](users/README.md)** - Guide complet pour utilisateurs
 - **[🚀 Guide Utilisateur](users/GUIDE_UTILISATEUR.md)** - Guide complet d'utilisation
 - **[⚡ Démarrage Rapide](users/DEMARRAGE_RAPIDE.md)** - Installation et premiers pas
 - **[🐛 Dépannage](users/DEPANNAGE.md)** - Problèmes courants et solutions
 
 ### 💻 **Pour les Développeurs**
+- **[📋 Documentation Développeur](developers/README.md)** - Guide complet pour développeurs
 - **[🏗️ Architecture](developers/ARCHITECTURE.md)** - Architecture système et composants
+- **[🔧 Services Backend](developers/SERVICES.md)** - Documentation complète des services
 - **[🔌 API Reference](developers/API_REFERENCE.md)** - Documentation des endpoints
 - **[🗄️ Base de Données](developers/BASE_DONNEES.md)** - Schéma et gestion des données
 - **[🚀 Déploiement](developers/DEPLOIEMENT.md)** - Installation et configuration
 - **[🧪 Tests](developers/TESTS.md)** - Tests et qualité du code
-- **[🎨 Composants UI](developers/UI_COMPONENTS.md)** - Système de composants unifiés
+
+### 🎨 **Interface Utilisateur**
+- **[📋 Documentation UI](ui/README.md)** - Guide complet de l'interface utilisateur
+- **[🔘 Composants Button](ui/README_Button.md)** - Documentation des boutons
+- **[📊 Composants Table](ui/README_UnifiedTable.md)** - Documentation des tableaux unifiés
+
+### 🔧 **Système et Maintenance**
+- **[📋 Documentation Système](system/README.md)** - Guide complet du système
+- **[📝 Logs](system/README_Logs.md)** - Gestion des logs système
+- **[📦 Archive Logs](system/README_Logs_Archive.md)** - Archivage des logs
+- **[🛠️ Scripts](system/README_Scripts.md)** - Scripts utilitaires
+- **[🔧 Maintenance](system/README_Maintenance_Optimisation.md)** - Procédures de maintenance
+
+### 📚 **Références**
+- **[📋 Documentation de Référence](reference/README.md)** - Guide complet des références
+- **[📄 Documents de Référence](reference/README_Reference_Documents.md)** - Documents de référence
+- **[🗄️ Gestionnaire Base de Données](reference/README_Database_Manager.md)** - Interface de gestion BDD
+- **[⚙️ Implémentation Référence](reference/README_Implementation_Reference.md)** - Implémentation des documents de référence
 
 ### 🔮 **Roadmap et Améliorations**
+- **[📋 Documentation Roadmap](roadmap/README.md)** - Guide complet de la roadmap
 - **[🚀 Améliorations Futures](roadmap/AMELIORATIONS_FUTURES.md)** - Roadmap technique et stratégie commerciale
-- **[🔒 Sécurité](roadmap/SECURITE.md)** - Améliorations de sécurité
-- **[⚡ Performance](roadmap/PERFORMANCE.md)** - Optimisations futures
+- **[📈 Stratégie Commerciale](roadmap/README_Strategie_Commerciale_Developpement.md)** - Stratégie commerciale et développement
 
 ### 📋 **Production et Standards**
+- **[📋 Documentation Production](production/README.md)** - Guide complet de production
 - **[✅ Checklist Production](production/CHECKLIST.md)** - Checklist de déploiement
 - **[🏭 Standards Production](production/STANDARDS.md)** - Standards de production
 
+### 🔍 **Audit et Qualité**
+- **[📊 Audit Complet](audit/AUDIT_COMPLET.md)** - État actuel et recommandations
+- **[📋 Recommandations](audit/IMPLEMENTATION_RECOMMANDATIONS.md)** - Recommandations d'implémentation et état d'avancement
+- **[⚙️ Configuration Audit](audit/audit-config.json)** - Configuration du système d'audit
+- **[🔧 Optimisation](audit/README_Optimisation_Audit_System.md)** - Optimisation audit et système
+- **[📋 Implémentation](audit/IMPLEMENTATION_RECOMMANDATIONS.md)** - Recommandations d'implémentation
+
 ## 🚀 Démarrage Rapide
 
-### Installation Express (2 minutes)
-```bash
-# 1. Cloner le projet
-git clone <repository-url>
-cd DocuSense-AI
+### Option 1 : Menu interactif (recommandé)
+```powershell
+.\scripts\main.ps1
+```
 
-# 2. Démarrage automatique
-.\docusense.ps1 start
+### Option 2 : Démarrage direct
+```powershell
+# Démarrage complet avec menu interactif
+.\scripts\startup\docusense.ps1
 
-# 3. Accéder à l'application
-# Frontend : http://localhost:3000
-# Backend : http://localhost:8000
+# Démarrage simple
+.\scripts\startup\start.ps1
+```
+
+### Option 3 : Commandes manuelles
+```powershell
+# Backend
+cd backend
+venv\Scripts\python.exe main.py
+
+# Frontend (dans un autre terminal)
+cd frontend
+npm run dev
+```
+
+## 📊 Vérification du Statut
+
+```powershell
+# Vérification rapide
+.\scripts\monitoring\status.ps1
+
+# Ou via le menu principal
+.\scripts\main.ps1
+```
+
+## 🧪 Tests
+
+```powershell
+# Tests backend
+cd tests && ..\backend\venv\Scripts\python.exe run_all_tests.py
+
+# Tests de sécurité
+cd tests && ..\backend\venv\Scripts\python.exe backend\test_security.py
+
+# Tests frontend (après configuration)
+.\scripts\setup-frontend-tests.ps1
+.\scripts\test-frontend.ps1
+
+# Audit complet
+.\scripts\testing\test-audit.ps1
+```
+
+## 🧹 Maintenance
+
+```powershell
+# Nettoyage général
+.\scripts\maintenance\cleanup.ps1
+
+# Nettoyage base de données
+.\scripts\maintenance\database_cleanup.ps1
+```
+
+## 🔧 Utilitaires
+
+```powershell
+# Téléchargement documents de référence
+python scripts/utils/download_reference_documents.py
 ```
 
 ## ✨ Fonctionnalités Principales
@@ -93,14 +176,29 @@ cd DocuSense-AI
 - **Taux d'erreur** : < 1%
 - **Utilisation ressources** : < 80%
 
+## 🌐 Accès
+
+- **Frontend :** http://localhost:3000
+- **Backend :** http://localhost:8000
+- **API Documentation :** http://localhost:8000/docs
+
+## ⚠️ Prérequis
+
+- Python 3.8+
+- Node.js 16+
+- PowerShell 7+
+- Environnement virtuel Python activé
+
 ## 🔗 Liens Rapides
 
 - **[🚀 Améliorations Futures](roadmap/AMELIORATIONS_FUTURES.md)** - Roadmap technique et stratégie commerciale
 - **[🚀 Démarrage Rapide](users/DEMARRAGE_RAPIDE.md)**
 - **[🏗️ Architecture](developers/ARCHITECTURE.md)**
+- **[🔧 Services Backend](developers/SERVICES.md)**
 - **[🔌 API Reference](developers/API_REFERENCE.md)**
+
 - **[✅ Checklist Production](production/CHECKLIST.md)**
 
 ---
 
-*Dernière mise à jour : Août 2025 - Documentation v2.0* 
+*Dernière mise à jour : Août 2025 - Documentation v2.4 - Consolidation complète* 

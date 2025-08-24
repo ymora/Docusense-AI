@@ -53,7 +53,7 @@ Authorization: Bearer <token>
 
 ### Liste des fichiers
 ```bash
-GET /api/files/list/{path:path}
+GET /api/files/list/{directory:path}
 Authorization: Bearer <token>
 
 # Response
@@ -80,7 +80,7 @@ Authorization: Bearer <token>
 
 ### Informations fichier
 ```bash
-GET /api/files/info/{file_id}
+GET /api/files/{file_id}
 Authorization: Bearer <token>
 
 # Response
@@ -100,527 +100,443 @@ Authorization: Bearer <token>
 }
 ```
 
-### Streaming fichier
+### Upload de fichier
 ```bash
-GET /api/files/stream/{file_id}
+POST /api/files/upload
 Authorization: Bearer <token>
+Content-Type: multipart/form-data
 
-# Response: Binary stream
-Content-Type: application/pdf
-Content-Length: 1024000
-```
-
-### Téléchargement fichier
-```bash
-GET /api/files/download/{file_id}
-Authorization: Bearer <token>
-
-# Response: File download
-Content-Disposition: attachment; filename="document.pdf"
-```
-
-## 🤖 Endpoints Analyse IA
-
-### Créer une analyse
-```bash
-POST /api/analysis/create
-Authorization: Bearer <token>
-Content-Type: application/json
-
+# Response
 {
   "file_id": "file123",
-  "prompt_type": "general",
-  "provider": "openai",
-  "model": "gpt-4"
-}
-
-# Response
-{
-  "analysis_id": "analysis456",
-  "status": "pending",
-  "created_at": "2025-08-24T10:30:00Z"
+  "name": "document.pdf",
+  "size": 1024000,
+  "status": "uploaded"
 }
 ```
 
-### Liste des analyses
+### Sélection de fichiers
 ```bash
-GET /api/analysis/list
-Authorization: Bearer <token>
-
-# Query Parameters
-?status=pending&prompt_type=general&limit=10&offset=0
-
-# Response
-{
-  "analyses": [
-    {
-      "id": "analysis456",
-      "file_id": "file123",
-      "file_name": "document.pdf",
-      "prompt_type": "general",
-      "provider": "openai",
-      "status": "completed",
-      "created_at": "2025-08-24T10:30:00Z",
-      "completed_at": "2025-08-24T10:32:00Z",
-      "result": "Analyse du document..."
-    }
-  ],
-  "total": 100,
-  "limit": 10,
-  "offset": 0
-}
+POST /api/files/select-all
+POST /api/files/deselect-all
+GET /api/files/selected
 ```
 
-### Statut d'une analyse
+### Téléchargement
 ```bash
-GET /api/analysis/status/{analysis_id}
-Authorization: Bearer <token>
-
-# Response
-{
-  "id": "analysis456",
-  "status": "completed",
-  "progress": 100,
-  "result": "Analyse du document...",
-  "error": null
-}
+POST /api/files/download-selected
+POST /api/files/download-multiple
+GET /api/files/download-by-path/{file_path:path}
 ```
 
-### Supprimer une analyse
+### Analyse de répertoire
 ```bash
-DELETE /api/analysis/{analysis_id}
-Authorization: Bearer <token>
-
-# Response
-{
-  "message": "Analysis deleted successfully"
-}
+POST /api/files/analyze-directory
+POST /api/files/analyze-directory-supported
 ```
 
-### Queue d'analyses
+## 🤖 Endpoints Analyse
+
+### Création d'analyses
 ```bash
-GET /api/analysis/queue
-Authorization: Bearer <token>
-
-# Response
+# Comparaison de documents
+POST /api/analysis/compare
 {
-  "pending": 5,
-  "running": 2,
-  "completed": 150,
-  "failed": 3,
-  "queue": [
-    {
-      "id": "analysis789",
-      "file_name": "document.pdf",
-      "prompt_type": "summary",
-      "status": "pending",
-      "position": 1
-    }
-  ]
+  "file_ids": ["file1", "file2"],
+  "prompt_id": "general_comparison",
+  "analysis_type": "comparison"
+}
+
+# Analyse par lot
+POST /api/analysis/batch
+{
+  "file_ids": ["file1", "file2", "file3"],
+  "prompt_id": "general_summary",
+  "analysis_type": "batch"
 }
 ```
 
-## ⚙️ Endpoints Configuration
+### Gestion des analyses
+```bash
+# Relancer une analyse
+POST /api/analysis/{analysis_id}/retry
 
-### Liste des providers
+# Démarrer une analyse
+POST /api/analysis/{analysis_id}/start
+```
+
+### Stream des analyses
+```bash
+GET /api/streams/analyses
+# Server-Sent Events pour les mises à jour temps réel
+```
+
+## 🔧 Endpoints Configuration
+
+### Providers IA
 ```bash
 GET /api/config/providers
-Authorization: Bearer <token>
-
-# Response
-{
-  "providers": [
-    {
-      "name": "openai",
-      "display_name": "OpenAI",
-      "is_configured": true,
-      "is_active": true,
-      "priority": 1,
-      "models": ["gpt-4", "gpt-3.5-turbo"]
-    },
-    {
-      "name": "claude",
-      "display_name": "Claude",
-      "is_configured": false,
-      "is_active": false,
-      "priority": 2,
-      "models": ["claude-3-opus", "claude-3-sonnet"]
-    }
-  ]
-}
-```
-
-### Tester un provider
-```bash
-POST /api/config/test
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "provider": "openai",
-  "api_key": "sk-..."
-}
-
-# Response
-{
-  "success": true,
-  "message": "Provider test successful",
-  "models": ["gpt-4", "gpt-3.5-turbo"]
-}
-```
-
-### Sauvegarder configuration
-```bash
 POST /api/config/save
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "provider": "openai",
-  "api_key": "sk-...",
-  "is_active": true,
-  "priority": 1
-}
-
-# Response
-{
-  "success": true,
-  "message": "Configuration saved successfully"
-}
+POST /api/config/test
+GET /api/config/system
 ```
 
-## 👥 Endpoints Utilisateurs
-
-### Informations utilisateur
+### Prompts
 ```bash
-GET /api/auth/me
-Authorization: Bearer <token>
-
-# Response
-{
-  "id": "user123",
-  "username": "user@example.com",
-  "role": "user",
-  "created_at": "2025-08-01T00:00:00Z",
-  "last_login": "2025-08-24T10:30:00Z"
-}
-```
-
-### Liste des utilisateurs (Admin)
-```bash
-GET /api/users/list
-Authorization: Bearer <token>
-
-# Response
-{
-  "users": [
-    {
-      "id": "user123",
-      "username": "user@example.com",
-      "role": "user",
-      "created_at": "2025-08-01T00:00:00Z",
-      "last_login": "2025-08-24T10:30:00Z",
-      "is_active": true
-    }
-  ]
-}
-```
-
-### Créer un utilisateur (Admin)
-```bash
-POST /api/users/create
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "username": "newuser@example.com",
-  "password": "password123",
-  "role": "user"
-}
-
-# Response
-{
-  "id": "user456",
-  "username": "newuser@example.com",
-  "role": "user",
-  "created_at": "2025-08-24T10:30:00Z"
-}
-```
-
-### Supprimer un utilisateur (Admin)
-```bash
-DELETE /api/users/{user_id}
-Authorization: Bearer <token>
-
-# Response
-{
-  "message": "User deleted successfully"
-}
+GET /api/prompts/
+GET /api/prompts/summary
+GET /api/prompts/universal
+GET /api/prompts/universal/{prompt_id}
+GET /api/prompts/recommendations
+GET /api/prompts/use-case/{use_case}
+GET /api/prompts/format/{prompt_id}
+GET /api/prompts/default
+GET /api/prompts/default/{analysis_type}
+GET /api/prompts/specialized
+GET /api/prompts/specialized/{prompt_id}
+POST /api/prompts/reload
 ```
 
 ## 📊 Endpoints Monitoring
 
-### Statut du système
+### Santé système
 ```bash
-GET /api/health
-Authorization: Bearer <token>
-
-# Response
-{
-  "status": "healthy",
-  "timestamp": "2025-08-24T10:30:00Z",
-  "version": "2.0.0",
-  "uptime": 3600,
-  "services": {
-    "database": "healthy",
-    "ai_providers": "healthy",
-    "file_system": "healthy"
-  }
-}
+GET /api/health/
+GET /api/health/health
+GET /api/health/detailed
+GET /api/health/config
 ```
 
-### Statistiques système
+### Performance
 ```bash
-GET /api/monitoring/stats
-Authorization: Bearer <token>
-
-# Response
-{
-  "total_files": 1500,
-  "total_analyses": 5000,
-  "active_users": 25,
-  "system_load": {
-    "cpu_percent": 45.2,
-    "memory_percent": 67.8,
-    "disk_percent": 23.4
-  },
-  "ai_usage": {
-    "openai_requests": 1200,
-    "claude_requests": 800,
-    "total_tokens": 1500000
-  }
-}
+GET /api/monitoring/performance
+GET /api/monitoring/health/detailed
+POST /api/monitoring/cache/clear
+POST /api/monitoring/cleanup/temp-files
 ```
+
+### Audit
+```bash
+GET /api/audit/health
+GET /api/audit/info
+GET /api/audit/tests/status
+GET /api/audit/config
+GET /api/audit/database/status
+GET /api/audit/files/structure
+GET /api/audit/endpoints
+POST /api/audit/tests/run
+```
+
+## 🗄️ Endpoints Base de Données
+
+### Statut
+```bash
+GET /api/database/status
+```
+
+### Nettoyage
+```bash
+POST /api/database/cleanup/orphaned-files
+POST /api/database/cleanup/failed-analyses
+POST /api/database/cleanup/temp-files
+POST /api/database/fix-invalid-statuses
+POST /api/database/full-cleanup
+```
+
+### Sauvegarde
+```bash
+GET /api/database/backup/list
+POST /api/database/backup/create
+POST /api/database/backup/restore
+```
+
+### Données
+```bash
+GET /api/database/files
+GET /api/database/analyses
+GET /api/database/files/{file_id}/analyses
+POST /api/database/analyses/{analysis_id}/retry
+POST /api/database/analyses/bulk-delete
+```
+
+## 📝 Endpoints Logs
 
 ### Logs système
 ```bash
-GET /api/monitoring/logs
-Authorization: Bearer <token>
-
-# Query Parameters
-?level=ERROR&limit=50&offset=0
-
-# Response
-{
-  "logs": [
-    {
-      "timestamp": "2025-08-24T10:30:00Z",
-      "level": "ERROR",
-      "message": "AI provider connection failed",
-      "user_id": "user123",
-      "action": "create_analysis"
-    }
-  ],
-  "total": 150,
-  "limit": 50,
-  "offset": 0
-}
+GET /api/logs/backend/stream
+GET /api/logs/list
+GET /api/logs/categories
+GET /api/logs/download/{category}
+POST /api/logs/cleanup
+POST /api/logs/archive
 ```
 
-## 🔄 Streams SSE (Server-Sent Events)
-
-### Stream analyses
+### Logs système avancés
 ```bash
-GET /api/streams/analyses
-Authorization: Bearer <token>
-
-# Response: Event stream
-data: {"type": "analysis_update", "analysis_id": "analysis456", "status": "completed"}
-
-data: {"type": "analysis_update", "analysis_id": "analysis789", "status": "running", "progress": 75}
+GET /api/system-logs/
+GET /api/system-logs/security-summary
+GET /api/system-logs/ip-activity
+GET /api/system-logs/failed-logins
+GET /api/system-logs/sources
+POST /api/system-logs/manual-event
 ```
 
-### Stream configuration
+## 🔐 Endpoints Sécurité
+
+### Authentification
 ```bash
-GET /api/streams/config
-Authorization: Bearer <token>
-
-# Response: Event stream
-data: {"type": "provider_update", "provider": "openai", "status": "active"}
-
-data: {"type": "config_change", "key": "priority", "value": 1}
+POST /api/auth/login
+POST /api/auth/register
+POST /api/auth/guest
+POST /api/auth/guest-login
+POST /api/auth/refresh
+POST /api/auth/logout
+GET /api/auth/check-username/{username}
+GET /api/auth/me
+GET /api/auth/guest-usage
+GET /api/auth/test-auth
 ```
 
-### Stream utilisateurs
+### Streaming sécurisé
 ```bash
-GET /api/streams/users
-Authorization: Bearer <token>
+GET /api/secure-streaming/file-info/{file_path:path}
+GET /api/secure-streaming/view/{file_path:path}
+GET /api/secure-streaming/download/{file_path:path}
+GET /api/secure-streaming/temp-access/{temp_token}
+GET /api/secure-streaming/stats
+POST /api/secure-streaming/create-temp-token
+```
 
-# Response: Event stream
-data: {"type": "user_login", "user_id": "user123", "timestamp": "2025-08-24T10:30:00Z"}
+## 📧 Endpoints Emails
 
-data: {"type": "user_logout", "user_id": "user456", "timestamp": "2025-08-24T10:35:00Z"}
+```bash
+GET /api/emails/parse/{file_path:path}
+GET /api/emails/preview/{file_path:path}
+GET /api/emails/attachment/{file_path:path}/{attachment_index}
+GET /api/emails/attachment-preview/{file_path:path}/{attachment_index}
+```
+
+## 🎬 Endpoints Multimédia
+
+```bash
+GET /api/multimedia/analyze/{file_path:path}
+GET /api/multimedia/thumbnail/{file_path:path}
+GET /api/multimedia/supported-formats
+GET /api/multimedia/file-type/{file_path:path}
+GET /api/multimedia/stream-optimized/{file_id}
+GET /api/multimedia/optimization-info/{file_id}
+GET /api/multimedia/ffmpeg-status
+POST /api/multimedia/optimize/{file_id}
+```
+
+## 🎥 Endpoints Vidéo
+
+```bash
+POST /api/video-converter/start-conversion/{file_path:path}
 ```
 
 ## 📄 Endpoints PDF
 
-### Générer PDF d'analyse
 ```bash
-POST /api/pdf-files/generate
-Authorization: Bearer <token>
-Content-Type: application/json
-
-{
-  "analysis_id": "analysis456",
-  "template": "default"
-}
-
-# Response
-{
-  "pdf_id": "pdf789",
-  "url": "/api/pdf-files/download/pdf789",
-  "created_at": "2025-08-24T10:30:00Z"
-}
+POST /api/pdf-files/generate/{analysis_id}
+POST /api/pdf-files/generate-all-completed
+GET /api/pdf-files/download/{analysis_id}
+GET /api/pdf-files/list
 ```
 
-### Télécharger PDF
+## 📚 Endpoints Documents de Référence
+
 ```bash
-GET /api/pdf-files/download/{pdf_id}
-Authorization: Bearer <token>
-
-# Response: PDF file download
-Content-Type: application/pdf
-Content-Disposition: attachment; filename="analysis_456.pdf"
+GET /api/reference-documents/
+GET /api/reference-documents/categories
+GET /api/reference-documents/category/{category}
+GET /api/reference-documents/search
+GET /api/reference-documents/document/{doc_id}
+GET /api/reference-documents/document/{doc_id}/content
+GET /api/reference-documents/relevant/{analysis_type}
+POST /api/reference-documents/add
 ```
 
-## 🚨 Codes d'Erreur
+## 📥 Endpoints Téléchargement
 
-### Erreurs HTTP
-- `400 Bad Request` - Données invalides
-- `401 Unauthorized` - Token manquant ou invalide
-- `403 Forbidden` - Permissions insuffisantes
-- `404 Not Found` - Ressource introuvable
-- `429 Too Many Requests` - Rate limit dépassé
-- `500 Internal Server Error` - Erreur serveur
+```bash
+GET /api/download/file/{file_path:path}
+GET /api/download/directory/{directory_path:path}
+GET /api/download/info/{file_path:path}
+GET /api/download/stats
+GET /api/download/browse/{directory_path:path}
+POST /api/download/multiple
+POST /api/download/cleanup
+```
 
-### Erreurs Métier
-```json
+## 👨‍💼 Endpoints Administration
+
+```bash
+GET /api/admin/users
+POST /api/admin/users
+GET /api/admin/system/health
+GET /api/admin/system/performance
+GET /api/admin/system/info
+GET /api/admin/system/logs
+```
+
+## 🔄 Endpoints Streams
+
+```bash
+GET /api/streams/analyses
+GET /api/streams/config
+GET /api/streams/users
+GET /api/streams/files
+GET /api/streams/admin
+GET /api/streams/system
+```
+
+## 🧹 Endpoints Nettoyage Unifié
+
+```bash
+GET /api/unified-cleanup/stats
+POST /api/unified-cleanup/orphaned-files
+POST /api/unified-cleanup/failed-analyses
+POST /api/unified-cleanup/old-analyses
+POST /api/unified-cleanup/temp-files
+POST /api/unified-cleanup/logs
+POST /api/unified-cleanup/cache
+POST /api/unified-cleanup/conversions
+POST /api/unified-cleanup/invalid-statuses
+POST /api/unified-cleanup/full
+```
+
+## 🔄 Endpoints Migrations
+
+```bash
+GET /api/migrations/check-consistency
+GET /api/migrations/status
+POST /api/migrations/run
+```
+
+## 📊 Codes de Réponse
+
+### Succès
+- **200 OK** - Requête réussie
+- **201 Created** - Ressource créée
+- **204 No Content** - Requête réussie sans contenu
+
+### Erreurs Client
+- **400 Bad Request** - Requête malformée
+- **401 Unauthorized** - Authentification requise
+- **403 Forbidden** - Accès refusé
+- **404 Not Found** - Ressource non trouvée
+- **409 Conflict** - Conflit de données
+- **422 Unprocessable Entity** - Données invalides
+
+### Erreurs Serveur
+- **500 Internal Server Error** - Erreur serveur
+- **502 Bad Gateway** - Erreur de passerelle
+- **503 Service Unavailable** - Service indisponible
+
+## 🔒 Sécurité
+
+### Rate Limiting
+- **Limite par défaut** : 100 requêtes par minute
+- **Limite par utilisateur** : Configurable par rôle
+- **Headers de réponse** :
+  ```
+  X-RateLimit-Limit: 100
+  X-RateLimit-Remaining: 95
+  X-RateLimit-Reset: 1640995200
+  ```
+
+### CORS
+```javascript
+// Configuration CORS
 {
-  "error": "INVALID_FILE_TYPE",
-  "message": "File type not supported",
-  "details": {
-    "supported_types": [".pdf", ".docx", ".txt"]
-  }
+  "origins": [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000"
+  ],
+  "allow_credentials": true,
+  "allow_methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  "allow_headers": ["*"]
 }
 ```
 
-```json
-{
-  "error": "AI_PROVIDER_ERROR",
-  "message": "AI provider connection failed",
-  "details": {
-    "provider": "openai",
-    "error_code": "rate_limit_exceeded"
-  }
-}
-```
-
-```json
-{
-  "error": "INSUFFICIENT_PERMISSIONS",
-  "message": "User does not have required permissions",
-  "details": {
-    "required_role": "admin",
-    "user_role": "user"
-  }
-}
-```
+### Validation des Données
+- **Pydantic** pour la validation automatique
+- **Types stricts** pour tous les paramètres
+- **Validation des fichiers** (taille, type, extension)
 
 ## 📝 Exemples d'Utilisation
 
-### Client JavaScript
-```javascript
-// Configuration
-const API_BASE = 'http://localhost:8000/api';
-const token = 'your-jwt-token';
-
-// Headers par défaut
-const headers = {
-  'Authorization': `Bearer ${token}`,
-  'Content-Type': 'application/json'
-};
-
-// Exemple: Créer une analyse
-async function createAnalysis(fileId, promptType) {
-  const response = await fetch(`${API_BASE}/analysis/create`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      file_id: fileId,
-      prompt_type: promptType,
-      provider: 'openai'
-    })
-  });
-  
-  return await response.json();
-}
-
-// Exemple: Stream SSE
-function connectToAnalysisStream() {
-  const eventSource = new EventSource(`${API_BASE}/streams/analyses`, {
-    headers: { 'Authorization': `Bearer ${token}` }
-  });
-  
-  eventSource.onmessage = (event) => {
-    const data = JSON.parse(event.data);
-    console.log('Analysis update:', data);
-  };
-}
-```
-
-### Client Python
+### Créer une analyse complète
 ```python
 import requests
 
-# Configuration
-API_BASE = 'http://localhost:8000/api'
-token = 'your-jwt-token'
+# 1. Authentification
+auth_response = requests.post("http://localhost:8000/api/auth/login", json={
+    "username": "user@example.com",
+    "password": "password123"
+})
+token = auth_response.json()["access_token"]
+headers = {"Authorization": f"Bearer {token}"}
 
-headers = {
-    'Authorization': f'Bearer {token}',
-    'Content-Type': 'application/json'
-}
-
-# Exemple: Lister les fichiers
-def list_files(path):
-    response = requests.get(
-        f'{API_BASE}/files/list/{path}',
+# 2. Upload d'un fichier
+with open("document.pdf", "rb") as f:
+    files = {"file": f}
+    upload_response = requests.post(
+        "http://localhost:8000/api/files/upload",
+        files=files,
         headers=headers
     )
-    return response.json()
+file_id = upload_response.json()["file_id"]
 
-# Exemple: Créer une analyse
-def create_analysis(file_id, prompt_type):
-    data = {
-        'file_id': file_id,
-        'prompt_type': prompt_type,
-        'provider': 'openai'
-    }
-    
-    response = requests.post(
-        f'{API_BASE}/analysis/create',
-        headers=headers,
-        json=data
-    )
-    return response.json()
+# 3. Créer une analyse
+analysis_response = requests.post(
+    "http://localhost:8000/api/analysis/compare",
+    json={
+        "file_ids": [file_id],
+        "prompt_id": "general_summary",
+        "analysis_type": "summary"
+    },
+    headers=headers
+)
+analysis_id = analysis_response.json()["analysis_id"]
+
+# 4. Suivre le progrès via SSE
+import sseclient
+sse_url = f"http://localhost:8000/api/streams/analyses"
+client = sseclient.SSEClient(sse_url, headers=headers)
+for event in client.events():
+    if event.event == "analysis_update":
+        data = json.loads(event.data)
+        if data["analysis_id"] == analysis_id:
+            print(f"Status: {data['status']}")
+            if data["status"] == "completed":
+                break
+```
+
+### Gestion des erreurs
+```python
+try:
+    response = requests.get("http://localhost:8000/api/files/drives", headers=headers)
+    response.raise_for_status()
+    drives = response.json()["drives"]
+except requests.exceptions.HTTPError as e:
+    if e.response.status_code == 401:
+        print("Token expiré, reconnectez-vous")
+    elif e.response.status_code == 403:
+        print("Permissions insuffisantes")
+    else:
+        print(f"Erreur HTTP: {e.response.status_code}")
+except requests.exceptions.RequestException as e:
+    print(f"Erreur de connexion: {e}")
 ```
 
 ## 🔗 Liens Utiles
 
-- **Documentation Swagger** : http://localhost:8000/docs
-- **Documentation ReDoc** : http://localhost:8000/redoc
-- **OpenAPI Schema** : http://localhost:8000/openapi.json
+- **Swagger UI** : http://localhost:8000/docs
+- **ReDoc** : http://localhost:8000/redoc
+- **OpenAPI JSON** : http://localhost:8000/openapi.json
 
 ---
 
-*Dernière mise à jour : Août 2025 - API Reference v2.0*
+*Dernière mise à jour : Août 2025 - API Reference v2.0 - Endpoints complets*

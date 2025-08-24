@@ -9,33 +9,22 @@ Cette documentation couvre la stratégie de tests pour DocuSense AI, incluant le
 ### Structure des Tests
 ```
 tests/
-├── backend/
-│   ├── unit/
-│   │   ├── test_models.py
-│   │   ├── test_services.py
-│   │   └── test_utils.py
-│   ├── integration/
-│   │   ├── test_api.py
-│   │   ├── test_database.py
-│   │   └── test_auth.py
-│   ├── performance/
-│   │   ├── test_load.py
-│   │   └── test_stress.py
-│   └── fixtures/
-│       ├── test_data.py
-│       └── mock_services.py
-├── frontend/
-│   ├── unit/
-│   │   ├── components/
-│   │   ├── services/
-│   │   └── utils/
-│   ├── integration/
-│   │   └── api/
-│   └── e2e/
-│       └── cypress/
-└── shared/
-    ├── test_helpers.py
-    └── test_config.py
+├── README.md                    # Documentation des tests
+├── run_all_tests.py            # Script principal d'exécution
+├── backend/                    # Tests du backend Python
+│   ├── test_universal_prompts.py      # Tests des prompts universels
+│   ├── test_reference_documents.py    # Tests des documents de référence
+│   ├── test_unit_services.py          # Tests unitaires des services
+│   ├── test_priority_mode.py          # Tests du mode priorité
+│   ├── test_logging_performance.py    # Tests avancés du logging adaptatif
+│   ├── performance_test.py            # Tests de performance généraux
+│   ├── test_security.py               # Tests de sécurité complets
+│   └── test_integration.py            # Tests d'intégration et workflows
+├── frontend/                   # Tests du frontend React
+│   └── e2e/                    # Tests end-to-end
+│       └── user_workflow.test.ts      # Tests E2E des workflows utilisateur
+├── data/                       # Données de test
+└── .gitignore                  # Fichiers ignorés par Git
 ```
 
 ## 🔧 Configuration des Tests
@@ -882,48 +871,36 @@ addopts =
 ## 🚀 Exécution des Tests
 
 ### Scripts de Test
+
+#### Tests Backend
 ```bash
-#!/bin/bash
-# run-tests.sh
+# Tous les tests
+cd tests && ..\backend\venv\Scripts\python.exe run_all_tests.py
 
-echo "🧪 Exécution des tests DocuSense AI..."
+# Tests spécifiques
+cd tests && ..\backend\venv\Scripts\python.exe backend\test_security.py
+cd tests && ..\backend\venv\Scripts\python.exe backend\test_integration.py
+```
 
-# Tests Backend
-echo "📦 Tests Backend..."
-cd backend
-python -m pytest tests/ -v --cov=app --cov-report=html
-BACKEND_EXIT_CODE=$?
+#### Tests Frontend
+```bash
+# Configuration (première fois)
+.\scripts\setup-frontend-tests.ps1
 
-# Tests Frontend
-echo "🎨 Tests Frontend..."
-cd ../frontend
-npm run test:coverage
-FRONTEND_EXIT_CODE=$?
+# Tests unitaires
+.\scripts\test-frontend.ps1
 
-# Tests E2E (si Cypress est installé)
-echo "🌐 Tests End-to-End..."
-if command -v cypress &> /dev/null; then
-    npm run cypress:run
-    E2E_EXIT_CODE=$?
-else
-    echo "⚠️ Cypress non installé, tests E2E ignorés"
-    E2E_EXIT_CODE=0
-fi
+# Tests E2E
+cd frontend && npm run test:e2e
+```
 
-# Résumé
-echo "📊 Résumé des tests:"
-echo "Backend: $([ $BACKEND_EXIT_CODE -eq 0 ] && echo "✅" || echo "❌")"
-echo "Frontend: $([ $FRONTEND_EXIT_CODE -eq 0 ] && echo "✅" || echo "❌")"
-echo "E2E: $([ $E2E_EXIT_CODE -eq 0 ] && echo "✅" || echo "❌")"
+#### Audit Complet
+```bash
+# Script d'audit
+.\scripts\testing\test-audit.ps1
 
-# Code de sortie global
-if [ $BACKEND_EXIT_CODE -eq 0 ] && [ $FRONTEND_EXIT_CODE -eq 0 ] && [ $E2E_EXIT_CODE -eq 0 ]; then
-    echo "🎉 Tous les tests sont passés !"
-    exit 0
-else
-    echo "❌ Certains tests ont échoué"
-    exit 1
-fi
+# Tests automatisés
+.\scripts\testing\test-audit.ps1
 ```
 
 ### Intégration Continue
