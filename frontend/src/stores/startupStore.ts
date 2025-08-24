@@ -78,7 +78,7 @@ export const useStartupStore = create<StartupState>()(
               // Initialiser les prompts
               const { usePromptStore } = await import('../stores/promptStore');
               const promptStore = usePromptStore.getState();
-              await promptStore.loadPrompts();
+              await promptStore.reloadPrompts();
               set({ initializationStep: 'config' });
 
               // Initialiser les configurations

@@ -152,7 +152,7 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ file, onClose, onError }) => 
             {/* ReactPlayer */}
             <div className="w-full h-full flex items-center justify-center overflow-hidden">
               <ReactPlayer
-                url={mediaUrl}
+                src={mediaUrl}
                 controls={true}
                 width="100%"
                 height={isVideo ? "100%" : "200px"}
@@ -161,26 +161,21 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ file, onClose, onError }) => 
                   maxWidth: '100%',
                   maxHeight: '100%'
                 }}
-                config={{}}
                 onLoadStart={() => {
-
                   setIsLoading(true);
                 }}
-                onLoad={() => {
-
+                onReady={() => {
                   setIsReady(true);
                   setHasError(false);
                   setIsLoading(false);
                 }}
                 onPlay={() => {
-
+                  // Gestion du play
                 }}
                 onPause={() => {
-
+                  // Gestion du pause
                 }}
                 onError={(error) => {
-                  // OPTIMISATION: Suppression des console.error pour éviter la surcharge // console.error('❌ Erreur ReactPlayer:', error);
-                  
                   // Afficher l'erreur
                   setHasError(true);
                   setIsReady(false);

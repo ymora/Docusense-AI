@@ -230,7 +230,7 @@ export const ReferenceDocumentsPanel: React.FC<ReferenceDocumentsPanelProps> = (
                     Taille Totale
                   </p>
                   <p className="text-2xl font-bold" style={{ color: colors.text }}>
-                    {summary ? formatFileSize(Object.values(summary.categories).reduce((acc, cat) => acc + cat.total_size, 0)) : '0 B'}
+                    {summary ? formatFileSize(Object.values(summary.categories).reduce((acc, cat) => acc + (cat.total || 0), 0)) : '0 B'}
                   </p>
                 </div>
               </div>

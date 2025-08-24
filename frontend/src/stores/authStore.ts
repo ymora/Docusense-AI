@@ -16,6 +16,7 @@ export interface AuthState {
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
+  errorType: 'auth' | 'backend' | 'timeout' | 'server' | 'generic' | null;
 }
 
 export interface AuthActions {
@@ -50,6 +51,7 @@ const useAuthStore = create<AuthStore>()(
       isAuthenticated: false,
       isLoading: false,
       error: null,
+      errorType: null,
 
       // Actions d'authentification
       login: async (username: string, password: string) => {
@@ -82,6 +84,7 @@ const useAuthStore = create<AuthStore>()(
         } catch (error) {
           // Améliorer la détection des erreurs de connexion au backend
           let errorMessage = 'Erreur de connexion';
+          let errorType: 'timeout' | 'auth' | 'backend' | 'server' | 'generic' = 'auth'; // Type d'erreur pour l'affichage
           
           if (error instanceof Error) {
             // Erreur de connexion réseau (backend non disponible)
@@ -90,33 +93,40 @@ const useAuthStore = create<AuthStore>()(
                 error.message.includes('ERR_NETWORK') ||
                 error.message.includes('ERR_CONNECTION_REFUSED') ||
                 error.message.includes('ERR_INTERNET_DISCONNECTED')) {
-              errorMessage = 'Le serveur n\'est pas accessible. Veuillez vérifier que l\'application est bien démarrée.';
+              errorMessage = 'Backend indisponible';
+              errorType = 'backend';
             }
             // Erreur de timeout
             else if (error.message.includes('timeout') || error.message.includes('Timeout')) {
               errorMessage = 'Le serveur met trop de temps à répondre.';
+              errorType = 'timeout';
             }
             // Erreur d'authentification
             else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
               errorMessage = 'Nom d\'utilisateur ou mot de passe incorrect';
+              errorType = 'auth';
             }
             // Erreur de serveur
             else if (error.message.includes('500') || error.message.includes('Internal Server Error')) {
               errorMessage = 'Erreur temporaire du serveur.';
+              errorType = 'server';
             }
             // Autres erreurs spécifiques
             else if (error.message.includes('Compte désactivé')) {
               errorMessage = 'Ce compte a été désactivé.';
+              errorType = 'auth';
             }
             // Erreur générique avec plus de détails si disponible
             else if (error.message !== 'Erreur de connexion' && error.message !== 'Erreur inconnue') {
               errorMessage = error.message;
+              errorType = 'generic';
             }
           }
           
           set({
             isLoading: false,
             error: errorMessage,
+            errorType: errorType,
           });
           throw new Error(errorMessage);
         }
@@ -152,6 +162,7 @@ const useAuthStore = create<AuthStore>()(
         } catch (error) {
           // Améliorer la détection des erreurs de connexion au backend
           let errorMessage = 'Erreur d\'inscription';
+          let errorType: 'timeout' | 'auth' | 'backend' | 'server' | 'generic' = 'auth';
           
           if (error instanceof Error) {
             // Erreur de connexion réseau (backend non disponible)
@@ -160,39 +171,48 @@ const useAuthStore = create<AuthStore>()(
                 error.message.includes('ERR_NETWORK') ||
                 error.message.includes('ERR_CONNECTION_REFUSED') ||
                 error.message.includes('ERR_INTERNET_DISCONNECTED')) {
-              errorMessage = 'Le serveur n\'est pas accessible. Veuillez vérifier que l\'application est bien démarrée.';
+              errorMessage = 'Backend indisponible';
+              errorType = 'backend';
             }
             // Erreur de timeout
             else if (error.message.includes('timeout') || error.message.includes('Timeout')) {
               errorMessage = 'Le serveur met trop de temps à répondre.';
+              errorType = 'timeout';
             }
             // Erreur de validation des données
             else if (error.message.includes('déjà')) {
               errorMessage = 'Ce nom d\'utilisateur existe déjà';
+              errorType = 'auth';
             }
             else if (error.message.includes('email') || error.message.includes('Email')) {
               errorMessage = 'Cette adresse email est déjà utilisée';
+              errorType = 'auth';
             }
             else if (error.message.includes('mot de passe') || error.message.includes('password')) {
               errorMessage = 'Le mot de passe doit contenir au moins 8 caractères';
+              errorType = 'auth';
             }
             // Erreur de serveur
             else if (error.message.includes('500') || error.message.includes('Internal Server Error')) {
               errorMessage = 'Erreur temporaire du serveur.';
+              errorType = 'server';
             }
             // Erreur d'authentification
             else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
               errorMessage = 'Erreur d\'authentification.';
+              errorType = 'auth';
             }
             // Erreur générique avec plus de détails si disponible
             else if (error.message !== 'Erreur d\'inscription' && error.message !== 'Erreur inconnue') {
               errorMessage = error.message;
+              errorType = 'generic';
             }
           }
           
           set({
             isLoading: false,
             error: errorMessage,
+            errorType: errorType,
           });
           throw new Error(errorMessage);
         }

@@ -1,6 +1,7 @@
 
-import { apiRequest, handleApiError } from '../utils/apiUtils';
+import { handleApiError } from '../utils/apiUtils';
 import { logService } from './logService';
+import unifiedApiService from './unifiedApiService';
 
 export interface AIProvider {
   name: string;
@@ -14,6 +15,7 @@ export interface AIProvider {
   is_functional?: boolean;
   api_key?: string;
   last_tested?: string;
+  is_configured?: boolean;
 }
 
 export interface ProviderStatus {
@@ -41,20 +43,17 @@ export class ConfigService {
   // Obtenir la configuration des providers IA
   static async getAIProviders(): Promise<AIProvidersResponse> {
     try {
-      const response = await apiRequest('/api/config/ai/providers', {
-        method: 'GET'
-      });
+      const response = await unifiedApiService.get('/api/config/ai/providers');
       
       logService.info('Configuration des providers IA chargée avec succès', 'ConfigService', { 
-        providersCount: response.providers?.length || 0,
-        strategy: response.strategy || 'priority'
+        providersCount: response.data?.providers?.length || 0,
+        strategy: response.data?.strategy || 'priority'
       });
       
-      return response;
+      return response.data;
     } catch (error) {
       const errorMessage = `Impossible de charger les providers IA: ${handleApiError(error)}`;
       logService.error(errorMessage, 'ConfigService', { error: error.message });
-      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       throw new Error(errorMessage);
     }
   }
@@ -62,38 +61,36 @@ export class ConfigService {
   // Récupérer une clé API
   static async getAPIKey(provider: string): Promise<{ success: boolean; data?: { key: string; provider: string }; message?: string }> {
     try {
-      // [FRONTEND] Récupération clé API pour ${provider}...
-      const response = await apiRequest(`/api/config/ai/key/${encodeURIComponent(provider)}`, {
-        method: 'GET'
-      });
+      const response = await unifiedApiService.get(`/api/config/ai/key/${encodeURIComponent(provider)}`);
 
-      // [FRONTEND] Réponse brute pour ${provider}: ${JSON.stringify(response)}
-
-      if (response.success && response.data) {
+      if (response.data?.success && response.data?.data) {
         // Vérifier que la réponse correspond bien au provider demandé
-        if (response.data.provider === provider) {
+        if (response.data.data.provider === provider) {
           logService.info(`Clé API récupérée pour ${provider}`, 'ConfigService', { provider });
-          // [FRONTEND] Succès pour ${provider}, clé (masquée): ${'*'.repeat(Math.min(response.data.key.length - 8, 20)) + response.data.key.slice(-8)}
-          return response;
+          return {
+            success: true,
+            data: response.data.data,
+            message: response.data.message
+          };
         } else {
-          // OPTIMISATION: Suppression des console.error pour éviter la surcharge
           return {
             success: false,
-            message: `Incohérence de provider: demandé ${provider}, reçu ${response.data.provider}`
+            message: `Incohérence de provider: demandé ${provider}, reçu ${response.data.data.provider}`
           };
         }
       } else {
         logService.warning(`Échec de la récupération de la clé API pour ${provider}`, 'ConfigService', { 
           provider, 
-          message: response.message 
+          message: response.data?.message 
         });
-        // [FRONTEND] Échec pour ${provider}: ${response.message}
-        return response;
+        return {
+          success: false,
+          message: response.data?.message || 'Erreur inconnue'
+        };
       }
     } catch (error) {
       const errorMessage = `Erreur lors de la récupération de la clé API pour ${provider}: ${handleApiError(error)}`;
       logService.error(errorMessage, 'ConfigService', { provider, error: error.message });
-      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       return {
         success: false,
         message: `Erreur lors de la récupération: ${handleApiError(error)}`
@@ -101,75 +98,33 @@ export class ConfigService {
     }
   }
 
-  // Supprimer une clé API
-  static async deleteAPIKey(provider: string): Promise<{ success: boolean; message: string }> {
-    try {
-      // [FRONTEND] Suppression clé API pour ${provider}...
-      const response = await apiRequest(`/api/config/ai/key/${encodeURIComponent(provider)}`, {
-        method: 'DELETE'
-      });
-
-      // [FRONTEND] Réponse suppression pour ${provider}: ${JSON.stringify(response)}
-
-      if (response.success) {
-        logService.info(`Clé API supprimée pour ${provider}`, 'ConfigService', { provider });
-        // [FRONTEND] Suppression réussie pour ${provider}
-      } else {
-        logService.warning(`Échec de la suppression de la clé API pour ${provider}`, 'ConfigService', { 
-          provider, 
-          message: response.message 
-        });
-        // [FRONTEND] Échec suppression pour ${provider}: ${response.message}
-      }
-
-      return {
-        success: response.success,
-        message: response.message || 'Clé API supprimée'
-      };
-    } catch (error) {
-      const errorMessage = `Erreur lors de la suppression de la clé API pour ${provider}: ${handleApiError(error)}`;
-      logService.error(errorMessage, 'ConfigService', { provider, error: error.message });
-      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
-      return {
-        success: false,
-        message: `Erreur lors de la suppression: ${handleApiError(error)}`
-      };
-    }
-  }
-
   // Sauvegarder une clé API
   static async saveAPIKey(provider: string, apiKey: string): Promise<{ success: boolean; message: string }> {
     try {
-          // [FRONTEND] Sauvegarde clé API pour ${provider}
-    // [FRONTEND] Clé (masquée): ${'*'.repeat(Math.min(apiKey.length - 8, 20)) + apiKey.slice(-8)}
-      
-      const response = await apiRequest(`/api/config/ai/key?provider=${encodeURIComponent(provider)}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ api_key: apiKey })
+      const response = await unifiedApiService.post('/api/config/ai/key', {
+        provider,
+        api_key: apiKey
       });
 
-      // [FRONTEND] Réponse sauvegarde pour ${provider}: ${JSON.stringify(response)}
-
-      if (response.success) {
+      if (response.data?.success) {
         logService.info(`Clé API sauvegardée pour ${provider}`, 'ConfigService', { provider });
-        // [FRONTEND] Succès sauvegarde pour ${provider}
+        return {
+          success: true,
+          message: response.data.message || 'Clé API sauvegardée'
+        };
       } else {
         logService.warning(`Échec de la sauvegarde de la clé API pour ${provider}`, 'ConfigService', { 
           provider, 
-          message: response.message 
+          message: response.data?.message 
         });
-        // [FRONTEND] Échec sauvegarde pour ${provider}: ${response.message}
+        return {
+          success: false,
+          message: response.data?.message || 'Erreur lors de la sauvegarde'
+        };
       }
-
-      return {
-        success: response.success,
-        message: response.message || 'Clé API sauvegardée'
-      };
     } catch (error) {
       const errorMessage = `Erreur lors de la sauvegarde de la clé API pour ${provider}: ${handleApiError(error)}`;
       logService.error(errorMessage, 'ConfigService', { provider, error: error.message });
-      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       return {
         success: false,
         message: `Erreur lors de la sauvegarde: ${handleApiError(error)}`
@@ -177,71 +132,109 @@ export class ConfigService {
     }
   }
 
-  // Tester un provider (optimisé avec cache)
-  static async testProvider(provider: string, apiKey?: string): Promise<{ success: boolean; message: string; cached?: boolean }> {
+  // Supprimer une clé API
+  static async deleteAPIKey(provider: string): Promise<{ success: boolean; message: string }> {
     try {
-      const requestBody = apiKey ? { api_key: apiKey } : {};
-      
-      const response = await apiRequest(`/api/config/ai/test?provider=${encodeURIComponent(provider)}`, {
-        method: 'POST',
-        body: JSON.stringify(requestBody)
-      }, 30000); // 30 secondes de timeout pour les tests
+      const response = await unifiedApiService.delete(`/api/config/ai/key/${encodeURIComponent(provider)}`);
 
-      if (response.success) {
-        logService.info(`Test réussi pour ${provider}`, 'ConfigService', { 
-          provider, 
-          cached: response.cached || false,
-          message: response.message 
-        });
+      if (response.data?.success) {
+        logService.info(`Clé API supprimée pour ${provider}`, 'ConfigService', { provider });
+        return {
+          success: true,
+          message: response.data.message || 'Clé API supprimée'
+        };
       } else {
-        logService.warning(`Test échoué pour ${provider}`, 'ConfigService', { 
+        logService.warning(`Échec de la suppression de la clé API pour ${provider}`, 'ConfigService', { 
           provider, 
-          message: response.message 
+          message: response.data?.message 
         });
+        return {
+          success: false,
+          message: response.data?.message || 'Erreur lors de la suppression'
+        };
       }
-
-      return {
-        success: response.success || false,
-        message: response.message || 'Test terminé',
-        cached: response.cached || false
-      };
     } catch (error) {
-      const errorMessage = `Erreur lors du test du provider ${provider}: ${handleApiError(error)}`;
+      const errorMessage = `Erreur lors de la suppression de la clé API pour ${provider}: ${handleApiError(error)}`;
       logService.error(errorMessage, 'ConfigService', { provider, error: error.message });
-      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       return {
         success: false,
-        message: `Erreur de test: ${handleApiError(error)}`,
+        message: `Erreur lors de la suppression: ${handleApiError(error)}`
+      };
+    }
+  }
+
+  // Tester une connexion (alias pour compatibilité)
+  static async testConnection(provider: string, apiKey?: string): Promise<{ success: boolean; message: string; cached?: boolean }> {
+    return this.testProvider(provider, apiKey);
+  }
+
+  // Tester un provider
+  static async testProvider(provider: string, apiKey?: string): Promise<{ success: boolean; message: string; cached?: boolean }> {
+    try {
+      const response = await unifiedApiService.post('/api/config/ai/test', {
+        provider,
+        api_key: apiKey
+      });
+
+      if (response.data?.success) {
+        logService.info(`Test de connexion réussi pour ${provider}`, 'ConfigService', { 
+          provider, 
+          cached: response.data.cached || false 
+        });
+        return {
+          success: true,
+          message: response.data.message || 'Test réussi',
+          cached: response.data.cached || false
+        };
+      } else {
+        logService.warning(`Test de connexion échoué pour ${provider}`, 'ConfigService', { 
+          provider, 
+          message: response.data?.message 
+        });
+        return {
+          success: false,
+          message: response.data?.message || 'Test échoué',
+          cached: response.data?.cached || false
+        };
+      }
+    } catch (error) {
+      const errorMessage = `Erreur lors du test de connexion pour ${provider}: ${handleApiError(error)}`;
+      logService.error(errorMessage, 'ConfigService', { provider, error: error.message });
+      return {
+        success: false,
+        message: `Erreur lors du test: ${handleApiError(error)}`,
         cached: false
       };
     }
   }
 
-  // Définir la priorité d'un provider
-  static async setProviderPriority(provider: string, priority: number): Promise<{ success: boolean; message: string }> {
+  // Mettre à jour la priorité d'un provider
+  static async updatePriority(provider: string, priority: number): Promise<{ success: boolean; message: string }> {
     try {
-      const response = await apiRequest(`/api/config/ai/priority?provider=${encodeURIComponent(provider)}&priority=${priority}`, {
-        method: 'POST'
+      const response = await unifiedApiService.put(`/api/config/ai/priority/${encodeURIComponent(provider)}`, {
+        priority
       });
 
-      if (response.success) {
+      if (response.data?.success) {
         logService.info(`Priorité mise à jour pour ${provider}`, 'ConfigService', { provider, priority });
+        return {
+          success: true,
+          message: response.data.message || 'Priorité mise à jour'
+        };
       } else {
         logService.warning(`Échec de la mise à jour de la priorité pour ${provider}`, 'ConfigService', { 
           provider, 
-          priority, 
-          message: response.message 
+          priority,
+          message: response.data?.message 
         });
+        return {
+          success: false,
+          message: response.data?.message || 'Erreur lors de la mise à jour'
+        };
       }
-
-      return {
-        success: response.success,
-        message: response.message || 'Priorité mise à jour'
-      };
     } catch (error) {
-      const errorMessage = `Erreur lors de la définition de la priorité pour ${provider}: ${handleApiError(error)}`;
+      const errorMessage = `Erreur lors de la mise à jour de la priorité pour ${provider}: ${handleApiError(error)}`;
       logService.error(errorMessage, 'ConfigService', { provider, priority, error: error.message });
-      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       return {
         success: false,
         message: `Erreur lors de la mise à jour: ${handleApiError(error)}`
@@ -249,43 +242,41 @@ export class ConfigService {
     }
   }
 
-  // Obtenir les priorités des providers
-  static async getProviderPriorities(): Promise<Record<string, number>> {
+  // Obtenir les priorités
+  static async getPriorities(): Promise<Record<string, number>> {
     try {
-      const response = await apiRequest('/api/config/ai/priority', {
-        method: 'GET'
-      });
-      return response.priority || {};
+      const response = await unifiedApiService.get('/api/config/ai/priorities');
+      return response.data?.priority || {};
     } catch (error) {
-      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
+      logService.error('Erreur lors de la récupération des priorités', 'ConfigService', { error: error.message });
       return {};
     }
   }
 
-  // Définir la stratégie de sélection
-  static async setStrategy(strategy: string): Promise<{ success: boolean; message: string }> {
+  // Mettre à jour la stratégie
+  static async updateStrategy(strategy: string): Promise<{ success: boolean; message: string }> {
     try {
-      const response = await apiRequest(`/api/config/ai/strategy?strategy=${encodeURIComponent(strategy)}`, {
-        method: 'POST'
-      });
+      const response = await unifiedApiService.put('/api/config/ai/strategy', { strategy });
 
-      if (response.success) {
-        logService.info(`Stratégie mise à jour`, 'ConfigService', { strategy });
+      if (response.data?.success) {
+        logService.info('Stratégie mise à jour', 'ConfigService', { strategy });
+        return {
+          success: true,
+          message: response.data.message || 'Stratégie mise à jour'
+        };
       } else {
-        logService.warning(`Échec de la mise à jour de la stratégie`, 'ConfigService', { 
-          strategy, 
-          message: response.message 
+        logService.warning('Échec de la mise à jour de la stratégie', 'ConfigService', { 
+          strategy,
+          message: response.data?.message 
         });
+        return {
+          success: false,
+          message: response.data?.message || 'Erreur lors de la mise à jour'
+        };
       }
-
-      return {
-        success: response.success,
-        message: response.message || 'Stratégie mise à jour'
-      };
     } catch (error) {
-      const errorMessage = `Erreur lors de la définition de la stratégie: ${handleApiError(error)}`;
+      const errorMessage = `Erreur lors de la mise à jour de la stratégie: ${handleApiError(error)}`;
       logService.error(errorMessage, 'ConfigService', { strategy, error: error.message });
-      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       return {
         success: false,
         message: `Erreur lors de la mise à jour: ${handleApiError(error)}`
@@ -296,43 +287,52 @@ export class ConfigService {
   // Obtenir la stratégie actuelle
   static async getStrategy(): Promise<string> {
     try {
-      const response = await apiRequest('/api/config/ai/strategy', {
-        method: 'GET'
-      });
-      return response.strategy || 'priority';
+      const response = await unifiedApiService.get('/api/config/ai/strategy');
+      return response.data?.strategy || 'priority';
     } catch (error) {
-      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
+      logService.error('Erreur lors de la récupération de la stratégie', 'ConfigService', { error: error.message });
       return 'priority';
     }
   }
 
   // Obtenir les métriques
-  static async getMetrics(): Promise<any> {
+  static async getMetrics(): Promise<Record<string, any>> {
     try {
-      const response = await apiRequest('/api/config/ai/metrics', {
-        method: 'GET'
-      });
-      return response.metrics || {};
+      const response = await unifiedApiService.get('/api/config/ai/metrics');
+      return response.data?.metrics || {};
     } catch (error) {
-      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
+      logService.error('Erreur lors de la récupération des métriques', 'ConfigService', { error: error.message });
       return {};
     }
   }
 
-  // Valider et corriger les priorités automatiquement
-  static async validateAndFixPriorities(): Promise<{ success: boolean; message: string; fixes?: any }> {
+  // Valider la configuration
+  static async validateConfig(): Promise<{ success: boolean; message: string; fixes?: string[] }> {
     try {
-      const response = await apiRequest('/api/config/ai/priority/validate', {
-        method: 'POST'
-      });
+      const response = await unifiedApiService.post('/api/config/ai/validate');
 
-      return {
-        success: response.success,
-        message: response.message || 'Validation terminée',
-        fixes: response.fixes_applied
-      };
+      if (response.data?.success) {
+        logService.info('Configuration validée', 'ConfigService', { 
+          fixes: response.data.fixes_applied 
+        });
+        return {
+          success: true,
+          message: response.data.message || 'Validation terminée',
+          fixes: response.data.fixes_applied
+        };
+      } else {
+        logService.warning('Échec de la validation de la configuration', 'ConfigService', { 
+          message: response.data?.message 
+        });
+        return {
+          success: false,
+          message: response.data?.message || 'Validation échouée',
+          fixes: response.data?.fixes_applied
+        };
+      }
     } catch (error) {
-      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
+      const errorMessage = `Erreur lors de la validation de la configuration: ${handleApiError(error)}`;
+      logService.error(errorMessage, 'ConfigService', { error: error.message });
       return {
         success: false,
         message: `Erreur lors de la validation: ${handleApiError(error)}`
@@ -340,19 +340,29 @@ export class ConfigService {
     }
   }
 
-  // Réinitialiser toutes les priorités
+  // Réinitialiser les priorités
   static async resetPriorities(): Promise<{ success: boolean; message: string }> {
     try {
-      const response = await apiRequest('/api/config/ai/priority/reset', {
-        method: 'POST'
-      });
+      const response = await unifiedApiService.post('/api/config/ai/reset-priorities');
 
-      return {
-        success: response.success,
-        message: response.message || 'Priorités réinitialisées'
-      };
+      if (response.data?.success) {
+        logService.info('Priorités réinitialisées', 'ConfigService');
+        return {
+          success: true,
+          message: response.data.message || 'Priorités réinitialisées'
+        };
+      } else {
+        logService.warning('Échec de la réinitialisation des priorités', 'ConfigService', { 
+          message: response.data?.message 
+        });
+        return {
+          success: false,
+          message: response.data?.message || 'Erreur lors de la réinitialisation'
+        };
+      }
     } catch (error) {
-      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
+      const errorMessage = `Erreur lors de la réinitialisation des priorités: ${handleApiError(error)}`;
+      logService.error(errorMessage, 'ConfigService', { error: error.message });
       return {
         success: false,
         message: `Erreur lors de la réinitialisation: ${handleApiError(error)}`
@@ -360,55 +370,64 @@ export class ConfigService {
     }
   }
 
-  // Obtenir les providers fonctionnels uniquement
-  static async getFunctionalProviders(): Promise<AIProvider[]> {
+  // Obtenir les providers fonctionnels
+  static async getFunctionalProviders(): Promise<string[]> {
     try {
-      const response = await apiRequest('/api/config/ai/providers/functional', {
-        method: 'GET'
-      });
-      return response.functional_providers || [];
+      const response = await unifiedApiService.get('/api/config/ai/functional-providers');
+      return response.data?.functional_providers || [];
     } catch (error) {
-      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
+      logService.error('Erreur lors de la récupération des providers fonctionnels', 'ConfigService', { error: error.message });
       return [];
     }
   }
 
-  // Définir le statut d'un provider (actif/inactif)
-  static async setProviderStatus(provider: string, status: 'valid' | 'inactive'): Promise<{ success: boolean; message: string }> {
+  // Mettre à jour le statut d'un provider
+  static async updateProviderStatus(provider: string, status: boolean): Promise<{ success: boolean; message: string }> {
     try {
-      const response = await apiRequest(`/api/config/ai/providers/status?provider=${encodeURIComponent(provider)}&status=${status}`, {
-        method: 'POST'
+      const response = await unifiedApiService.put(`/api/config/ai/status/${encodeURIComponent(provider)}`, {
+        is_active: status
       });
 
-      return {
-        success: response.success || false,
-        message: response.message || `Statut de ${provider} mis à jour`
-      };
+      if (response.data?.success) {
+        logService.info(`Statut mis à jour pour ${provider}`, 'ConfigService', { provider, status });
+        return {
+          success: true,
+          message: response.data.message || `Statut de ${provider} mis à jour`
+        };
+      } else {
+        logService.warning(`Échec de la mise à jour du statut pour ${provider}`, 'ConfigService', { 
+          provider, 
+          status,
+          message: response.data?.message 
+        });
+        return {
+          success: false,
+          message: response.data?.message || 'Erreur lors de la mise à jour'
+        };
+      }
     } catch (error) {
-      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
+      const errorMessage = `Erreur lors de la mise à jour du statut pour ${provider}: ${handleApiError(error)}`;
+      logService.error(errorMessage, 'ConfigService', { provider, status, error: error.message });
       return {
         success: false,
-        message: `Erreur lors du changement de statut: ${handleApiError(error)}`
+        message: `Erreur lors de la mise à jour: ${handleApiError(error)}`
       };
     }
   }
 
   // Obtenir le statut d'un provider
-  static async getProviderStatus(provider: string): Promise<{ success: boolean; status?: string; is_functional?: boolean }> {
+  static async getProviderStatus(provider: string): Promise<{ status: string; is_functional: boolean }> {
     try {
-      const response = await apiRequest(`/api/config/ai/providers/status/${encodeURIComponent(provider)}`, {
-        method: 'GET'
-      });
-
+      const response = await unifiedApiService.get(`/api/config/ai/status/${encodeURIComponent(provider)}`);
       return {
-        success: response.success || false,
-        status: response.status,
-        is_functional: response.is_functional
+        status: response.data?.status || 'unknown',
+        is_functional: response.data?.is_functional || false
       };
     } catch (error) {
-      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
+      logService.error(`Erreur lors de la récupération du statut pour ${provider}`, 'ConfigService', { error: error.message });
       return {
-        success: false
+        status: 'error',
+        is_functional: false
       };
     }
   }

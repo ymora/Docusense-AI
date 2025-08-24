@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useColors } from '../../hooks/useColors';
 import useAuthStore from '../../stores/authStore';
+import { ErrorDisplay } from './ErrorDisplay';
 
 import { 
   UserCircleIcon, 
@@ -23,7 +24,7 @@ interface UserIconProps {
 
 export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
   const { colors } = useColors();
-  const { user, isAuthenticated, isGuest, isUser, isAdmin, logout, loginAsGuest } = useAuthStore();
+  const { user, isAuthenticated, isGuest, isUser, isAdmin, logout, loginAsGuest, error, errorType } = useAuthStore();
 
   const [showMenu, setShowMenu] = useState(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
@@ -89,41 +90,34 @@ export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
       setLoginErrors({ username: '', password: '' });
       setShowLoginPassword(false);
     } catch (error) {
-      // Détecter le type d'erreur pour afficher un message approprié
-      let errorMessage = 'Nom d\'utilisateur ou mot de passe incorrect';
+      // Utiliser l'erreur du store qui a déjà été traitée avec le bon type
+      const storeError = useAuthStore.getState().error;
+      const storeErrorType = useAuthStore.getState().errorType;
       
-      if (error instanceof Error) {
-        // Erreur de connexion au serveur (backend non disponible)
-        if (error.message.includes('Failed to fetch') || 
-            error.message.includes('NetworkError') ||
-            error.message.includes('ERR_NETWORK') ||
-            error.message.includes('ERR_CONNECTION_REFUSED') ||
-            error.message.includes('ERR_INTERNET_DISCONNECTED')) {
-          errorMessage = 'Le serveur n\'est pas accessible. Veuillez vérifier que l\'application est bien démarrée et réessayer.';
+      if (storeError) {
+        setLoginErrors({ username: '', password: storeError });
+      } else {
+        // Fallback si l'erreur du store n'est pas disponible
+        let errorMessage = 'Nom d\'utilisateur ou mot de passe incorrect';
+        
+        if (error instanceof Error) {
+          if (error.message.includes('Backend indisponible')) {
+            errorMessage = 'Backend indisponible';
+          } else if (error.message.includes('timeout') || error.message.includes('Timeout')) {
+            errorMessage = 'Le serveur met trop de temps à répondre.';
+          } else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+            errorMessage = 'Nom d\'utilisateur ou mot de passe incorrect';
+          } else if (error.message.includes('500') || error.message.includes('Internal Server Error')) {
+            errorMessage = 'Erreur temporaire du serveur.';
+          } else if (error.message.includes('Compte désactivé')) {
+            errorMessage = 'Ce compte a été désactivé.';
+          } else if (error.message !== 'Erreur de connexion' && error.message !== 'Erreur inconnue') {
+            errorMessage = error.message;
+          }
         }
-        // Erreur de timeout
-        else if (error.message.includes('timeout') || error.message.includes('Timeout')) {
-          errorMessage = 'Le serveur met trop de temps à répondre. Veuillez réessayer dans quelques instants.';
-        }
-        // Erreur d'authentification spécifique
-        else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
-          errorMessage = 'Nom d\'utilisateur ou mot de passe incorrect';
-        }
-        // Erreur de serveur
-        else if (error.message.includes('500') || error.message.includes('Internal Server Error')) {
-          errorMessage = 'Erreur temporaire du serveur. Veuillez réessayer dans quelques instants.';
-        }
-        // Autres erreurs spécifiques du backend
-        else if (error.message.includes('Compte désactivé')) {
-          errorMessage = 'Ce compte a été désactivé. Contactez l\'administrateur.';
-        }
-        // Erreur générique avec plus de détails si disponible
-        else if (error.message !== 'Erreur de connexion' && error.message !== 'Erreur inconnue') {
-          errorMessage = error.message;
-        }
+        
+        setLoginErrors({ username: '', password: errorMessage });
       }
-      
-      setLoginErrors({ username: '', password: errorMessage });
     }
   };
 
@@ -408,10 +402,12 @@ export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
                    required
                  />
                  {loginErrors.username && (
-                   <p className="text-xs mt-2 flex items-center" style={{ color: '#ef4444' }}>
-                     <span className="mr-1">⚠️</span>
-                     {loginErrors.username}
-                   </p>
+                   <ErrorDisplay 
+                     error={loginErrors.username} 
+                     errorType="auth"
+                     size="sm"
+                     className="mt-2"
+                   />
                  )}
                </div>
 
@@ -449,10 +445,12 @@ export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
                    </button>
                  </div>
                  {loginErrors.password && (
-                   <p className="text-xs mt-2 flex items-center" style={{ color: '#ef4444' }}>
-                     <span className="mr-1">⚠️</span>
-                     {loginErrors.password}
-                   </p>
+                   <ErrorDisplay 
+                     error={loginErrors.password} 
+                     errorType="auth"
+                     size="sm"
+                     className="mt-2"
+                   />
                  )}
                </div>
 
@@ -538,10 +536,12 @@ export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
                    required
                  />
                  {registerErrors.username && (
-                   <p className="text-xs mt-2 flex items-center" style={{ color: '#ef4444' }}>
-                     <span className="mr-1">⚠️</span>
-                     {registerErrors.username}
-                   </p>
+                   <ErrorDisplay 
+                     error={registerErrors.username} 
+                     errorType="auth"
+                     size="sm"
+                     className="mt-2"
+                   />
                  )}
                </div>
 
@@ -565,10 +565,12 @@ export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
                    required
                  />
                  {registerErrors.email && (
-                   <p className="text-xs mt-2 flex items-center" style={{ color: '#ef4444' }}>
-                     <span className="mr-1">⚠️</span>
-                     {registerErrors.email}
-                   </p>
+                   <ErrorDisplay 
+                     error={registerErrors.email} 
+                     errorType="auth"
+                     size="sm"
+                     className="mt-2"
+                   />
                  )}
                </div>
 
@@ -606,10 +608,12 @@ export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
                    </button>
                  </div>
                  {registerErrors.password && (
-                   <p className="text-xs mt-2 flex items-center" style={{ color: '#ef4444' }}>
-                     <span className="mr-1">⚠️</span>
-                     {registerErrors.password}
-                   </p>
+                   <ErrorDisplay 
+                     error={registerErrors.password} 
+                     errorType="auth"
+                     size="sm"
+                     className="mt-2"
+                   />
                  )}
                </div>
 
@@ -647,10 +651,12 @@ export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
                    </button>
                  </div>
                  {registerErrors.confirmPassword && (
-                   <p className="text-xs mt-2 flex items-center" style={{ color: '#ef4444' }}>
-                     <span className="mr-1">⚠️</span>
-                     {registerErrors.confirmPassword}
-                   </p>
+                   <ErrorDisplay 
+                     error={registerErrors.confirmPassword} 
+                     errorType="auth"
+                     size="sm"
+                     className="mt-2"
+                   />
                  )}
                </div>
 

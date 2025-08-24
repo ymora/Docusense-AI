@@ -14,7 +14,7 @@ import { checkAuthToken } from '../utils/apiUtils';
  */
 export const useAuthReload = () => {
   const { isAuthenticated, logout } = useAuthStore();
-  const { loadPrompts } = usePromptStore();
+  const { reloadPrompts } = usePromptStore();
   const { loadAIProviders } = useConfigStore();
   const { loadAnalyses } = useAnalysisStore();
   const { isOnline, consecutiveFailures } = useBackendConnection();
@@ -38,7 +38,7 @@ export const useAuthReload = () => {
             try {
               await loadAIProviders();
               await loadAnalyses();
-              await loadPrompts();
+              await reloadPrompts();
               logService.info('Données initiales chargées via API classique', 'AuthReload');
             } catch (error) {
               logService.warning('Impossible de charger les données initiales via API', 'AuthReload', { error: error instanceof Error ? error.message : String(error) });
@@ -204,7 +204,7 @@ export const useAuthReload = () => {
           try {
             await loadAIProviders();
             await loadAnalyses();
-            await loadPrompts();
+            await reloadPrompts();
             logService.info('Données chargées via API classique après échec des streams', 'AuthReload');
           } catch (apiError) {
             logService.error('Impossible de charger les données via API classique', 'AuthReload', {

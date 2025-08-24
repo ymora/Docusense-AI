@@ -4,6 +4,7 @@ services:
   # Base de données PostgreSQL
   postgres:
     image: postgres:15-alpine
+    container_name: docusense_postgres
     environment:
       POSTGRES_DB: docusense
       POSTGRES_USER: docusense_user
@@ -11,6 +12,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./backend/init_database.sql:/docker-entrypoint-initdb.d/init.sql
+      - ./backup:/backup
     ports:
       - "5432:5432"
     restart: unless-stopped
@@ -19,11 +21,21 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 40s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
 
   # Cache Redis
   redis:
     image: redis:7-alpine
-    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    container_name: docusense_redis
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD} --maxmemory 512mb --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
     ports:
@@ -34,18 +46,37 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
 
   # Application Backend
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    container_name: docusense_backend
     environment:
       - DATABASE_URL=postgresql://docusense_user:${POSTGRES_PASSWORD}@postgres:5432/docusense
-      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379
+      - REDIS_URL=redis://:${REDIS_PASSWORD}@redis:6379/0
       - SECRET_KEY=${SECRET_KEY}
+      - ALGORITHM=HS256
+      - ACCESS_TOKEN_EXPIRE_MINUTES=30
       - ENVIRONMENT=production
+      - DEBUG=false
       - LOG_LEVEL=INFO
+      - HOST=0.0.0.0
+      - PORT=8000
+      - RATE_LIMIT_ENABLED=true
+      - RATE_LIMIT_REQUESTS=100
+      - RATE_LIMIT_WINDOW=60
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS:-https://localhost:3000,https://localhost}
     ports:
       - "8000:8000"
     depends_on:
@@ -54,37 +85,159 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     volumes:
       - ./backend/logs:/app/logs
       - ./backend/uploads:/app/uploads
+      - ./backend/temp_downloads:/app/temp_downloads
+    deploy:
+      resources:
+        limits:
+          memory: 4G
+          cpus: '2.0'
+        reservations:
+          memory: 2G
+          cpus: '1.0'
+    networks:
+      - docusense_network
 
   # Application Frontend
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    container_name: docusense_frontend
+    environment:
+      - VITE_API_URL=${API_BASE_URL:-http://localhost:8000}
+      - VITE_APP_NAME=DocuSense AI
+      - NODE_ENV=production
     ports:
       - "3000:3000"
     depends_on:
       - backend
     restart: unless-stopped
-    environment:
-      - VITE_API_URL=http://localhost:8000
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          memory: 2G
+          cpus: '1.0'
+        reservations:
+          memory: 1G
+          cpus: '0.5'
+    networks:
+      - docusense_network
 
   # Reverse Proxy Nginx
   nginx:
     image: nginx:alpine
+    container_name: docusense_nginx
     ports:
       - "80:80"
       - "443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf
       - ./nginx/ssl:/etc/nginx/ssl
+      - ./logs/nginx:/var/log/nginx
+      - ./nginx/conf.d:/etc/nginx/conf.d
     depends_on:
       - backend
       - frontend
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.5'
+        reservations:
+          memory: 256M
+          cpus: '0.25'
+    networks:
+      - docusense_network
+
+  # Monitoring Prometheus (Optionnel)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: docusense_prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=200h'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+    networks:
+      - docusense_network
+
+  # Grafana pour visualisation (Optionnel)
+  grafana:
+    image: grafana/grafana:latest
+    container_name: docusense_grafana
+    ports:
+      - "3001:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+        reservations:
+          memory: 512M
+          cpus: '0.25'
+    networks:
+      - docusense_network
 
 volumes:
   postgres_data:
+    driver: local
   redis_data:
+    driver: local
+  prometheus_data:
+    driver: local
+  grafana_data:
+    driver: local
+
+networks:
+  docusense_network:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

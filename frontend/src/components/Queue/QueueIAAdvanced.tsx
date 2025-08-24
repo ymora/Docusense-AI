@@ -548,11 +548,11 @@ export const QueueIAAdvanced: React.FC = () => {
   const { colors } = useColors();
   const { textColors } = useTypography();
   const { analyses, loadAnalyses } = useAnalysisStore();
-  const { prompts, loading: loadingPrompts, loadPrompts } = usePromptStore();
+  const { universalPrompts, loading: loadingPrompts, reloadPrompts } = usePromptStore();
   const { aiProviders, loadAIProviders, refreshAIProviders, isInitialized: configInitialized } = useConfigStore();
   const { setActivePanel } = useUIStore();
 
-  const currentPrompts = prompts;
+  const currentPrompts = Object.values(universalPrompts);
 
   // États locaux simplifiés
   const [loading, setLoading] = useState(false);
@@ -603,7 +603,7 @@ export const QueueIAAdvanced: React.FC = () => {
 
         // Charger les données initiales seulement si authentifié
         await Promise.all([
-          loadPrompts(),
+          reloadPrompts(),
           loadAIProviders(),
           loadAnalyses()
         ]);

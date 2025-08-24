@@ -110,8 +110,10 @@ export const useConfigStore = create<ConfigState>()(
                   is_configured: false,
                   priority: 1,
                   models: ['gpt-4', 'gpt-3.5-turbo'],
-                  api_key_configured: false,
-                  error_message: null
+                  default_model: 'gpt-4',
+                  is_active: false,
+                  has_api_key: false,
+                  is_connected: false
                 },
                 {
                   name: 'claude',
@@ -120,8 +122,10 @@ export const useConfigStore = create<ConfigState>()(
                   is_configured: false,
                   priority: 2,
                   models: ['claude-3-opus', 'claude-3-sonnet', 'claude-3-haiku'],
-                  api_key_configured: false,
-                  error_message: null
+                  default_model: 'claude-3-sonnet',
+                  is_active: false,
+                  has_api_key: false,
+                  is_connected: false
                 },
                 {
                   name: 'ollama',
@@ -130,8 +134,10 @@ export const useConfigStore = create<ConfigState>()(
                   is_configured: false,
                   priority: 3,
                   models: ['llama2', 'mistral', 'codellama'],
-                  api_key_configured: false,
-                  error_message: null
+                  default_model: 'llama2',
+                  is_active: false,
+                  has_api_key: false,
+                  is_connected: false
                 }
               ];
               
@@ -139,7 +145,10 @@ export const useConfigStore = create<ConfigState>()(
                 aiProviders: defaultProviders,
                 aiProvidersResponse: {
                   providers: defaultProviders,
-                  // total: defaultProviders.length,
+                  strategy: 'priority',
+                  available_providers: ['openai', 'claude', 'ollama'],
+                  active_count: 0,
+                  total_count: defaultProviders.length,
                   functional_count: 0,
                   configured_count: 0
                 },
@@ -210,7 +219,7 @@ export const useConfigStore = create<ConfigState>()(
                     return {
                       ...p,
                       has_api_key: true,
-                      api_key_configured: true
+                      is_configured: true
                     };
                   }
                   return p;
@@ -306,7 +315,7 @@ export const useConfigStore = create<ConfigState>()(
         setProviderPriority: async (provider: string, priority: number) => {
           try {
 
-            const result = await ConfigService.setProviderPriority(provider, priority);
+            const result = await ConfigService.updatePriority(provider, priority);
             
             if (result.success) {
               // Mettre à jour localement la priorité du provider
@@ -344,7 +353,7 @@ export const useConfigStore = create<ConfigState>()(
         setStrategy: async (strategy: string) => {
           try {
 
-            const result = await ConfigService.setStrategy(strategy);
+            const result = await ConfigService.updateStrategy(strategy);
             
             if (result.success) {
               // Mettre à jour localement la stratégie

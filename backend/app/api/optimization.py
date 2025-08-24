@@ -17,7 +17,7 @@ from app.middleware.optimization_middleware import (
     performance_monitoring_middleware,
     resource_optimization_middleware
 )
-from app.core.auth import get_current_user
+from app.api.auth import get_current_user
 from app.models.user import User
 
 logger = logging.getLogger(__name__)

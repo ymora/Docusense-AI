@@ -230,7 +230,7 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
         ));
 
         // Activer le provider automatiquement après test réussi
-        await ConfigService.setProviderStatus(providerName, 'valid');
+        await ConfigService.updateProviderStatus(providerName, true);
 
         // Recharger tous les providers pour obtenir les statuts mis à jour
         await refreshAIProviders();
@@ -258,7 +258,7 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
 
       if (provider.status === 'active') {
         // Désactiver le provider
-        await ConfigService.setProviderStatus(providerName, 'inactive');
+        await ConfigService.updateProviderStatus(providerName, false);
         
         if (priorityMode === 'auto') {
           // En mode auto, recalculer les priorités après désactivation
@@ -266,7 +266,7 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
         }
       } else {
         // Activer le provider
-        await ConfigService.setProviderStatus(providerName, 'valid');
+        await ConfigService.updateProviderStatus(providerName, true);
         
         if (priorityMode === 'auto') {
           // En mode auto, recalculer toutes les priorités
@@ -275,7 +275,7 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
           // En mode manuel, attribuer la prochaine priorité disponible
           const activeProviders = providers.filter(p => p.status === 'active');
           const nextPriority = activeProviders.length + 1;
-          await ConfigService.setProviderPriority(providerName, nextPriority);
+          await ConfigService.updatePriority(providerName, nextPriority);
         }
       }
 
@@ -297,13 +297,13 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
       
       // Ollama en priorité 1
       if (ollamaProvider) {
-        await ConfigService.setProviderPriority(ollamaProvider.name, 1);
+        await ConfigService.updatePriority(ollamaProvider.name, 1);
       }
       
       // Les autres providers en priorité 2, 3, 4...
       for (let i = 0; i < otherProviders.length; i++) {
         const priority = ollamaProvider ? i + 2 : i + 1;
-        await ConfigService.setProviderPriority(otherProviders[i].name, priority);
+        await ConfigService.updatePriority(otherProviders[i].name, priority);
       }
     } catch (error) {
       logService.error('Erreur recalcul priorités auto', 'ConfigWindow', { error: error.message });
@@ -338,11 +338,11 @@ export const ConfigContent: React.FC<ConfigContentProps> = ({ onClose, onMinimiz
           priority2: newPriority,
           timestamp: new Date().toISOString()
         });
-        await ConfigService.setProviderPriority(existingProvider.name, currentPriority);
-        await ConfigService.setProviderPriority(providerName, newPriority);
+        await ConfigService.updatePriority(existingProvider.name, currentPriority);
+        await ConfigService.updatePriority(providerName, newPriority);
       } else {
         // Pas de conflit, mise à jour simple
-        await ConfigService.setProviderPriority(providerName, newPriority);
+        await ConfigService.updatePriority(providerName, newPriority);
       }
       
       // Recharger les providers

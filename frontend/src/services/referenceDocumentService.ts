@@ -1,4 +1,4 @@
-import { apiRequest } from '../utils/apiUtils';
+import unifiedApiService from './unifiedApiService';
 
 export interface ReferenceDocument {
   id: string;
@@ -54,7 +54,7 @@ export const referenceDocumentService = {
   // Récupérer le résumé des documents
   async getSummary(): Promise<DocumentsSummary> {
     try {
-      const response = await apiRequest('/api/reference-documents/', {}, 10000);
+      const response = await unifiedApiService.get('/api/reference-documents/');
       return response.data;
     } catch (error) {
       console.error('Erreur lors de la récupération du résumé:', error);
@@ -68,7 +68,7 @@ export const referenceDocumentService = {
   // Récupérer toutes les catégories
   async getCategories(): Promise<Record<string, DocumentCategory>> {
     try {
-      const response = await apiRequest('/api/reference-documents/categories', {}, 10000);
+      const response = await unifiedApiService.get('/api/reference-documents/categories');
       return response.data;
     } catch (error) {
       console.error('Erreur lors de la récupération des catégories:', error);
@@ -79,8 +79,8 @@ export const referenceDocumentService = {
   // Récupérer les documents par catégorie
   async getDocumentsByCategory(category: string, subcategory?: string): Promise<CategoryDocuments> {
     try {
-      const params = subcategory ? { subcategory } : {};
-      const response = await apiRequest(`/api/reference-documents/category/${category}`, params, 15000);
+      const params = subcategory ? `?subcategory=${encodeURIComponent(subcategory)}` : '';
+      const response = await unifiedApiService.get(`/api/reference-documents/category/${category}${params}`);
       return response.data;
     } catch (error) {
       console.error('Erreur lors de la récupération des documents par catégorie:', error);
@@ -96,7 +96,7 @@ export const referenceDocumentService = {
   // Rechercher dans les documents
   async searchDocuments(query: string): Promise<SearchResult> {
     try {
-      const response = await apiRequest('/api/reference-documents/search', { query }, 15000);
+      const response = await unifiedApiService.post('/api/reference-documents/search', { query });
       return response.data;
     } catch (error) {
       console.error('Erreur lors de la recherche:', error);
@@ -111,7 +111,7 @@ export const referenceDocumentService = {
   // Récupérer un document spécifique
   async getDocument(docId: string): Promise<ReferenceDocument> {
     try {
-      const response = await apiRequest(`/api/reference-documents/document/${docId}`, {}, 10000);
+      const response = await unifiedApiService.get(`/api/reference-documents/document/${docId}`);
       return response.data;
     } catch (error) {
       console.error('Erreur lors de la récupération du document:', error);
@@ -122,7 +122,7 @@ export const referenceDocumentService = {
   // Récupérer le contenu d'un document
   async getDocumentContent(docId: string): Promise<DocumentContent> {
     try {
-      const response = await apiRequest(`/api/reference-documents/document/${docId}/content`, {}, 15000);
+      const response = await unifiedApiService.get(`/api/reference-documents/document/${docId}/content`);
       return response.data;
     } catch (error) {
       console.error('Erreur lors de la récupération du contenu:', error);
@@ -133,8 +133,8 @@ export const referenceDocumentService = {
   // Récupérer les documents pertinents pour un type d'analyse
   async getRelevantDocuments(analysisType: string, keywords?: string[]): Promise<RelevantDocuments> {
     try {
-      const params = keywords ? { keywords: keywords.join(',') } : {};
-      const response = await apiRequest(`/api/reference-documents/relevant/${analysisType}`, params, 15000);
+      const params = keywords ? `?keywords=${encodeURIComponent(keywords.join(','))}` : '';
+      const response = await unifiedApiService.get(`/api/reference-documents/relevant/${analysisType}${params}`);
       return response.data;
     } catch (error) {
       console.error('Erreur lors de la récupération des documents pertinents:', error);
@@ -157,14 +157,14 @@ export const referenceDocumentService = {
     sourceUrl?: string
   ): Promise<{ file_path: string; title: string }> {
     try {
-      const response = await apiRequest('/api/reference-documents/add', {
+      const response = await unifiedApiService.post('/api/reference-documents/add', {
         file_path: filePath,
         category,
         subcategory,
         title,
         description,
         source_url: sourceUrl
-      }, 20000, 'POST');
+      });
       return response.data;
     } catch (error) {
       console.error('Erreur lors de l\'ajout du document:', error);

@@ -1,0 +1,60 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  # - "first_rules.yml"
+  # - "second_rules.yml"
+
+scrape_configs:
+  # Prometheus lui-même
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Backend DocuSense AI
+  - job_name: 'docusense-backend'
+    static_configs:
+      - targets: ['backend:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 5s
+    scrape_timeout: 10s
+
+  # Base de données PostgreSQL
+  - job_name: 'docusense-postgres'
+    static_configs:
+      - targets: ['postgres:5432']
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+  # Cache Redis
+  - job_name: 'docusense-redis'
+    static_configs:
+      - targets: ['redis:6379']
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+  # Nginx (si exporter configuré)
+  - job_name: 'docusense-nginx'
+    static_configs:
+      - targets: ['nginx:80']
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+  # Node Exporter (métriques système)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets: ['node-exporter:9100']
+    scrape_interval: 30s
+    scrape_timeout: 10s
+
+# Alerting (optionnel)
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+          # - alertmanager:9093
+
+# Recording rules (optionnel)
+# rule_files:
+#   - "recording_rules.yml"

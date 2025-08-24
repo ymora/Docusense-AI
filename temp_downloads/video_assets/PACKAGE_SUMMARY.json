@@ -1,0 +1,19 @@
+{
+  "project": "DocuSense AI",
+  "video_duration": "2-3 minutes",
+  "style": "Professionnel, moderne, technologique",
+  "assets": {
+    "icons_svg": 15,
+    "scripts": 3,
+    "specifications": 2,
+    "content": 3
+  },
+  "format": {
+    "resolution": "1920x1080",
+    "format": "MP4",
+    "codec": "H.264",
+    "fps": 30
+  },
+  "budget_estimate": "200-400€",
+  "timeline": "5-10 jours"
+}

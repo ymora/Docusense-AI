@@ -1,4 +1,4 @@
-import { apiRequest, handleApiError } from '../utils/apiUtils';
+import unifiedApiService from './unifiedApiService';
 import { logService } from './logService';
 import { useBackendConnection } from '../hooks/useBackendConnection';
 import { userCache, cachedRequest } from '../utils/cacheUtils';
@@ -55,14 +55,14 @@ const baseAdminService = {
       userCache,
       'admin-users',
       async () => {
-        const response = await apiRequest('/api/admin/users', {}, DEFAULT_TIMEOUT);
+        const response = await unifiedApiService.get('/api/admin/users');
         
         logService.info('Liste des utilisateurs récupérée', 'AdminService', {
-          count: response.length || 0,
+          count: response.data?.length || 0,
           timestamp: new Date().toISOString()
         });
         
-        return response;
+        return response.data || [];
       },
       2 * 60 * 1000 // Cache pendant 2 minutes
     );
@@ -70,10 +70,7 @@ const baseAdminService = {
 
   async createUser(userData: { username: string; email: string; password: string; role?: string }): Promise<User> {
     try {
-      const response = await apiRequest('/api/admin/users', {
-        method: 'POST',
-        body: JSON.stringify(userData)
-      }, DEFAULT_TIMEOUT);
+      const response = await unifiedApiService.post('/api/admin/users', userData);
       
       logService.info('Utilisateur créé', 'AdminService', {
         username: userData.username,
@@ -81,23 +78,21 @@ const baseAdminService = {
         timestamp: new Date().toISOString()
       });
       
-      return response;
+      return response.data;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
       logService.error('Erreur lors de la création d\'utilisateur', 'AdminService', {
-        error: handleApiError(error),
+        error: errorMessage,
         username: userData.username,
         timestamp: new Date().toISOString()
       });
-      throw new Error(`Erreur lors de la création d'utilisateur: ${handleApiError(error)}`);
+      throw new Error(`Erreur lors de la création d'utilisateur: ${errorMessage}`);
     }
   },
 
   async updateUser(id: number, userData: Partial<User>): Promise<User> {
     try {
-      const response = await apiRequest(`/api/admin/users/${id}`, {
-        method: 'PUT',
-        body: JSON.stringify(userData)
-      }, DEFAULT_TIMEOUT);
+      const response = await unifiedApiService.put(`/api/admin/users/${id}`, userData);
       
       logService.info('Utilisateur mis à jour', 'AdminService', {
         userId: id,
@@ -105,112 +100,116 @@ const baseAdminService = {
         timestamp: new Date().toISOString()
       });
       
-      return response;
+      return response.data;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
       logService.error('Erreur lors de la mise à jour d\'utilisateur', 'AdminService', {
-        error: handleApiError(error),
+        error: errorMessage,
         userId: id,
         timestamp: new Date().toISOString()
       });
-      throw new Error(`Erreur lors de la mise à jour d'utilisateur: ${handleApiError(error)}`);
+      throw new Error(`Erreur lors de la mise à jour d'utilisateur: ${errorMessage}`);
     }
   },
 
   async deleteUser(id: number): Promise<void> {
     try {
-      await apiRequest(`/api/admin/users/${id}`, {
-        method: 'DELETE'
-      }, DEFAULT_TIMEOUT);
+      await unifiedApiService.delete(`/api/admin/users/${id}`);
       
       logService.info('Utilisateur supprimé', 'AdminService', {
         userId: id,
         timestamp: new Date().toISOString()
       });
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
       logService.error('Erreur lors de la suppression d\'utilisateur', 'AdminService', {
-        error: handleApiError(error),
+        error: errorMessage,
         userId: id,
         timestamp: new Date().toISOString()
       });
-      throw new Error(`Erreur lors de la suppression d'utilisateur: ${handleApiError(error)}`);
+      throw new Error(`Erreur lors de la suppression d'utilisateur: ${errorMessage}`);
     }
   },
 
   // Métriques système
   async getDetailedHealth(): Promise<HealthData> {
     try {
-      const response = await apiRequest('/api/admin/system/health', {}, DEFAULT_TIMEOUT);
+      const response = await unifiedApiService.get('/api/admin/system/health');
       
       logService.info('Données de santé système récupérées', 'AdminService', {
-        status: response.status,
+        status: response.data?.status,
         timestamp: new Date().toISOString()
       });
       
-      return response;
+      return response.data;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
       logService.error('Erreur lors de la récupération des données de santé', 'AdminService', {
-        error: handleApiError(error),
+        error: errorMessage,
         timestamp: new Date().toISOString()
       });
-      throw new Error(`Erreur lors de la récupération des données de santé: ${handleApiError(error)}`);
+      throw new Error(`Erreur lors de la récupération des données de santé: ${errorMessage}`);
     }
   },
 
   async getPerformanceMetrics(): Promise<PerformanceMetrics> {
     try {
-      const response = await apiRequest('/api/admin/system/performance', {}, DEFAULT_TIMEOUT);
+      const response = await unifiedApiService.get('/api/admin/system/performance');
       
       logService.info('Métriques de performance récupérées', 'AdminService', {
-        status: response.status,
+        status: response.data?.status,
         timestamp: new Date().toISOString()
       });
       
-      return response;
+      return response.data;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
       logService.error('Erreur lors de la récupération des métriques de performance', 'AdminService', {
-        error: handleApiError(error),
+        error: errorMessage,
         timestamp: new Date().toISOString()
       });
-      throw new Error(`Erreur lors de la récupération des métriques de performance: ${handleApiError(error)}`);
+      throw new Error(`Erreur lors de la récupération des métriques de performance: ${errorMessage}`);
     }
   },
 
   async getSystemInfo(): Promise<SystemInfo> {
     try {
-      const response = await apiRequest('/api/admin/system/info', {}, DEFAULT_TIMEOUT);
+      const response = await unifiedApiService.get('/api/admin/system/info');
       
       logService.info('Informations système récupérées', 'AdminService', {
-        app_name: response.app_name,
-        version: response.version,
+        app_name: response.data?.app_name,
+        version: response.data?.version,
         timestamp: new Date().toISOString()
       });
       
-      return response;
+      return response.data;
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
       logService.error('Erreur lors de la récupération des informations système', 'AdminService', {
-        error: handleApiError(error),
+        error: errorMessage,
         timestamp: new Date().toISOString()
       });
-      throw new Error(`Erreur lors de la récupération des informations système: ${handleApiError(error)}`);
+      throw new Error(`Erreur lors de la récupération des informations système: ${errorMessage}`);
     }
   },
 
   async getBackendLogs(): Promise<string[]> {
     try {
-      const response = await apiRequest('/api/admin/system/logs', {}, DEFAULT_TIMEOUT);
+      const response = await unifiedApiService.get('/api/admin/system/logs');
       
       logService.info('Logs backend récupérés', 'AdminService', {
-        count: response.length || 0,
+        count: response.data?.length || 0,
         timestamp: new Date().toISOString()
       });
       
-      return response;
+      return response.data || [];
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
       logService.error('Erreur lors de la récupération des logs backend', 'AdminService', {
-        error: handleApiError(error),
+        error: errorMessage,
         timestamp: new Date().toISOString()
       });
-      throw new Error(`Erreur lors de la récupération des logs backend: ${handleApiError(error)}`);
+      throw new Error(`Erreur lors de la récupération des logs backend: ${errorMessage}`);
     }
   }
 };

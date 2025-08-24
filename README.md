@@ -26,26 +26,14 @@ cd frontend
 npm run dev
 ```
 
-## 📁 Structure du Projet
+### Option 3 : Déploiement Production avec Docker
+```bash
+# Configuration
+cp env.production.example .env
+# Éditer .env avec vos valeurs
 
-```
-DocuSense AI/
-├── README.md                           # Ce fichier (vue d'ensemble)
-├── docs/                               # 📚 Documentation consolidée
-│   ├── README.md                       # Documentation principale
-│   ├── users/                          # Guides utilisateurs
-│   ├── developers/                     # Documentation technique
-│   ├── ui/                             # Documentation interface
-│   ├── system/                         # Documentation système
-│   ├── reference/                      # Documents de référence
-│   ├── production/                     # Standards production
-│   ├── audit/                          # Audit et qualité
-│   └── roadmap/                        # Améliorations futures
-├── scripts/                            # Scripts utilitaires
-├── tests/                              # Tests de l'application
-├── backend/                            # Application backend Python
-├── frontend/                           # Application frontend React
-└── logs/                               # Fichiers de logs
+# Déploiement
+docker-compose up -d
 ```
 
 ## 🌐 Accès
@@ -65,8 +53,8 @@ DocuSense AI/
 
 - **[📚 Documentation Complète](docs/README.md)**
 - **[🚀 Démarrage Rapide](docs/users/DEMARRAGE_RAPIDE.md)**
+- **[🐳 Docker Production](docs/production/DOCKER_GUIDE.md)**
 - **[🏗️ Architecture](docs/developers/ARCHITECTURE.md)**
-- **[🔌 API Reference](docs/developers/API_REFERENCE.md)**
 - **[✅ Checklist Production](docs/production/CHECKLIST.md)**
 
 ## 📊 Statut du Projet
@@ -75,6 +63,7 @@ DocuSense AI/
 **❌ Frontend :** Nécessite Node.js  
 **✅ Base de données :** Connectée  
 **✅ API :** Opérationnelle  
+**✅ Docker :** Configuration production complète  
 
 ---
 

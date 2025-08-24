@@ -1,5 +1,6 @@
 // Service pour la gestion des prompts universels
-import { apiRequest, handleApiError, DEFAULT_TIMEOUT } from '../utils/apiUtils';
+import { handleApiError, DEFAULT_TIMEOUT } from '../utils/apiUtils';
+import unifiedApiService from './unifiedApiService';
 
 export interface UniversalPrompt {
   id: string;
@@ -48,7 +49,7 @@ export const promptService = {
   // Récupérer tous les prompts universels
   async getAllUniversalPrompts(): Promise<Record<string, UniversalPrompt>> {
     try {
-      const response = await apiRequest('/api/prompts/universal', {}, DEFAULT_TIMEOUT);
+      const response = await unifiedApiService.get('/api/prompts/universal');
       return response.data || {};
     } catch (error) {
       throw new Error(`Erreur lors de la récupération des prompts universels: ${handleApiError(error)}`);
@@ -58,7 +59,7 @@ export const promptService = {
   // Récupérer le résumé des prompts universels
   async getPromptsSummary(): Promise<Record<string, PromptSummary>> {
     try {
-      const response = await apiRequest('/api/prompts/summary', {}, DEFAULT_TIMEOUT);
+      const response = await unifiedApiService.get('/api/prompts/summary');
       return response.data || {};
     } catch (error) {
       throw new Error(`Erreur lors de la récupération du résumé: ${handleApiError(error)}`);
@@ -68,7 +69,7 @@ export const promptService = {
   // Récupérer un prompt universel spécifique
   async getUniversalPrompt(promptId: string): Promise<UniversalPrompt> {
     try {
-      const response = await apiRequest(`/api/prompts/universal/${promptId}`, {}, DEFAULT_TIMEOUT);
+      const response = await unifiedApiService.get(`/api/prompts/universal/${promptId}`);
       return response.data;
     } catch (error) {
       throw new Error(`Erreur lors de la récupération du prompt universel: ${handleApiError(error)}`);
@@ -82,7 +83,7 @@ export const promptService = {
       if (fileType) params.append('file_type', fileType);
       if (context) params.append('context', context);
       
-      const response = await apiRequest(`/api/prompts/recommendations?${params.toString()}`, {}, DEFAULT_TIMEOUT);
+      const response = await unifiedApiService.get(`/api/prompts/recommendations?${params.toString()}`);
       return response.data?.recommendations || [];
     } catch (error) {
       throw new Error(`Erreur lors de la récupération des recommandations: ${handleApiError(error)}`);
@@ -92,7 +93,7 @@ export const promptService = {
   // Récupérer les prompts par cas d'usage
   async getPromptsByUseCase(useCase: string): Promise<UniversalPrompt[]> {
     try {
-      const response = await apiRequest(`/api/prompts/use-case/${useCase}`, {}, DEFAULT_TIMEOUT);
+      const response = await unifiedApiService.get(`/api/prompts/use-case/${useCase}`);
       return response.data?.prompts || [];
     } catch (error) {
       throw new Error(`Erreur lors de la récupération des prompts par cas d'usage: ${handleApiError(error)}`);
@@ -103,7 +104,7 @@ export const promptService = {
   async formatPrompt(promptId: string, text: string): Promise<string> {
     try {
       const params = new URLSearchParams({ text });
-      const response = await apiRequest(`/api/prompts/format/${promptId}?${params.toString()}`, {}, DEFAULT_TIMEOUT);
+      const response = await unifiedApiService.get(`/api/prompts/format/${promptId}?${params.toString()}`);
       return response.data?.formatted_prompt || '';
     } catch (error) {
       throw new Error(`Erreur lors du formatage du prompt: ${handleApiError(error)}`);
@@ -113,7 +114,7 @@ export const promptService = {
   // Recharger les prompts
   async reloadPrompts(): Promise<boolean> {
     try {
-      const response = await apiRequest('/api/prompts/reload', { method: 'POST' }, DEFAULT_TIMEOUT);
+      const response = await unifiedApiService.post('/api/prompts/reload');
       return response.data?.reloaded || false;
     } catch (error) {
       throw new Error(`Erreur lors du rechargement des prompts: ${handleApiError(error)}`);
@@ -123,7 +124,7 @@ export const promptService = {
   // Méthodes de compatibilité pour l'ancienne API
   async getAllPrompts(): Promise<{ default_prompts: Record<string, string>; specialized_prompts: Record<string, Prompt> }> {
     try {
-      const response = await apiRequest('/api/prompts', {}, DEFAULT_TIMEOUT);
+      const response = await unifiedApiService.get('/api/prompts');
       return response.data || { default_prompts: {}, specialized_prompts: {} };
     } catch (error) {
       throw new Error(`Erreur lors de la récupération des prompts: ${handleApiError(error)}`);
@@ -132,7 +133,7 @@ export const promptService = {
 
   async getDefaultPrompts(): Promise<Record<string, string>> {
     try {
-      const response = await apiRequest('/api/prompts/default', {}, DEFAULT_TIMEOUT);
+      const response = await unifiedApiService.get('/api/prompts/default');
       return response.data || {};
     } catch (error) {
       throw new Error(`Erreur lors de la récupération des prompts par défaut: ${handleApiError(error)}`);
@@ -141,7 +142,7 @@ export const promptService = {
 
   async getDefaultPrompt(analysisType: string): Promise<{ analysis_type: string; prompt: string }> {
     try {
-      const response = await apiRequest(`/api/prompts/default/${analysisType}`, {}, DEFAULT_TIMEOUT);
+      const response = await unifiedApiService.get(`/api/prompts/default/${analysisType}`);
       return response.data || { analysis_type: analysisType, prompt: '' };
     } catch (error) {
       throw new Error(`Erreur lors de la récupération du prompt par défaut: ${handleApiError(error)}`);
@@ -163,7 +164,7 @@ export const promptService = {
 
   async getSpecializedPrompts(): Promise<Record<string, Prompt>> {
     try {
-      const response = await apiRequest('/api/prompts/specialized', {}, 30000);
+      const response = await unifiedApiService.get('/api/prompts/specialized');
       return response.data || {};
     } catch (error) {
       // Données par défaut en cas d'erreur API - prompts universels

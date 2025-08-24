@@ -8,7 +8,7 @@ from typing import Dict, Any
 
 from ..core.database import get_db
 from ..services.unified_cleanup_service import UnifiedCleanupService
-from ..core.auth import get_current_user
+from ..api.auth import get_current_user
 from ..models.user import User
 
 router = APIRouter(prefix="/api/cleanup", tags=["cleanup"])

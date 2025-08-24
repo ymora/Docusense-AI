@@ -1,0 +1,24 @@
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Cercle de chargement -->
+  <circle cx="12" cy="12" r="10" stroke="#6B7280" stroke-width="2" stroke-linecap="round" stroke-dasharray="31.416" stroke-dashoffset="31.416">
+    <animate attributeName="stroke-dashoffset" values="31.416;0;31.416" dur="2s" repeatCount="indefinite"/>
+  </circle>
+  
+  <!-- Indicateur de progression -->
+  <circle cx="12" cy="12" r="6" stroke="#1E40AF" stroke-width="2" stroke-linecap="round" stroke-dasharray="18.85" stroke-dashoffset="18.85">
+    <animate attributeName="stroke-dashoffset" values="18.85;0;18.85" dur="1.5s" repeatCount="indefinite"/>
+  </circle>
+  
+  <!-- Point central -->
+  <circle cx="12" cy="12" r="2" fill="#1E40AF">
+    <animate attributeName="opacity" values="1;0.5;1" dur="1s" repeatCount="indefinite"/>
+  </circle>
+  
+  <!-- Éléments décoratifs -->
+  <circle cx="12" cy="4" r="1" fill="#1E40AF" opacity="0.6">
+    <animate attributeName="opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="12" cy="20" r="1" fill="#1E40AF" opacity="0.6">
+    <animate attributeName="opacity" values="0.6;1;0.6" dur="2s" repeatCount="indefinite"/>
+  </circle>
+</svg>

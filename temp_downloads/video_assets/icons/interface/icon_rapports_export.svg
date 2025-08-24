@@ -1,0 +1,21 @@
+<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Document de rapport -->
+  <path d="M14 2H6C5.46957 2 4.96086 2.21071 4.58579 2.58579C4.21071 2.96086 4 3.46957 4 4V20C4 20.5304 4.21071 21.0391 4.58579 21.4142C4.96086 21.7893 5.46957 22 6 22H18C18.5304 22 19.0391 21.7893 19.4142 21.4142C19.7893 21.0391 20 20.5304 20 20V8L14 2Z" stroke="#1E40AF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Graphique dans le rapport -->
+  <path d="M7 12L9 10L11 11L13 9L15 10L17 8" stroke="#10B981" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Flèche d'export -->
+  <path d="M16 16L20 16" stroke="#1E40AF" stroke-width="2" stroke-linecap="round"/>
+  <path d="M18 14L20 16L18 18" stroke="#1E40AF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Lignes de contenu -->
+  <path d="M7 14H13" stroke="#6B7280" stroke-width="1" stroke-linecap="round"/>
+  <path d="M7 16H11" stroke="#6B7280" stroke-width="1" stroke-linecap="round"/>
+  <path d="M7 18H12" stroke="#6B7280" stroke-width="1" stroke-linecap="round"/>
+  
+  <!-- Indicateur de rapport -->
+  <circle cx="8" cy="6" r="1" fill="#1E40AF"/>
+  <circle cx="11" cy="6" r="1" fill="#1E40AF"/>
+  <circle cx="14" cy="6" r="1" fill="#1E40AF"/>
+</svg>

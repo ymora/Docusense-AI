@@ -1,0 +1,32 @@
+<svg width="192" height="192" viewBox="0 0 192 192" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Arrière-plan circulaire -->
+  <circle cx="96" cy="96" r="88" fill="url(#gradient-bg)" stroke="#1E40AF" stroke-width="4"/>
+  
+  <!-- Document stylisé -->
+  <path d="M60 40 L132 40 L132 152 L60 152 L60 40 Z" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-linejoin="round"/>
+  <path d="M60 40 L132 40 L132 60 L60 60 Z" fill="#1E40AF"/>
+  
+  <!-- Lignes de texte -->
+  <rect x="70" y="75" width="52" height="3" rx="1.5" fill="#FFFFFF" opacity="0.8"/>
+  <rect x="70" y="85" width="45" height="3" rx="1.5" fill="#FFFFFF" opacity="0.6"/>
+  <rect x="70" y="95" width="48" height="3" rx="1.5" fill="#FFFFFF" opacity="0.7"/>
+  <rect x="70" y="105" width="40" height="3" rx="1.5" fill="#FFFFFF" opacity="0.5"/>
+  <rect x="70" y="115" width="50" height="3" rx="1.5" fill="#FFFFFF" opacity="0.6"/>
+  
+  <!-- Icône IA -->
+  <circle cx="96" cy="140" r="12" fill="#10B981" stroke="#FFFFFF" stroke-width="2"/>
+  <path d="M90 140 L94 144 L102 136" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+  
+  <!-- Éléments décoratifs -->
+  <circle cx="40" cy="60" r="3" fill="#1E40AF" opacity="0.3"/>
+  <circle cx="152" cy="80" r="2" fill="#1E40AF" opacity="0.4"/>
+  <circle cx="35" cy="130" r="2.5" fill="#1E40AF" opacity="0.3"/>
+  
+  <!-- Gradients -->
+  <defs>
+    <linearGradient id="gradient-bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1E40AF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#3B82F6;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+</svg>

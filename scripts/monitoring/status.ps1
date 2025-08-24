@@ -1,27 +1,27 @@
 #!/usr/bin/env pwsh
 <#
 .SYNOPSIS
-    Script de monitoring pour vérifier le statut de DocuSense AI
+    Script de monitoring pour verifier le statut de DocuSense AI
 
 .DESCRIPTION
-    Ce script vérifie le statut des services backend et frontend,
-    ainsi que l'état des processus et des ports.
-    Version optimisée et consolidée.
+    Ce script verifie le statut des services backend et frontend,
+    ainsi que l'etat des processus et des ports.
+    Version optimisee et consolidee.
 
 .EXAMPLE
     .\status.ps1
 #>
 
-# Fonction consolidée pour la vérification du statut
+# Fonction consolidee pour la verification du statut
 function Get-DocusenseStatus {
-    Write-Host "📊 Statut de DocuSense AI" -ForegroundColor Green
-    Write-Host "================================" -ForegroundColor Gray
+    Write-Host "Statut de DocuSense AI" -ForegroundColor Green
+    Write-Host "======================" -ForegroundColor Gray
 
-    # Vérifier les processus
+    # Verifier les processus
     $pythonProcesses = Get-Process -Name "python" -ErrorAction SilentlyContinue
     $nodeProcesses = Get-Process -Name "node" -ErrorAction SilentlyContinue
 
-    # Vérifier les ports
+    # Verifier les ports
     try {
         $port8000 = netstat -an | findstr ":8000" | findstr "LISTENING"
         $port3000 = netstat -an | findstr ":3000" | findstr "LISTENING"
@@ -30,7 +30,7 @@ function Get-DocusenseStatus {
         $port3000 = $null
     }
 
-    # Vérifier la santé des services
+    # Verifier la sante des services
     $backendHealth = $false
     $frontendHealth = $false
 
@@ -48,14 +48,43 @@ function Get-DocusenseStatus {
         $frontendHealth = $false
     }
 
-    # Affichage des résultats
-    Write-Host "Backend: $(if ($backendHealth) { '✅ Connecté' } else { '❌ Déconnecté' })" -ForegroundColor $(if ($backendHealth) { 'Green' } else { 'Red' })
-    Write-Host "Frontend: $(if ($frontendHealth) { '✅ Connecté' } else { '❌ Déconnecté' })" -ForegroundColor $(if ($frontendHealth) { 'Green' } else { 'Red' })
-    Write-Host "Processus Python: $($pythonProcesses.Count)" -ForegroundColor $(if ($pythonProcesses.Count -le 2) { 'Green' } else { 'Yellow' })
-    Write-Host "Processus Node.js: $($nodeProcesses.Count)" -ForegroundColor $(if ($nodeProcesses.Count -le 2) { 'Green' } else { 'Yellow' })
-    Write-Host "Port 8000: $(if ($port8000) { '✅ Actif' } else { '❌ Inactif' })" -ForegroundColor $(if ($port8000) { 'Green' } else { 'Red' })
-    Write-Host "Port 3000: $(if ($port3000) { '✅ Actif' } else { '❌ Inactif' })" -ForegroundColor $(if ($port3000) { 'Green' } else { 'Red' })
+    # Affichage des resultats
+    if ($backendHealth) {
+        Write-Host "Backend: Connecte" -ForegroundColor Green
+    } else {
+        Write-Host "Backend: Deconnecte" -ForegroundColor Red
+    }
+    
+    if ($frontendHealth) {
+        Write-Host "Frontend: Connecte" -ForegroundColor Green
+    } else {
+        Write-Host "Frontend: Deconnecte" -ForegroundColor Red
+    }
+    
+    if ($pythonProcesses.Count -le 2) {
+        Write-Host "Processus Python: $($pythonProcesses.Count)" -ForegroundColor Green
+    } else {
+        Write-Host "Processus Python: $($pythonProcesses.Count)" -ForegroundColor Yellow
+    }
+    
+    if ($nodeProcesses.Count -le 2) {
+        Write-Host "Processus Node.js: $($nodeProcesses.Count)" -ForegroundColor Green
+    } else {
+        Write-Host "Processus Node.js: $($nodeProcesses.Count)" -ForegroundColor Yellow
+    }
+    
+    if ($port8000) {
+        Write-Host "Port 8000: Actif" -ForegroundColor Green
+    } else {
+        Write-Host "Port 8000: Inactif" -ForegroundColor Red
+    }
+    
+    if ($port3000) {
+        Write-Host "Port 3000: Actif" -ForegroundColor Green
+    } else {
+        Write-Host "Port 3000: Inactif" -ForegroundColor Red
+    }
 }
 
-# Exécution principale
+# Execution principale
 Get-DocusenseStatus

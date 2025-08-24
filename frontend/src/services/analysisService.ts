@@ -1,8 +1,8 @@
 
-import { apiRequest, handleApiError } from '../utils/apiUtils';
+import { handleApiError } from '../utils/apiUtils';
 import { logService } from './logService';
 import { useBackendConnection } from '../hooks/useBackendConnection';
-import { useUnifiedApiService } from './unifiedApiService';
+import unifiedApiService from './unifiedApiService';
 
 const DEFAULT_TIMEOUT = 30000; // 30 secondes
 
@@ -63,7 +63,7 @@ export interface CreateAnalysisResponse {
   message: string;
 }
 
-// Service de base sans vérification de connexion (utilise le service unifié)
+// Service de base utilisant uniquement le service unifié
 const baseAnalysisService = {
   // Récupérer la liste des analyses avec tri et filtrage
   async getAnalysesList(params: AnalysisListParams = {}): Promise<AnalysisListResponse> {
@@ -78,9 +78,8 @@ const baseAnalysisService = {
       if (params.limit) queryParams.append('limit', params.limit.toString());
       if (params.offset) queryParams.append('offset', params.offset.toString());
       
-      const url = `/analysis/list${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
-      const apiService = new (await import('./unifiedApiService')).default();
-      const response = await apiService.get(url);
+      const url = `/api/analysis/list${queryParams.toString() ? '?' + queryParams.toString() : ''}`;
+      const response = await unifiedApiService.get(url);
       
       logService.info('Liste des analyses récupérée', 'AnalysisService', {
         count: response.data?.length || 0,
@@ -91,11 +90,11 @@ const baseAnalysisService = {
       // Adapter la réponse de l'API au format attendu par le frontend
       const adaptedResponse: AnalysisListResponse = {
         analyses: response.data || [],
-        total: response.pagination?.total || 0,
-        limit: response.pagination?.limit || 50,
-        offset: response.pagination?.offset || 0,
-        sort_by: response.sort_by || 'created_at',
-        sort_order: response.sort_order || 'desc'
+        total: response.data?.total || response.data?.length || 0,
+        limit: response.data?.limit || 50,
+        offset: response.data?.offset || 0,
+        sort_by: response.data?.sort_by || 'created_at',
+        sort_order: response.data?.sort_order || 'desc'
       };
       
       return adaptedResponse;
@@ -112,13 +111,10 @@ const baseAnalysisService = {
   // Créer une nouvelle analyse
   async createAnalysis(request: CreateAnalysisRequest): Promise<CreateAnalysisResponse> {
     try {
-      const response = await apiRequest('/api/analysis/create', {
-        method: 'POST',
-        body: JSON.stringify(request),
-      }, DEFAULT_TIMEOUT) as any;
+      const response = await unifiedApiService.post('/api/analysis/create', request);
 
       logService.info('Analyse créée', 'AnalysisService', {
-        analysisId: response.analysis_id,
+        analysisId: response.data?.analysis_id,
         fileId: request.file_id,
         filePath: request.file_path,
         promptId: request.prompt_id,
@@ -126,9 +122,9 @@ const baseAnalysisService = {
       });
 
       return {
-        analysis_id: response.analysis_id,
-        status: response.status,
-        message: response.message
+        analysis_id: response.data?.analysis_id,
+        status: response.data?.status,
+        message: response.data?.message
       };
     } catch (error) {
       logService.error('Erreur lors de la création de l\'analyse', 'AnalysisService', {
@@ -143,9 +139,7 @@ const baseAnalysisService = {
   // Démarrer une analyse
   async startAnalysis(analysisId: string | number): Promise<void> {
     try {
-      await apiRequest(`/api/analysis/${analysisId}/start`, {
-        method: 'POST',
-      }, DEFAULT_TIMEOUT);
+      await unifiedApiService.post(`/api/analysis/${analysisId}/start`);
 
       logService.info('Analyse démarrée', 'AnalysisService', {
         analysisId,
@@ -164,9 +158,7 @@ const baseAnalysisService = {
   // Supprimer une analyse
   async deleteAnalysis(analysisId: string | number): Promise<void> {
     try {
-      await apiRequest(`/api/analysis/${analysisId}`, {
-        method: 'DELETE',
-      }, DEFAULT_TIMEOUT);
+      await unifiedApiService.delete(`/api/analysis/${analysisId}`);
 
       logService.info('Analyse supprimée', 'AnalysisService', {
         analysisId,
@@ -185,10 +177,7 @@ const baseAnalysisService = {
   // Supprimer plusieurs analyses
   async deleteMultipleAnalyses(analysisIds: (string | number)[]): Promise<void> {
     try {
-      await apiRequest('/api/analysis/bulk-delete', {
-        method: 'DELETE',
-        body: JSON.stringify({ analysis_ids: analysisIds }),
-      }, DEFAULT_TIMEOUT);
+      await unifiedApiService.post('/api/analysis/bulk-delete', { analysis_ids: analysisIds });
 
       logService.info('Analyses supprimées en lot', 'AnalysisService', {
         count: analysisIds.length,
@@ -209,16 +198,15 @@ const baseAnalysisService = {
   // Obtenir les détails d'une analyse
   async getAnalysisDetails(analysisId: string | number): Promise<Analysis> {
     try {
-      const apiService = new (await import('./unifiedApiService')).default();
-      const response = await apiService.get(`/analysis/${analysisId}`) as Analysis;
+      const response = await unifiedApiService.get(`/api/analysis/${analysisId}`);
       
       logService.info('Détails de l\'analyse récupérés', 'AnalysisService', {
         analysisId,
-        status: response.status,
+        status: response.data?.status,
         timestamp: new Date().toISOString()
       });
 
-      return response;
+      return response.data;
     } catch (error) {
       logService.error('Erreur lors de la récupération des détails', 'AnalysisService', {
         error: handleApiError(error),
@@ -229,18 +217,17 @@ const baseAnalysisService = {
     }
   },
 
-  // Obtenir l'analyse d'un fichier (intégré depuis analysisFileService)
+  // Obtenir l'analyse d'un fichier
   async getAnalysisFile(fileId: number) {
     try {
-      const apiService = new (await import('./unifiedApiService')).default();
-      const response = await apiService.get(`/analysis/file/${fileId}`);
+      const response = await unifiedApiService.get(`/api/analysis/file/${fileId}`);
       
       logService.info('Analyse de fichier récupérée', 'AnalysisService', {
         fileId,
         timestamp: new Date().toISOString()
       });
 
-      return response;
+      return response.data;
     } catch (error) {
       logService.error('Erreur lors de la récupération de l\'analyse de fichier', 'AnalysisService', {
         error: handleApiError(error),
@@ -251,18 +238,17 @@ const baseAnalysisService = {
     }
   },
 
-  // Relancer une analyse (intégré depuis analysisFileService)
+  // Relancer une analyse
   async retryAnalysis(analysisId: number) {
     try {
-      const apiService = new (await import('./unifiedApiService')).default();
-      const response = await apiService.post(`/analysis/${analysisId}/retry`, {});
+      const response = await unifiedApiService.post(`/api/analysis/${analysisId}/retry`);
       
       logService.info('Analyse relancée', 'AnalysisService', {
         analysisId,
         timestamp: new Date().toISOString()
       });
 
-      return response;
+      return response.data;
     } catch (error) {
       logService.error('Erreur lors du relancement de l\'analyse', 'AnalysisService', {
         error: handleApiError(error),
@@ -304,7 +290,6 @@ export const useAnalysisService = () => {
     getAnalysisDetails: (analysisId: string | number) => 
       conditionalRequest(() => baseAnalysisService.getAnalysisDetails(analysisId), null),
 
-    // Nouvelles méthodes intégrées depuis analysisFileService
     getAnalysisFile: (fileId: number) => 
       conditionalRequest(() => baseAnalysisService.getAnalysisFile(fileId), { success: false, error: 'Backend déconnecté', file: null }),
 

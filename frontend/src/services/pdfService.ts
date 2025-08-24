@@ -3,7 +3,7 @@
  * Handles PDF generation and management for analysis results
  */
 
-import { apiRequest, handleApiError } from '../utils/apiUtils';
+import unifiedApiService from './unifiedApiService';
 
 export interface PDFInfo {
   analysis_id: number;
@@ -42,12 +42,11 @@ class PDFService {
    */
   async generateAnalysisPDF(analysisId: number): Promise<PDFGenerationResponse> {
     try {
-      const response = await apiRequest(`/api/pdf-files/generate/${analysisId}`, {
-        method: 'POST'
-      });
+      const response = await unifiedApiService.post(`/api/pdf-files/generate/${analysisId}`);
       return response.data;
     } catch (error) {
-      throw new Error(`Erreur lors de la génération du PDF: ${handleApiError(error)}`);
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
+      throw new Error(`Erreur lors de la génération du PDF: ${errorMessage}`);
     }
   }
 
@@ -56,12 +55,11 @@ class PDFService {
    */
   async generatePDFsForAllCompletedAnalyses(): Promise<BulkPDFGenerationResponse> {
     try {
-      const response = await apiRequest('/api/pdf-files/generate-all-completed', {
-        method: 'POST'
-      });
+      const response = await unifiedApiService.post('/api/pdf-files/generate-all-completed');
       return response.data;
     } catch (error) {
-      throw new Error(`Erreur lors de la génération des PDFs: ${handleApiError(error)}`);
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
+      throw new Error(`Erreur lors de la génération des PDFs: ${errorMessage}`);
     }
   }
 
@@ -73,7 +71,7 @@ class PDFService {
       const response = await fetch(`/api/pdf-files/download/${analysisId}`, {
         method: 'GET',
         headers: {
-          'Authorization': `Bearer ${this.getSessionToken()}`
+          'Authorization': `Bearer ${localStorage.getItem('token') || ''}`
         }
       });
 
@@ -84,7 +82,8 @@ class PDFService {
 
       return response.blob();
     } catch (error) {
-      throw new Error(`Erreur lors du téléchargement du PDF: ${handleApiError(error)}`);
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
+      throw new Error(`Erreur lors du téléchargement du PDF: ${errorMessage}`);
     }
   }
 
@@ -111,12 +110,11 @@ class PDFService {
 
       const url = `/api/pdf-files/list${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
       
-      const response = await apiRequest(url, {
-        method: 'GET'
-      });
+      const response = await unifiedApiService.get(url);
       return response.data;
     } catch (error) {
-      throw new Error(`Erreur lors de la récupération de la liste des PDFs: ${handleApiError(error)}`);
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
+      throw new Error(`Erreur lors de la récupération de la liste des PDFs: ${errorMessage}`);
     }
   }
 
@@ -125,11 +123,10 @@ class PDFService {
    */
   async deleteAnalysisPDF(analysisId: number): Promise<void> {
     try {
-      await apiRequest(`/api/pdf-files/${analysisId}`, {
-        method: 'DELETE'
-      });
+      await unifiedApiService.delete(`/api/pdf-files/${analysisId}`);
     } catch (error) {
-      throw new Error(`Erreur lors de la suppression du PDF: ${handleApiError(error)}`);
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
+      throw new Error(`Erreur lors de la suppression du PDF: ${errorMessage}`);
     }
   }
 

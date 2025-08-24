@@ -45,14 +45,16 @@ interface SystemData {
   };
 }
 
+import { AuditHealth, AuditInfo, TestStatus, DatabaseStatus, AuditConfig, FilesStructure, AuditEndpoints } from '../../services/auditService';
+
 interface AuditData {
-  health: any;
-  info: any;
-  tests: any;
-  database: any;
-  config: any;
-  structure: any;
-  endpoints: any;
+  health: AuditHealth;
+  info: AuditInfo;
+  tests: TestStatus;
+  database: DatabaseStatus;
+  config: AuditConfig;
+  structure: FilesStructure;
+  endpoints: AuditEndpoints;
 }
 
 const SystemPanel: React.FC = () => {

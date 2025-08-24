@@ -15,7 +15,7 @@ interface CacheConfig {
   maxSize: number; // Nombre maximum d'entrées
 }
 
-class SmartCache<T = any> {
+export class SmartCache<T = any> {
   private cache = new Map<string, CacheEntry<T>>();
   private config: CacheConfig;
 
@@ -64,6 +64,12 @@ class SmartCache<T = any> {
 
   clear(): void {
     this.cache.clear();
+  }
+
+  clearPattern(pattern: string): void {
+    const keys = Array.from(this.cache.keys());
+    const matchingKeys = keys.filter(key => key.includes(pattern));
+    matchingKeys.forEach(key => this.cache.delete(key));
   }
 
   size(): number {

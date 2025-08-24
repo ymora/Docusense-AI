@@ -1,11 +1,14 @@
-import { apiRequest, handleApiError } from '../utils/apiUtils';
+import unifiedApiService from './unifiedApiService';
 import { logService } from './logService';
-import { cachedRequest } from '../utils/cacheUtils';
+import { SmartCache } from '../utils/cacheUtils';
 
 const DEFAULT_TIMEOUT = 30000; // 30 secondes
 
 // Cache pour les données d'audit (5 minutes)
-const auditCache = new Map<string, { data: any; timestamp: number; ttl: number }>();
+const auditCache = new SmartCache<any>({
+  ttl: 5 * 60 * 1000, // 5 minutes
+  maxSize: 100
+});
 
 export interface AuditHealth {
   status: string;
@@ -101,136 +104,129 @@ export interface AuditEndpoints {
 const auditService = {
   // Vérification de santé de l'audit
   async getHealth(): Promise<AuditHealth> {
-    return cachedRequest(
-      auditCache,
-      'audit-health',
-      async () => {
-        const response = await apiRequest('/api/audit/health', {}, DEFAULT_TIMEOUT);
-        
-        logService.info('Santé d\'audit récupérée', 'AuditService', {
-          status: response.status,
-          timestamp: response.timestamp
-        });
-        
-        return response;
-      },
-      1 * 60 * 1000 // Cache pendant 1 minute
-    );
+    const cacheKey = 'audit-health';
+    const cached = auditCache.get(cacheKey);
+    if (cached) return cached;
+
+    const response = await unifiedApiService.get('/api/audit/health');
+    
+    logService.info('Santé d\'audit récupérée', 'AuditService', {
+      status: response.data?.status,
+      timestamp: response.data?.timestamp
+    });
+    
+    const data = response.data;
+    auditCache.set(cacheKey, data);
+    return data;
   },
 
   // Informations de base de l'application
   async getInfo(): Promise<AuditInfo> {
-    return cachedRequest(
-      auditCache,
-      'audit-info',
-      async () => {
-        const response = await apiRequest('/api/audit/info', {}, DEFAULT_TIMEOUT);
-        
-        logService.info('Informations d\'audit récupérées', 'AuditService', {
-          app_name: response.name,
-          version: response.version,
-          environment: response.environment
-        });
-        
-        return response;
-      },
-      5 * 60 * 1000 // Cache pendant 5 minutes
-    );
+    const cacheKey = 'audit-info';
+    const cached = auditCache.get(cacheKey);
+    if (cached) return cached;
+
+    const response = await unifiedApiService.get('/api/audit/info');
+    
+    logService.info('Informations d\'audit récupérées', 'AuditService', {
+      app_name: response.data?.name,
+      version: response.data?.version,
+      environment: response.data?.environment
+    });
+    
+    const data = response.data;
+    auditCache.set(cacheKey, data);
+    return data;
   },
 
   // Statut des tests
   async getTestsStatus(): Promise<TestStatus> {
-    return cachedRequest(
-      auditCache,
-      'audit-tests-status',
-      async () => {
-        const response = await apiRequest('/api/audit/tests/status', {}, DEFAULT_TIMEOUT);
-        
-        logService.info('Statut des tests récupéré', 'AuditService', {
-          backend_tests: Object.keys(response.backend_tests).filter(k => response.backend_tests[k]).length,
-          frontend_tests: Object.keys(response.frontend_tests).filter(k => response.frontend_tests[k]).length
-        });
-        
-        return response;
-      },
-      2 * 60 * 1000 // Cache pendant 2 minutes
-    );
+    const cacheKey = 'audit-tests-status';
+    const cached = auditCache.get(cacheKey);
+    if (cached) return cached;
+
+    const response = await unifiedApiService.get('/api/audit/tests/status');
+    
+    logService.info('Statut des tests récupéré', 'AuditService', {
+      backend_tests: Object.keys(response.data?.backend_tests || {}).filter(k => response.data?.backend_tests[k]).length,
+      frontend_tests: Object.keys(response.data?.frontend_tests || {}).filter(k => response.data?.frontend_tests[k]).length
+    });
+    
+    const data = response.data;
+    auditCache.set(cacheKey, data);
+    return data;
   },
 
   // Statut de la base de données
   async getDatabaseStatus(): Promise<DatabaseStatus> {
-    return cachedRequest(
-      auditCache,
-      'audit-database-status',
-      async () => {
-        const response = await apiRequest('/api/audit/database/status', {}, DEFAULT_TIMEOUT);
-        
-        logService.info('Statut de la base de données récupéré', 'AuditService', {
-          connection: response.connection,
-          database_file: response.database_file
-        });
-        
-        return response;
-      },
-      1 * 60 * 1000 // Cache pendant 1 minute
-    );
+    const cacheKey = 'audit-database-status';
+    const cached = auditCache.get(cacheKey);
+    if (cached) return cached;
+
+    const response = await unifiedApiService.get('/api/audit/database/status');
+    
+    logService.info('Statut de la base de données récupéré', 'AuditService', {
+      connection: response.data?.connection,
+      database_file: response.data?.database_file
+    });
+    
+    const data = response.data;
+    auditCache.set(cacheKey, data);
+    return data;
   },
 
   // Configuration d'audit
   async getConfig(): Promise<AuditConfig> {
-    return cachedRequest(
-      auditCache,
-      'audit-config',
-      async () => {
-        const response = await apiRequest('/api/audit/config', {}, DEFAULT_TIMEOUT);
-        
-        logService.info('Configuration d\'audit récupérée', 'AuditService', {
-          has_config: !!response.config,
-          source: response.source
-        });
-        
-        return response;
-      },
-      10 * 60 * 1000 // Cache pendant 10 minutes
-    );
+    const cacheKey = 'audit-config';
+    const cached = auditCache.get(cacheKey);
+    if (cached) return cached;
+
+    const response = await unifiedApiService.get('/api/audit/config');
+    
+    logService.info('Configuration d\'audit récupérée', 'AuditService', {
+      has_config: !!response.data?.config,
+      source: response.data?.source
+    });
+    
+    const data = response.data;
+    auditCache.set(cacheKey, data);
+    return data;
   },
 
   // Structure des fichiers
   async getFilesStructure(): Promise<FilesStructure> {
-    return cachedRequest(
-      auditCache,
-      'audit-files-structure',
-      async () => {
-        const response = await apiRequest('/api/audit/files/structure', {}, DEFAULT_TIMEOUT);
-        
-        logService.info('Structure des fichiers récupérée', 'AuditService', {
-          base_path: response.base_path,
-          directories_count: Object.keys(response.directories).length
-        });
-        
-        return response;
-      },
-      15 * 60 * 1000 // Cache pendant 15 minutes
-    );
+    const cacheKey = 'audit-files-structure';
+    const cached = auditCache.get(cacheKey);
+    if (cached) return cached;
+
+    const response = await unifiedApiService.get('/api/audit/files/structure');
+    
+    logService.info('Structure des fichiers récupérée', 'AuditService', {
+      base_path: response.data?.base_path,
+      directories_count: Object.keys(response.data?.directories || {}).length
+    });
+    
+    const data = response.data;
+    auditCache.set(cacheKey, data);
+    return data;
   },
 
   // Endpoints disponibles
   async getEndpoints(): Promise<AuditEndpoints> {
-    return cachedRequest(
-      auditCache,
-      'audit-endpoints',
-      async () => {
-        const response = await apiRequest('/api/audit/endpoints', {}, DEFAULT_TIMEOUT);
-        
-        logService.info('Endpoints d\'audit récupérés', 'AuditService', {
-          audit_endpoints_count: Object.keys(response.audit_endpoints).length,
-          main_endpoints_count: Object.keys(response.main_application_endpoints).length
-        });
-        
-        return response;
-      },
-      30 * 60 * 1000 // Cache pendant 30 minutes
-    );
+    const cacheKey = 'audit-endpoints';
+    const cached = auditCache.get(cacheKey);
+    if (cached) return cached;
+
+    const response = await unifiedApiService.get('/api/audit/endpoints');
+    
+    logService.info('Endpoints d\'audit récupérés', 'AuditService', {
+      audit_endpoints_count: Object.keys(response.data?.audit_endpoints || {}).length,
+      main_endpoints_count: Object.keys(response.data?.main_application_endpoints || {}).length
+    });
+    
+    const data = response.data;
+    auditCache.set(cacheKey, data);
+    return data;
   },
 
   // Récupérer toutes les données d'audit en une fois
@@ -276,11 +272,12 @@ const auditService = {
         endpoints
       };
     } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
       logService.error('Erreur lors de la récupération des données d\'audit', 'AuditService', {
-        error: handleApiError(error),
+        error: errorMessage,
         timestamp: new Date().toISOString()
       });
-      throw new Error(`Erreur lors de la récupération des données d'audit: ${handleApiError(error)}`);
+      throw new Error(`Erreur lors de la récupération des données d'audit: ${errorMessage}`);
     }
   },
 

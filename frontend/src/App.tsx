@@ -26,7 +26,7 @@ function App() {
       <div className="App h-screen">
         <RouterProvider router={router} />
         <GlobalConfirmation />
-        <PerformanceMonitor enabled={process.env.NODE_ENV === 'development'} />
+        <PerformanceMonitor enabled={(import.meta as any).env?.MODE === 'development'} />
       </div>
     </ConfirmationProvider>
   );

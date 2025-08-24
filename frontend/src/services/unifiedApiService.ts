@@ -10,6 +10,7 @@ export interface ApiResponse<T = any> {
   data: T;
   status: number;
   message?: string;
+  success?: boolean;
 }
 
 export interface ApiError {
@@ -23,7 +24,7 @@ class UnifiedApiService {
   private defaultHeaders: Record<string, string>;
 
   constructor() {
-    this.baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    this.baseUrl = (import.meta as any).env?.VITE_API_URL || 'http://localhost:8000';
     this.defaultHeaders = {
       'Content-Type': 'application/json',
     };
@@ -77,6 +78,31 @@ class UnifiedApiService {
       logService.error('Erreur API', 'UnifiedApiService', { endpoint, error: error.message });
       throw error;
     }
+  }
+
+  // === MÉTHODES HTTP GÉNÉRIQUES (pour compatibilité) ===
+  async get(endpoint: string, useCache: boolean = false, cacheKey?: string): Promise<ApiResponse> {
+    return this.request(endpoint, {}, useCache, cacheKey);
+  }
+
+  async post(endpoint: string, data?: any, useCache: boolean = false, cacheKey?: string): Promise<ApiResponse> {
+    return this.request(endpoint, {
+      method: 'POST',
+      body: data ? JSON.stringify(data) : undefined,
+    }, useCache, cacheKey);
+  }
+
+  async put(endpoint: string, data?: any): Promise<ApiResponse> {
+    return this.request(endpoint, {
+      method: 'PUT',
+      body: data ? JSON.stringify(data) : undefined,
+    });
+  }
+
+  async delete(endpoint: string): Promise<ApiResponse> {
+    return this.request(endpoint, {
+      method: 'DELETE',
+    });
   }
 
   // === MÉTHODES FICHIERS ===
@@ -173,6 +199,7 @@ class UnifiedApiService {
 
   async invalidateCache(pattern?: string): Promise<void> {
     if (pattern) {
+      // Utiliser une méthode alternative pour nettoyer le cache par pattern
       globalCache.clearPattern(pattern);
     } else {
       globalCache.clear();
@@ -180,4 +207,11 @@ class UnifiedApiService {
   }
 }
 
-export default UnifiedApiService;
+// Instance singleton
+const unifiedApiService = new UnifiedApiService();
+
+// Export par défaut
+export default unifiedApiService;
+
+// Export nommé pour compatibilité
+export { UnifiedApiService };

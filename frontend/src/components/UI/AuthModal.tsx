@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { XMarkIcon, LockClosedIcon } from '@heroicons/react/24/outline';
 import { authService } from '../../services/authService';
 import { logService } from '../../services/logService';
+import { ErrorDisplay } from './ErrorDisplay';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -171,7 +172,12 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => 
             {/* Message d'erreur */}
             {error && (
               <div className="bg-red-900/50 border border-red-600 rounded-lg p-3">
-                <p className="text-sm text-red-300">{error}</p>
+                <ErrorDisplay 
+                  error={error} 
+                  errorType="auth"
+                  size="sm"
+                  showIcon={true}
+                />
               </div>
             )}
 

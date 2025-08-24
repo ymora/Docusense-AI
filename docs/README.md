@@ -48,6 +48,7 @@ Bienvenue dans la documentation complète de **DocuSense AI**, la plateforme d'a
 - **[📋 Documentation Production](production/README.md)** - Guide complet de production
 - **[✅ Checklist Production](production/CHECKLIST.md)** - Checklist de déploiement
 - **[🏭 Standards Production](production/STANDARDS.md)** - Standards de production
+- **[🐳 Guide Docker Production](production/DOCKER_GUIDE.md)** - Déploiement avec Docker
 
 ### 🔍 **Audit et Qualité**
 - **[📊 Audit Complet](audit/AUDIT_COMPLET.md)** - État actuel et recommandations
@@ -55,6 +56,17 @@ Bienvenue dans la documentation complète de **DocuSense AI**, la plateforme d'a
 - **[⚙️ Configuration Audit](audit/audit-config.json)** - Configuration du système d'audit
 - **[🔧 Optimisation](audit/README_Optimisation_Audit_System.md)** - Optimisation audit et système
 - **[📋 Implémentation](audit/IMPLEMENTATION_RECOMMANDATIONS.md)** - Recommandations d'implémentation
+
+### 🎥 **Présentation et Marketing**
+- **[📋 Kit de Présentation](presentation/README.md)** - Kit complet pour vidéo de présentation
+- **[🎬 Script Principal](presentation/script/script_principal.md)** - Script narratif de la vidéo
+- **[🎨 Storyboard](presentation/script/storyboard.md)** - Découpage visuel détaillé
+- **[🎯 Points Clés](presentation/script/points_cles.md)** - Messages essentiels à transmettre
+- **[🚀 Fonctionnalités](presentation/content/fonctionnalites.md)** - Description des fonctionnalités
+- **[🏗️ Cas d'Usage](presentation/content/cas_usage.md)** - Exemples concrets d'utilisation
+- **[🔒 Sécurité](presentation/content/securite.md)** - Aspects sécurité et conformité
+- **[🎨 Guide de Style](presentation/specifications/style_guide.md)** - Standards visuels
+- **[📋 Spécifications](presentation/specifications/requirements.md)** - Exigences techniques
 
 ## 🚀 Démarrage Rapide
 
@@ -82,6 +94,22 @@ venv\Scripts\python.exe main.py
 cd frontend
 npm run dev
 ```
+
+### Option 4 : Déploiement Production avec Docker
+```bash
+# Configuration
+cp env.production.example .env
+# Éditer .env avec vos valeurs
+
+# Déploiement
+docker-compose up -d
+
+# Vérification
+docker-compose ps
+curl http://localhost:8000/health
+```
+
+**📖 [Guide Docker Production complet](production/DOCKER_GUIDE.md)**
 
 ## 📊 Vérification du Statut
 
@@ -178,16 +206,30 @@ python scripts/utils/download_reference_documents.py
 
 ## 🌐 Accès
 
+### Développement Local
 - **Frontend :** http://localhost:3000
 - **Backend :** http://localhost:8000
 - **API Documentation :** http://localhost:8000/docs
 
+### Production Docker
+- **Frontend :** http://localhost:3000
+- **Backend :** http://localhost:8000
+- **Nginx :** http://localhost:80
+- **Prometheus :** http://localhost:9090
+- **Grafana :** http://localhost:3001
+
 ## ⚠️ Prérequis
 
+### Développement Local
 - Python 3.8+
 - Node.js 16+
 - PowerShell 7+
 - Environnement virtuel Python activé
+
+### Production Docker
+- Docker & Docker Compose
+- 8GB+ RAM
+- 100GB+ espace disque
 
 ## 🔗 Liens Rapides
 
@@ -196,7 +238,7 @@ python scripts/utils/download_reference_documents.py
 - **[🏗️ Architecture](developers/ARCHITECTURE.md)**
 - **[🔧 Services Backend](developers/SERVICES.md)**
 - **[🔌 API Reference](developers/API_REFERENCE.md)**
-
+- **[🐳 Docker Production](production/DOCKER_GUIDE.md)**
 - **[✅ Checklist Production](production/CHECKLIST.md)**
 
 ---

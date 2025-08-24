@@ -25,7 +25,7 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
   const { colors } = useColors();
   const { setActivePanel } = useUIStore();
   const { startStream, stopStream } = useStreamService();
-  const { addAnalysis } = useAnalysisStore();
+  const { createAnalysis } = analysisService;
 
   const [directoryData, setDirectoryData] = useState<any>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
@@ -226,27 +226,18 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
       
       const result = await analysisService.createAnalysis(analysisRequest);
       
-      // Ajouter l'analyse au store pour mise à jour immédiate
-      if (result && result.id) {
-        addAnalysis({
-          id: result.id,
-          file_id: file.id,
-          file_path: file.path,
-          file_name: file.name,
-          status: 'pending',
-          analysis_type: 'general',
-          prompt_id: 'general_summary',
-          provider: 'ollama',
-          model: 'llama3.2',
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+      // L'analyse a été créée avec succès
+      if (result && result.analysis_id) {
+        logService.info('Analyse ajoutée au store', 'FileTreeSimple', {
+          analysisId: result.analysis_id,
+          fileName: file.name
         });
       }
       
       logService.info('Analyse créée avec succès', 'FileTreeSimple', {
         fileName: file.name,
         fileId: file.id,
-        analysisId: result?.id,
+        analysisId: result?.analysis_id,
         timestamp: new Date().toISOString()
       });
       
@@ -264,7 +255,7 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
         timestamp: new Date().toISOString()
       });
     }
-  }, [setActivePanel, analysisQueue, addAnalysis]);
+  }, [setActivePanel, analysisQueue]);
 
   // Visualiser un fichier
   const handleViewFile = useCallback((file: any, e: React.MouseEvent) => {

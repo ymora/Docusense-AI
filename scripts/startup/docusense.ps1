@@ -146,12 +146,16 @@ function Show-InteractiveMenu {
         Write-Host "  3. Demarrer frontend uniquement (debug)" -ForegroundColor White
         Write-Host ""
 
+        Write-Host "Utilitaires:" -ForegroundColor Yellow
+        Write-Host "  4. 🔍 Fermer automatiquement les navigateurs sur port 3000" -ForegroundColor Green
+        Write-Host ""
+
         Write-Host "Autres:" -ForegroundColor Yellow
         Write-Host "  0. Quitter" -ForegroundColor White
         Write-Host ""
 
         # Demander le choix
-        $choice = Read-Host "Choisissez une option (0-3)"
+        $choice = Read-Host "Choisissez une option (0-4)"
 
         switch ($choice.ToLower()) {
             "1" {
@@ -172,6 +176,12 @@ function Show-InteractiveMenu {
                 Write-Host "Action terminee. Retour au menu dans 2 secondes..." -ForegroundColor Green  
                 Start-Sleep -Seconds 2
             }
+            "4" {
+                Write-Host "🔍 Fermeture automatique des navigateurs sur port 3000..." -ForegroundColor Green
+                Close-BrowserOnPort3000
+                Write-Host "Action terminee. Retour au menu dans 2 secondes..." -ForegroundColor Green  
+                Start-Sleep -Seconds 2
+            }
             "0" {
                 Write-Host "Au revoir !" -ForegroundColor Green
                 return
@@ -182,6 +192,117 @@ function Show-InteractiveMenu {
             }
         }
     } while ($true)
+}
+
+function Close-BrowserOnPort3000 {
+    Write-Host "🔍 Verification et fermeture automatique des navigateurs sur le port 3000..." -ForegroundColor Cyan
+    
+    try {
+        # Rechercher les processus qui utilisent le port 3000
+        $port3000Processes = netstat -ano | findstr ":3000" | findstr "LISTENING"
+        
+        if ($port3000Processes) {
+            Write-Host "⚠️  Port 3000 detecte comme utilise - Fermeture automatique en cours..." -ForegroundColor Yellow
+            
+            # Obtenir les PIDs des processus
+            $pids = $port3000Processes | ForEach-Object { 
+                ($_ -split '\s+')[-1] 
+            } | Sort-Object -Unique
+            
+            foreach ($processId in $pids) {
+                try {
+                    $process = Get-Process -Id $processId -ErrorAction SilentlyContinue
+                    if ($process) {
+                        Write-Host "📱 Processus detecte: $($process.ProcessName) (PID: $processId)" -ForegroundColor Yellow
+                        
+                        # Vérifier si c'est un navigateur
+                        $browserProcesses = @("chrome", "firefox", "msedge", "iexplore", "opera", "brave", "chromium")
+                        if ($browserProcesses -contains $process.ProcessName.ToLower()) {
+                            Write-Host "🚪 Fermeture automatique du navigateur $($process.ProcessName)..." -ForegroundColor Green
+                            
+                            # Essayer de fermer proprement d'abord
+                            $process.CloseMainWindow() | Out-Null
+                            Start-Sleep -Seconds 3
+                            
+                            # Si le processus ne se ferme pas proprement, le forcer
+                            if (!$process.HasExited) {
+                                Write-Host "⚡ Forçage de la fermeture..." -ForegroundColor Yellow
+                                $process.Kill()
+                                Start-Sleep -Seconds 2
+                            }
+                            Write-Host "✅ Navigateur ferme avec succes" -ForegroundColor Green
+                        } else {
+                            Write-Host "ℹ️  Processus non-navigateur detecte: $($process.ProcessName)" -ForegroundColor Cyan
+                        }
+                    }
+                } catch {
+                    Write-Host "❌ Erreur lors de la fermeture du processus $processId : $($_.Exception.Message)" -ForegroundColor Red
+                }
+            }
+            
+            # Attendre que le port soit libere
+            Write-Host "⏳ Attente de la liberation du port 3000..." -ForegroundColor Cyan
+            $timeout = 15
+            $elapsed = 0
+            while ($elapsed -lt $timeout) {
+                $stillInUse = netstat -ano | findstr ":3000" | findstr "LISTENING"
+                if (!$stillInUse) {
+                    Write-Host "✅ Port 3000 libere avec succes" -ForegroundColor Green
+                    break
+                }
+                Start-Sleep -Seconds 1
+                $elapsed++
+                if ($elapsed % 5 -eq 0) {
+                    Write-Host "⏱️  Attente... ($elapsed/$timeout secondes)" -ForegroundColor Yellow
+                }
+            }
+            
+            if ($elapsed -ge $timeout) {
+                Write-Host "⚠️  ATTENTION: Le port 3000 n'a pas ete libere apres $timeout secondes" -ForegroundColor Red
+                Write-Host "💡 Conseil: Fermez manuellement les onglets du navigateur sur localhost:3000" -ForegroundColor Yellow
+            }
+        } else {
+            Write-Host "✅ Port 3000 libre - Aucune fermeture necessaire" -ForegroundColor Green
+        }
+        
+        # Fermeture supplementaire des onglets de navigateur ouverts sur localhost:3000
+        Write-Host "🔍 Verification supplementaire des onglets de navigateur..." -ForegroundColor Cyan
+        Close-BrowserTabsOnLocalhost3000
+        
+    } catch {
+        Write-Host "❌ Erreur lors de la verification du port 3000: $($_.Exception.Message)" -ForegroundColor Red
+    }
+}
+
+function Close-BrowserTabsOnLocalhost3000 {
+    try {
+        # Fermer les onglets de navigateur ouverts sur localhost:3000
+        $browsers = @("chrome", "firefox", "msedge", "iexplore", "opera", "brave", "chromium")
+        
+        foreach ($browser in $browsers) {
+            $processes = Get-Process -Name $browser -ErrorAction SilentlyContinue
+            if ($processes) {
+                Write-Host "🔍 Detection de $browser - Fermeture des onglets localhost:3000..." -ForegroundColor Cyan
+                
+                # Essayer de fermer les onglets specifiques (methode generale)
+                foreach ($process in $processes) {
+                    try {
+                        # Envoyer Alt+F4 pour fermer la fenetre active
+                        Add-Type -AssemblyName System.Windows.Forms
+                        [System.Windows.Forms.SendKeys]::SendWait("%{F4}")
+                        Start-Sleep -Milliseconds 500
+                    } catch {
+                        # Si ca ne marche pas, on continue
+                    }
+                }
+            }
+        }
+        
+        Write-Host "✅ Fermeture automatique des onglets terminee" -ForegroundColor Green
+        
+    } catch {
+        Write-Host "⚠️  Erreur lors de la fermeture des onglets: $($_.Exception.Message)" -ForegroundColor Yellow
+    }
 }
 
 function Start-Docusense {
@@ -196,6 +317,9 @@ function Start-Docusense {
         Write-Host "Impossible de continuer sans Node.js (necessaire pour le frontend)" -ForegroundColor Red
         return
     }
+
+    # Gestion automatique des navigateurs sur le port 3000
+    Close-BrowserOnPort3000
 
     # Cleanup rapide avant demarrage
     Write-Host "Nettoyage rapide des processus..." -ForegroundColor Yellow

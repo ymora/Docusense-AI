@@ -1,4 +1,4 @@
-import { apiRequest, handleApiError } from '../utils/apiUtils';
+import unifiedApiService from './unifiedApiService';
 import useAuthStore from '../stores/authStore';
 
 export interface LogEntry {
@@ -89,9 +89,9 @@ class LogService {
 
   private async loadBackendLogs() {
     try {
-      const response = await apiRequest('/api/logs/backend', {}, 5000);
-      if (response.success && response.data) {
-        this.backendLogs = response.data.map((log: any) => ({
+      const response = await unifiedApiService.get('/api/logs/backend');
+      if (response.data?.success && response.data?.data) {
+        this.backendLogs = response.data.data.map((log: any) => ({
           ...log,
           isBackend: true,
           id: log.id || `backend_${Date.now()}_${Math.random()}`
@@ -406,7 +406,7 @@ class LogService {
 
   async clearBackendLogs(): Promise<void> {
     try {
-      await apiRequest('/api/logs/backend', { method: 'DELETE' }, 5000);
+      await unifiedApiService.delete('/api/logs/backend');
       this.backendLogs = [];
       this.notifyListeners();
     } catch (error) {
