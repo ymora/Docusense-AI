@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { FolderIcon } from '@heroicons/react/24/outline';
+import { FolderIcon, PlusIcon, ComputerDesktopIcon, ServerIcon, CloudIcon } from '@heroicons/react/24/outline';
 import { useColors } from '../../hooks/useColors';
 import { useFileService } from '../../services/fileService';
 import { logService } from '../../services/logService';
@@ -12,6 +12,14 @@ interface DiskSelectorProps {
   currentDisk?: string;
 }
 
+interface CustomPath {
+  id: string;
+  path: string;
+  name: string;
+  type: 'network' | 'server' | 'local' | 'cloud';
+  isOnline: boolean;
+}
+
 const DiskSelector: React.FC<DiskSelectorProps> = ({ onDiskSelect, currentDisk }) => {
   const { colors } = useColors();
   const fileService = useFileService();
@@ -20,9 +28,33 @@ const DiskSelector: React.FC<DiskSelectorProps> = ({ onDiskSelect, currentDisk }
   const { startStream, stopStream } = useStreamService();
   const [isOpen, setIsOpen] = useState(false);
   const [availableDisks, setAvailableDisks] = useState<string[]>([]);
+  const [customPaths, setCustomPaths] = useState<CustomPath[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [diskStatus, setDiskStatus] = useState<Record<string, { status: 'online' | 'offline' | 'error', lastUpdate: string }>>({});
+  const [showAddPath, setShowAddPath] = useState(false);
+  const [newPath, setNewPath] = useState('');
+  const [newPathName, setNewPathName] = useState('');
+  const [newPathType, setNewPathType] = useState<'network' | 'server' | 'local' | 'cloud'>('local');
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Charger les chemins personnalisés depuis le localStorage
+  useEffect(() => {
+    const savedPaths = localStorage.getItem('docusense_custom_paths');
+    if (savedPaths) {
+      try {
+        const parsed = JSON.parse(savedPaths);
+        setCustomPaths(parsed);
+      } catch (error) {
+        logService.error('Erreur lors du chargement des chemins personnalisés', 'DiskSelector');
+      }
+    }
+  }, []);
+
+  // Sauvegarder les chemins personnalisés
+  const saveCustomPaths = (paths: CustomPath[]) => {
+    localStorage.setItem('docusense_custom_paths', JSON.stringify(paths));
+    setCustomPaths(paths);
+  };
 
   // Charger les disques disponibles avec streams SSE
   useEffect(() => {
@@ -104,31 +136,94 @@ const DiskSelector: React.FC<DiskSelectorProps> = ({ onDiskSelect, currentDisk }
     }
   }, [isAuthenticated, availableDisks, startStream, stopStream]);
 
-  // Fermer le menu si clic à l'extérieur
+  // Fermer le dropdown si on clique ailleurs
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setIsOpen(false);
+        setShowAddPath(false);
       }
     };
 
-    if (isOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
+    document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, [isOpen]);
+  }, []);
 
   const handleDiskSelect = (disk: string) => {
-    logService.info('Sélection manuelle d\'un disque', 'DiskSelector', {
-      selectedDisk: disk,
-      previousDisk: currentDisk,
-      timestamp: new Date().toISOString()
-    });
     onDiskSelect(disk);
     setIsOpen(false);
+    setShowAddPath(false);
+  };
+
+  const handleAddCustomPath = async () => {
+    if (!newPath.trim() || !newPathName.trim()) return;
+
+    try {
+      // Tester l'accessibilité du chemin
+      const testResult = await fileService.checkDiskAccess(newPath);
+      
+      if (testResult.success) {
+        const newCustomPath: CustomPath = {
+          id: `custom_${Date.now()}`,
+          path: newPath,
+          name: newPathName,
+          type: newPathType,
+          isOnline: true
+        };
+
+        const updatedPaths = [...customPaths, newCustomPath];
+        saveCustomPaths(updatedPaths);
+        
+        // Sélectionner automatiquement le nouveau chemin
+        handleDiskSelect(newPath);
+        
+        // Réinitialiser le formulaire
+        setNewPath('');
+        setNewPathName('');
+        setNewPathType('local');
+        setShowAddPath(false);
+        
+        logService.info('Chemin personnalisé ajouté', 'DiskSelector', {
+          path: newPath,
+          name: newPathName,
+          type: newPathType
+        });
+      } else {
+        alert(`Impossible d'accéder au chemin: ${testResult.error || 'Chemin invalide'}`);
+      }
+    } catch (error) {
+      alert(`Erreur lors de l'ajout du chemin: ${error.message}`);
+    }
+  };
+
+  const handleRemoveCustomPath = (pathId: string) => {
+    const updatedPaths = customPaths.filter(p => p.id !== pathId);
+    saveCustomPaths(updatedPaths);
+  };
+
+  const getPathIcon = (type: string) => {
+    switch (type) {
+      case 'network':
+        return <ComputerDesktopIcon className="w-4 h-4" style={{ color: colors.primary }} />;
+      case 'server':
+        return <ServerIcon className="w-4 h-4" style={{ color: colors.success }} />;
+      case 'cloud':
+        return <CloudIcon className="w-4 h-4" style={{ color: colors.warning }} />;
+      default:
+        return <FolderIcon className="w-4 h-4" style={{ color: colors.textSecondary }} />;
+    }
+  };
+
+  const getPathTypeLabel = (type: string) => {
+    switch (type) {
+      case 'network': return 'Réseau';
+      case 'server': return 'Serveur';
+      case 'cloud': return 'Cloud';
+      case 'local': return 'Local';
+      default: return 'Autre';
+    }
   };
 
   return (
@@ -170,79 +265,164 @@ const DiskSelector: React.FC<DiskSelectorProps> = ({ onDiskSelect, currentDisk }
       {/* Menu déroulant */}
       {isOpen && (
         <div 
-          className="absolute top-full left-0 right-0 mt-2 bg-slate-900 border rounded-lg shadow-xl z-[9999] max-h-80 overflow-hidden"
-          style={{ borderColor: colors.border }}
+          className="absolute top-full left-0 right-0 mt-1 rounded-lg border shadow-lg z-50 max-h-96 overflow-y-auto"
+          style={{
+            backgroundColor: colors.surface,
+            borderColor: colors.border,
+          }}
         >
-          {/* Header */}
-          <div 
-            className="p-2.5 border-b"
-            style={{ borderColor: colors.border }}
-          >
-            <div className="flex items-center">
-              <span className="text-base mr-2">💾</span>
-              <div>
-                <div className="text-xs font-medium" style={{ color: colors.text }}>
-                  Disques disponibles
-                </div>
-                <div className="text-xs" style={{ color: colors.textSecondary }}>
-                  {availableDisks.length} disque(s) détecté(s)
-                </div>
-              </div>
+          {/* Disques locaux */}
+          <div className="p-2">
+            <div className="text-xs font-medium mb-2" style={{ color: colors.textSecondary }}>
+              Disques locaux
             </div>
+            {availableDisks.map((disk) => (
+              <button
+                key={disk}
+                onClick={() => handleDiskSelect(disk)}
+                className={`w-full flex items-center p-2 rounded text-left hover:bg-slate-700 transition-colors ${
+                  currentDisk === disk ? 'bg-blue-500/20' : ''
+                }`}
+                style={{ color: currentDisk === disk ? colors.primary : colors.text }}
+              >
+                <FolderIcon className="w-4 h-4 mr-2" style={{ color: colors.primary }} />
+                <span className="text-xs">{disk}</span>
+              </button>
+            ))}
           </div>
 
-          {/* Liste des disques */}
-          <div className="max-h-60 overflow-y-auto">
-            {isLoading ? (
-              <div className="p-3 text-center">
-                <div className="animate-spin rounded-full h-5 w-5 border-b-2 mx-auto mb-2" style={{ borderColor: colors.primary }}></div>
-                <div className="text-xs" style={{ color: colors.textSecondary }}>
-                  Chargement des disques...
-                </div>
+          {/* Séparateur */}
+          {customPaths.length > 0 && (
+            <div className="border-t mx-2" style={{ borderColor: colors.border }} />
+          )}
+
+          {/* Chemins personnalisés */}
+          {customPaths.length > 0 && (
+            <div className="p-2">
+              <div className="text-xs font-medium mb-2" style={{ color: colors.textSecondary }}>
+                Chemins personnalisés
               </div>
-            ) : availableDisks.length > 0 ? (
-              <div className="py-1">
-                {availableDisks.map((disk) => (
+              {customPaths.map((path) => (
+                <div key={path.id} className="flex items-center justify-between p-2 rounded hover:bg-slate-700 transition-colors">
                   <button
-                    key={disk}
-                    onClick={() => handleDiskSelect(disk)}
-                    className="w-full flex items-center px-3 py-2 text-left hover:bg-slate-800 transition-colors border-b last:border-b-0"
-                    style={{ 
-                      color: colors.text,
-                      borderColor: colors.border 
-                    }}
-                    title={`Naviguer vers ${disk}`}
+                    onClick={() => handleDiskSelect(path.path)}
+                    className={`flex items-center flex-1 text-left ${
+                      currentDisk === path.path ? 'text-blue-500' : ''
+                    }`}
+                    style={{ color: currentDisk === path.path ? colors.primary : colors.text }}
                   >
-                    <FolderIcon className="h-4 w-4 mr-2 flex-shrink-0" style={{ color: colors.primary }} />
-                    <div className="flex-1">
-                      <div className="text-xs font-medium flex items-center">
-                        {disk}
-                        {diskStatus[disk] && (
-                          <div 
-                            className={`ml-2 w-2 h-2 rounded-full ${
-                              diskStatus[disk].status === 'online' ? 'bg-green-500' :
-                              diskStatus[disk].status === 'error' ? 'bg-red-500' : 'bg-yellow-500'
-                            }`}
-                            title={`Statut: ${diskStatus[disk].status}`}
-                          />
-                        )}
-                      </div>
-                      <div className="text-xs" style={{ color: colors.textSecondary }}>
-                        {diskStatus[disk]?.status === 'online' ? 'Disque accessible' :
-                         diskStatus[disk]?.status === 'error' ? 'Erreur d\'accès' : 'Vérification...'}
-                      </div>
+                    {getPathIcon(path.type)}
+                    <div className="ml-2">
+                      <div className="text-xs font-medium">{path.name}</div>
+                      <div className="text-xs opacity-70">{path.path}</div>
                     </div>
-                    {currentDisk === disk && (
-                      <div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colors.primary }} />
-                    )}
                   </button>
-                ))}
-              </div>
+                  <button
+                    onClick={() => handleRemoveCustomPath(path.id)}
+                    className="p-1 rounded hover:bg-red-500/20 transition-colors ml-2"
+                    title="Supprimer ce chemin"
+                  >
+                    <svg className="w-3 h-3" style={{ color: colors.error }} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Séparateur */}
+          <div className="border-t mx-2" style={{ borderColor: colors.border }} />
+
+          {/* Ajouter un chemin personnalisé */}
+          <div className="p-2">
+            {!showAddPath ? (
+              <button
+                onClick={() => setShowAddPath(true)}
+                className="w-full flex items-center justify-center p-2 rounded hover:bg-slate-700 transition-colors"
+                style={{ color: colors.textSecondary }}
+              >
+                <PlusIcon className="w-4 h-4 mr-2" />
+                <span className="text-xs">Ajouter un chemin</span>
+              </button>
             ) : (
-              <div className="p-3 text-center">
-                <div className="text-lg mb-2">💾</div>
-                <div className="text-xs" style={{ color: colors.textSecondary }}>
-                  Aucun lecteur détecté
+              <div className="space-y-2">
+                <div className="text-xs font-medium" style={{ color: colors.textSecondary }}>
+                  Nouveau chemin
+                </div>
+                
+                {/* Type de chemin */}
+                <select
+                  value={newPathType}
+                  onChange={(e) => setNewPathType(e.target.value as any)}
+                  className="w-full p-1.5 rounded text-xs border"
+                  style={{
+                    backgroundColor: colors.background,
+                    borderColor: colors.border,
+                    color: colors.text
+                  }}
+                >
+                  <option value="local">Local</option>
+                  <option value="network">Réseau</option>
+                  <option value="server">Serveur</option>
+                  <option value="cloud">Cloud</option>
+                </select>
+
+                {/* Nom du chemin */}
+                <input
+                  type="text"
+                  placeholder="Nom du chemin (ex: Serveur Documents)"
+                  value={newPathName}
+                  onChange={(e) => setNewPathName(e.target.value)}
+                  className="w-full p-1.5 rounded text-xs border"
+                  style={{
+                    backgroundColor: colors.background,
+                    borderColor: colors.border,
+                    color: colors.text
+                  }}
+                />
+
+                {/* Chemin */}
+                <input
+                  type="text"
+                  placeholder="Chemin (ex: \\\\serveur\\partage ou /mnt/share)"
+                  value={newPath}
+                  onChange={(e) => setNewPath(e.target.value)}
+                  className="w-full p-1.5 rounded text-xs border"
+                  style={{
+                    backgroundColor: colors.background,
+                    borderColor: colors.border,
+                    color: colors.text
+                  }}
+                />
+
+                {/* Boutons */}
+                <div className="flex space-x-2">
+                  <button
+                    onClick={handleAddCustomPath}
+                    className="flex-1 p-1.5 rounded text-xs font-medium"
+                    style={{
+                      backgroundColor: colors.primary,
+                      color: colors.background
+                    }}
+                  >
+                    Ajouter
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowAddPath(false);
+                      setNewPath('');
+                      setNewPathName('');
+                      setNewPathType('local');
+                    }}
+                    className="flex-1 p-1.5 rounded text-xs border"
+                    style={{
+                      borderColor: colors.border,
+                      color: colors.text
+                    }}
+                  >
+                    Annuler
+                  </button>
                 </div>
               </div>
             )}

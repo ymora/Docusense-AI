@@ -39,7 +39,10 @@ setup_logging()
 logger = logging.getLogger(__name__)
 
 # NOUVEAU: Charger les clés API depuis la base de données au démarrage
-load_api_keys_from_database()
+try:
+    load_api_keys_from_database()
+except Exception as e:
+    logger.warning(f"Could not load API keys from database: {e}")
 
 
 @asynccontextmanager

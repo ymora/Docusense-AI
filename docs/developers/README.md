@@ -15,6 +15,7 @@ Ce répertoire contient la documentation technique destinée aux développeurs d
 ### 🚀 **Déploiement et Tests**
 - **[DEPLOIEMENT.md](DEPLOIEMENT.md)** - Installation et configuration
 - **[TESTS.md](TESTS.md)** - Tests et qualité du code
+- **[SCRIPTS_CONSOLIDATION.md](SCRIPTS_CONSOLIDATION.md)** - 🆕 Consolidation des scripts v2.0
 
 ## 🎯 Objectif
 

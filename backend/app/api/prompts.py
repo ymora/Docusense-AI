@@ -46,13 +46,30 @@ async def get_prompts_summary() -> Dict[str, Any]:
 @APIUtils.handle_errors
 async def get_universal_prompts() -> Dict[str, Any]:
     """
-    Get all universal prompts
+    Get all universal prompts (NOUVEAU SYSTÈME)
     """
     prompt_service = PromptService()
     universal_prompts = prompt_service.get_all_universal_prompts()
     return ResponseFormatter.success_response(
         data=universal_prompts,
-        message="Prompts universels récupérés"
+        message="Prompts universels récupérés (nouveau système)"
+    )
+
+@router.get("/recommendations")
+@APIUtils.handle_errors
+async def get_prompt_recommendations(
+    file_type: str = None,
+    context: str = None
+) -> Dict[str, Any]:
+    """
+    Get intelligent prompt recommendations based on file type and context
+    """
+    prompt_service = PromptService()
+    recommendations = prompt_service.get_prompt_recommendations(file_type, context)
+    
+    return ResponseFormatter.success_response(
+        data=recommendations,
+        message=f"Recommandations de prompts pour {file_type} + {context or 'aucun contexte'}"
     )
 
 

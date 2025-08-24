@@ -50,7 +50,7 @@ class AuthService(BaseService):
             if not user:
                 return None
             
-            if not self.verify_password(password, user.hashed_password):
+            if not self.verify_password(password, user.password_hash):
                 return None
             
             if not user.is_active:
@@ -75,6 +75,21 @@ class AuthService(BaseService):
         except Exception as e:
             self.logger.error(f"Erreur lors de la création du token: {e}")
             raise HTTPException(status_code=500, detail="Erreur lors de la création du token")
+
+    @log_service_operation("create_refresh_token")
+    def create_refresh_token(self, data: Dict[str, Any]) -> str:
+        """Créer un token de rafraîchissement JWT"""
+        try:
+            to_encode = data.copy()
+            # Token de rafraîchissement valide plus longtemps (7 jours)
+            expire = datetime.utcnow() + timedelta(days=7)
+            to_encode.update({"exp": expire, "type": "refresh"})
+            
+            encoded_jwt = jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
+            return encoded_jwt
+        except Exception as e:
+            self.logger.error(f"Erreur lors de la création du token de rafraîchissement: {e}")
+            raise HTTPException(status_code=500, detail="Erreur lors de la création du token de rafraîchissement")
 
     @log_service_operation("verify_token")
     def verify_token(self, token: str) -> Optional[Dict[str, Any]]:
@@ -164,7 +179,7 @@ class AuthService(BaseService):
             user = User(
                 username=username,
                 email=email,
-                hashed_password=hashed_password,
+                password_hash=hashed_password,
                 role=role,
                 is_active=True
             )
@@ -197,7 +212,7 @@ class AuthService(BaseService):
             
             # Mettre à jour le mot de passe si fourni
             if "password" in updates:
-                user.hashed_password = self.get_password_hash(updates["password"])
+                user.password_hash = self.get_password_hash(updates["password"])
             
             self.db.commit()
             self.db.refresh(user)
@@ -247,6 +262,15 @@ class AuthService(BaseService):
             self.logger.error(f"Erreur lors de la récupération de l'utilisateur: {e}")
             return None
 
+    @log_service_operation("get_user_by_email")
+    def get_user_by_email(self, email: str) -> Optional[User]:
+        """Récupérer un utilisateur par email"""
+        try:
+            return self.db.query(User).filter(User.email == email).first()
+        except Exception as e:
+            self.logger.error(f"Erreur lors de la récupération de l'utilisateur par email: {e}")
+            return None
+
     @log_service_operation("list_users")
     def list_users(self, skip: int = 0, limit: int = 100) -> list[User]:
         """Lister les utilisateurs avec pagination"""
@@ -264,10 +288,10 @@ class AuthService(BaseService):
             if not user:
                 raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
             
-            if not self.verify_password(old_password, user.hashed_password):
+            if not self.verify_password(old_password, user.password_hash):
                 raise HTTPException(status_code=400, detail="Ancien mot de passe incorrect")
             
-            user.hashed_password = self.get_password_hash(new_password)
+            user.password_hash = self.get_password_hash(new_password)
             self.db.commit()
             
             self.logger.info(f"Mot de passe changé pour l'utilisateur: {user.username}")

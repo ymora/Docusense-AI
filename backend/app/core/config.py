@@ -34,8 +34,14 @@ class Settings(BaseSettings):
         default="docusense-secret-key-2024-change-in-production",
         env="SECRET_KEY"
     )
+    SECRET_KEY: str = Field(
+        default="docusense-secret-key-2024-change-in-production",
+        env="SECRET_KEY"
+    )
     algorithm: str = "HS256"
+    ALGORITHM: str = "HS256"
     access_token_expire_minutes: int = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES: int = 30
 
     # CORS - OPTIMISATION: Configuration plus restrictive
     cors_origins: List[str] = Field(

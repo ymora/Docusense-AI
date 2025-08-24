@@ -7,6 +7,7 @@ Ce répertoire contient la documentation des composants d'interface utilisateur 
 ### 🔘 **Composants de Base**
 - **[README_Button.md](README_Button.md)** - Documentation des composants boutons
 - **[README_UnifiedTable.md](README_UnifiedTable.md)** - Documentation des tableaux unifiés
+- **[README_CustomPaths.md](README_CustomPaths.md)** - Documentation des chemins personnalisés
 
 ## 🎯 Objectif
 

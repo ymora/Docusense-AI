@@ -27,6 +27,12 @@ assets/
 - **Rapports** : Export et partage
 - **Collaboration** : Interface d'équipe
 
+### Instructions d'Utilisation
+1. **Résolution** : 1920x1080 minimum
+2. **Format** : PNG ou JPG haute qualité
+3. **Nommage** : `screenshot_[fonctionnalité]_[vue].png`
+4. **Optimisation** : Compresser pour le web
+
 ## 🎨 Mockups
 
 ### Concepts Visuels
@@ -40,6 +46,12 @@ assets/
 - **Transitions** : Passages entre sections
 - **Animations** : Effets visuels prévus
 
+### Instructions d'Utilisation
+1. **Style** : Cohérent avec l'identité visuelle
+2. **Format** : PSD, Figma, ou PNG haute résolution
+3. **Nommage** : `mockup_[concept]_[version].png`
+4. **Versions** : Créer plusieurs variantes si nécessaire
+
 ## 🔧 Icônes
 
 ### Style
@@ -49,27 +61,75 @@ assets/
 - **Taille** : 24px x 24px (standard)
 
 ### Icônes Requises
-- **Upload** : Téléchargement de documents
-- **Analyse** : Processus IA
-- **Sécurité** : Cadenas, bouclier
-- **Performance** : Graphiques, métriques
-- **Collaboration** : Équipe, partage
 
-## 📝 Instructions d'Utilisation
+#### 1. Logo Principal
+- **Fichier** : `icon_logo_docusense.svg`
+- **Description** : Logo officiel DocuSense AI
+- **Format** : SVG vectoriel
+- **Tailles** : 24px, 48px, 96px, 192px
 
-### Pour les Screenshots
-1. **Résolution** : 1920x1080 minimum
-2. **Format** : PNG ou JPG haute qualité
-3. **Nommage** : `screenshot_[fonctionnalité]_[vue].png`
-4. **Optimisation** : Compresser pour le web
+#### 2. Fonctionnalités Principales
+- **Upload** : `icon_upload_documents.svg`
+- **Analyse** : `icon_analyse_ia.svg`
+- **Sécurité** : `icon_securite_cadenas.svg`
+- **Performance** : `icon_performance_graphique.svg`
+- **Collaboration** : `icon_collaboration_equipe.svg`
 
-### Pour les Mockups
-1. **Style** : Cohérent avec l'identité visuelle
-2. **Format** : PSD, Figma, ou PNG haute résolution
-3. **Nommage** : `mockup_[concept]_[version].png`
-4. **Versions** : Créer plusieurs variantes si nécessaire
+#### 3. Éléments d'Interface
+- **Dashboard** : `icon_dashboard_metriques.svg`
+- **Documents** : `icon_documents_pdf.svg`
+- **Rapports** : `icon_rapports_export.svg`
+- **Paramètres** : `icon_parametres_config.svg`
+- **Aide** : `icon_aide_support.svg`
 
-### Pour les Icônes
+#### 4. Indicateurs de Statut
+- **Succès** : `icon_succes_validation.svg`
+- **Erreur** : `icon_erreur_alerte.svg`
+- **En cours** : `icon_encours_chargement.svg`
+- **Terminé** : `icon_termine_complete.svg`
+
+### Palette de Couleurs
+- **Primaire** : #1E40AF (Bleu DocuSense)
+- **Secondaire** : #6B7280 (Gris neutre)
+- **Succès** : #10B981 (Vert)
+- **Erreur** : #EF4444 (Rouge)
+- **Avertissement** : #F59E0B (Orange)
+- **Info** : #3B82F6 (Bleu clair)
+
+### Formats Supportés
+- **SVG** : Préféré (vectoriel, scalable)
+- **PNG** : Haute résolution (24px, 48px, 96px)
+- **ICO** : Pour favicon (16px, 32px)
+
+### Organisation des Icônes
+```
+icons/
+├── logo/
+│   ├── icon_logo_docusense.svg
+│   ├── icon_logo_docusense_24px.png
+│   ├── icon_logo_docusense_48px.png
+│   ├── icon_logo_docusense_96px.png
+│   └── icon_logo_docusense_192px.png
+├── fonctionnalites/
+│   ├── icon_upload_documents.svg
+│   ├── icon_analyse_ia.svg
+│   ├── icon_securite_cadenas.svg
+│   ├── icon_performance_graphique.svg
+│   └── icon_collaboration_equipe.svg
+├── interface/
+│   ├── icon_dashboard_metriques.svg
+│   ├── icon_documents_pdf.svg
+│   ├── icon_rapports_export.svg
+│   ├── icon_parametres_config.svg
+│   └── icon_aide_support.svg
+└── statuts/
+    ├── icon_succes_validation.svg
+    ├── icon_erreur_alerte.svg
+    ├── icon_encours_chargement.svg
+    └── icon_termine_complete.svg
+```
+
+### Instructions d'Utilisation
 1. **Cohérence** : Style uniforme dans tout le kit
 2. **Format** : SVG préféré pour la scalabilité
 3. **Nommage** : `icon_[fonction]_[style].svg`
@@ -86,6 +146,30 @@ assets/
 - **Entrée** : Fade in ou slide depuis la gauche
 - **Sortie** : Fade out ou slide vers la droite
 - **Transitions** : Effets de morphing entre éléments
+
+### Utilisation des Icônes
+- **Transitions** : 1-2 secondes par icône
+- **Animations** : Rotation, scale, fade
+- **Placement** : Coin supérieur droit ou centre
+
+### Animations Suggérées pour Icônes
+- **Entrée** : Scale from 0 to 1 avec bounce
+- **Hover** : Légère rotation ou changement de couleur
+- **Sortie** : Fade out avec scale down
+
+## 🔧 Création d'Assets
+
+### Outils Recommandés
+- **Figma** : Design collaboratif
+- **Adobe Illustrator** : Création d'icônes vectorielles
+- **Photoshop** : Retouche d'images et mockups
+- **Sketch** : Design d'interface (Mac)
+
+### Standards de Qualité
+- **Résolution** : Minimum 300 DPI pour l'impression
+- **Compression** : Optimisée pour le web
+- **Cohérence** : Style uniforme dans tout le kit
+- **Accessibilité** : Contraste suffisant
 
 ## 🔗 Liens Utiles
 

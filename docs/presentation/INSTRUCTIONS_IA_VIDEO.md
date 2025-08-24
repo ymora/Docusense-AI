@@ -159,3 +159,4 @@ Produire une vidéo qui :
 
 **Objectif :** Vidéo de démonstration DocuSense AI de 2-3 minutes, style professionnel, message clair et impactant.
 
+

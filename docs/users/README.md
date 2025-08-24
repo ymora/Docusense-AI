@@ -8,6 +8,7 @@ Ce répertoire contient la documentation destinée aux utilisateurs finaux de Do
 - **[GUIDE_UTILISATEUR.md](GUIDE_UTILISATEUR.md)** - Guide complet d'utilisation de l'application
 - **[DEMARRAGE_RAPIDE.md](DEMARRAGE_RAPIDE.md)** - Installation et premiers pas
 - **[DEPANNAGE.md](DEPANNAGE.md)** - Problèmes courants et solutions
+- **[GUIDE_CHEMINS_PERSONNALISES.md](GUIDE_CHEMINS_PERSONNALISES.md)** - Guide d'utilisation des chemins personnalisés
 
 ## 🎯 Objectif
 

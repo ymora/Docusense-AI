@@ -572,13 +572,19 @@ async def analyze_file(
         # logger.info(f"Using specified provider: {provider}/{model}")
         pass
     
-    # Get the prompt text
+    # Get the prompt text (NOUVEAU SYSTÈME - Prompts universels)
     from ...services.prompt_service import PromptService
     prompt_service = PromptService()
-    prompt_data = prompt_service.get_prompt(prompt_id)
+    
+    # Essayer d'abord les prompts universels
+    prompt_data = prompt_service.get_universal_prompt(prompt_id)
     
     if not prompt_data:
-        # Fallback to default prompt
+        # Fallback vers l'ancienne API pour compatibilité
+        prompt_data = prompt_service.get_prompt(prompt_id)
+    
+    if not prompt_data:
+        # Fallback vers prompt par défaut
         custom_prompt = f"Analyse générale du document avec le prompt: {prompt_id}"
     else:
         custom_prompt = prompt_data.get("prompt", f"Analyse avec le prompt: {prompt_id}")

@@ -71,12 +71,24 @@ export const useFileService = () => {
         if (isOnline) {
           const encodedDisk = encodeURIComponent(disk);
           const response = await unifiedApiService.get(`/api/files/check-access/${encodedDisk}`);
-          return response.data?.success ? 'online' : 'error';
+          return {
+            success: response.data?.success || false,
+            status: response.data?.status || 'error',
+            error: response.data?.error || null
+          };
         } else {
-          return 'offline';
+          return {
+            success: false,
+            status: 'offline',
+            error: 'Pas de connexion au serveur'
+          };
         }
       } catch (error) {
-        return 'error';
+        return {
+          success: false,
+          status: 'error',
+          error: error.message || 'Erreur inconnue'
+        };
       }
     },
 

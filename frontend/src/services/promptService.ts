@@ -21,143 +21,151 @@ export interface PromptRecommendation {
   relevance_score: number;
 }
 
-export interface PromptSummary {
-  domain: string;
-  name: string;
-  description: string;
-  prompts: {
-    id: string;
-    name: string;
-    description: string;
-    type: string;
-    use_cases: string[];
-  }[];
-}
-
-// Interface de compatibilité pour l'ancienne API
 export interface Prompt {
   id: string;
   name: string;
   description: string;
   domain: string;
   type: string;
-  content?: string;
-  prompt?: string;
+  prompt: string;
+  output_format?: string;
 }
 
 export const promptService = {
-  // Récupérer tous les prompts universels
+  // Récupérer tous les prompts universels (NOUVEAU SYSTÈME)
   async getAllUniversalPrompts(): Promise<Record<string, UniversalPrompt>> {
     try {
       const response = await unifiedApiService.get('/api/prompts/universal');
       return response.data || {};
     } catch (error) {
-      throw new Error(`Erreur lors de la récupération des prompts universels: ${handleApiError(error)}`);
+      console.warn('Erreur API prompts universels, utilisation des données par défaut:', error);
+      return this.getDefaultUniversalPrompts();
     }
   },
 
-  // Récupérer le résumé des prompts universels
-  async getPromptsSummary(): Promise<Record<string, PromptSummary>> {
-    try {
-      const response = await unifiedApiService.get('/api/prompts/summary');
-      return response.data || {};
-    } catch (error) {
-      throw new Error(`Erreur lors de la récupération du résumé: ${handleApiError(error)}`);
-    }
-  },
-
-  // Récupérer un prompt universel spécifique
-  async getUniversalPrompt(promptId: string): Promise<UniversalPrompt> {
-    try {
-      const response = await unifiedApiService.get(`/api/prompts/universal/${promptId}`);
-      return response.data;
-    } catch (error) {
-      throw new Error(`Erreur lors de la récupération du prompt universel: ${handleApiError(error)}`);
-    }
-  },
-
-  // Récupérer les recommandations de prompts basées sur le type de fichier et le contexte
-  async getPromptRecommendations(fileType?: string, context?: string): Promise<PromptRecommendation[]> {
+  // Récupérer les recommandations de prompts (NOUVEAU SYSTÈME)
+  async getPromptRecommendations(
+    fileType?: string, 
+    context?: string
+  ): Promise<PromptRecommendation[]> {
     try {
       const params = new URLSearchParams();
       if (fileType) params.append('file_type', fileType);
       if (context) params.append('context', context);
       
-      const response = await unifiedApiService.get(`/api/prompts/recommendations?${params.toString()}`);
-      return response.data?.recommendations || [];
+      const response = await unifiedApiService.get(`/api/prompts/recommendations?${params}`);
+      return response.data || [];
     } catch (error) {
-      throw new Error(`Erreur lors de la récupération des recommandations: ${handleApiError(error)}`);
+      console.warn('Erreur API recommandations, utilisation des recommandations par défaut:', error);
+      return this.getDefaultRecommendations(fileType, context);
     }
   },
 
-  // Récupérer les prompts par cas d'usage
-  async getPromptsByUseCase(useCase: string): Promise<UniversalPrompt[]> {
-    try {
-      const response = await unifiedApiService.get(`/api/prompts/use-case/${useCase}`);
-      return response.data?.prompts || [];
-    } catch (error) {
-      throw new Error(`Erreur lors de la récupération des prompts par cas d'usage: ${handleApiError(error)}`);
-    }
-  },
-
-  // Formater un prompt avec du texte
-  async formatPrompt(promptId: string, text: string): Promise<string> {
-    try {
-      const params = new URLSearchParams({ text });
-      const response = await unifiedApiService.get(`/api/prompts/format/${promptId}?${params.toString()}`);
-      return response.data?.formatted_prompt || '';
-    } catch (error) {
-      throw new Error(`Erreur lors du formatage du prompt: ${handleApiError(error)}`);
-    }
-  },
-
-  // Recharger les prompts
-  async reloadPrompts(): Promise<boolean> {
-    try {
-      const response = await unifiedApiService.post('/api/prompts/reload');
-      return response.data?.reloaded || false;
-    } catch (error) {
-      throw new Error(`Erreur lors du rechargement des prompts: ${handleApiError(error)}`);
-    }
-  },
-
-  // Méthodes de compatibilité pour l'ancienne API
-  async getAllPrompts(): Promise<{ default_prompts: Record<string, string>; specialized_prompts: Record<string, Prompt> }> {
-    try {
-      const response = await unifiedApiService.get('/api/prompts');
-      return response.data || { default_prompts: {}, specialized_prompts: {} };
-    } catch (error) {
-      throw new Error(`Erreur lors de la récupération des prompts: ${handleApiError(error)}`);
-    }
-  },
-
-  async getDefaultPrompts(): Promise<Record<string, string>> {
-    try {
-      const response = await unifiedApiService.get('/api/prompts/default');
-      return response.data || {};
-    } catch (error) {
-      throw new Error(`Erreur lors de la récupération des prompts par défaut: ${handleApiError(error)}`);
-    }
-  },
-
-  async getDefaultPrompt(analysisType: string): Promise<{ analysis_type: string; prompt: string }> {
-    try {
-      const response = await unifiedApiService.get(`/api/prompts/default/${analysisType}`);
-      return response.data || { analysis_type: analysisType, prompt: '' };
-    } catch (error) {
-      throw new Error(`Erreur lors de la récupération du prompt par défaut: ${handleApiError(error)}`);
-    }
-  },
-
-  async getDefaultPromptsOnly(): Promise<Record<string, string>> {
-    // Données par défaut sans requête API pour les prompts universels
-    const defaultPrompts: Record<string, string> = {
-      'GENERAL': 'Analysez le contenu de ce document de manière générale.',
-      'TECHNICAL': 'Vérifiez la conformité technique de ce document.',
-      'ADMINISTRATIVE': 'Préparez un dossier administratif basé sur ce document.',
-      'JURIDICAL': 'Analysez les aspects juridiques de ce document.',
-      'COMPARISON': 'Comparez ce document avec d\'autres documents similaires.'
+  // Prompts universels par défaut (fallback)
+  getDefaultUniversalPrompts(): Record<string, UniversalPrompt> {
+    return {
+      'problem_analysis': {
+        id: 'problem_analysis',
+        name: '🔍 Analyse de Problème',
+        description: 'Détecte et analyse les problèmes dans vos documents pour vous aider à agir',
+        domain: 'universal',
+        type: 'analysis',
+        prompt: 'Tu es un expert en analyse de problèmes documentaires. Analyse le document suivant pour identifier et analyser tous les problèmes potentiels...',
+        output_format: 'structured',
+        use_cases: ['construction_litigation', 'contract_disputes', 'quality_issues', 'compliance_problems', 'communication_conflicts']
+      },
+      'contract_comparison': {
+        id: 'contract_comparison',
+        name: '⚖️ Comparaison de Contrats',
+        description: 'Compare plusieurs documents pour identifier les différences et opportunités',
+        domain: 'universal',
+        type: 'comparison',
+        prompt: 'Tu es un expert en analyse comparative de documents. Compare les documents suivants pour identifier les différences, incohérences et opportunités...',
+        output_format: 'structured',
+        use_cases: ['insurance_comparison', 'contract_negotiation', 'supplier_selection', 'service_comparison', 'proposal_evaluation']
+      },
+      'dossier_preparation': {
+        id: 'dossier_preparation',
+        name: '📋 Préparation de Dossier',
+        description: 'Prépare un dossier complet pour procédure, action ou décision',
+        domain: 'universal',
+        type: 'preparation',
+        prompt: 'Tu es un expert en préparation de dossiers. Prépare un dossier complet et structuré basé sur le document suivant...',
+        output_format: 'structured',
+        use_cases: ['litigation_preparation', 'expert_report', 'insurance_claim', 'administrative_appeal', 'contract_termination']
+      },
+      'compliance_verification': {
+        id: 'compliance_verification',
+        name: '🛡️ Vérification de Conformité',
+        description: 'Vérifie la conformité aux normes, règles et obligations',
+        domain: 'universal',
+        type: 'verification',
+        prompt: 'Tu es un expert en vérification de conformité. Vérifie la conformité du document suivant aux normes, règles et obligations applicables...',
+        output_format: 'structured',
+        use_cases: ['technical_compliance', 'legal_compliance', 'contract_compliance', 'regulatory_audit', 'quality_control']
+      },
+      'communication_analysis': {
+        id: 'communication_analysis',
+        name: '💬 Analyse de Communication',
+        description: 'Analyse les communications et correspondances pour extraire les informations clés',
+        domain: 'universal',
+        type: 'communication',
+        prompt: 'Tu es un expert en analyse de communication. Analyse la communication suivante pour extraire les informations clés, le ton et les implications...',
+        output_format: 'structured',
+        use_cases: ['email_analysis', 'correspondence_tracking', 'response_monitoring', 'communication_strategy', 'evidence_collection']
+      }
     };
+  },
+
+  // Recommandations par défaut (fallback)
+  getDefaultRecommendations(fileType?: string, context?: string): PromptRecommendation[] {
+    const allPrompts = this.getDefaultUniversalPrompts();
+    
+    // Logique simple de recommandation basée sur le type de fichier
+    const recommendations: PromptRecommendation[] = [];
+    
+    if (fileType === 'pdf' || fileType === 'docx') {
+      recommendations.push({
+        id: 'problem_analysis',
+        name: allPrompts['problem_analysis'].name,
+        description: allPrompts['problem_analysis'].description,
+        type: 'analysis',
+        relevance_score: 0.9
+      });
+      
+      if (context === 'construction' || context === 'contract') {
+        recommendations.push({
+          id: 'contract_comparison',
+          name: allPrompts['contract_comparison'].name,
+          description: allPrompts['contract_comparison'].description,
+          type: 'comparison',
+          relevance_score: 0.8
+        });
+      }
+    }
+    
+    // Toujours inclure au moins le prompt principal
+    if (recommendations.length === 0) {
+      recommendations.push({
+        id: 'problem_analysis',
+        name: allPrompts['problem_analysis'].name,
+        description: allPrompts['problem_analysis'].description,
+        type: 'analysis',
+        relevance_score: 0.7
+      });
+    }
+    
+    return recommendations.sort((a, b) => b.relevance_score - a.relevance_score);
+  },
+
+  // Méthodes de compatibilité avec l'ancienne API
+  async getDefaultPromptsOnly(): Promise<Record<string, string>> {
+    const universalPrompts = this.getDefaultUniversalPrompts();
+    const defaultPrompts: Record<string, string> = {};
+    
+    for (const [id, prompt] of Object.entries(universalPrompts)) {
+      defaultPrompts[id] = prompt.prompt;
+    }
     
     return defaultPrompts;
   },
@@ -168,50 +176,7 @@ export const promptService = {
       return response.data || {};
     } catch (error) {
       // Données par défaut en cas d'erreur API - prompts universels
-      const defaultPrompts: Record<string, Prompt> = {
-        'problem_analysis': {
-          id: 'problem_analysis',
-          name: '🔍 Analyse de Problème',
-          description: 'Détecte et analyse les problèmes dans vos documents pour vous aider à agir',
-          domain: 'universal',
-          type: 'analysis',
-          prompt: 'Tu es un expert en analyse de problèmes documentaires...'
-        },
-        'contract_comparison': {
-          id: 'contract_comparison',
-          name: '⚖️ Comparaison de Contrats',
-          description: 'Compare plusieurs documents pour identifier les différences et opportunités',
-          domain: 'universal',
-          type: 'comparison',
-          prompt: 'Tu es un expert en analyse comparative de documents...'
-        },
-        'dossier_preparation': {
-          id: 'dossier_preparation',
-          name: '📋 Préparation de Dossier',
-          description: 'Prépare un dossier complet pour procédure, action ou décision',
-          domain: 'universal',
-          type: 'preparation',
-          prompt: 'Tu es un expert en préparation de dossiers...'
-        },
-        'compliance_verification': {
-          id: 'compliance_verification',
-          name: '🛡️ Vérification de Conformité',
-          description: 'Vérifie la conformité aux normes, règles et obligations',
-          domain: 'universal',
-          type: 'verification',
-          prompt: 'Tu es un expert en vérification de conformité...'
-        },
-        'communication_analysis': {
-          id: 'communication_analysis',
-          name: '📧 Analyse de Communication',
-          description: 'Analyse les échanges et communications pour identifier les problèmes et opportunités',
-          domain: 'universal',
-          type: 'analysis',
-          prompt: 'Tu es un expert en analyse de communication...'
-        }
-      };
-      
-      return defaultPrompts;
+      return this.getDefaultUniversalPrompts();
     }
   },
 
