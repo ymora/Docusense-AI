@@ -126,7 +126,7 @@ const PerformanceMonitor: React.FC<PerformanceMonitorProps> = ({
 
       // Log des métriques si activé
       if (logToConsole) {
-        console.log('Performance Metrics:', {
+        logService.info('Métriques de performance', 'PerformanceMonitor', {
           memory: `${memory.used}MB / ${memory.limit}MB`,
           renderTime: `${renderTime().toFixed(2)}ms`,
           timestamp: new Date().toISOString()

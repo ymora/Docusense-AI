@@ -1,204 +1,289 @@
-from datetime import datetime, timedelta
+"""
+Service d'authentification centralisé pour DocuSense AI
+Consolide toute la logique d'authentification et d'autorisation
+"""
+
 from typing import Optional, Dict, Any
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import IntegrityError
+from datetime import datetime, timedelta
+from fastapi import HTTPException, Request
 import jwt
-import bcrypt
-import secrets
-import uuid
+from passlib.context import CryptContext
+from pydantic import ValidationError
 
-from ..models.user import User, UserRole
+from ..models.user import User
 from ..core.config import settings
-from ..core.logging import logger
-# TODO: Réintégrer les broadcasts SSE après résolution des imports circulaires
+from ..core.types import ServiceResponse
+from .base_service import BaseService, log_service_operation
 
-class AuthService:
+# Configuration du hachage des mots de passe
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+class AuthService(BaseService):
+    """Service centralisé d'authentification et d'autorisation"""
+
     def __init__(self, db: Session):
-        self.db = db
-        self.secret_key = settings.secret_key or "your-secret-key-change-in-production"
-        self.algorithm = "HS256"
-        self.access_token_expire_minutes = 30
-        self.refresh_token_expire_days = 7
-    
-    def create_access_token(self, data: Dict[str, Any], expires_delta: Optional[timedelta] = None) -> str:
-        """Créer un token JWT d'accès"""
-        to_encode = data.copy()
-        if expires_delta:
-            expire = datetime.utcnow() + expires_delta
-        else:
-            expire = datetime.utcnow() + timedelta(minutes=self.access_token_expire_minutes)
-        
-        to_encode.update({"exp": expire, "type": "access"})
-        encoded_jwt = jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
-        return encoded_jwt
-    
-    def create_refresh_token(self, data: Dict[str, Any]) -> str:
-        """Créer un token JWT de rafraîchissement"""
-        to_encode = data.copy()
-        expire = datetime.utcnow() + timedelta(days=self.refresh_token_expire_days)
-        to_encode.update({"exp": expire, "type": "refresh"})
-        encoded_jwt = jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
-        return encoded_jwt
-    
-    def verify_token(self, token: str) -> Optional[Dict[str, Any]]:
-        """Vérifier et décoder un token JWT"""
+        super().__init__(db)
+        self.secret_key = settings.SECRET_KEY
+        self.algorithm = settings.ALGORITHM
+        self.access_token_expire_minutes = settings.ACCESS_TOKEN_EXPIRE_MINUTES
+
+    @log_service_operation("verify_password")
+    def verify_password(self, plain_password: str, hashed_password: str) -> bool:
+        """Vérifier un mot de passe"""
         try:
-                    # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
-        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
+            return pwd_context.verify(plain_password, hashed_password)
+        except Exception as e:
+            self.logger.error(f"Erreur lors de la vérification du mot de passe: {e}")
+            return False
+
+    @log_service_operation("get_password_hash")
+    def get_password_hash(self, password: str) -> str:
+        """Hasher un mot de passe"""
+        return pwd_context.hash(password)
+
+    @log_service_operation("authenticate_user")
+    def authenticate_user(self, username: str, password: str) -> Optional[User]:
+        """Authentifier un utilisateur"""
+        try:
+            user = self.db.query(User).filter(User.username == username).first()
+            if not user:
+                return None
+            
+            if not self.verify_password(password, user.hashed_password):
+                return None
+            
+            if not user.is_active:
+                self.logger.warning(f"Tentative de connexion pour un utilisateur inactif: {username}")
+                return None
+            
+            return user
+        except Exception as e:
+            self.logger.error(f"Erreur lors de l'authentification: {e}")
+            return None
+
+    @log_service_operation("create_access_token")
+    def create_access_token(self, data: Dict[str, Any]) -> str:
+        """Créer un token JWT"""
+        try:
+            to_encode = data.copy()
+            expire = datetime.utcnow() + timedelta(minutes=self.access_token_expire_minutes)
+            to_encode.update({"exp": expire})
+            
+            encoded_jwt = jwt.encode(to_encode, self.secret_key, algorithm=self.algorithm)
+            return encoded_jwt
+        except Exception as e:
+            self.logger.error(f"Erreur lors de la création du token: {e}")
+            raise HTTPException(status_code=500, detail="Erreur lors de la création du token")
+
+    @log_service_operation("verify_token")
+    def verify_token(self, token: str) -> Optional[Dict[str, Any]]:
+        """Vérifier un token JWT"""
+        try:
             payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
-            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
             return payload
         except jwt.ExpiredSignatureError:
-            logger.error("❌ Token expiré")
+            self.logger.warning("Token expiré")
             return None
-        except jwt.InvalidTokenError as e:
-            logger.error(f"❌ Token invalide: {str(e)}")
+        except jwt.JWTError as e:
+            self.logger.error(f"Erreur JWT: {e}")
             return None
-        except Exception as e:
-            logger.error(f"❌ Erreur inattendue lors de la vérification du token: {str(e)}")
-            return None
-    
-    def create_guest_user(self) -> User:
-        """Créer un utilisateur invité temporaire"""
-        guest_username = f"guest_{uuid.uuid4().hex[:8]}"
-        
-        user = User(
-            username=guest_username,
-            role=UserRole.GUEST,
-            is_active=True
-        )
-        
-        self.db.add(user)
-        self.db.commit()
-        self.db.refresh(user)
-        
-        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
-        return user
-    
-    def create_user(self, username: str, email: str, password: str, role: UserRole = UserRole.USER) -> User:
-        """Créer un utilisateur avec mot de passe"""
-        # Hasher le mot de passe
-        salt = bcrypt.gensalt()
-        password_hash = bcrypt.hashpw(password.encode('utf-8'), salt)
-        
-        user = User(
-            username=username,
-            email=email,
-            password_hash=password_hash.decode('utf-8'),
-            role=role,
-            is_active=True
-        )
-        
+
+    @log_service_operation("get_current_user")
+    def get_current_user(self, request: Request) -> Optional[User]:
+        """Récupérer l'utilisateur actuel depuis la requête"""
         try:
+            # Extraire le token de l'en-tête Authorization
+            auth_header = request.headers.get("Authorization")
+            if not auth_header or not auth_header.startswith("Bearer "):
+                return None
+            
+            token = auth_header.split(" ")[1]
+            payload = self.verify_token(token)
+            
+            if not payload:
+                return None
+            
+            username = payload.get("sub")
+            if not username:
+                return None
+            
+            user = self.db.query(User).filter(User.username == username).first()
+            if not user or not user.is_active:
+                return None
+            
+            return user
+        except Exception as e:
+            self.logger.error(f"Erreur lors de la récupération de l'utilisateur: {e}")
+            return None
+
+    @log_service_operation("check_permissions")
+    def check_permissions(self, user: User, resource: str, action: str) -> bool:
+        """Vérifier les permissions d'un utilisateur"""
+        try:
+            # Logique de vérification des permissions basée sur le rôle
+            if user.role == "admin":
+                return True
+            
+            if user.role == "user":
+                # Permissions pour les utilisateurs normaux
+                user_permissions = {
+                    "files": ["read", "upload", "analyze"],
+                    "analysis": ["create", "read", "delete"],
+                    "config": ["read"],
+                }
+                return resource in user_permissions and action in user_permissions[resource]
+            
+            if user.role == "guest":
+                # Permissions limitées pour les invités
+                guest_permissions = {
+                    "files": ["read"],
+                    "analysis": ["create", "read"],
+                }
+                return resource in guest_permissions and action in guest_permissions[resource]
+            
+            return False
+        except Exception as e:
+            self.logger.error(f"Erreur lors de la vérification des permissions: {e}")
+            return False
+
+    @log_service_operation("create_user")
+    def create_user(self, username: str, email: str, password: str, role: str = "user") -> User:
+        """Créer un nouvel utilisateur"""
+        try:
+            # Vérifier si l'utilisateur existe déjà
+            existing_user = self.db.query(User).filter(
+                (User.username == username) | (User.email == email)
+            ).first()
+            
+            if existing_user:
+                raise HTTPException(status_code=400, detail="Utilisateur déjà existant")
+            
+            # Créer le nouvel utilisateur
+            hashed_password = self.get_password_hash(password)
+            user = User(
+                username=username,
+                email=email,
+                hashed_password=hashed_password,
+                role=role,
+                is_active=True
+            )
+            
             self.db.add(user)
             self.db.commit()
             self.db.refresh(user)
-            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
             
-            # TODO: Réintégrer les broadcasts SSE après résolution des imports circulaires
-            
+            self.logger.info(f"Nouvel utilisateur créé: {username}")
             return user
-        except IntegrityError:
-            self.db.rollback()
-            raise ValueError("Nom d'utilisateur ou email déjà utilisé")
-    
-    def check_username_exists(self, username: str) -> bool:
-        """Vérifier si un nom d'utilisateur existe déjà"""
-        user = self.db.query(User).filter(User.username == username).first()
-        return user is not None
-    
-    def authenticate_user(self, username: str, password: str) -> Optional[User]:
-        """Authentifier un utilisateur avec mot de passe"""
-        user = self.db.query(User).filter(User.username == username).first()
-        
-        if not user or not user.password_hash:
-            return None
-        
-        if not bcrypt.checkpw(password.encode('utf-8'), user.password_hash.encode('utf-8')):
-            return None
-        
-        # Mettre à jour la dernière connexion
-        user.last_login = datetime.utcnow()
-        self.db.commit()
-        
-        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
-        return user
-    
-    def get_user_by_id(self, user_id: int) -> Optional[User]:
-        """Récupérer un utilisateur par ID"""
-        return self.db.query(User).filter(User.id == user_id).first()
-    
-    def get_user_by_username(self, username: str) -> Optional[User]:
-        """Récupérer un utilisateur par nom d'utilisateur"""
-        return self.db.query(User).filter(User.username == username).first()
-    
-    def create_admin_user(self, username: str, email: str, password: str) -> User:
-        """Créer un utilisateur administrateur"""
-        return self.create_user(username, email, password, UserRole.ADMIN)
-    
-    def delete_guest_users(self, older_than_days: int = 7) -> int:
-        """Supprimer les utilisateurs invités anciens"""
-        cutoff_date = datetime.utcnow() - timedelta(days=older_than_days)
-        deleted_count = self.db.query(User).filter(
-            User.role == UserRole.GUEST,
-            User.created_at < cutoff_date
-        ).delete()
-        
-        self.db.commit()
-        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
-        return deleted_count
-    
-    def update_user(self, user_id: int, **kwargs) -> Optional[User]:
+        except HTTPException:
+            raise
+        except Exception as e:
+            self.logger.error(f"Erreur lors de la création de l'utilisateur: {e}")
+            raise HTTPException(status_code=500, detail="Erreur lors de la création de l'utilisateur")
+
+    @log_service_operation("update_user")
+    def update_user(self, user_id: int, updates: Dict[str, Any]) -> User:
         """Mettre à jour un utilisateur"""
-        user = self.get_user_by_id(user_id)
-        if not user:
-            return None
-        
-        # Mettre à jour les champs fournis
-        for key, value in kwargs.items():
-            if hasattr(user, key):
-                if key == 'password' and value:
-                    # Hasher le nouveau mot de passe
-                    salt = bcrypt.gensalt()
-                    password_hash = bcrypt.hashpw(value.encode('utf-8'), salt)
-                    user.password_hash = password_hash.decode('utf-8')
-                else:
-                    setattr(user, key, value)
-        
-        self.db.commit()
-        self.db.refresh(user)
-        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
-        
-        # TODO: Réintégrer les broadcasts SSE après résolution des imports circulaires
-        
-        return user
-    
+        try:
+            user = self.db.query(User).filter(User.id == user_id).first()
+            if not user:
+                raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+            
+            # Mettre à jour les champs autorisés
+            allowed_fields = ["email", "role", "is_active"]
+            for field, value in updates.items():
+                if field in allowed_fields:
+                    setattr(user, field, value)
+            
+            # Mettre à jour le mot de passe si fourni
+            if "password" in updates:
+                user.hashed_password = self.get_password_hash(updates["password"])
+            
+            self.db.commit()
+            self.db.refresh(user)
+            
+            self.logger.info(f"Utilisateur mis à jour: {user.username}")
+            return user
+        except HTTPException:
+            raise
+        except Exception as e:
+            self.logger.error(f"Erreur lors de la mise à jour de l'utilisateur: {e}")
+            raise HTTPException(status_code=500, detail="Erreur lors de la mise à jour de l'utilisateur")
+
+    @log_service_operation("delete_user")
     def delete_user(self, user_id: int) -> bool:
         """Supprimer un utilisateur"""
-        user = self.get_user_by_id(user_id)
-        if not user:
-            return False
-        
-        user_data = {
-            "id": user.id,
-            "username": user.username,
-            "email": user.email,
-            "role": user.role.value,
-            "is_active": user.is_active
-        }
-        
-        self.db.delete(user)
-        self.db.commit()
-        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
-        
-        # TODO: Réintégrer les broadcasts SSE après résolution des imports circulaires
-        
-        return True
-    
-    def get_all_users(self) -> list[User]:
-        """Récupérer tous les utilisateurs"""
-        return self.db.query(User).all()
-    
-    def get_active_users(self) -> list[User]:
-        """Récupérer les utilisateurs actifs"""
-        return self.db.query(User).filter(User.is_active == True).all()
+        try:
+            user = self.db.query(User).filter(User.id == user_id).first()
+            if not user:
+                raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+            
+            self.db.delete(user)
+            self.db.commit()
+            
+            self.logger.info(f"Utilisateur supprimé: {user.username}")
+            return True
+        except HTTPException:
+            raise
+        except Exception as e:
+            self.logger.error(f"Erreur lors de la suppression de l'utilisateur: {e}")
+            raise HTTPException(status_code=500, detail="Erreur lors de la suppression de l'utilisateur")
+
+    @log_service_operation("get_user_by_id")
+    def get_user_by_id(self, user_id: int) -> Optional[User]:
+        """Récupérer un utilisateur par ID"""
+        try:
+            return self.db.query(User).filter(User.id == user_id).first()
+        except Exception as e:
+            self.logger.error(f"Erreur lors de la récupération de l'utilisateur: {e}")
+            return None
+
+    @log_service_operation("get_user_by_username")
+    def get_user_by_username(self, username: str) -> Optional[User]:
+        """Récupérer un utilisateur par nom d'utilisateur"""
+        try:
+            return self.db.query(User).filter(User.username == username).first()
+        except Exception as e:
+            self.logger.error(f"Erreur lors de la récupération de l'utilisateur: {e}")
+            return None
+
+    @log_service_operation("list_users")
+    def list_users(self, skip: int = 0, limit: int = 100) -> list[User]:
+        """Lister les utilisateurs avec pagination"""
+        try:
+            return self.db.query(User).offset(skip).limit(limit).all()
+        except Exception as e:
+            self.logger.error(f"Erreur lors de la récupération des utilisateurs: {e}")
+            return []
+
+    @log_service_operation("change_password")
+    def change_password(self, user_id: int, old_password: str, new_password: str) -> bool:
+        """Changer le mot de passe d'un utilisateur"""
+        try:
+            user = self.get_user_by_id(user_id)
+            if not user:
+                raise HTTPException(status_code=404, detail="Utilisateur non trouvé")
+            
+            if not self.verify_password(old_password, user.hashed_password):
+                raise HTTPException(status_code=400, detail="Ancien mot de passe incorrect")
+            
+            user.hashed_password = self.get_password_hash(new_password)
+            self.db.commit()
+            
+            self.logger.info(f"Mot de passe changé pour l'utilisateur: {user.username}")
+            return True
+        except HTTPException:
+            raise
+        except Exception as e:
+            self.logger.error(f"Erreur lors du changement de mot de passe: {e}")
+            raise HTTPException(status_code=500, detail="Erreur lors du changement de mot de passe")
+
+# Instance singleton pour injection de dépendances
+_auth_service = None
+
+def get_auth_service(db: Session) -> AuthService:
+    """Obtenir l'instance du service d'authentification"""
+    global _auth_service
+    if _auth_service is None:
+        _auth_service = AuthService(db)
+    return _auth_service

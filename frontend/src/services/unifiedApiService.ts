@@ -1,225 +1,183 @@
 /**
- * Service API unifié pour DocuSense AI Frontend
- * Consolide les fonctions communes entre les différents services
+ * Service API unifié pour DocuSense AI
+ * Centralise toutes les requêtes API et élimine les doublons
  */
 
-import { apiRequest, handleApiError } from '../utils/apiUtils';
 import { logService } from './logService';
-import { useBackendConnection } from '../hooks/useBackendConnection';
 import { globalCache } from '../utils/cacheUtils';
 
-const DEFAULT_TIMEOUT = 30000; // 30 secondes
-
-// Types communs
 export interface ApiResponse<T = any> {
-  success: boolean;
-  data?: T;
-  error?: string;
+  data: T;
+  status: number;
   message?: string;
 }
 
-export interface PaginatedResponse<T> {
-  data: T[];
-  pagination: {
-    total: number;
-    limit: number;
-    offset: number;
-  };
-  sort_by?: string;
-  sort_order?: string;
+export interface ApiError {
+  error: string;
+  status: number;
+  details?: any;
 }
 
-// Service de base unifié
 class UnifiedApiService {
-  private baseUrl = '/api';
+  private baseUrl: string;
+  private defaultHeaders: Record<string, string>;
 
-  /**
-   * Requête GET générique avec cache
-   */
-  async get<T>(endpoint: string, useCache: boolean = false, cacheKey?: string): Promise<T> {
+  constructor() {
+    this.baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    this.defaultHeaders = {
+      'Content-Type': 'application/json',
+    };
+  }
+
+  private async request<T>(
+    endpoint: string,
+    options: RequestInit = {},
+    useCache: boolean = false,
+    cacheKey?: string
+  ): Promise<T> {
+    const url = `${this.baseUrl}${endpoint}`;
+    const headers = { ...this.defaultHeaders, ...options.headers };
+
+    // Ajouter le token d'authentification
+    const token = localStorage.getItem('token');
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     try {
-      // Vérifier le cache si activé
+      // Vérifier le cache si demandé
       if (useCache && cacheKey) {
         const cached = globalCache.get(cacheKey);
         if (cached) {
+          logService.info('Données récupérées depuis le cache', 'UnifiedApiService', { cacheKey });
           return cached;
         }
       }
 
-      const response = await apiRequest(`${this.baseUrl}${endpoint}`, {}, DEFAULT_TIMEOUT);
-      
-      // Sauvegarder en cache si activé
-      if (useCache && cacheKey) {
-        globalCache.set(cacheKey, response, 300000); // 5 minutes
-      }
+      const response = await fetch(url, {
+        ...options,
+        headers,
+      });
 
-      return response;
-    } catch (error) {
-      logService.error(`Erreur GET ${endpoint}`, 'UnifiedApiService', { error: handleApiError(error) });
-      throw error;
-    }
-  }
-
-  /**
-   * Requête POST générique
-   */
-  async post<T>(endpoint: string, data: any): Promise<T> {
-    try {
-      const response = await apiRequest(`${this.baseUrl}${endpoint}`, {
-        method: 'POST',
-        body: JSON.stringify(data),
-      }, DEFAULT_TIMEOUT);
-
-      return response;
-    } catch (error) {
-      logService.error(`Erreur POST ${endpoint}`, 'UnifiedApiService', { error: handleApiError(error) });
-      throw error;
-    }
-  }
-
-  /**
-   * Requête PUT générique
-   */
-  async put<T>(endpoint: string, data: any): Promise<T> {
-    try {
-      const response = await apiRequest(`${this.baseUrl}${endpoint}`, {
-        method: 'PUT',
-        body: JSON.stringify(data),
-      }, DEFAULT_TIMEOUT);
-
-      return response;
-    } catch (error) {
-      logService.error(`Erreur PUT ${endpoint}`, 'UnifiedApiService', { error: handleApiError(error) });
-      throw error;
-    }
-  }
-
-  /**
-   * Requête DELETE générique
-   */
-  async delete<T>(endpoint: string): Promise<T> {
-    try {
-      const response = await apiRequest(`${this.baseUrl}${endpoint}`, {
-        method: 'DELETE',
-      }, DEFAULT_TIMEOUT);
-
-      return response;
-    } catch (error) {
-      logService.error(`Erreur DELETE ${endpoint}`, 'UnifiedApiService', { error: handleApiError(error) });
-      throw error;
-    }
-  }
-
-  /**
-   * Téléchargement de fichier
-   */
-  async downloadFile(downloadUrl: string): Promise<Response | null> {
-    try {
-      const response = await fetch(downloadUrl);
       if (!response.ok) {
-        throw new Error(`Erreur HTTP: ${response.status}`);
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
       }
-      return response;
+
+      const data = await response.json();
+
+      // Mettre en cache si demandé
+      if (useCache && cacheKey) {
+        globalCache.set(cacheKey, data);
+      }
+
+      logService.info('Requête API réussie', 'UnifiedApiService', { endpoint, status: response.status });
+      return data;
     } catch (error) {
-      logService.error('Erreur lors du téléchargement', 'UnifiedApiService', { error: handleApiError(error) });
-      return null;
+      logService.error('Erreur API', 'UnifiedApiService', { endpoint, error: error.message });
+      throw error;
     }
   }
 
-  /**
-   * Stream de fichier
-   */
-  async streamFile(path: string): Promise<Response> {
-    const encodedPath = encodeURIComponent(path);
-    return await fetch(`${this.baseUrl}/files/stream-by-path/${encodedPath}`);
+  // === MÉTHODES FICHIERS ===
+  async getFiles(path: string): Promise<ApiResponse> {
+    return this.request(`/api/files/list/${encodeURIComponent(path)}`, {}, true, `files_${path}`);
   }
 
-  /**
-   * Nettoyer le cache
-   */
-  clearCache(pattern?: string): void {
+  async listDirectory(path: string): Promise<ApiResponse> {
+    return this.request(`/api/files/list/${encodeURIComponent(path)}`, {}, true, `directory_${path}`);
+  }
+
+  async downloadFile(id: string): Promise<Blob> {
+    const response = await fetch(`${this.baseUrl}/api/files/download/${id}`, {
+      headers: this.defaultHeaders,
+    });
+    return response.blob();
+  }
+
+  async uploadFile(file: File): Promise<ApiResponse> {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    return this.request('/api/files/upload', {
+      method: 'POST',
+      body: formData,
+      headers: {}, // Pas de Content-Type pour FormData
+    });
+  }
+
+  async getFileInfo(id: string): Promise<ApiResponse> {
+    return this.request(`/api/files/info/${id}`, {}, true, `file_info_${id}`);
+  }
+
+  // === MÉTHODES ANALYSES ===
+  async createAnalysis(request: any): Promise<ApiResponse> {
+    return this.request('/api/analysis/create', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  async getAnalysisStatus(id: string): Promise<ApiResponse> {
+    return this.request(`/api/analysis/status/${id}`, {}, true, `analysis_status_${id}`);
+  }
+
+  async deleteAnalysis(id: string): Promise<ApiResponse> {
+    return this.request(`/api/analysis/${id}`, {
+      method: 'DELETE',
+    });
+  }
+
+  async getAnalysisHistory(filters?: any): Promise<ApiResponse> {
+    const params = new URLSearchParams(filters).toString();
+    return this.request(`/api/analysis/list?${params}`, {}, true, `analysis_history_${params}`);
+  }
+
+  // === MÉTHODES EMAILS ===
+  async parseEmail(path: string): Promise<ApiResponse> {
+    return this.request(`/api/emails/parse/${encodeURIComponent(path)}`, {}, true, `email_${path}`);
+  }
+
+  async getAttachment(path: string, index: number): Promise<Blob> {
+    const response = await fetch(`${this.baseUrl}/api/emails/attachment/${encodeURIComponent(path)}/${index}`, {
+      headers: this.defaultHeaders,
+    });
+    return response.blob();
+  }
+
+  // === MÉTHODES CONFIGURATION ===
+  async testProvider(name: string, key?: string): Promise<ApiResponse> {
+    return this.request('/api/config/test', {
+      method: 'POST',
+      body: JSON.stringify({ provider: name, api_key: key }),
+    });
+  }
+
+  async saveProviderConfig(name: string, config: any): Promise<ApiResponse> {
+    return this.request('/api/config/save', {
+      method: 'POST',
+      body: JSON.stringify({ provider: name, config }),
+    });
+  }
+
+  async getProviderStatus(): Promise<ApiResponse> {
+    return this.request('/api/config/providers', {}, true, 'providers_status');
+  }
+
+  // === MÉTHODES UTILITAIRES ===
+  async streamFile(path: string): Promise<Response> {
+    return fetch(`${this.baseUrl}/api/files/stream/${encodeURIComponent(path)}`, {
+      headers: this.defaultHeaders,
+    });
+  }
+
+  async invalidateCache(pattern?: string): Promise<void> {
     if (pattern) {
-      globalCache.clear(pattern);
+      globalCache.clearPattern(pattern);
     } else {
       globalCache.clear();
     }
   }
-
-  /**
-   * Vérifier l'accessibilité d'un endpoint
-   */
-  async checkAccess(endpoint: string): Promise<boolean> {
-    try {
-      await this.get(endpoint);
-      return true;
-    } catch {
-      return false;
-    }
-  }
 }
 
-// Instance singleton
-const unifiedApiService = new UnifiedApiService();
-
-// Hook pour utiliser le service avec gestion de connexion
-export const useUnifiedApiService = () => {
-  const { isOnline, conditionalRequest } = useBackendConnection();
-
-  return {
-    // Méthodes avec gestion de connexion
-    get: <T>(endpoint: string, useCache: boolean = false, cacheKey?: string) =>
-      conditionalRequest(
-        () => unifiedApiService.get<T>(endpoint, useCache, cacheKey),
-        null
-      ),
-
-    post: <T>(endpoint: string, data: any) =>
-      conditionalRequest(
-        () => unifiedApiService.post<T>(endpoint, data),
-        null
-      ),
-
-    put: <T>(endpoint: string, data: any) =>
-      conditionalRequest(
-        () => unifiedApiService.put<T>(endpoint, data),
-        null
-      ),
-
-    delete: <T>(endpoint: string) =>
-      conditionalRequest(
-        () => unifiedApiService.delete<T>(endpoint),
-        null
-      ),
-
-    // Méthodes sans gestion de connexion (pour les opérations critiques)
-    downloadFile: (downloadUrl: string) => {
-      if (!isOnline) {
-        logService.warning('Téléchargement non disponible hors ligne', 'UnifiedApiService', { downloadUrl });
-        return null;
-      }
-      return unifiedApiService.downloadFile(downloadUrl);
-    },
-
-    streamFile: (path: string) => {
-      if (!isOnline) {
-        logService.warning('Stream non disponible hors ligne', 'UnifiedApiService', { path });
-        return null;
-      }
-      return unifiedApiService.streamFile(path);
-    },
-
-    // Utilitaires
-    clearCache: unifiedApiService.clearCache.bind(unifiedApiService),
-    checkAccess: (endpoint: string) => conditionalRequest(
-      () => unifiedApiService.checkAccess(endpoint),
-      false
-    ),
-
-    // État de connexion
-    isOnline
-  };
-};
-
-// Export du service de base pour compatibilité
-export { unifiedApiService };
-export default unifiedApiService;
+export default UnifiedApiService;

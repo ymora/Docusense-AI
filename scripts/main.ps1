@@ -79,7 +79,7 @@ function Show-StartupMenu {
         }
         "2" { 
             Write-Host "`n⚡ Lancement du démarrage simple..." -ForegroundColor Green
-            & ".\scripts\startup\start.ps1"
+            & ".\scripts\startup\docusense.ps1" "menu"
         }
         "3" { 
             Write-Host "`n🔧 Lancement du backend uniquement..." -ForegroundColor Green
