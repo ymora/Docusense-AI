@@ -1,6 +1,6 @@
 # 🚀 DocuSense AI
 
-Application d'analyse intelligente de documents avec IA pour le secteur de la construction.
+**Application d'analyse intelligente de documents avec IA pour le secteur de la construction**
 
 ## 📖 Documentation Complète
 
@@ -12,19 +12,10 @@ La documentation a été consolidée et organisée dans le répertoire `docs/` a
 
 ### Option 1 : Menu interactif (recommandé)
 ```powershell
-.\scripts\main.ps1
-```
-
-### Option 2 : Démarrage direct
-```powershell
-# Démarrage complet avec menu interactif
 .\scripts\startup\docusense.ps1
-
-# Démarrage simple
-.\scripts\startup\start.ps1
 ```
 
-### Option 3 : Commandes manuelles
+### Option 2 : Commandes manuelles
 ```powershell
 # Backend
 cd backend
@@ -39,7 +30,7 @@ npm run dev
 
 ```
 DocuSense AI/
-├── README.md                           # Ce fichier
+├── README.md                           # Ce fichier (vue d'ensemble)
 ├── docs/                               # 📚 Documentation consolidée
 │   ├── README.md                       # Documentation principale
 │   ├── users/                          # Guides utilisateurs
@@ -54,7 +45,6 @@ DocuSense AI/
 ├── tests/                              # Tests de l'application
 ├── backend/                            # Application backend Python
 ├── frontend/                           # Application frontend React
-├── reference_documents/                # Documents de référence
 └── logs/                               # Fichiers de logs
 ```
 
@@ -78,6 +68,13 @@ DocuSense AI/
 - **[🏗️ Architecture](docs/developers/ARCHITECTURE.md)**
 - **[🔌 API Reference](docs/developers/API_REFERENCE.md)**
 - **[✅ Checklist Production](docs/production/CHECKLIST.md)**
+
+## 📊 Statut du Projet
+
+**✅ Backend :** Fonctionnel (port 8000)  
+**❌ Frontend :** Nécessite Node.js  
+**✅ Base de données :** Connectée  
+**✅ API :** Opérationnelle  
 
 ---
 
