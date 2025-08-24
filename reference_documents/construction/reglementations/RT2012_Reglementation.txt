@@ -1,0 +1,42 @@
+# Réglementation Thermique RT2012
+
+Réglementation thermique pour les bâtiments neufs
+
+==================================================
+
+
+# Réglementation Thermique RT2012
+
+## Objectifs
+La RT2012 vise à :
+- Limiter la consommation d'énergie
+- Améliorer le confort d'été
+- Réduire les émissions de CO2
+
+## Indicateurs de performance
+
+### Bbio (Besoin bioclimatique)
+- Seuil maximal : 60
+- Mesure l'efficacité de la conception
+
+### Cep (Consommation d'énergie primaire)
+- Seuil maximal : 50 kWh/m²/an
+- Mesure la consommation énergétique
+
+### Tic (Température intérieure conventionnelle)
+- Seuil maximal : 26°C
+- Mesure le confort d'été
+
+## Exigences techniques
+- Isolation thermique renforcée
+- Perméabilité à l'air limitée
+- Ponts thermiques traités
+- Ventilation performante
+- Éclairage naturel optimisé
+- Systèmes de chauffage efficaces
+
+## Contrôles
+- Calculs thermiques
+- Tests d'infiltrométrie
+- Mesures de perméabilité
+- Contrôles de mise en œuvre

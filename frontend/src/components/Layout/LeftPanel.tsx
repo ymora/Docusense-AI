@@ -9,7 +9,8 @@ import DiskSelector from '../FileManager/DiskSelector';
 import FileTreeSimple from '../FileManager/FileTreeSimple';
 import { getFileIcon } from '../../utils/fileUtils';
 import { 
-  DocumentIcon
+  DocumentIcon,
+  PlayIcon
 } from '@heroicons/react/24/outline';
 import { UserIcon } from '../UI/UserIcon';
 
@@ -95,6 +96,11 @@ const LeftPanel: React.FC = () => {
 
       {/* Sélecteur de disque - pour tous les utilisateurs (authentifié, invité, user, admin) */}
       <div className="p-4 border-b" style={{ borderBottomColor: colors.border }}>
+        <div className="mb-2">
+          <span className="text-xs font-medium" style={{ color: colors.textSecondary }}>
+            Navigation des fichiers
+          </span>
+        </div>
         <DiskSelector
           onDiskSelect={handleDiskSelect}
           currentDisk={currentDisk}
@@ -135,6 +141,10 @@ const LeftPanel: React.FC = () => {
           <div className="flex items-center space-x-2">
             <DocumentIcon className="h-3 w-3" style={{ color: colors.success }} />
             <span style={{ color: colors.textSecondary }}>Analysable par IA</span>
+          </div>
+          <div className="flex items-center space-x-2">
+            <PlayIcon className="h-3 w-3" style={{ color: colors.success }} />
+            <span style={{ color: colors.textSecondary }}>Ajouter à la queue d'analyse</span>
           </div>
           <div className="flex items-center space-x-2">
             <DocumentIcon className="h-3 w-3" style={{ color: colors.warning }} />

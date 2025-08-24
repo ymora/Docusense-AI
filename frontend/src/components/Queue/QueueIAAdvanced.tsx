@@ -621,7 +621,7 @@ export const QueueIAAdvanced: React.FC = () => {
           error: error.message,
           timestamp: new Date().toISOString()
         });
-        console.error('❌ Erreur initialisation queue:', error);
+        // OPTIMISATION: Suppression des console.error pour éviter la surcharge // console.error('❌ Erreur initialisation queue:', error);
         setIsInitialized(true); // Marquer comme initialisé même en cas d'erreur
       }
     };
@@ -770,7 +770,7 @@ export const QueueIAAdvanced: React.FC = () => {
         availableItems: analyses.map(i => i.id),
         timestamp: new Date().toISOString()
       });
-      console.error(`❌ Élément avec ID ${itemId} non trouvé dans analyses:`, analyses);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge // console.error(`❌ Élément avec ID ${itemId} non trouvé dans analyses:`, analyses);
       return;
     }
 

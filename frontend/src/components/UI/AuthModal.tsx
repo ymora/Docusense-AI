@@ -51,7 +51,42 @@ const AuthModal: React.FC<AuthModalProps> = ({ isOpen, onClose, onSuccess }) => 
         error: error.message,
         timestamp: new Date().toISOString()
       });
-      setError('Erreur de connexion');
+      
+      // Détecter le type d'erreur pour afficher un message approprié
+      let errorMessage = 'Erreur de connexion';
+      
+      if (error instanceof Error) {
+        // Erreur de connexion au serveur (backend non disponible)
+        if (error.message.includes('Failed to fetch') || 
+            error.message.includes('NetworkError') ||
+            error.message.includes('ERR_NETWORK') ||
+            error.message.includes('ERR_CONNECTION_REFUSED') ||
+            error.message.includes('ERR_INTERNET_DISCONNECTED')) {
+          errorMessage = 'Le serveur n\'est pas accessible. Veuillez vérifier que l\'application est bien démarrée.';
+        }
+        // Erreur de timeout
+        else if (error.message.includes('timeout') || error.message.includes('Timeout')) {
+          errorMessage = 'Le serveur met trop de temps à répondre. Veuillez réessayer dans quelques instants.';
+        }
+        // Erreur d'authentification spécifique
+        else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+          errorMessage = 'Nom d\'utilisateur ou mot de passe incorrect';
+        }
+        // Erreur de serveur
+        else if (error.message.includes('500') || error.message.includes('Internal Server Error')) {
+          errorMessage = 'Erreur temporaire du serveur. Veuillez réessayer dans quelques instants.';
+        }
+        // Autres erreurs spécifiques du backend
+        else if (error.message.includes('Compte désactivé')) {
+          errorMessage = 'Ce compte a été désactivé. Contactez l\'administrateur.';
+        }
+        // Erreur générique avec plus de détails si disponible
+        else if (error.message !== 'Erreur de connexion' && error.message !== 'Erreur inconnue') {
+          errorMessage = error.message;
+        }
+      }
+      
+      setError(errorMessage);
     } finally {
       setIsLoading(false);
     }

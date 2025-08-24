@@ -39,6 +39,8 @@ class PromptService(BaseService):
         self.prompts_file = os.path.join(
             os.path.dirname(__file__), '..', 'data', 'prompts.json')
         self.prompts_data = self._load_prompts_from_json()
+        self._cache = {}
+        self._cache_timestamp = None
 
     def _load_prompts_from_json(self) -> Dict[str, Any]:
         """Load prompts from JSON file"""
@@ -56,7 +58,7 @@ class PromptService(BaseService):
 
         with open(self.prompts_file, 'r', encoding='utf-8') as f:
             data = json.load(f)
-            self.logger.info(f"Loaded {len(data.get('specialized_prompts', {}))} specialized prompts and {len(data.get('default_prompts', {}))} default prompts")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Loaded {len(data.get('specialized_prompts', {}))} specialized prompts and {len(data.get('default_prompts', {}))} default prompts")
             return data
 
     def get_default_prompt(self, analysis_type: str) -> Optional[str]:
@@ -140,7 +142,14 @@ class PromptService(BaseService):
 
     def _get_all_prompts_logic(self) -> Dict[str, Dict[str, Any]]:
         """Logic for getting all prompts"""
-        return self.prompts_data.get("specialized_prompts", {})
+        # Utiliser le cache pour améliorer les performances
+        cache_key = "all_prompts"
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+        
+        result = self.prompts_data.get("specialized_prompts", {})
+        self._cache[cache_key] = result
+        return result
 
     def get_all_default_prompts(self) -> Dict[str, str]:
         """Get all default prompts"""
@@ -199,7 +208,7 @@ class PromptService(BaseService):
         """Logic for reloading prompts"""
         try:
             self.prompts_data = self._load_prompts_from_json()
-            self.logger.info("Prompts reloaded successfully")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info("Prompts reloaded successfully")
             return True
         except Exception as e:
             self.logger.error(f"Error reloading prompts: {str(e)}")

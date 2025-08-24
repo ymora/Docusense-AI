@@ -56,7 +56,7 @@ async def parse_email_file(
         decoded_path = urllib.parse.unquote(file_path)
         file_path_obj = FilePathValidator.validate_email_file(decoded_path)
         
-        logger.info(f"🔄 Parsing du fichier .eml: {file_path_obj}")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"🔄 Parsing du fichier .eml: {file_path_obj}")
         
         # Parser l'email
         email_parser = EmailParserService(db=None)  # Pas besoin de DB pour le parsing
@@ -76,7 +76,7 @@ async def parse_email_file(
             raise HTTPException(status_code=500, detail=f"Erreur lors du formatage de l'email: {error_msg}")
         
         display_data = formatted_data['data']
-        logger.info(f"✅ Email parsé avec succès: {display_data.get('subject', 'Sans objet')} - {len(display_data.get('attachments', []))} pièces jointes")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"✅ Email parsé avec succès: {display_data.get('subject', 'Sans objet')} - {len(display_data.get('attachments', []))} pièces jointes")
         
         # Convertir en modèle Pydantic
         return EmailContent(
@@ -164,7 +164,7 @@ async def download_email_attachment(
     decoded_path = urllib.parse.unquote(file_path)
     file_path_obj = FilePathValidator.validate_email_file(decoded_path)
     
-    logger.info(f"Téléchargement pièce jointe {attachment_index} du fichier .eml: {file_path_obj}")
+    # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Téléchargement pièce jointe {attachment_index} du fichier .eml: {file_path_obj}")
     
     # Parser l'email
     email_parser = EmailParserService(db=None)
@@ -221,7 +221,7 @@ async def preview_email_attachment(
     decoded_path = urllib.parse.unquote(file_path)
     file_path_obj = FilePathValidator.validate_email_file(decoded_path)
     
-    logger.info(f"Prévisualisation pièce jointe {attachment_index} du fichier .eml: {file_path_obj}")
+    # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Prévisualisation pièce jointe {attachment_index} du fichier .eml: {file_path_obj}")
     
     # Parser l'email
     email_parser = EmailParserService(db=None)

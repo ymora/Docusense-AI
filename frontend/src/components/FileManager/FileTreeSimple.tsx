@@ -1,11 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { FolderIcon, DocumentIcon, ChevronRightIcon, ChevronDownIcon, ArrowRightIcon } from '@heroicons/react/24/outline';
+import { FolderIcon, DocumentIcon, ChevronRightIcon, ChevronDownIcon, ArrowRightIcon, PlayIcon } from '@heroicons/react/24/outline';
 import { useColors } from '../../hooks/useColors';
 
 import { isSupportedFormat } from '../../utils/mediaFormats';
 import { useUIStore } from '../../stores/uiStore';
 import { analysisService } from '../../services/analysisService';
 import { logService } from '../../services/logService';
+import { useStreamService } from '../../services/streamService';
+import { useAnalysisStore } from '../../stores/analysisStore';
 
 interface FileTreeSimpleProps {
   currentDirectory: string;
@@ -22,11 +24,14 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
 }) => {
   const { colors } = useColors();
   const { setActivePanel } = useUIStore();
+  const { startStream, stopStream } = useStreamService();
+  const { addAnalysis } = useAnalysisStore();
 
   const [directoryData, setDirectoryData] = useState<any>(null);
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set());
   const [folderData, setFolderData] = useState<Record<string, any>>({}); // Stockage global des données des dossiers
   const [loading, setLoading] = useState(false);
+  const [analysisQueue, setAnalysisQueue] = useState<Set<string>>(new Set()); // Fichiers en cours d'ajout à la queue
 
   // Charger les données du répertoire actuel
   useEffect(() => {
@@ -75,6 +80,32 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
 
     loadDirectory();
   }, [currentDirectory]);
+
+  // Stream SSE pour les mises à jour des analyses (optionnel)
+  useEffect(() => {
+    const streamStarted = startStream('analyses', {
+      onMessage: (message) => {
+        if (message.type === 'analysis_created') {
+          // Retirer le fichier de la queue d'ajout
+          setAnalysisQueue(prev => {
+            const newQueue = new Set(prev);
+            newQueue.delete(message.file_path);
+            return newQueue;
+          });
+        }
+      },
+      onError: (error) => {
+        // Erreur silencieuse - fonctionnement normal sans stream
+        logService.debug('Stream analyses non disponible, fonctionnement normal', 'FileTreeSimple');
+      }
+    });
+
+    return () => {
+      if (streamStarted) {
+        stopStream('analyses');
+      }
+    };
+  }, [startStream, stopStream]);
 
   // Charger le contenu d'un sous-dossier
   const loadSubdirectory = useCallback(async (folderPath: string) => {
@@ -151,9 +182,21 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
     setExpandedFolders(newExpanded);
   }, [expandedFolders, folderData, loadSubdirectory]);
 
-  // Ajouter un fichier à la queue d'analyse IA
+  // Ajouter un fichier à la queue d'analyse IA avec feedback visuel
   const handleAnalyzeFile = useCallback(async (file: any, e: React.MouseEvent) => {
     e.stopPropagation();
+    
+    // Vérifier si le fichier est déjà en cours d'ajout
+    if (analysisQueue.has(file.path)) {
+      logService.info('Fichier déjà en cours d\'ajout à la queue', 'FileTreeSimple', {
+        fileName: file.name,
+        filePath: file.path
+      });
+      return;
+    }
+    
+    // Ajouter le fichier à la queue d'ajout
+    setAnalysisQueue(prev => new Set(prev).add(file.path));
     
     logService.info('Ajout d\'analyse pour fichier', 'FileTreeSimple', {
       fileName: file.name,
@@ -164,43 +207,64 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
     });
     
     try {
-      // Ajout d'analyse pour le fichier: ${file.name}
-      
       // Ouvrir automatiquement l'onglet "File d'attente et analyse"
-              // Basculement vers l'onglet queue...
       setActivePanel('queue');
       
       // Attendre un peu pour s'assurer que l'onglet se met à jour
       await new Promise(resolve => setTimeout(resolve, 100));
       
-      // Créer une analyse directement via le backend
-              // Création d'analyse pour: ${file.name}
-      
-      // Créer l'analyse via le service
-      await analysisService.createAnalysis({
+      // Créer l'analyse via le service avec prompt intelligent
+      const analysisRequest = {
         file_id: file.id,
+        file_path: file.path,
         analysis_type: 'general',
         prompt_id: 'general_summary',
-        custom_prompt: 'Analyse générale du document'
-      });
+        provider: 'ollama', // Par défaut Ollama pour la rapidité
+        model: 'llama3.2',
+        custom_prompt: `Analyse générale du document "${file.name}". Fournis un résumé détaillé, les points clés et les informations importantes.`
+      };
+      
+      const result = await analysisService.createAnalysis(analysisRequest);
+      
+      // Ajouter l'analyse au store pour mise à jour immédiate
+      if (result && result.id) {
+        addAnalysis({
+          id: result.id,
+          file_id: file.id,
+          file_path: file.path,
+          file_name: file.name,
+          status: 'pending',
+          analysis_type: 'general',
+          prompt_id: 'general_summary',
+          provider: 'ollama',
+          model: 'llama3.2',
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+      }
       
       logService.info('Analyse créée avec succès', 'FileTreeSimple', {
         fileName: file.name,
         fileId: file.id,
+        analysisId: result?.id,
         timestamp: new Date().toISOString()
       });
       
-              // Analyse créée avec succès
-      
     } catch (error) {
+      // Retirer le fichier de la queue en cas d'erreur
+      setAnalysisQueue(prev => {
+        const newQueue = new Set(prev);
+        newQueue.delete(file.path);
+        return newQueue;
+      });
+      
       logService.error('Erreur lors de la création d\'analyse', 'FileTreeSimple', {
         fileName: file.name,
         error: error.message,
         timestamp: new Date().toISOString()
       });
-      console.error('❌ Erreur lors de la création d\'analyse:', error);
     }
-  }, [setActivePanel]);
+  }, [setActivePanel, analysisQueue, addAnalysis]);
 
   // Visualiser un fichier
   const handleViewFile = useCallback((file: any, e: React.MouseEvent) => {
@@ -382,12 +446,21 @@ const FileTreeSimple: React.FC<FileTreeSimpleProps> = ({
 
         {/* Indicateur de statut IA - cliquable pour analyse */}
         {!isSelected && isAnalyzable && (
-          <ArrowRightIcon 
-            className="h-3 w-3 ml-1.5 flex-shrink-0 cursor-pointer hover:scale-125 transition-transform"
-            style={{ color: colors.success }}
-            onClick={(e) => handleAnalyzeFile(file, e)}
-            title="Analyser avec l'IA"
-          />
+          <div className="flex items-center ml-1.5">
+            {analysisQueue.has(file.path) ? (
+              <div className="flex items-center">
+                <div className="animate-spin rounded-full h-3 w-3 border-b-2" style={{ borderColor: colors.primary }}></div>
+                <span className="text-xs ml-1" style={{ color: colors.textSecondary }}>Ajout...</span>
+              </div>
+            ) : (
+              <PlayIcon 
+                className="h-3 w-3 flex-shrink-0 cursor-pointer hover:scale-125 transition-transform"
+                style={{ color: colors.success }}
+                onClick={(e) => handleAnalyzeFile(file, e)}
+                title="Ajouter à la queue d'analyse IA"
+              />
+            )}
+          </div>
         )}
       </div>
     );

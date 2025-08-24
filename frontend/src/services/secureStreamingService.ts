@@ -55,7 +55,7 @@ class SecureStreamingService {
       const result = await response.json();
       return result.data;
     } catch (error) {
-      console.error('❌ Erreur lors de la récupération des informations sécurisées:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       throw error;
     }
   }
@@ -82,7 +82,7 @@ class SecureStreamingService {
 
       return response;
     } catch (error) {
-      console.error('❌ Erreur lors du streaming pour visualisation:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       throw error;
     }
   }
@@ -115,7 +115,7 @@ class SecureStreamingService {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('❌ Erreur lors du téléchargement sécurisé:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       throw error;
     }
   }
@@ -142,7 +142,7 @@ class SecureStreamingService {
       const result = await response.json();
       return result.data;
     } catch (error) {
-      console.error('❌ Erreur lors de la création du token temporaire:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       throw error;
     }
   }
@@ -172,7 +172,7 @@ class SecureStreamingService {
 
       return response;
     } catch (error) {
-      console.error('❌ Erreur lors de l\'accès avec token temporaire:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       throw error;
     }
   }
@@ -196,7 +196,7 @@ class SecureStreamingService {
       const result = await response.json();
       return result.data;
     } catch (error) {
-      console.error('❌ Erreur lors de la récupération des statistiques:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       throw error;
     }
   }
@@ -232,7 +232,7 @@ class SecureStreamingService {
       const fileInfo = await this.getFileInfo(file);
       return fileInfo.is_streamable;
     } catch (error) {
-      console.error('❌ Erreur lors de la vérification de streamabilité:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       return false;
     }
   }
@@ -245,7 +245,7 @@ class SecureStreamingService {
       const fileInfo = await this.getFileInfo(file);
       return fileInfo.is_downloadable;
     } catch (error) {
-      console.error('❌ Erreur lors de la vérification de téléchargeabilité:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       return false;
     }
   }

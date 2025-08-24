@@ -1,5 +1,5 @@
 // Utilitaires centralisés pour les requêtes API
-export const DEFAULT_TIMEOUT = 30000; // 30 secondes
+export const DEFAULT_TIMEOUT = 10000; // 10 secondes (réduit de 30s à 10s)
 
 // Configuration de l'API backend - Utilise le proxy Vite
 const BACKEND_URL = '';
@@ -7,11 +7,59 @@ const BACKEND_URL = '';
 // Fonction utilitaire pour la gestion des erreurs
 export const handleApiError = (error: unknown): string => {
   if (error instanceof Error) {
-    return error.message;
+    // Détecter les erreurs de connexion au backend
+    const message = error.message;
+    
+    // Erreur de connexion réseau (backend non disponible)
+    if (message.includes('Failed to fetch') || 
+        message.includes('NetworkError') ||
+        message.includes('ERR_NETWORK') ||
+        message.includes('ERR_CONNECTION_REFUSED') ||
+        message.includes('ERR_INTERNET_DISCONNECTED')) {
+      return 'Le serveur n\'est pas accessible. Veuillez vérifier que l\'application est bien démarrée.';
+    }
+    
+    // Erreur de timeout
+    if (message.includes('timeout') || message.includes('Timeout') || message.includes('Requête expirée')) {
+      return 'Le serveur met trop de temps à répondre. Veuillez réessayer dans quelques instants.';
+    }
+    
+    // Erreur d'authentification
+    if (message.includes('401') || message.includes('Unauthorized')) {
+      return 'Nom d\'utilisateur ou mot de passe incorrect';
+    }
+    
+    // Erreur de serveur
+    if (message.includes('500') || message.includes('Internal Server Error')) {
+      return 'Erreur temporaire du serveur. Veuillez réessayer dans quelques instants.';
+    }
+    
+    // Erreur de validation
+    if (message.includes('déjà')) {
+      return 'Ce nom d\'utilisateur existe déjà';
+    }
+    
+    if (message.includes('email') || message.includes('Email')) {
+      return 'Cette adresse email est déjà utilisée';
+    }
+    
+    if (message.includes('mot de passe') || message.includes('password')) {
+      return 'Le mot de passe doit contenir au moins 8 caractères';
+    }
+    
+    // Erreur de compte désactivé
+    if (message.includes('Compte désactivé')) {
+      return 'Ce compte a été désactivé. Contactez l\'administrateur.';
+    }
+    
+    // Retourner le message d'erreur original si aucune correspondance
+    return message;
   }
+  
   if (typeof error === 'string') {
     return error;
   }
+  
   return 'Erreur inconnue';
 };
 
@@ -94,9 +142,9 @@ export const apiRequest = async (url: string, options?: RequestInit, timeout: nu
             // Rediriger vers la page de connexion
             window.location.href = '/';
           }
-        } catch (e) {
-          console.error('Erreur lors de la déconnexion automatique:', e);
-        }
+            } catch (e) {
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
+    }
       }
       
       throw new Error(`Erreur HTTP: ${response.status} - ${errorDetail}`);

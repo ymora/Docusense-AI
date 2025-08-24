@@ -73,7 +73,7 @@ const EmailAttachmentViewer: React.FC<EmailAttachmentViewerProps> = ({
       }
       
     } catch (error) {
-      console.error('❌ Erreur lors de la prévisualisation:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge // console.error('❌ Erreur lors de la prévisualisation:', error);
       setError('Erreur lors de la prévisualisation de la pièce jointe');
     } finally {
       setLoading(false);
@@ -96,7 +96,7 @@ const EmailAttachmentViewer: React.FC<EmailAttachmentViewerProps> = ({
     const videoRef = useRef<HTMLVideoElement>(null);
 
     const handleVideoError = (e: React.SyntheticEvent<HTMLVideoElement, Event>) => {
-      console.error('❌ Erreur vidéo:', e);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge // console.error('❌ Erreur vidéo:', e);
       const extension = filename.split('.').pop()?.toLowerCase();
       
       // Messages d'erreur spécifiques selon le format

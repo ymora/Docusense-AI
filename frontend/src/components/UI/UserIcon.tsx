@@ -89,9 +89,41 @@ export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
       setLoginErrors({ username: '', password: '' });
       setShowLoginPassword(false);
     } catch (error) {
-      console.error('Erreur de connexion:', error);
-      // Afficher l'erreur après la réponse du backend
-      setLoginErrors({ username: '', password: 'Nom d\'utilisateur ou mot de passe incorrect' });
+      // Détecter le type d'erreur pour afficher un message approprié
+      let errorMessage = 'Nom d\'utilisateur ou mot de passe incorrect';
+      
+      if (error instanceof Error) {
+        // Erreur de connexion au serveur (backend non disponible)
+        if (error.message.includes('Failed to fetch') || 
+            error.message.includes('NetworkError') ||
+            error.message.includes('ERR_NETWORK') ||
+            error.message.includes('ERR_CONNECTION_REFUSED') ||
+            error.message.includes('ERR_INTERNET_DISCONNECTED')) {
+          errorMessage = 'Le serveur n\'est pas accessible. Veuillez vérifier que l\'application est bien démarrée et réessayer.';
+        }
+        // Erreur de timeout
+        else if (error.message.includes('timeout') || error.message.includes('Timeout')) {
+          errorMessage = 'Le serveur met trop de temps à répondre. Veuillez réessayer dans quelques instants.';
+        }
+        // Erreur d'authentification spécifique
+        else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+          errorMessage = 'Nom d\'utilisateur ou mot de passe incorrect';
+        }
+        // Erreur de serveur
+        else if (error.message.includes('500') || error.message.includes('Internal Server Error')) {
+          errorMessage = 'Erreur temporaire du serveur. Veuillez réessayer dans quelques instants.';
+        }
+        // Autres erreurs spécifiques du backend
+        else if (error.message.includes('Compte désactivé')) {
+          errorMessage = 'Ce compte a été désactivé. Contactez l\'administrateur.';
+        }
+        // Erreur générique avec plus de détails si disponible
+        else if (error.message !== 'Erreur de connexion' && error.message !== 'Erreur inconnue') {
+          errorMessage = error.message;
+        }
+      }
+      
+      setLoginErrors({ username: '', password: errorMessage });
     }
   };
 
@@ -144,13 +176,62 @@ export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
       setShowRegisterPassword(false);
       setShowConfirmPassword(false);
     } catch (error) {
-      console.error('Erreur d\'inscription:', error);
-      // Afficher l'erreur du backend
-      if (error.message.includes('déjà')) {
-        setRegisterErrors({ username: 'Ce nom d\'utilisateur existe déjà', email: '', password: '', confirmPassword: '' });
-      } else {
-        setRegisterErrors({ username: 'Erreur lors de l\'inscription', email: '', password: '', confirmPassword: '' });
+      // Détecter le type d'erreur pour afficher un message approprié
+      let errorMessage = 'Erreur lors de l\'inscription';
+      let errorField = 'username';
+      
+      if (error instanceof Error) {
+        // Erreur de connexion au serveur (backend non disponible)
+        if (error.message.includes('Failed to fetch') || 
+            error.message.includes('NetworkError') ||
+            error.message.includes('ERR_NETWORK') ||
+            error.message.includes('ERR_CONNECTION_REFUSED') ||
+            error.message.includes('ERR_INTERNET_DISCONNECTED')) {
+          errorMessage = 'Le serveur n\'est pas accessible. Veuillez vérifier que l\'application est bien démarrée et réessayer.';
+          errorField = 'username';
+        }
+        // Erreur de timeout
+        else if (error.message.includes('timeout') || error.message.includes('Timeout')) {
+          errorMessage = 'Le serveur met trop de temps à répondre. Veuillez réessayer dans quelques instants.';
+          errorField = 'username';
+        }
+        // Erreur de validation des données
+        else if (error.message.includes('déjà')) {
+          errorMessage = 'Ce nom d\'utilisateur existe déjà';
+          errorField = 'username';
+        }
+        else if (error.message.includes('email') || error.message.includes('Email')) {
+          errorMessage = 'Cette adresse email est déjà utilisée';
+          errorField = 'email';
+        }
+        else if (error.message.includes('mot de passe') || error.message.includes('password')) {
+          errorMessage = 'Le mot de passe doit contenir au moins 8 caractères';
+          errorField = 'password';
+        }
+        // Erreur de serveur
+        else if (error.message.includes('500') || error.message.includes('Internal Server Error')) {
+          errorMessage = 'Erreur temporaire du serveur. Veuillez réessayer dans quelques instants.';
+          errorField = 'username';
+        }
+        // Erreur d'authentification
+        else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+          errorMessage = 'Erreur d\'authentification. Veuillez réessayer.';
+          errorField = 'username';
+        }
+        // Erreur générique avec plus de détails si disponible
+        else if (error.message !== 'Erreur d\'inscription' && error.message !== 'Erreur inconnue') {
+          errorMessage = error.message;
+          errorField = 'username';
+        }
       }
+      
+      // Afficher l'erreur dans le champ approprié
+      setRegisterErrors({ 
+        username: errorField === 'username' ? errorMessage : '', 
+        email: errorField === 'email' ? errorMessage : '', 
+        password: errorField === 'password' ? errorMessage : '', 
+        confirmPassword: '' 
+      });
     }
   };
 
@@ -159,7 +240,34 @@ export const UserIcon: React.FC<UserIconProps> = ({ className = '' }) => {
       await loginAsGuest();
       setShowMenu(false);
     } catch (error) {
-      console.error('Erreur de connexion invité:', error);
+      // Afficher un message d'erreur pour la connexion invité
+      let errorMessage = 'Erreur de connexion invité';
+      
+      if (error instanceof Error) {
+        // Erreur de connexion au serveur (backend non disponible)
+        if (error.message.includes('Failed to fetch') || 
+            error.message.includes('NetworkError') ||
+            error.message.includes('ERR_NETWORK') ||
+            error.message.includes('ERR_CONNECTION_REFUSED') ||
+            error.message.includes('ERR_INTERNET_DISCONNECTED')) {
+          errorMessage = 'Le serveur n\'est pas accessible. Veuillez vérifier que l\'application est bien démarrée.';
+        }
+        // Erreur de timeout
+        else if (error.message.includes('timeout') || error.message.includes('Timeout')) {
+          errorMessage = 'Le serveur met trop de temps à répondre. Veuillez réessayer dans quelques instants.';
+        }
+        // Erreur de serveur
+        else if (error.message.includes('500') || error.message.includes('Internal Server Error')) {
+          errorMessage = 'Erreur temporaire du serveur. Veuillez réessayer dans quelques instants.';
+        }
+        // Erreur générique avec plus de détails si disponible
+        else if (error.message !== 'Erreur de connexion invité' && error.message !== 'Erreur inconnue') {
+          errorMessage = error.message;
+        }
+      }
+      
+      // Afficher l'erreur dans une alerte simple
+      alert(errorMessage);
     }
   };
 

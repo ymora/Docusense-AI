@@ -46,7 +46,7 @@ async def get_secure_file_info(
         decoded_path = unquote(file_path)
         file_path_obj = Path(decoded_path)
         
-        logger.info(f"Demande d'informations sécurisées pour: {file_path_obj}")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Demande d'informations sécurisées pour: {file_path_obj}")
         
         # Récupérer les informations sécurisées
         file_info = secure_streaming_service.get_file_info_secure(file_path_obj, current_user.username)
@@ -88,7 +88,7 @@ async def stream_file_for_viewing(
         decoded_path = unquote(file_path)
         file_path_obj = Path(decoded_path)
         
-        logger.info(f"Demande de streaming pour visualisation: {file_path_obj}")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Demande de streaming pour visualisation: {file_path_obj}")
         
         # Streamer le fichier pour la visualisation
         return secure_streaming_service.stream_file_secure(
@@ -128,7 +128,7 @@ async def download_file_secure(
         decoded_path = unquote(file_path)
         file_path_obj = Path(decoded_path)
         
-        logger.info(f"Demande de téléchargement sécurisé: {file_path_obj}")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Demande de téléchargement sécurisé: {file_path_obj}")
         
         # Télécharger le fichier de manière sécurisée
         return secure_streaming_service.stream_file_secure(
@@ -174,7 +174,7 @@ async def create_temporary_access_token(
         decoded_path = unquote(file_path_str)
         file_path_obj = Path(decoded_path)
         
-        logger.info(f"Demande de token temporaire pour: {file_path_obj}")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Demande de token temporaire pour: {file_path_obj}")
         
         # Créer le token temporaire
         temp_token = secure_streaming_service.create_temp_access_token(
@@ -218,7 +218,7 @@ async def access_file_with_temp_token(
         StreamingResponse ou FileResponse
     """
     try:
-        logger.info(f"Demande d'accès avec token temporaire: {temp_token[:8]}...")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Demande d'accès avec token temporaire: {temp_token[:8]}...")
         
         # Valider le token temporaire
         file_path = secure_streaming_service.validate_temp_token(temp_token)
@@ -226,7 +226,7 @@ async def access_file_with_temp_token(
         if not file_path:
             raise HTTPException(status_code=401, detail="Token temporaire invalide ou expiré")
         
-        logger.info(f"Token temporaire valide pour: {file_path}")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Token temporaire valide pour: {file_path}")
         
         # Accéder au fichier
         return secure_streaming_service.stream_file_secure(
@@ -258,7 +258,7 @@ async def get_secure_streaming_stats(
         Dict: Statistiques du service
     """
     try:
-        logger.info("Demande de statistiques du service de streaming sécurisé")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info("Demande de statistiques du service de streaming sécurisé")
         
         stats = secure_streaming_service.get_service_stats()
         

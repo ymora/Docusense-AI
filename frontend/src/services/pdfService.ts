@@ -168,7 +168,7 @@ class PDFService {
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Erreur lors du téléchargement du PDF:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       throw error;
     }
   }
@@ -185,7 +185,7 @@ class PDFService {
       });
       
       if (!response.ok) {
-        console.warn(`Backend non disponible pour vérifier le PDF de l'analyse ${analysisId}`);
+        // OPTIMISATION: Suppression des console.warn pour éviter la surcharge
         return false;
       }
 
@@ -194,9 +194,9 @@ class PDFService {
     } catch (error) {
       // Gérer gracieusement les erreurs de connexion
       if (error instanceof TypeError && error.message.includes('fetch')) {
-        console.warn(`Backend non accessible pour vérifier le PDF de l'analyse ${analysisId}`);
+        // OPTIMISATION: Suppression des console.warn pour éviter la surcharge
       } else {
-        console.warn(`Impossible de vérifier l'existence du PDF pour l'analyse ${analysisId}:`, error);
+        // OPTIMISATION: Suppression des console.warn pour éviter la surcharge
       }
       return false;
     }

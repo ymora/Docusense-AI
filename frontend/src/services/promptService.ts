@@ -29,7 +29,7 @@ export const promptService = {
       const response = await apiRequest('/api/prompts', {}, DEFAULT_TIMEOUT);
       return response.data || { default_prompts: {}, specialized_prompts: {} };
     } catch (error) {
-      console.error('❌ PromptService: Erreur lors de la récupération des prompts:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       throw new Error(`Erreur lors de la récupération des prompts: ${handleApiError(error)}`);
     }
   },
@@ -40,7 +40,7 @@ export const promptService = {
       const response = await apiRequest('/api/prompts/summary', {}, DEFAULT_TIMEOUT);
       return response.data || {};
     } catch (error) {
-      console.error('❌ PromptService: Erreur lors de la récupération du résumé des prompts:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       throw new Error(`Erreur lors de la récupération du résumé: ${handleApiError(error)}`);
     }
   },
@@ -51,7 +51,7 @@ export const promptService = {
       const response = await apiRequest('/api/prompts/default', {}, DEFAULT_TIMEOUT);
       return response.data || {};
     } catch (error) {
-      console.error('❌ PromptService: Erreur lors de la récupération des prompts par défaut:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       throw new Error(`Erreur lors de la récupération des prompts par défaut: ${handleApiError(error)}`);
     }
   },
@@ -62,7 +62,7 @@ export const promptService = {
       const response = await apiRequest(`/api/prompts/default/${analysisType}`, {}, DEFAULT_TIMEOUT);
       return response.data || { analysis_type: analysisType, prompt: '' };
     } catch (error) {
-      console.error('❌ PromptService: Erreur lors de la récupération du prompt par défaut:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       throw new Error(`Erreur lors de la récupération du prompt par défaut: ${handleApiError(error)}`);
     }
   },
@@ -89,10 +89,11 @@ export const promptService = {
   // Récupérer tous les prompts spécialisés
   async getSpecializedPrompts(): Promise<Record<string, Prompt>> {
     try {
-      const response = await apiRequest('/api/prompts/specialized', {}, DEFAULT_TIMEOUT);
+      // Augmenter le timeout pour cette requête volumineuse
+      const response = await apiRequest('/api/prompts/specialized', {}, 30000); // 30 secondes
       return response.data || {};
     } catch (error) {
-      console.warn('⚠️ PromptService: API des prompts non disponible, utilisation des données par défaut:', error);
+      // OPTIMISATION: Suppression des console.warn pour éviter la surcharge
       
       // Données par défaut en cas d'erreur API
       const defaultPrompts: Record<string, Prompt> = {
@@ -141,7 +142,7 @@ export const promptService = {
       const response = await apiRequest(`/api/prompts/specialized/${promptId}`, {}, DEFAULT_TIMEOUT);
       return response.data || {};
     } catch (error) {
-      console.error('❌ PromptService: Erreur lors de la récupération du prompt spécialisé:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       throw new Error(`Erreur lors de la récupération du prompt spécialisé: ${handleApiError(error)}`);
     }
   },
@@ -152,7 +153,7 @@ export const promptService = {
       const response = await apiRequest(`/api/prompts/domain/${domain}`, {}, DEFAULT_TIMEOUT);
       return response.data || { domain, prompts: {} };
     } catch (error) {
-      console.error('❌ PromptService: Erreur lors de la récupération des prompts par domaine:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       throw new Error(`Erreur lors de la récupération des prompts par domaine: ${handleApiError(error)}`);
     }
   },
@@ -163,7 +164,7 @@ export const promptService = {
       const response = await apiRequest(`/api/prompts/type/${promptType}`, {}, DEFAULT_TIMEOUT);
       return response.data || { type: promptType, prompts: {} };
     } catch (error) {
-      console.error('❌ PromptService: Erreur lors de la récupération des prompts par type:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       throw new Error(`Erreur lors de la récupération des prompts par type: ${handleApiError(error)}`);
     }
   },
@@ -180,7 +181,7 @@ export const promptService = {
       }, DEFAULT_TIMEOUT);
       return response.data?.formatted_prompt || '';
     } catch (error) {
-      console.error('❌ PromptService: Erreur lors du formatage du prompt:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       throw new Error(`Erreur lors du formatage du prompt: ${handleApiError(error)}`);
     }
   }

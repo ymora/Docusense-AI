@@ -14,6 +14,7 @@ from ..models.file import File, FileStatus
 from .ai_service import get_ai_service
 from .prompt_service import PromptService
 from .pdf_generator_service import PDFGeneratorService
+from .reference_document_service import ReferenceDocumentService
 from .base_service import BaseService, log_service_operation
 from ..core.types import ServiceResponse, AnalysisData
 
@@ -26,6 +27,7 @@ class AnalysisService(BaseService):
         self.ai_service = get_ai_service(db)
         self.prompt_service = PromptService()
         self.pdf_generator = PDFGeneratorService(db)
+        self.reference_service = ReferenceDocumentService()
 
     @log_service_operation("create_analysis")
     async def create_analysis(
@@ -50,14 +52,15 @@ class AnalysisService(BaseService):
         if not file:
             raise ValueError(f"File {file_id} not found")
 
-        # Generate prompt
+        # Generate prompt with reference documents
         if custom_prompt:
-            prompt = custom_prompt
+            prompt = self._enhance_prompt_with_references(custom_prompt, analysis_type.value)
         else:
-            prompt = self.prompt_service.get_default_prompt(analysis_type.value)
-            if not prompt:
+            base_prompt = self.prompt_service.get_default_prompt(analysis_type.value)
+            if not base_prompt:
                 # Fallback to general prompt if specific one not found
-                prompt = self.prompt_service.get_default_prompt("GENERAL")
+                base_prompt = self.prompt_service.get_default_prompt("GENERAL")
+            prompt = self._enhance_prompt_with_references(base_prompt, analysis_type.value)
 
         # Set initial status
         initial_status = AnalysisStatus.PROCESSING if start_processing else AnalysisStatus.PENDING
@@ -88,8 +91,46 @@ class AnalysisService(BaseService):
             # Start processing in background
             await self._start_processing(analysis.id)
 
-        self.logger.info(f"Created analysis {analysis.id} for file {file_id}")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
         return analysis
+
+    def _enhance_prompt_with_references(self, base_prompt: str, analysis_type: str) -> str:
+        """Enrichit un prompt avec les documents de référence pertinents"""
+        try:
+            # Récupérer les documents pertinents pour ce type d'analyse
+            relevant_docs = self.reference_service.get_relevant_documents_for_analysis(analysis_type)
+            
+            if not relevant_docs:
+                return base_prompt
+            
+            # Construire la section des références
+            references_section = "\n\n## DOCUMENTS DE RÉFÉRENCE À UTILISER :\n\n"
+            
+            for doc in relevant_docs:
+                references_section += f"### {doc['title']}\n"
+                references_section += f"**Catégorie :** {doc['category']} - {doc['subcategory']}\n"
+                references_section += f"**Description :** {doc['description']}\n\n"
+                
+                # Ajouter le contenu du document si disponible
+                content = self.reference_service.get_document_content(doc['id'])
+                if content and len(content) < 2000:  # Limiter la taille pour éviter les prompts trop longs
+                    references_section += f"**Contenu :**\n{content[:2000]}...\n\n"
+                elif content:
+                    references_section += f"**Contenu :**\n{content[:2000]}...\n\n"
+            
+            references_section += "## INSTRUCTIONS :\n"
+            references_section += "Utilisez ces documents de référence pour enrichir votre analyse. "
+            references_section += "Citez les articles, normes ou dispositions pertinentes dans votre réponse. "
+            references_section += "Assurez-vous que votre analyse est conforme aux réglementations et normes françaises.\n\n"
+            
+            # Combiner le prompt de base avec les références
+            enhanced_prompt = base_prompt + references_section
+            
+            return enhanced_prompt
+            
+        except Exception as e:
+            self.logger.warning(f"Erreur lors de l'enrichissement du prompt avec les références: {e}")
+            return base_prompt
 
     async def start_analysis(self, analysis_id: int) -> bool:
         """Start processing an analysis - returns True if started successfully"""
@@ -165,7 +206,7 @@ class AnalysisService(BaseService):
             # Try each provider in order
             for provider_name in priority_list:
                 try:
-                    self.logger.info(f"Trying provider {provider_name} for analysis {analysis.id}")
+                    # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
                     attempts.append(provider_name)
                     
                     # Update analysis with current provider
@@ -177,7 +218,7 @@ class AnalysisService(BaseService):
                     success = await self._process_analysis(analysis)
                     if success:
                         final_provider = provider_name
-                        self.logger.info(f"Analysis {analysis.id} completed successfully with provider {provider_name}")
+                        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
                         
                         # Update metadata
                         if not analysis.analysis_metadata:
@@ -255,7 +296,7 @@ class AnalysisService(BaseService):
             analysis.result = f"Analysis completed for file {file.name} using {analysis.provider}/{analysis.model}"
             self.db.commit()
             
-            self.logger.info(f"Analysis {analysis.id} completed successfully with {analysis.provider}")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
             return True
             
         except Exception as e:
@@ -333,7 +374,7 @@ class AnalysisService(BaseService):
         self.db.commit()
         self.db.refresh(analysis)
 
-        self.logger.info(f"Updated analysis {analysis_id}")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
         return analysis
 
     @log_service_operation("delete_analysis")
@@ -359,17 +400,18 @@ class AnalysisService(BaseService):
                 if pdf_path.exists():
                     try:
                         os.remove(pdf_path)
-                        self.logger.info(f"PDF supprimé: {pdf_path}")
+                        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
                     except Exception as e:
                         self.logger.warning(f"Impossible de supprimer le PDF {pdf_path}: {str(e)}")
                 else:
-                    self.logger.info(f"PDF introuvable (déjà supprimé): {pdf_path}")
+                    # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
+                    pass
             
             # Supprimer l'analyse de la base de données
             self.db.delete(analysis)
             self.db.commit()
 
-            self.logger.info(f"Analyse {analysis_id} supprimée avec succès (base + PDF)")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
             return True
             
         except Exception as e:
@@ -406,7 +448,7 @@ class AnalysisService(BaseService):
             )
             analyses.append(analysis)
 
-        self.logger.info(f"Created {len(analyses)} bulk analyses")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
         return analyses
 
     @log_service_operation("get_analysis_stats")
@@ -489,7 +531,7 @@ class AnalysisService(BaseService):
         # Start processing
         await self._start_processing(analysis_id)
 
-        self.logger.info(f"Retried failed analysis {analysis_id}")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
         return analysis
 
     @log_service_operation("cancel_analysis")
@@ -516,7 +558,7 @@ class AnalysisService(BaseService):
 
         self.db.commit()
 
-        self.logger.info(f"Cancelled analysis {analysis_id}")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
         return analysis
 
     @log_service_operation("analyze_text")
@@ -581,7 +623,7 @@ class AnalysisService(BaseService):
         self.db.commit()
         self.db.refresh(analysis)
 
-        self.logger.info(f"Created analysis {analysis.id} for file {file_id} with prompt {prompt_id}")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
         return analysis
 
     @log_service_operation("update_analysis_result")
@@ -624,7 +666,7 @@ class AnalysisService(BaseService):
         
         # NOUVELLE LOGIQUE: Tenter de générer le PDF
         try:
-            self.logger.info(f"AI analysis completed for {analysis_id}, generating PDF...")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
             pdf_path = self.pdf_generator.generate_analysis_pdf(analysis_id)
             
             if pdf_path:
@@ -640,7 +682,7 @@ class AnalysisService(BaseService):
                     file.status = FileStatus.COMPLETED
                     self.db.commit()
                 
-                self.logger.info(f"Analysis {analysis_id} FULLY COMPLETED: AI + PDF generated successfully")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
             else:
                 # Échec génération PDF - marquer comme failed
                 analysis.status = AnalysisStatus.FAILED
@@ -658,5 +700,5 @@ class AnalysisService(BaseService):
             self.logger.error(f"Analysis {analysis_id} FAILED: AI OK but PDF generation failed with error: {str(e)}")
 
         self.db.refresh(analysis)
-        self.logger.info(f"Updated analysis {analysis_id} with result and final status: {analysis.status}")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
         return analysis

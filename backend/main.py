@@ -23,8 +23,10 @@ from app.api import (
     analysis_router, auth_router, config_router, download_router, emails_router, files_router, health_router, 
     monitoring_router, multimedia_router, prompts_router, video_converter_router, secure_streaming_router, pdf_files_router, logs_router, streams_router, admin_router
 )
+from app.api.reference_documents import router as reference_documents_router
 from app.api.system_logs import router as system_logs_router
 from app.api.database import router as database_router
+from app.api.audit import router as audit_router
 
 # Setup logging
 setup_logging()
@@ -38,12 +40,12 @@ load_api_keys_from_database()
 async def lifespan(app: FastAPI):
     """Application lifespan manager"""
     # Startup
-    logger.info("[STARTUP] Starting DocuSense AI...")
+    # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
     
     # Create database tables
     try:
         Base.metadata.create_all(bind=engine)
-        logger.info("[SUCCESS] Database tables created/verified")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
     except Exception as e:
         logger.error(f"[ERROR] Database initialization failed: {str(e)}")
         raise
@@ -58,7 +60,7 @@ async def lifespan(app: FastAPI):
         config_service = ConfigService(db)
         
         # Migration automatique des clés API
-        logger.info("[MIGRATION] Migrating API keys to persistence system...")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
         migrated_count = 0
         
         # Mapping des providers
@@ -82,38 +84,35 @@ async def lifespan(app: FastAPI):
                 success = config_service.set_ai_provider_key(provider, setting_value)
                 if success:
                     migrated_count += 1
-                    logger.info(f"[SUCCESS] Migrated API key for {provider}")
+                    # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
             
             # Si la clé existe en base mais pas dans les settings, la restaurer
             elif db_value and not setting_value:
                 config_service._save_api_key_to_settings(provider, db_value)
                 migrated_count += 1
-                logger.info(f"[SUCCESS] Restored API key for {provider}")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
             
             # Si les deux existent mais sont différentes, priorité à la base
             elif setting_value and db_value and setting_value != db_value:
                 config_service._save_api_key_to_settings(provider, db_value)
                 migrated_count += 1
-                logger.info(f"[SUCCESS] Synchronized API key for {provider}")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
         
-        if migrated_count > 0:
-            logger.info(f"[SUCCESS] {migrated_count} API key(s) migrated/synchronized")
-        else:
-            logger.info("[SUCCESS] All API keys already synchronized")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
         
         # Charger toutes les clés depuis la base de données
         config_service.load_api_keys_from_database()
-        logger.info("[SUCCESS] API keys loaded from database")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
         
     except Exception as e:
         logger.warning(f"[WARNING] Could not migrate API keys: {str(e)}")
     
-    logger.info("[SUCCESS] DocuSense AI started successfully")
+    # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
     
     yield
     
     # Shutdown
-    logger.info("[SHUTDOWN] Shutting down DocuSense AI...")
+    # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
 
 
 # Create FastAPI app
@@ -156,8 +155,10 @@ app.include_router(pdf_files_router, prefix="/api/pdf-files", tags=["PDF Files"]
 app.include_router(logs_router, prefix="/api/logs", tags=["Logs"])
 app.include_router(streams_router, prefix="/api/streams", tags=["Streams"])
 app.include_router(admin_router, prefix="/api/admin", tags=["Admin"])
+app.include_router(reference_documents_router, tags=["Reference Documents"])
 app.include_router(system_logs_router, tags=["System Logs"])
 app.include_router(database_router)
+app.include_router(audit_router)
 
 
 @app.get("/")

@@ -80,7 +80,7 @@ class DownloadService(BaseService):
 
     def _download_file_logic(self, file_path: Path) -> FileResponse:
         """Logic for downloading file"""
-        self.logger.info(f"🎯 DownloadService: Tentative de téléchargement de: {file_path}")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"🎯 DownloadService: Tentative de téléchargement de: {file_path}")
         
         if not file_path.exists():
             self.logger.error(f"🎯 DownloadService: Fichier non trouvé: {file_path}")
@@ -103,7 +103,7 @@ class DownloadService(BaseService):
         if not mime_type:
             mime_type = 'application/octet-stream'
         
-        self.logger.info(f"🎯 DownloadService: Téléchargement du fichier: {file_path.name} ({file_size} bytes, {mime_type})")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"🎯 DownloadService: Téléchargement du fichier: {file_path.name} ({file_size} bytes, {mime_type})")
         
         return FileResponse(
             path=str(file_path),
@@ -165,7 +165,7 @@ class DownloadService(BaseService):
                         self.logger.warning(f"Impossible d'ajouter le fichier {file_path} au ZIP: {e}")
                         continue
         
-        self.logger.info(f"ZIP créé: {zip_path} ({zip_path.stat().st_size / (1024*1024):.1f} MB)")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"ZIP créé: {zip_path} ({zip_path.stat().st_size / (1024*1024):.1f} MB)")
         return zip_path
     
     @log_service_operation("create_zip_from_files")
@@ -224,7 +224,7 @@ class DownloadService(BaseService):
                     self.logger.warning(f"Impossible d'ajouter le fichier {file_path} au ZIP: {e}")
                     continue
         
-        self.logger.info(f"ZIP créé: {zip_path} ({zip_path.stat().st_size / (1024*1024):.1f} MB)")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"ZIP créé: {zip_path} ({zip_path.stat().st_size / (1024*1024):.1f} MB)")
         return zip_path
     
     @log_service_operation("download_directory")
@@ -314,7 +314,7 @@ class DownloadService(BaseService):
                     file_info['path'].unlink()
                     cleaned_count += 1
                     total_size -= file_info['size']
-                    self.logger.debug(f"Fichier temporaire supprimé (âge): {file_info['path'].name}")
+                    # OPTIMISATION: Suppression des logs DEBUG pour éviter la surcharge
                 except Exception as e:
                     self.logger.warning(f"Impossible de supprimer {file_info['path']}: {e}")
         
@@ -332,12 +332,14 @@ class DownloadService(BaseService):
                     file_info['path'].unlink()
                     cleaned_count += 1
                     total_size -= file_info['size']
-                    self.logger.debug(f"Fichier temporaire supprimé (taille): {file_info['path'].name}")
+                    # OPTIMISATION: Suppression des logs DEBUG pour éviter la surcharge
                 except Exception as e:
                     self.logger.warning(f"Impossible de supprimer {file_info['path']}: {e}")
         
         if cleaned_count > 0:
-            self.logger.info(f"Fichiers temporaires nettoyés: {cleaned_count} (taille restante: {total_size / (1024*1024*1024):.2f} GB)")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
+            # self.logger.info(f"Fichiers temporaires nettoyés: {cleaned_count} (taille restante: {total_size / (1024*1024*1024):.2f} GB)")
+            pass
     
     @log_service_operation("get_download_stats")
     def get_download_stats(self) -> Dict[str, Any]:

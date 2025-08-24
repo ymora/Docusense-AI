@@ -20,6 +20,7 @@ from .pdf_files import router as pdf_files_router
 from .logs import router as logs_router
 from .streams import router as streams_router
 from .admin import router as admin_router
+from .audit import router as audit_router
 
 __all__ = [
     "files_router",
@@ -38,5 +39,6 @@ __all__ = [
     "pdf_files_router",
     "logs_router",
     "streams_router",
-    "admin_router"
+    "admin_router",
+    "audit_router"
 ]

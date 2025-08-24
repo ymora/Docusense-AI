@@ -85,7 +85,7 @@ export const useConfigStore = create<ConfigState>()(
                 loading: false,
                 isInitialized: false // Ne pas marquer comme initialisé en cas d'erreur
               });
-              console.error('❌ Erreur lors du chargement des configurations:', error);
+              // OPTIMISATION: Suppression des console.error pour éviter la surcharge
             }
           });
         })(),
@@ -158,7 +158,7 @@ export const useConfigStore = create<ConfigState>()(
                 loading: false,
                 isInitialized: false
               });
-              console.error('❌ Erreur lors du chargement de la configuration par défaut:', error);
+              // OPTIMISATION: Suppression des console.error pour éviter la surcharge
             }
           });
         })(),
@@ -189,7 +189,7 @@ export const useConfigStore = create<ConfigState>()(
             } catch (error) {
               const errorMessage = error instanceof Error ? error.message : 'Erreur lors de l\'actualisation des configurations';
               loadingActions.finishLoadingWithError(errorMessage);
-              console.error('❌ Erreur lors de l\'actualisation des configurations:', error);
+              // OPTIMISATION: Suppression des console.error pour éviter la surcharge
             }
           });
         })(),
@@ -229,7 +229,7 @@ export const useConfigStore = create<ConfigState>()(
             } catch (error) {
               const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la sauvegarde';
               logService.error(`Erreur lors de la sauvegarde de la clé API: ${errorMessage}`, 'ConfigStore', { error: error.message });
-              console.error('❌ Erreur lors de la sauvegarde de la clé API:', error);
+              // OPTIMISATION: Suppression des console.error pour éviter la surcharge
               return {
                 success: false,
                 message: errorMessage
@@ -271,7 +271,7 @@ export const useConfigStore = create<ConfigState>()(
               return result;
             } catch (error) {
               const errorMessage = error instanceof Error ? error.message : 'Erreur lors du test';
-              console.error('❌ Erreur lors du test du provider:', error);
+              // OPTIMISATION: Suppression des console.error pour éviter la surcharge
               
               // Mise à jour du statut en cas d'erreur
               const currentProviders = get().aiProviders;
@@ -332,7 +332,7 @@ export const useConfigStore = create<ConfigState>()(
             return result;
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la mise à jour';
-            console.error('❌ Erreur lors de la définition de la priorité:', error);
+                          // OPTIMISATION: Suppression des console.error pour éviter la surcharge
             return {
               success: false,
               message: errorMessage
@@ -365,7 +365,7 @@ export const useConfigStore = create<ConfigState>()(
             return result;
           } catch (error) {
             const errorMessage = error instanceof Error ? error.message : 'Erreur lors de la mise à jour';
-            console.error('❌ Erreur lors de la définition de la stratégie:', error);
+                          // OPTIMISATION: Suppression des console.error pour éviter la surcharge
             return {
               success: false,
               message: errorMessage

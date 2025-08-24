@@ -26,6 +26,7 @@ from ..schemas.file import FileListResponse, FileStatusUpdate
 from ..utils.response_formatter import ResponseFormatter
 from ..utils.api_utils import APIUtils
 from ..api.auth import get_current_user
+from ..middleware.auth_middleware import get_current_session_optional as get_current_user_optional
 
 
 logger = logging.getLogger(__name__)
@@ -40,7 +41,7 @@ class DrivesResponse(BaseModel):
 
 @router.get("/drives", response_model=DrivesResponse)
 async def list_drives(
-    current_user: User = Depends(get_current_user)
+    current_user: Optional[User] = Depends(get_current_user_optional)
 ):
     """ULTRA-FAST: List available drives without slow psutil calls"""
     drives = []
@@ -73,6 +74,35 @@ async def list_drives(
                     drives.append(mount)
     
     return DrivesResponse(drives=drives)
+
+
+@router.get("/check-access/{disk:path}")
+async def check_disk_access(
+    disk: str,
+    current_user: Optional[User] = Depends(get_current_user_optional)
+):
+    """
+    Vérifie l'accessibilité d'un disque spécifique
+    """
+    try:
+        # Décoder le chemin
+        decoded_disk = urllib.parse.unquote(disk)
+        
+        # Normaliser le chemin pour Windows
+        if os.name == "nt":
+            if not decoded_disk.endswith("\\"):
+                decoded_disk = decoded_disk + "\\"
+        
+        # Test d'accessibilité rapide
+        try:
+            os.listdir(decoded_disk)
+            return {"success": True, "status": "online", "disk": decoded_disk}
+        except (OSError, PermissionError) as e:
+            return {"success": False, "status": "error", "disk": decoded_disk, "error": str(e)}
+            
+    except Exception as e:
+        logger.error(f"Erreur lors de la vérification d'accessibilité du disque {disk}: {e}")
+        return {"success": False, "status": "error", "disk": disk, "error": str(e)}
 
 
 
@@ -251,7 +281,7 @@ async def list_directory_content(
     page_size: int = Query(50, ge=1, le=1000, description="Taille de page"),
     offset: int = Query(0, ge=0, description="Offset"),
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: Optional[User] = Depends(get_current_user_optional)
 ):
     """
     Liste le contenu d'un répertoire avec pagination
@@ -300,7 +330,7 @@ async def list_directory_content(
 @router.get("/directories")
 async def get_available_directories(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user)
+    current_user: Optional[User] = Depends(get_current_user_optional)
 ) -> Dict[str, Any]:
     """
     Get list of available directories for selection
@@ -598,7 +628,7 @@ async def download_selected_files(
         # Générer un nom de ZIP par défaut
         zip_name = f"selected_files_{datetime.now().strftime('%Y%m%d_%H%M%S')}.zip"
         
-        logger.info(f"Téléchargement de {len(file_paths)} fichiers sélectionnés")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Téléchargement de {len(file_paths)} fichiers sélectionnés")
         
         return download_service.download_multiple_files(file_paths, zip_name)
         

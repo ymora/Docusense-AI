@@ -159,7 +159,7 @@ export const useFileOperations = () => {
           setProgress(progress);
           options.onProgress?.(progress);
         } catch (error) {
-          console.error(`Erreur lors du traitement du fichier ${files[i].name}:`, error);
+          // OPTIMISATION: Suppression des console.error pour éviter la surcharge // console.error(`Erreur lors du traitement du fichier ${files[i].name}:`, error);
           // Continue avec les autres fichiers
         }
       }

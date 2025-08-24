@@ -33,7 +33,7 @@ def get_ai_service(db: Session = None) -> 'AIService':
                 _global_ai_service = AIService(db)
                 _initialized = True
                 if not _singleton_logged:
-                    _global_ai_service.logger.info("Service AI singleton créé")
+                    # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
                     _singleton_logged = True
     
     return _global_ai_service
@@ -80,7 +80,7 @@ class AIService(BaseService):
     def _log_provider_loading(self) -> None:
         """Log provider loading status"""
         if not self._ai_providers_loaded:
-            self.logger.info(f"{len(self.providers)} fournisseurs AI chargés")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
             self._ai_providers_loaded = True
 
     def _load_default_providers(self) -> None:
@@ -174,7 +174,7 @@ class AIService(BaseService):
     async def test_provider_with_key(self, provider: str, api_key: str) -> bool:
         """Test AI provider connection with a specific API key (NO automatic status update)"""
         try:
-            self.logger.info(f"[TEST] Starting connection test for provider: {provider.upper()}")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
             self.logger.warning(f"[TEST] {provider.upper()}: API key provided: {'YES' if api_key else 'NO'}")
             if api_key:
                 self.logger.warning(f"[TEST] {provider.upper()}: API key length: {len(api_key)}")
@@ -192,7 +192,8 @@ class AIService(BaseService):
             is_functional = await self._test_provider(provider, temp_config)
             
             if is_functional:
-                self.logger.info(f"[TEST] {provider.upper()}: Connection test SUCCESSFUL")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
+                pass
             else:
                 self.logger.warning(f"[TEST] {provider.upper()}: Connection test FAILED")
             
@@ -301,18 +302,18 @@ class AIService(BaseService):
                 # Vérifier que le provider a une clé API (sauf les providers locaux)
                 if provider["name"].lower() not in ["ollama"]:
                     if not provider.get("has_api_key", False):
-                        self.logger.debug(f"Provider {provider['name']} skipped: no API key")
+                        # OPTIMISATION: Suppression des logs DEBUG pour éviter la surcharge
                         continue
                 
                 # Vérifier que le provider a été testé et est fonctionnel
                 if not provider.get("is_functional", False):
-                    self.logger.debug(f"Provider {provider['name']} skipped: not functional")
+                    # OPTIMISATION: Suppression des logs DEBUG pour éviter la surcharge
                     continue
                 
                 # Vérifier que le provider a une priorité valide (1-4)
                 priority = provider.get("priority", 999)
                 if priority < 1 or priority > 4:
-                    self.logger.debug(f"Provider {provider['name']} skipped: invalid priority {priority}")
+                    # OPTIMISATION: Suppression des logs DEBUG pour éviter la surcharge
                     continue
                 
                 functional_providers.append(provider)
@@ -406,7 +407,7 @@ class AIService(BaseService):
                     provider_config = functional_providers[provider_name]
                     model = self._select_model_for_provider(provider_config, None)
                     
-                    self.logger.info(f"Selected provider from priority list: {provider_name} with model {model}")
+                    # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
                     return provider_name, model
             
             # Si aucun provider de la liste n'est fonctionnel, utiliser le meilleur disponible
@@ -435,7 +436,7 @@ class AIService(BaseService):
                     return False
             
             # Utiliser la méthode unifiée de test
-            self.logger.info(f"[TEST] {name.upper()}: Executing unified test method")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
             return await self._test_provider_unified(name, config)
                 
         except Exception as e:
@@ -446,23 +447,23 @@ class AIService(BaseService):
         """Unified provider testing method"""
         try:
             provider_name = name.lower()
-            self.logger.info(f"[UNIFIED] Starting unified test for provider: {name.upper()}")
-            self.logger.info(f"[UNIFIED] Provider name (lowercase): {provider_name}")
+                    # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
             
             if provider_name == "openai":
-                self.logger.info(f"[UNIFIED] Calling OpenAI SDK test")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
                 return await self._test_openai_sdk(config)
             elif provider_name == "claude":
-                self.logger.info(f"[UNIFIED] Calling Claude SDK test")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
                 return await self._test_claude_sdk(config)
             elif provider_name == "mistral":
-                self.logger.info(f"[UNIFIED] Calling Mistral API test")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
                 return await self._test_mistral_api(config)
             elif provider_name == "ollama":
-                self.logger.info(f"[UNIFIED] Calling Ollama API test")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
                 return await self._test_ollama_api(config)
             elif provider_name == "gemini":
-                self.logger.info(f"[UNIFIED] Calling Gemini API test")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
                 return await self._test_gemini_api(config)
             else:
                 self.logger.warning(f"[UNIFIED] Unknown provider {name}")
@@ -477,18 +478,19 @@ class AIService(BaseService):
         try:
             import openai
             
-            self.logger.info(f"[OPENAI] Testing with SDK at: {config.get('base_url', 'https://api.openai.com/v1')}")
-            self.logger.info(f"[OPENAI] API key in config: {'YES' if config.get('api_key') else 'NO'}")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
             if config.get('api_key'):
-                self.logger.info(f"[OPENAI] API key length: {len(config['api_key'])}")
-                self.logger.info(f"[OPENAI] API key preview: {config['api_key'][:8]}...{config['api_key'][-4:]}")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
+                pass
             
             client = openai.AsyncOpenAI(
                 api_key=config["api_key"],
                 base_url=config.get("base_url", "https://api.openai.com/v1")
             )
             
-            self.logger.info(f"[OPENAI] Client created successfully")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
             
             response = await client.chat.completions.create(
                 model=config.get("default_model", "gpt-4"),
@@ -496,7 +498,7 @@ class AIService(BaseService):
                 max_tokens=5
             )
             
-            self.logger.info(f"[OPENAI] SDK test successful - model: {config.get('default_model', 'gpt-4')}")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
             return bool(response.choices)
             
         except ImportError as e:
@@ -511,15 +513,16 @@ class AIService(BaseService):
         try:
             import anthropic
             
-            self.logger.info(f"[CLAUDE] Testing with SDK at: {config.get('base_url', 'https://api.anthropic.com')}")
-            self.logger.info(f"[CLAUDE] API key in config: {'YES' if config.get('api_key') else 'NO'}")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
             if config.get('api_key'):
-                self.logger.info(f"[CLAUDE] API key length: {len(config['api_key'])}")
-                self.logger.info(f"[CLAUDE] API key preview: {config['api_key'][:8]}...{config['api_key'][-4:]}")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
+                pass
             
             client = anthropic.AsyncAnthropic(api_key=config["api_key"])
             
-            self.logger.info(f"[CLAUDE] Client created successfully")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
             
             response = await client.messages.create(
                 model=config.get("default_model", "claude-3-sonnet-20240229"),
@@ -527,7 +530,7 @@ class AIService(BaseService):
                 messages=[{"role": "user", "content": "Test"}]
             )
             
-            self.logger.info(f"[CLAUDE] SDK test successful - model: {config.get('default_model', 'claude-3-sonnet-20240229')}")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
             return bool(response.content and len(response.content) > 0)
             
         except ImportError as e:
@@ -542,7 +545,7 @@ class AIService(BaseService):
         try:
             import mistralai
             
-            self.logger.info(f"[MISTRAL] Testing with SDK at: {config.get('base_url', 'https://api.mistral.ai')}")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
             self.logger.warning(f"[MISTRAL] API key in config: {'YES' if config.get('api_key') else 'NO'}")
             if config.get('api_key'):
                 self.logger.warning(f"[MISTRAL] API key length: {len(config['api_key'])}")
@@ -552,7 +555,7 @@ class AIService(BaseService):
                 api_key=config["api_key"]
             )
             
-            self.logger.warning(f"[MISTRAL] Client created successfully")
+            # OPTIMISATION: Suppression des logs WARNING pour éviter la surcharge
             
             response = await client.chat.complete_async(
                 model=config.get("default_model", "mistral-large-latest"),
@@ -560,7 +563,7 @@ class AIService(BaseService):
                 max_tokens=5
             )
             
-            self.logger.info(f"[MISTRAL] SDK test successful - model: {config.get('default_model', 'mistral-large-latest')}")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
             return bool(response.choices)
             
         except ImportError as e:
@@ -578,11 +581,11 @@ class AIService(BaseService):
             
             base_url = config.get('base_url', 'http://localhost:11434')
             
-            self.logger.info(f"[OLLAMA] Testing local REST API at: {base_url}")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
             
             def sync_request():
                 try:
-                    self.logger.debug(f"[OLLAMA] Sending GET request to: {base_url}/api/tags")
+                    # OPTIMISATION: Suppression des logs DEBUG pour éviter la surcharge
                     response = requests.get(f"{base_url}/api/tags", timeout=5)
                     return response
                 except Exception as e:
@@ -597,7 +600,7 @@ class AIService(BaseService):
                 return False
             
             if response.status_code == 200:
-                self.logger.info(f"[OLLAMA] Local REST API test successful - status: {response.status_code}")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
                 return True
             else:
                 self.logger.error(f"[OLLAMA] Local REST API test failed - status: {response.status_code} - response: {response.text}")
@@ -612,26 +615,27 @@ class AIService(BaseService):
         try:
             import google.generativeai as genai
             
-            self.logger.info(f"[GEMINI] Testing with Google AI SDK")
-            self.logger.info(f"[GEMINI] API key in config: {'YES' if config.get('api_key') else 'NO'}")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
             if config.get('api_key'):
-                self.logger.info(f"[GEMINI] API key length: {len(config['api_key'])}")
-                self.logger.info(f"[GEMINI] API key preview: {config['api_key'][:8]}...{config['api_key'][-4:]}")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
+                pass
             
             # Configure the API key
             genai.configure(api_key=config["api_key"])
             
-            self.logger.info(f"[GEMINI] API key configured successfully")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
             
             # Get the model
             model = genai.GenerativeModel(config.get("default_model", "gemini-pro"))
             
-            self.logger.info(f"[GEMINI] Model created successfully")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
             
             # Test with a simple prompt
             response = await model.generate_content_async("Test")
             
-            self.logger.info(f"[GEMINI] SDK test successful - model: {config.get('default_model', 'gemini-pro')}")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
             return bool(response.text)
             
         except ImportError as e:
@@ -896,7 +900,7 @@ class AIService(BaseService):
             if success:
                 # Reload providers
                 self.providers[provider] = config
-                self.logger.info(f"Saved configuration for provider {provider}")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
             
             return success
             
@@ -918,7 +922,7 @@ class AIService(BaseService):
             
             if success:
                 self.providers.pop(provider, None)
-                self.logger.info(f"Deleted configuration for provider {provider}")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
             
             return success
             
@@ -932,7 +936,7 @@ class AIService(BaseService):
         global _global_ai_service, _global_lock
         with _global_lock:
             _global_ai_service = None
-            logger.info("AIService cache cleared")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
     
     @classmethod
     def get_cache_size(cls) -> int:

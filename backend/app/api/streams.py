@@ -63,7 +63,10 @@ async def broadcast_to_stream(stream_type: str, data: Dict[str, Any]):
 
 @router.get("/analyses")
 @APIUtils.monitor_api_performance
-async def stream_analyses(db: Session = Depends(get_db)):
+async def stream_analyses(
+    token: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
     """
     Stream des analyses en temps réel
     """
@@ -83,11 +86,14 @@ async def stream_analyses(db: Session = Depends(get_db)):
                     try:
                         analyses_data.append({
                             "id": analysis.id,
-                            "title": analysis.title,
+                            "analysis_type": analysis.analysis_type.value if analysis.analysis_type else None,
                             "status": analysis.status.value if analysis.status else None,
                             "created_at": analysis.created_at.isoformat() if analysis.created_at else None,
-                            "updated_at": analysis.updated_at.isoformat() if analysis.updated_at else None,
-                            "file_path": analysis.file_path,
+                            "started_at": analysis.started_at.isoformat() if analysis.started_at else None,
+                            "completed_at": analysis.completed_at.isoformat() if analysis.completed_at else None,
+                            "provider": analysis.provider,
+                            "model": analysis.model,
+                            "file_id": analysis.file_id,
                             "user_id": analysis.user_id
                         })
                     except Exception as analysis_error:
@@ -288,7 +294,10 @@ async def stream_users(db: Session = Depends(get_db)):
 
 @router.get("/files")
 @APIUtils.monitor_api_performance
-async def stream_files(db: Session = Depends(get_db)):
+async def stream_files(
+    token: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
     """
     Stream des événements fichiers en temps réel
     """

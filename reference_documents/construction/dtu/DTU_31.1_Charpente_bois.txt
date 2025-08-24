@@ -1,0 +1,30 @@
+# DTU 31.1 - Charpente en bois
+
+Document Technique Unifié pour la charpente en bois
+
+==================================================
+
+
+# DTU 31.1 - Charpente en bois
+
+## Généralités
+Le DTU 31.1 définit les règles de conception et d'exécution des charpentes en bois.
+
+## Domaine d'application
+- Charpentes traditionnelles en bois massif
+- Charpentes industrielles en bois massif
+- Charpentes en lamellé-collé
+
+## Exigences techniques
+- Essences de bois autorisées
+- Classes de résistance mécanique
+- Traitements de préservation
+- Assemblage et fixation
+- Contrôle d'exécution
+
+## Points de contrôle
+- Qualité du bois
+- Respect des cotes
+- Assemblage correct
+- Fixation conforme
+- Traitement appliqué

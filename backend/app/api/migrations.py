@@ -25,7 +25,7 @@ async def run_migrations(db: Session = Depends(get_db)) -> Dict[str, Any]:
     Exécute les migrations automatiques de la base de données
     """
     try:
-        logger.info("[MIGRATION] Déclenchement manuel des migrations")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info("[MIGRATION] Déclenchement manuel des migrations")
         results = run_automatic_migrations(db)
         
         return {
@@ -45,7 +45,7 @@ async def check_consistency(db: Session = Depends(get_db)) -> Dict[str, Any]:
     Vérifie la cohérence de la base de données
     """
     try:
-        logger.info("Vérification de la cohérence de la base de données")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info("Vérification de la cohérence de la base de données")
         report = check_database_consistency(db)
         
         return {

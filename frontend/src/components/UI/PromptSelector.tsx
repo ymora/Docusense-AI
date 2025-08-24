@@ -40,7 +40,7 @@ export const PromptSelector: React.FC<PromptSelectorProps> = ({
       const defaultPrompt = getDefaultPromptForFile(file, allPrompts.specialized_prompts ? Object.values(allPrompts.specialized_prompts) : []);
       setSelectedPrompt(defaultPrompt?.id || 'general_summary');
     } catch (error) {
-      console.error('Erreur lors du chargement des prompts:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge // console.error('Erreur lors du chargement des prompts:', error);
     } finally {
       setLoading(false);
     }

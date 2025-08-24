@@ -23,9 +23,8 @@ class BaseService:
             @wraps(func)
             def wrapper(*args, **kwargs):
                 try:
-                    self.logger.debug(f"Starting operation: {operation_name}")
+                    # OPTIMISATION: Suppression des logs DEBUG pour éviter la surcharge
                     result = func(*args, **kwargs)
-                    self.logger.debug(f"Completed operation: {operation_name}")
                     return result
                 except Exception as e:
                     self.logger.error(f"Error in {operation_name}: {str(e)}")
@@ -36,9 +35,8 @@ class BaseService:
     def safe_execute(self, operation_name: str, func, *args, **kwargs):
         """Safely execute a function with error handling"""
         try:
-            self.logger.debug(f"Starting operation: {operation_name}")
+            # OPTIMISATION: Suppression des logs DEBUG pour éviter la surcharge
             result = func(*args, **kwargs)
-            self.logger.debug(f"Completed operation: {operation_name}")
             return result
         except Exception as e:
             self.logger.error(f"Error in {operation_name}: {str(e)}")
@@ -47,9 +45,8 @@ class BaseService:
     async def safe_execute_async(self, operation_name: str, func, *args, **kwargs):
         """Safely execute an async function with error handling"""
         try:
-            self.logger.debug(f"Starting async operation: {operation_name}")
+            # OPTIMISATION: Suppression des logs DEBUG pour éviter la surcharge
             result = await func(*args, **kwargs)
-            self.logger.debug(f"Completed async operation: {operation_name}")
             return result
         except Exception as e:
             self.logger.error(f"Error in async {operation_name}: {str(e)}")
@@ -95,9 +92,8 @@ def log_service_operation(operation_name: str):
         def wrapper(*args, **kwargs):
             logger = get_service_logger(func.__module__)
             try:
-                logger.debug(f"Starting operation: {operation_name}")
+                # OPTIMISATION: Suppression des logs DEBUG pour éviter la surcharge
                 result = func(*args, **kwargs)
-                logger.debug(f"Completed operation: {operation_name}")
                 return result
             except Exception as e:
                 logger.error(f"Error in {operation_name}: {str(e)}")

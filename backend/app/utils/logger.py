@@ -21,4 +21,4 @@ def debug(obj, label: str = '') -> None:
     """Debug function with formatted output"""
     logger = get_logger('debug')
     output = f"DEBUG {label}:\n{obj}"
-    logger.debug(output) 
+    # OPTIMISATION: Suppression des logs DEBUG pour éviter la surcharge # logger.debug(output) 

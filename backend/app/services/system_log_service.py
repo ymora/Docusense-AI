@@ -94,7 +94,7 @@ class SystemLogService(BaseService):
             self.db.refresh(log_entry)
             
             # Log to file for immediate visibility
-            self.logger.info(f"System log: {level.value} - {source} - {action}")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"System log: {level.value} - {source} - {action}")
             
             # If it's a security event, also log with higher priority
             if is_security_event or is_suspicious:
@@ -308,7 +308,7 @@ class SystemLogService(BaseService):
             self.db.commit()
             
             total_deleted = deleted_regular + deleted_security
-            self.logger.info(f"Cleaned up {total_deleted} old log entries")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Cleaned up {total_deleted} old log entries")
             
             return total_deleted
             

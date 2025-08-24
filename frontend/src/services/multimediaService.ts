@@ -68,7 +68,7 @@ class MultimediaService {
       
       return await response.json();
     } catch (error) {
-      console.error('Erreur lors de la récupération des infos d\'optimisation:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       throw error;
     }
   }
@@ -86,7 +86,7 @@ class MultimediaService {
       
       return await response.json();
     } catch (error) {
-      console.error('Erreur lors de la vérification FFmpeg:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       throw error;
     }
   }
@@ -115,7 +115,7 @@ class MultimediaService {
       
       return await response.blob();
     } catch (error) {
-      console.error('Erreur lors de l\'optimisation:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       throw error;
     }
   }
@@ -183,7 +183,7 @@ class MultimediaService {
 
       
     } catch (error) {
-      console.warn('Erreur lors de l\'application des optimisations audio:', error);
+      // OPTIMISATION: Suppression des console.warn pour éviter la surcharge
     }
   }
 
@@ -219,7 +219,7 @@ class MultimediaService {
 
       
     } catch (error) {
-      console.warn('Erreur lors de l\'application des optimisations vidéo:', error);
+      // OPTIMISATION: Suppression des console.warn pour éviter la surcharge
     }
   }
 
@@ -243,7 +243,7 @@ class MultimediaService {
         optimizationInfo
       };
     } catch (error) {
-      console.error('Erreur lors de la vérification du support:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       return {
         supported: false,
         ffmpegAvailable: false

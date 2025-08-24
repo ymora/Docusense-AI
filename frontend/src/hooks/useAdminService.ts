@@ -10,7 +10,7 @@ export const useAdminService = () => {
   return {
     getUsers: () => {
       if (!isAuthenticated || !isAdmin()) {
-        console.log('[AdminService] Utilisateur non authentifié ou non admin - pas de chargement des utilisateurs');
+        // OPTIMISATION: Suppression des console.log pour éviter la surcharge
         return Promise.resolve([]);
       }
       return conditionalRequest(
@@ -21,7 +21,7 @@ export const useAdminService = () => {
     
     createUser: (userData: { username: string; email: string; password: string; role?: string }) => {
       if (!isAuthenticated || !isAdmin()) {
-        console.log('[AdminService] Utilisateur non authentifié ou non admin - pas de création d\'utilisateur');
+        // OPTIMISATION: Suppression des console.log pour éviter la surcharge
         return Promise.reject(new Error('Accès non autorisé'));
       }
       return conditionalRequest(
@@ -32,7 +32,7 @@ export const useAdminService = () => {
     
     updateUser: (id: number, userData: Partial<User>) => {
       if (!isAuthenticated || !isAdmin()) {
-        console.log('[AdminService] Utilisateur non authentifié ou non admin - pas de modification d\'utilisateur:', id);
+        // OPTIMISATION: Suppression des console.log pour éviter la surcharge
         return Promise.reject(new Error('Accès non autorisé'));
       }
       return conditionalRequest(
@@ -43,7 +43,7 @@ export const useAdminService = () => {
     
     deleteUser: (id: number) => {
       if (!isAuthenticated || !isAdmin()) {
-        console.log('[AdminService] Utilisateur non authentifié ou non admin - pas de suppression d\'utilisateur:', id);
+        // OPTIMISATION: Suppression des console.log pour éviter la surcharge
         return Promise.reject(new Error('Accès non autorisé'));
       }
       return conditionalRequest(
@@ -54,7 +54,7 @@ export const useAdminService = () => {
     
     getDetailedHealth: () => {
       if (!isAuthenticated || !isAdmin()) {
-        console.log('[AdminService] Utilisateur non authentifié ou non admin - pas de récupération d\'infos système');
+        // OPTIMISATION: Suppression des console.log pour éviter la surcharge
         return Promise.reject(new Error('Accès non autorisé'));
       }
       return conditionalRequest(
@@ -65,7 +65,7 @@ export const useAdminService = () => {
     
     getPerformanceMetrics: () => {
       if (!isAuthenticated || !isAdmin()) {
-        console.log('[AdminService] Utilisateur non authentifié ou non admin - pas de récupération des métriques');
+        // OPTIMISATION: Suppression des console.log pour éviter la surcharge
         return Promise.reject(new Error('Accès non autorisé'));
       }
       return conditionalRequest(
@@ -76,7 +76,7 @@ export const useAdminService = () => {
     
     getSystemInfo: () => {
       if (!isAuthenticated || !isAdmin()) {
-        console.log('[AdminService] Utilisateur non authentifié ou non admin - pas de récupération d\'infos système');
+        // OPTIMISATION: Suppression des console.log pour éviter la surcharge
         return Promise.reject(new Error('Accès non autorisé'));
       }
       return conditionalRequest(
@@ -87,7 +87,7 @@ export const useAdminService = () => {
     
     getBackendLogs: () => {
       if (!isAuthenticated || !isAdmin()) {
-        console.log('[AdminService] Utilisateur non authentifié ou non admin - pas de récupération des logs');
+        // OPTIMISATION: Suppression des console.log pour éviter la surcharge
         return Promise.resolve([]);
       }
       return conditionalRequest(

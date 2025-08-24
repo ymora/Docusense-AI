@@ -81,6 +81,22 @@ export const useFileService = () => {
       }
     },
 
+    // Méthode pour vérifier l'accessibilité d'un disque
+    checkDiskAccess: async (disk: string) => {
+      try {
+        if (isOnline) {
+          const encodedDisk = encodeURIComponent(disk);
+          const response = await fetch(`/api/files/check-access/${encodedDisk}`);
+          const data = await response.json();
+          return data.success ? 'online' : 'error';
+        } else {
+          return 'offline';
+        }
+      } catch (error) {
+        return 'error';
+      }
+    },
+
     listDirectory: async (directory: string) => {
       try {
         if (isOnline) {

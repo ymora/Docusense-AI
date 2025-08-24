@@ -35,7 +35,7 @@ class StreamService {
     // Vérifier l'authentification
     const authStore = useAuthStore.getState();
     if (!authStore.isAuthenticated) {
-      logService.warning(`Tentative de démarrage du stream ${streamType} sans authentification`, 'StreamService');
+      logService.info(`Stream ${streamType} non démarré - utilisateur non authentifié`, 'StreamService');
       return false;
     }
 
@@ -43,7 +43,10 @@ class StreamService {
     this.closeStream(streamType);
 
     try {
-      const eventSource = new EventSource(`/api/streams/${streamType}`);
+      // Construire l'URL avec le token d'authentification
+      const token = authStore.accessToken;
+      const url = token ? `/api/streams/${streamType}?token=${token}` : `/api/streams/${streamType}`;
+      const eventSource = new EventSource(url);
       
       eventSource.onopen = () => {
         logService.info(`Stream ${streamType} connecté`, 'StreamService');
@@ -62,31 +65,41 @@ class StreamService {
       };
 
       eventSource.onerror = (error) => {
-        logService.error(`Erreur stream ${streamType}`, 'StreamService', { error: error.type });
-        callbacks.onError?.(error);
-        
-        // Vérifier si c'est une erreur d'authentification
+        // Réduire les logs d'erreur pour éviter la pollution
         if (error.type === 'error') {
           // Vérifier le statut de la réponse si possible
-          const eventSource = this.streams.get(streamType);
-          if (eventSource && eventSource.readyState === EventSource.CLOSED) {
+          const currentEventSource = this.streams.get(streamType);
+          if (currentEventSource && currentEventSource.readyState === EventSource.CLOSED) {
             // Stream fermé - possible erreur d'authentification
-            logService.warning(`Stream ${streamType} fermé, possible erreur d'authentification`, 'StreamService');
+            logService.warning(`Stream ${streamType} fermé, vérification de l'authentification`, 'StreamService');
             
             // Vérifier l'authentification
-            const authStore = JSON.parse(localStorage.getItem('auth-storage') || '{}');
-            if (!authStore.state?.accessToken) {
-              logService.warning('Token d\'authentification manquant, arrêt des streams', 'StreamService');
+            const authStore = useAuthStore.getState();
+            if (!authStore.isAuthenticated) {
+              logService.info('Utilisateur non authentifié, arrêt des streams', 'StreamService');
               this.closeAllStreams();
               return;
             }
           }
         }
         
-        // Reconnexion rapide pour éviter les violations de performance
-        requestIdleCallback(() => {
-          this.handleReconnect(streamType, callbacks);
-        });
+        // Appeler le callback d'erreur si fourni
+        callbacks.onError?.(error);
+        
+        // Reconnexion automatique seulement si l'utilisateur est authentifié
+        const authStore = useAuthStore.getState();
+        if (authStore.isAuthenticated) {
+          // Utiliser requestIdleCallback pour éviter les violations de performance
+          if (typeof requestIdleCallback !== 'undefined') {
+            requestIdleCallback(() => {
+              this.handleReconnect(streamType, callbacks);
+            });
+          } else {
+            setTimeout(() => {
+              this.handleReconnect(streamType, callbacks);
+            }, 1000);
+          }
+        }
       };
 
       this.streams.set(streamType, eventSource);
@@ -207,6 +220,7 @@ export const streamService = new StreamService();
 export const useStreamService = () => {
   return {
     startStream: streamService.startStream.bind(streamService),
+    stopStream: streamService.closeStream.bind(streamService), // Alias pour compatibilité
     closeStream: streamService.closeStream.bind(streamService),
     isStreamActive: streamService.isStreamActive.bind(streamService),
     getActiveStreams: streamService.getActiveStreams.bind(streamService),

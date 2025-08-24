@@ -77,7 +77,7 @@ class DocumentExtractorService(BaseService):
         text = await asyncio.to_thread(extractor_func, file_path)
         
         if text:
-            self.logger.info(f"Texte extrait de {file_path.name}: {len(text)} caractères")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Texte extrait de {file_path.name}: {len(text)} caractères")
             return text
         else:
             self.logger.warning(f"Aucun texte extrait de {file_path.name}")

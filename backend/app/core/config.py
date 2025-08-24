@@ -74,9 +74,36 @@ class Settings(BaseSettings):
     redis_url: Optional[str] = Field(default=None, env="REDIS_URL")
 
     # Logging
-    log_level: str = Field(default="WARNING", env="LOG_LEVEL")  # OPTIMISATION: Réduit de INFO à WARNING
+    log_level: str = Field(default="ERROR", env="LOG_LEVEL")  # OPTIMISATION: Réduit à ERROR pour éviter la surcharge
     log_format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 
+    # NOUVEAU: Configuration de logging adaptatif pour la production
+    production_logging: bool = Field(default=True, env="PRODUCTION_LOGGING")
+    guest_logging_enabled: bool = Field(default=False, env="GUEST_LOGGING_ENABLED")  # Désactivé par défaut
+    user_logging_level: str = Field(default="ERROR", env="USER_LOGGING_LEVEL")  # Seulement erreurs
+    admin_logging_level: str = Field(default="DEBUG", env="ADMIN_LOGGING_LEVEL")  # Logs complets
+    
+    # NOUVEAU: Paramètres de filtres professionnels
+    max_logs_per_second: int = Field(default=100, env="MAX_LOGS_PER_SECOND")  # Limite de performance
+    guest_max_logs_per_second: int = Field(default=0, env="GUEST_MAX_LOGS_PER_SECOND")  # AUCUN LOG
+    user_max_logs_per_second: int = Field(default=50, env="USER_MAX_LOGS_PER_SECOND")  # Limité
+    admin_max_logs_per_second: int = Field(default=500, env="ADMIN_MAX_LOGS_PER_SECOND")  # Élevé
+    
+    # NOUVEAU: Filtres par module
+    guest_allowed_modules: str = Field(default="", env="GUEST_ALLOWED_MODULES")  # Aucun module
+    user_allowed_modules: str = Field(default="auth,security,admin", env="USER_ALLOWED_MODULES")  # Modules sensibles
+    admin_allowed_modules: str = Field(default="*", env="ADMIN_ALLOWED_MODULES")  # Tous les modules
+    
+    # NOUVEAU: Filtres par niveau
+    guest_allowed_levels: str = Field(default="", env="GUEST_ALLOWED_LEVELS")  # Aucun niveau
+    user_allowed_levels: str = Field(default="ERROR,CRITICAL", env="USER_ALLOWED_LEVELS")  # Erreurs critiques
+    admin_allowed_levels: str = Field(default="DEBUG,INFO,WARNING,ERROR,CRITICAL", env="ADMIN_ALLOWED_LEVELS")  # Tous
+    
+    # NOUVEAU: Paramètres de performance
+    log_buffer_size: int = Field(default=1000, env="LOG_BUFFER_SIZE")  # Taille du buffer
+    log_flush_interval: int = Field(default=5, env="LOG_FLUSH_INTERVAL")  # Intervalle de flush (secondes)
+    log_compression_enabled: bool = Field(default=True, env="LOG_COMPRESSION_ENABLED")  # Compression activée
+    
     # File Processing
     max_file_size: int = Field(
         default=100 * 1024 * 1024,

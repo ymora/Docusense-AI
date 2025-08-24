@@ -1,6 +1,7 @@
 import { apiRequest, handleApiError } from '../utils/apiUtils';
 import { logService } from './logService';
 import { useBackendConnection } from '../hooks/useBackendConnection';
+import { userCache, cachedRequest } from '../utils/cacheUtils';
 
 const DEFAULT_TIMEOUT = 30000; // 30 secondes
 
@@ -50,22 +51,21 @@ export interface AdminServiceResponse<T = any> {
 const baseAdminService = {
   // Gestion des utilisateurs
   async getUsers(): Promise<User[]> {
-    try {
-      const response = await apiRequest('/api/admin/users', {}, DEFAULT_TIMEOUT);
-      
-      logService.info('Liste des utilisateurs récupérée', 'AdminService', {
-        count: response.length || 0,
-        timestamp: new Date().toISOString()
-      });
-      
-      return response;
-    } catch (error) {
-      logService.error('Erreur lors de la récupération des utilisateurs', 'AdminService', {
-        error: handleApiError(error),
-        timestamp: new Date().toISOString()
-      });
-      throw new Error(`Erreur lors de la récupération des utilisateurs: ${handleApiError(error)}`);
-    }
+    return cachedRequest(
+      userCache,
+      'admin-users',
+      async () => {
+        const response = await apiRequest('/api/admin/users', {}, DEFAULT_TIMEOUT);
+        
+        logService.info('Liste des utilisateurs récupérée', 'AdminService', {
+          count: response.length || 0,
+          timestamp: new Date().toISOString()
+        });
+        
+        return response;
+      },
+      2 * 60 * 1000 // Cache pendant 2 minutes
+    );
   },
 
   async createUser(userData: { username: string; email: string; password: string; role?: string }): Promise<User> {

@@ -80,7 +80,7 @@ const PromptSelector: React.FC<PromptSelectorProps> = ({
 
         
       } catch (error) {
-        console.error('Erreur lors de la création des analyses:', error);
+        // OPTIMISATION: Suppression des console.error pour éviter la surcharge // console.error('Erreur lors de la création des analyses:', error);
         // Ici on pourrait afficher une notification d'erreur
       } finally {
         setIsProcessing(false);

@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useColors } from '../../hooks/useColors';
 import { useAdminService } from '../../hooks/useAdminService';
 import { logService } from '../../services/logService';
+import { userCache, invalidateCache } from '../../utils/cacheUtils';
 
 import {
   UserIcon,
@@ -60,7 +61,7 @@ const UsersPanel: React.FC = () => {
     status: false
   });
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -82,16 +83,16 @@ const UsersPanel: React.FC = () => {
         setError('Format de réponse invalide');
       }
     } catch (error) {
-      console.error('[UsersPanel] Erreur lors de la récupération des utilisateurs:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       setError('Erreur de connexion au serveur');
     } finally {
       setLoading(false);
     }
-  };
+  }, [adminService]);
 
 
 
-  const saveUser = async (user: EditableUser, index: number) => {
+  const saveUser = useCallback(async (user: EditableUser, index: number) => {
     try {
       setLoading(true);
       setError(null);
@@ -112,6 +113,9 @@ const UsersPanel: React.FC = () => {
             { ...newUser, password: '', isNew: false } as any : user
           ));
           setUsers(prev => [...prev, newUser] as any);
+          
+          // Invalider le cache des utilisateurs
+          invalidateCache(userCache, 'admin-users');
           
           setSuccess('Utilisateur créé avec succès');
         } else {
@@ -142,21 +146,24 @@ const UsersPanel: React.FC = () => {
             user.id === updatedUser.id ? updatedUser : user
           ) as any);
           
+          // Invalider le cache des utilisateurs
+          invalidateCache(userCache, 'admin-users');
+          
           setSuccess('Utilisateur mis à jour avec succès');
         } else {
           setError('Erreur lors de la mise à jour de l\'utilisateur');
         }
       }
     } catch (error) {
-      console.error('[UsersPanel] Erreur lors de la sauvegarde d\'utilisateur:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       setError('Erreur de connexion au serveur');
       logService.error('Erreur lors de la sauvegarde d\'utilisateur', 'UsersPanel', { error, user });
     } finally {
       setLoading(false);
     }
-  };
+  }, [adminService]);
 
-  const deleteUser = async (userId: number) => {
+  const deleteUser = useCallback(async (userId: number) => {
     try {
       setLoading(true);
       setError(null);
@@ -168,16 +175,19 @@ const UsersPanel: React.FC = () => {
       setEditingUsers(prev => prev.filter(user => user.id !== userId));
       setUsers(prev => prev.filter(user => user.id !== userId));
       
+      // Invalider le cache des utilisateurs
+      invalidateCache(userCache, 'admin-users');
+      
       setSuccess('Utilisateur supprimé avec succès');
       
     } catch (error) {
-      console.error('[UsersPanel] Erreur lors de la suppression d\'utilisateur:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       setError('Erreur lors de la suppression de l\'utilisateur');
       logService.error('Erreur lors de la suppression d\'utilisateur', 'UsersPanel', { error, userId });
     } finally {
       setLoading(false);
     }
-  };
+  }, [adminService]);
 
   const toggleUserStatus = async (userId: number, isActive: boolean) => {
     try {
@@ -203,7 +213,7 @@ const UsersPanel: React.FC = () => {
         setError('Erreur lors de la mise à jour du statut');
       }
     } catch (error) {
-      console.error('[UsersPanel] Erreur lors de la mise à jour du statut utilisateur:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       setError('Erreur lors de la mise à jour du statut');
       logService.error('Erreur lors de la mise à jour du statut utilisateur', 'UsersPanel', { error, userId });
     } finally {
@@ -338,7 +348,7 @@ const UsersPanel: React.FC = () => {
         }
       }
     } catch (error) {
-      console.error('[UsersPanel] Erreur lors du chargement du cache:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
     }
     
     return () => {

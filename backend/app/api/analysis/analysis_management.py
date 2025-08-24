@@ -215,7 +215,7 @@ async def delete_analysis(
     success = analysis_service.delete_analysis(analysis_id)
     
     if success:
-        logger.info(f"Successfully deleted analysis {analysis_id}")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Successfully deleted analysis {analysis_id}")
         return ResponseFormatter.success_response(
             data={"analysis_id": analysis_id},
             message="Analysis deleted successfully"
@@ -242,7 +242,7 @@ async def retry_analysis(
     retried_analysis = analysis_service.retry_failed_analysis(analysis_id)
     
     if retried_analysis:
-        logger.info(f"Successfully retried analysis {analysis_id}")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Successfully retried analysis {analysis_id}")
         return ResponseFormatter.success_response(
             data={"analysis_id": analysis_id},
             message="Analysis retried successfully"
@@ -289,7 +289,7 @@ async def update_analysis_prompt(
     
     db.commit()
     
-    logger.info(f"Updated prompt for analysis {analysis_id} to {prompt_id}")
+    # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Updated prompt for analysis {analysis_id} to {prompt_id}")
     
     return ResponseFormatter.success_response(
         data={
@@ -323,7 +323,7 @@ async def start_analysis(
     success = analysis_service.start_analysis(analysis_id)
     
     if success:
-        logger.info(f"Successfully started analysis {analysis_id}")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Successfully started analysis {analysis_id}")
         return ResponseFormatter.success_response(
             data={"analysis_id": analysis_id},
             message="Analysis started successfully"

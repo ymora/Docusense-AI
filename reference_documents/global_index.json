@@ -1,0 +1,135 @@
+{
+  "documents": {
+    "construction_dtu_22653b21": {
+      "id": "construction_dtu_22653b21",
+      "title": "DTU 31.1 - Charpente en bois",
+      "description": "Document Technique Unifié pour la charpente en bois",
+      "file_path": "construction/dtu/DTU_31.1_Charpente_bois.txt",
+      "category": "construction",
+      "subcategory": "dtu",
+      "source_url": "https://www.cstb.fr/fr/produits-solutions/dtu/",
+      "file_hash": "353b878ea2f17da07aafa2677e564e42",
+      "file_size": 750,
+      "added_date": "2025-08-24T09:57:39.491071",
+      "last_accessed": "2025-08-24T10:00:58.138883"
+    },
+    "construction_dtu_2676df84": {
+      "id": "construction_dtu_2676df84",
+      "title": "DTU 40.1 - Plomberie sanitaire",
+      "description": "Document Technique Unifié pour la plomberie sanitaire",
+      "file_path": "construction/dtu/DTU_40.1_Plomberie.txt",
+      "category": "construction",
+      "subcategory": "dtu",
+      "source_url": "https://www.cstb.fr/fr/produits-solutions/dtu/",
+      "file_hash": "b11286a3b1f2948b2aa6a557d8d1fce3",
+      "file_size": 751,
+      "added_date": "2025-08-24T09:57:39.506403",
+      "last_accessed": "2025-08-24T10:00:58.140136"
+    },
+    "construction_dtu_3de223b1": {
+      "id": "construction_dtu_3de223b1",
+      "title": "DTU 51.1 - Isolation thermique",
+      "description": "Document Technique Unifié pour l'isolation thermique",
+      "file_path": "construction/dtu/DTU_51.1_Isolation.txt",
+      "category": "construction",
+      "subcategory": "dtu",
+      "source_url": "https://www.cstb.fr/fr/produits-solutions/dtu/",
+      "file_hash": "9bb9e57e1ecd4f1b6ec57054d6454abe",
+      "file_size": 711,
+      "added_date": "2025-08-24T09:57:39.523944",
+      "last_accessed": "2025-08-24T10:00:58.141359"
+    },
+    "juridique_code_civil_fb9d7fed": {
+      "id": "juridique_code_civil_fb9d7fed",
+      "title": "Code Civil - Livre III - Contrats",
+      "description": "Dispositions du Code Civil relatives aux contrats",
+      "file_path": "juridique/code_civil/Code_Civil_Livre_III.txt",
+      "category": "juridique",
+      "subcategory": "code_civil",
+      "source_url": "https://www.legifrance.gouv.fr/",
+      "file_hash": "9d9e6245826710d6e2cd381085b4db3c",
+      "file_size": 1441,
+      "added_date": "2025-08-24T09:57:39.545499",
+      "last_accessed": "2025-08-24T10:00:58.077312"
+    },
+    "juridique_code_construction_861b72b7": {
+      "id": "juridique_code_construction_861b72b7",
+      "title": "Code de la Construction - Responsabilité décennale",
+      "description": "Dispositions sur la responsabilité décennale des constructeurs",
+      "file_path": "juridique/code_construction/Code_Construction_Responsabilite.txt",
+      "category": "juridique",
+      "subcategory": "code_construction",
+      "source_url": "https://www.legifrance.gouv.fr/",
+      "file_hash": "698109369251d9015dfad302043be486",
+      "file_size": 1519,
+      "added_date": "2025-08-24T09:57:39.565372",
+      "last_accessed": "2025-08-24T10:00:58.078382"
+    },
+    "construction_reglementations_1d483ed4": {
+      "id": "construction_reglementations_1d483ed4",
+      "title": "Réglementation Environnementale RE2020",
+      "description": "Réglementation environnementale pour les bâtiments neufs",
+      "file_path": "construction/reglementations/RE2020_Reglementation.txt",
+      "category": "construction",
+      "subcategory": "reglementations",
+      "source_url": "https://www.ecologie.gouv.fr/",
+      "file_hash": "625d5f11a40efb0d5b7ed619f156975e",
+      "file_size": 1216,
+      "added_date": "2025-08-24T09:57:39.581306",
+      "last_accessed": "2025-08-24T10:00:58.142579"
+    },
+    "construction_reglementations_35392c66": {
+      "id": "construction_reglementations_35392c66",
+      "title": "Réglementation Thermique RT2012",
+      "description": "Réglementation thermique pour les bâtiments neufs",
+      "file_path": "construction/reglementations/RT2012_Reglementation.txt",
+      "category": "construction",
+      "subcategory": "reglementations",
+      "source_url": "https://www.ecologie.gouv.fr/",
+      "file_hash": "66bf95cf3132cf2c58058e9c3408373a",
+      "file_size": 1033,
+      "added_date": "2025-08-24T09:57:39.608042",
+      "last_accessed": "2025-08-24T10:00:58.143796"
+    },
+    "administratif_urbanisme_c9606194": {
+      "id": "administratif_urbanisme_c9606194",
+      "title": "Code de l'Urbanisme",
+      "description": "Dispositions du Code de l'Urbanisme",
+      "file_path": "administratif/urbanisme/Code_Urbanisme.txt",
+      "category": "administratif",
+      "subcategory": "urbanisme",
+      "source_url": "https://www.legifrance.gouv.fr/",
+      "file_hash": "68b053643f4812a1f4d062a5c35c0a42",
+      "file_size": 1490,
+      "added_date": "2025-08-24T09:57:39.631568",
+      "last_accessed": "2025-08-24T10:00:58.079499"
+    }
+  },
+  "categories": {
+    "construction": {
+      "dtu": [
+        "construction_dtu_22653b21",
+        "construction_dtu_2676df84",
+        "construction_dtu_3de223b1"
+      ],
+      "reglementations": [
+        "construction_reglementations_1d483ed4",
+        "construction_reglementations_35392c66"
+      ]
+    },
+    "juridique": {
+      "code_civil": [
+        "juridique_code_civil_fb9d7fed"
+      ],
+      "code_construction": [
+        "juridique_code_construction_861b72b7"
+      ]
+    },
+    "administratif": {
+      "urbanisme": [
+        "administratif_urbanisme_c9606194"
+      ]
+    }
+  },
+  "last_updated": "2025-08-24T09:57:39.631591"
+}

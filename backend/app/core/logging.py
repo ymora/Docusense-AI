@@ -37,14 +37,14 @@ class LogCleanupManager:
             self._stop_cleanup = False
             self._cleanup_thread = threading.Thread(target=self._cleanup_scheduler, daemon=True)
             self._cleanup_thread.start()
-            logger.info("[STARTUP] Planificateur de nettoyage des logs démarré")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
     
     def stop_cleanup_scheduler(self):
         """Arrête le planificateur de nettoyage"""
         self._stop_cleanup = True
         if self._cleanup_thread and self._cleanup_thread.is_alive():
             self._cleanup_thread.join(timeout=5)
-        logger.info("[SHUTDOWN] Planificateur de nettoyage des logs arrêté")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
     
     def _cleanup_scheduler(self):
         """Planificateur de nettoyage en arrière-plan"""
@@ -105,25 +105,27 @@ class LogCleanupManager:
                         log_file.unlink()
                         cleaned_count += 1
                         total_size_cleaned += file_size
-                        logger.info(f"[CLEANUP] Log supprimé ({reason}): {log_file.name}")
+                        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
                         
                 except Exception as e:
                     logger.warning(f"Impossible de nettoyer {log_file}: {e}")
             
             if cleaned_count > 0:
-                logger.info(f"[CLEANUP] Nettoyage des logs terminé: {cleaned_count} fichiers supprimés ({total_size_cleaned / 1024 / 1024:.1f} MB)")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
+                pass
             elif force:
-                logger.info("[CLEANUP] Aucun log à nettoyer")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
+                pass
                 
         except Exception as e:
             logger.error(f"Erreur lors du nettoyage des logs: {e}")
     
     def cleanup_on_exit(self):
         """Nettoyage forcé à la fermeture de l'application"""
-        logger.info("[SHUTDOWN] Nettoyage des logs à la fermeture...")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
         self.stop_cleanup_scheduler()
         self.cleanup_logs(force=True)
-        logger.info("[SUCCESS] Nettoyage des logs terminé")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
 
 # Instance globale du gestionnaire de nettoyage
 log_cleanup_manager = LogCleanupManager()
@@ -213,6 +215,100 @@ def unregister_frontend_logger(callback: callable):
     if callback in _frontend_loggers:
         _frontend_loggers.remove(callback)
 
+class UserTypeFilter(logging.Filter):
+    """
+    Filtre professionnel pour contrôler les logs selon le type d'utilisateur
+    """
+    def __init__(self, user_type: str = "guest", name: str = ""):
+        super().__init__(name)
+        self.user_type = user_type
+        self.logging_config = {
+            "guest": {
+                "enabled": False,  # AUCUN LOG
+                "levels": set(),   # Aucun niveau autorisé
+                "modules": set()   # Aucun module autorisé
+            },
+            "user": {
+                "enabled": True,
+                "levels": {"ERROR", "CRITICAL"},  # Seulement erreurs critiques
+                "modules": {"auth", "security", "admin"}  # Modules sensibles
+            },
+            "admin": {
+                "enabled": True,
+                "levels": {"DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"},  # Tous les niveaux
+                "modules": set()  # Tous les modules
+            }
+        }
+    
+    def filter(self, record):
+        """Détermine si le log doit être enregistré"""
+        config = self.logging_config.get(self.user_type, self.logging_config["guest"])
+        
+        # Si le logging est désactivé pour ce type d'utilisateur
+        if not config["enabled"]:
+            return False
+        
+        # Vérifier le niveau de log
+        if record.levelname not in config["levels"]:
+            return False
+        
+        # Vérifier le module (si spécifié)
+        if config["modules"] and not any(module in record.name.lower() for module in config["modules"]):
+            return False
+        
+        # Ajouter le type d'utilisateur au record pour le contexte
+        record.user_type = self.user_type
+        return True
+
+class PerformanceFilter(logging.Filter):
+    """
+    Filtre pour optimiser les performances en production
+    """
+    def __init__(self, max_logs_per_second: int = 100, name: str = ""):
+        super().__init__(name)
+        self.max_logs_per_second = max_logs_per_second
+        self.log_count = 0
+        self.last_reset = time.time()
+    
+    def filter(self, record):
+        """Limite le nombre de logs par seconde"""
+        current_time = time.time()
+        
+        # Réinitialiser le compteur chaque seconde
+        if current_time - self.last_reset >= 1.0:
+            self.log_count = 0
+            self.last_reset = current_time
+        
+        # Vérifier la limite
+        if self.log_count >= self.max_logs_per_second:
+            return False
+        
+        self.log_count += 1
+        return True
+
+def setup_adaptive_logging(user_type: str = "guest", max_logs_per_second: int = 100):
+    """
+    Configure le logging adaptatif avec filtres professionnels
+    """
+    # Obtenir le logger racine
+    root_logger = logging.getLogger()
+    
+    # Supprimer les filtres existants
+    for handler in root_logger.handlers:
+        for filter_obj in handler.filters[:]:
+            if isinstance(filter_obj, (UserTypeFilter, PerformanceFilter)):
+                handler.removeFilter(filter_obj)
+    
+    # Ajouter les nouveaux filtres
+    user_filter = UserTypeFilter(user_type)
+    perf_filter = PerformanceFilter(max_logs_per_second)
+    
+    for handler in root_logger.handlers:
+        handler.addFilter(user_filter)
+        handler.addFilter(perf_filter)
+    
+    return root_logger
+
 def setup_logging():
     """Setup logging configuration optimisée avec catégorisation"""
     global _logging_initialized
@@ -227,7 +323,7 @@ def setup_logging():
 
     # Handler pour le frontend
     frontend_handler = FrontendLogHandler()
-    frontend_handler.setLevel(logging.DEBUG)
+    frontend_handler.setLevel(logging.WARNING)  # OPTIMISATION: Seulement WARNING et ERROR pour le frontend
 
     # Configure logging avec niveau réduit pour les modules externes et encodage UTF-8
     # Console handler avec encodage UTF-8
@@ -292,17 +388,49 @@ def setup_logging():
     signal.signal(signal.SIGTERM, signal_handler)
 
     _logging_initialized = True
-    logger.info("Logging optimisé configuré avec catégorisation et nettoyage automatique")
+    # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
 
 def get_logger(name: str) -> logging.Logger:
     """Obtenir un logger avec le nom spécifié"""
     return logging.getLogger(f"docusense.{name}")
 
-def log_with_context(logger: logging.Logger, level: str, message: str, context: Dict[str, Any] = None, exception: Exception = None):
-    """Logger avec contexte structuré"""
+def get_adaptive_logger(name: str, user_type: str = "guest", max_logs_per_second: int = 100) -> logging.Logger:
+    """
+    Obtenir un logger adaptatif avec filtres professionnels
+    """
+    logger = logging.getLogger(f"docusense.{name}")
+    
+    # Configurer les filtres pour ce logger spécifique
+    user_filter = UserTypeFilter(user_type)
+    perf_filter = PerformanceFilter(max_logs_per_second)
+    
+    # Supprimer les filtres existants
+    for filter_obj in logger.filters[:]:
+        if isinstance(filter_obj, (UserTypeFilter, PerformanceFilter)):
+            logger.removeFilter(filter_obj)
+    
+    # Ajouter les nouveaux filtres
+    logger.addFilter(user_filter)
+    logger.addFilter(perf_filter)
+    
+    return logger
+
+def log_with_context(logger: logging.Logger, level: str, message: str, context: Dict[str, Any] = None, exception: Exception = None, user_type: str = "user"):
+    """
+    Logger avec contexte structuré et adaptation selon le type d'utilisateur
+    """
+    # Vérifier si on doit logger selon le type d'utilisateur
+    if user_type == "guest":
+        return  # AUCUN LOG pour les invités
+    
+    # Pour les utilisateurs normaux, seulement ERROR et CRITICAL
+    if user_type == "user" and level.upper() not in ["ERROR", "CRITICAL"]:
+        return
+    
     extra_data = {
         "context": context or {},
-        "timestamp": datetime.now().isoformat()
+        "timestamp": datetime.now().isoformat(),
+        "user_type": user_type
     }
     
     if exception:
@@ -315,14 +443,15 @@ def log_with_context(logger: logging.Logger, level: str, message: str, context: 
     # Ajouter les données extra au record
     record = logger.makeRecord(
         logger.name, 
-        getattr(logging, level.upper()), 
-        "", 
-        0, 
-        message, 
-        (), 
-        None
+        getattr(logging, level.upper()),
+        "",
+        0,
+        message,
+        (),
+        None,
+        func=None,
+        extra=extra_data
     )
-    record.extra_data = extra_data
     
     logger.handle(record)
 

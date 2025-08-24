@@ -127,7 +127,7 @@ class MediaConverterService:
     def _convert_media(self, input_path: str, output_path: str, media_type: str):
         """Convertit le média en arrière-plan"""
         try:
-            logger.info(f"Debut de conversion {media_type}: {input_path} -> {output_path}")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Debut de conversion {media_type}: {input_path} -> {output_path}")
             
             if media_type == 'video':
                 cmd = self._get_video_conversion_cmd(input_path, output_path)
@@ -205,7 +205,7 @@ class MediaConverterService:
             
             # Vérifier si la conversion a réussi
             if process.returncode == 0 and os.path.exists(output_path):
-                logger.info(f"Conversion {media_type} terminee: {output_path}")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Conversion {media_type} terminee: {output_path}")
                 with self.cache_lock:
                     if input_path in self.conversion_cache:
                         self.conversion_cache[input_path].update({
@@ -303,7 +303,7 @@ class MediaConverterService:
                 if info.get('output_path') and os.path.exists(info['output_path']) and info['output_path'] != file_path:
                     try:
                         os.remove(info['output_path'])
-                        logger.info(f"🗑️ Fichier converti supprimé: {info['output_path']}")
+                        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"🗑️ Fichier converti supprimé: {info['output_path']}")
                     except Exception as e:
                         logger.warning(f"Impossible de supprimer: {e}")
                 del self.conversion_cache[file_path]
@@ -344,7 +344,7 @@ class MediaConverterService:
             
             # Si le fichier HLS existe déjà, le retourner
             if m3u8_path.exists():
-                logger.info(f"Fichier HLS existant trouvé: {m3u8_path}")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Fichier HLS existant trouvé: {m3u8_path}")
                 return str(m3u8_path)
             
             # Commande FFmpeg selon le type de média
@@ -383,7 +383,7 @@ class MediaConverterService:
                 logger.error(f"Type de média non supporté pour HLS: {media_type}")
                 return None
             
-            logger.info(f"Conversion HLS démarrée: {' '.join(cmd)}")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Conversion HLS démarrée: {' '.join(cmd)}")
             
             # Exécuter la conversion
             process = subprocess.run(
@@ -394,7 +394,7 @@ class MediaConverterService:
             )
             
             if process.returncode == 0 and m3u8_path.exists():
-                logger.info(f"Conversion HLS terminée: {m3u8_path}")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Conversion HLS terminée: {m3u8_path}")
                 return str(m3u8_path)
             else:
                 logger.error(f"Erreur conversion HLS: {process.stderr}")

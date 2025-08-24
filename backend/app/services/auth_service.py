@@ -43,10 +43,10 @@ class AuthService:
     def verify_token(self, token: str) -> Optional[Dict[str, Any]]:
         """Vérifier et décoder un token JWT"""
         try:
-            logger.info(f"🔐 Tentative de décodage du token: {token[:20]}...")
-            logger.info(f"🔐 Secret key utilisé: {self.secret_key[:10]}...")
+                    # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
             payload = jwt.decode(token, self.secret_key, algorithms=[self.algorithm])
-            logger.info(f"[SUCCESS] Token décodé avec succès: {payload}")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
             return payload
         except jwt.ExpiredSignatureError:
             logger.error("❌ Token expiré")
@@ -72,7 +72,7 @@ class AuthService:
         self.db.commit()
         self.db.refresh(user)
         
-        logger.info(f"Utilisateur invité créé: {user.username}")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
         return user
     
     def create_user(self, username: str, email: str, password: str, role: UserRole = UserRole.USER) -> User:
@@ -93,7 +93,7 @@ class AuthService:
             self.db.add(user)
             self.db.commit()
             self.db.refresh(user)
-            logger.info(f"Utilisateur créé: {user.username}")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
             
             # TODO: Réintégrer les broadcasts SSE après résolution des imports circulaires
             
@@ -121,7 +121,7 @@ class AuthService:
         user.last_login = datetime.utcnow()
         self.db.commit()
         
-        logger.info(f"Utilisateur authentifié: {user.username}")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
         return user
     
     def get_user_by_id(self, user_id: int) -> Optional[User]:
@@ -145,7 +145,7 @@ class AuthService:
         ).delete()
         
         self.db.commit()
-        logger.info(f"Supprimé {deleted_count} utilisateurs invités anciens")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
         return deleted_count
     
     def update_user(self, user_id: int, **kwargs) -> Optional[User]:
@@ -167,7 +167,7 @@ class AuthService:
         
         self.db.commit()
         self.db.refresh(user)
-        logger.info(f"Utilisateur mis à jour: {user.username}")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
         
         # TODO: Réintégrer les broadcasts SSE après résolution des imports circulaires
         
@@ -189,7 +189,7 @@ class AuthService:
         
         self.db.delete(user)
         self.db.commit()
-        logger.info(f"Utilisateur supprimé: {user.username}")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
         
         # TODO: Réintégrer les broadcasts SSE après résolution des imports circulaires
         

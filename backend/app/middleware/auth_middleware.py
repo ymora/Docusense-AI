@@ -15,6 +15,16 @@ logger = logging.getLogger(__name__)
 # Instance globale du bearer
 bearer = HTTPBearer()
 
+# Bearer optionnel pour les endpoints publics
+class OptionalHTTPBearer(HTTPBearer):
+    def __call__(self, request):
+        try:
+            return super().__call__(request)
+        except HTTPException:
+            return None
+
+optional_bearer = OptionalHTTPBearer(auto_error=False)
+
 
 class AuthMiddleware:
     """Middleware d'authentification centralisé - Système JWT"""
@@ -52,7 +62,7 @@ class AuthMiddleware:
             raise HTTPException(status_code=401, detail="Token JWT invalide")
     
     @staticmethod
-    def get_current_user_optional(credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer)) -> Optional[User]:
+    def get_current_user_optional(credentials: Optional[HTTPAuthorizationCredentials] = Depends(optional_bearer)) -> Optional[User]:
         """Récupère l'utilisateur actuel via JWT (optionnel)"""
         try:
             if credentials:

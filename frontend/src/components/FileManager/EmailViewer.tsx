@@ -108,7 +108,7 @@ const InlineAttachmentViewer: React.FC<{
       }
       
     } catch (error) {
-      console.error('❌ Erreur lors de la prévisualisation:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge // console.error('❌ Erreur lors de la prévisualisation:', error);
       setError('Erreur lors de la prévisualisation de la pièce jointe');
     } finally {
       setLoading(false);
@@ -312,7 +312,7 @@ const EmailViewer: React.FC<EmailViewerProps> = ({ file, onClose, onPreviewAttac
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ Erreur API:', response.status, errorText);
+        // OPTIMISATION: Suppression des console.error pour éviter la surcharge // console.error('❌ Erreur API:', response.status, errorText);
         throw new Error(`Erreur HTTP: ${response.status} - ${errorText}`);
       }
 
@@ -326,7 +326,7 @@ const EmailViewer: React.FC<EmailViewerProps> = ({ file, onClose, onPreviewAttac
       
       setEmailData(data);
     } catch (err) {
-      console.error('❌ Erreur lors du chargement de l\'email:', err);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge // console.error('❌ Erreur lors du chargement de l\'email:', err);
       setError(err instanceof Error ? err.message : 'Erreur inconnue');
     } finally {
       setLoading(false);
@@ -363,7 +363,7 @@ const EmailViewer: React.FC<EmailViewerProps> = ({ file, onClose, onPreviewAttac
         onPreviewAttachment(attachment, index);
       }
     } catch (err) {
-      console.error('❌ Erreur lors de la prévisualisation de la pièce jointe:', err);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge // console.error('❌ Erreur lors de la prévisualisation de la pièce jointe:', err);
       setError('Erreur lors de la prévisualisation de la pièce jointe');
     }
   };

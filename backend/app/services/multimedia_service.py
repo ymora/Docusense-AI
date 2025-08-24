@@ -472,7 +472,7 @@ class MultimediaService(BaseService):
             # Fichier de sortie
             cmd.append(str(output_path))
             
-            logger.info(f"Commande FFmpeg: {' '.join(cmd)}")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Commande FFmpeg: {' '.join(cmd)}")
             
             # Exécuter la commande
             result = subprocess.run(
@@ -564,7 +564,7 @@ class MultimediaService(BaseService):
             # Fichier de sortie
             cmd.append(str(output_path))
             
-            logger.info(f"Commande FFmpeg audio: {' '.join(cmd)}")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Commande FFmpeg audio: {' '.join(cmd)}")
             
             # Exécuter la commande
             result = subprocess.run(
@@ -665,7 +665,7 @@ class MultimediaService(BaseService):
                 return None
             
             if result.get('success'):
-                logger.info(f"Fichier optimisé créé: {temp_file}")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Fichier optimisé créé: {temp_file}")
                 return temp_file
             else:
                 logger.error(f"Échec de l'optimisation: {result.get('error')}")

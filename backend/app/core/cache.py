@@ -73,8 +73,7 @@ class IntelligentCache:
                 del self.cache[key]
                 self.stats['evictions'] += 1
             
-            if expired_keys:
-                logger.debug(f"Cache: {len(expired_keys)} éléments expirés supprimés")
+            # OPTIMISATION: Suppression des logs DEBUG pour éviter la surcharge
     
     def _evict_lru(self):
         """Supprime les éléments les moins récemment utilisés"""
@@ -94,7 +93,7 @@ class IntelligentCache:
             del self.cache[key]
             self.stats['evictions'] += 1
         
-        logger.debug(f"Cache: {items_to_remove} éléments LRU supprimés")
+        # OPTIMISATION: Suppression des logs DEBUG pour éviter la surcharge
     
     def get(self, key: str) -> Optional[Any]:
         """Récupère une valeur du cache"""
@@ -191,13 +190,13 @@ def cached(ttl: int = 300):
             # Vérifier si le résultat est en cache
             cached_result = cache.get(cache_key)
             if cached_result is not None:
-                logger.debug(f"Cache hit for {func.__name__}")
+                # OPTIMISATION: Suppression des logs DEBUG pour éviter la surcharge
                 return cached_result
             
             # Exécuter la fonction et mettre en cache
             result = func(*args, **kwargs)
             cache.set(cache_key, result, ttl)
-            logger.debug(f"Cache miss for {func.__name__}, stored with key: {cache_key}")
+            # OPTIMISATION: Suppression des logs DEBUG pour éviter la surcharge
             
             return result
         

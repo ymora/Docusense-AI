@@ -57,7 +57,7 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ file, onClose, onError }) => 
       link.click();
       document.body.removeChild(link);
     } catch (error) {
-      console.error('Erreur téléchargement:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge // console.error('Erreur téléchargement:', error);
       if (onError) {
         onError('Erreur lors du téléchargement');
       }
@@ -179,7 +179,7 @@ const MediaPlayer: React.FC<MediaPlayerProps> = ({ file, onClose, onError }) => 
 
                 }}
                 onError={(error) => {
-                  console.error('❌ Erreur ReactPlayer:', error);
+                  // OPTIMISATION: Suppression des console.error pour éviter la surcharge // console.error('❌ Erreur ReactPlayer:', error);
                   
                   // Afficher l'erreur
                   setHasError(true);

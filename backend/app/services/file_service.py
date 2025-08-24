@@ -35,7 +35,9 @@ class FileService(BaseService):
         try:
             migration_results = run_automatic_migrations(db)
             if migration_results.get('migrations_applied'):
-                self.logger.info(f"Migrations automatiques appliquées: {len(migration_results['migrations_applied'])}")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
+                # self.logger.info(f"Migrations automatiques appliquées: {len(migration_results['migrations_applied'])}")
+                pass
             if migration_results.get('warnings'):
                 for warning in migration_results['warnings']:
                     self.logger.warning(f"Migration: {warning}")
@@ -65,8 +67,8 @@ class FileService(BaseService):
             
             # Mettre à jour le type MIME si optimisé
             if optimization_result['optimized_mime'] != file_data['mime_type']:
-                self.logger.info(f"Format optimisé: {file_data['mime_type']} → {optimization_result['optimized_mime']} "
-                               f"(support: {optimization_result['browser_support']}%)")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
+                # self.logger.info(f"Format optimisé: {file_data['mime_type']} → {optimization_result['optimized_mime']} (support: {optimization_result['browser_support']}%)")
                 file_data['mime_type'] = optimization_result['optimized_mime']
             
             # Ajouter les informations d'optimisation aux métadonnées
@@ -193,7 +195,7 @@ class FileService(BaseService):
                 file.error_message = error_message
 
         self.db.commit()
-        self.logger.info(f"Updated status of {len(files)} files to {status}")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Updated status of {len(files)} files to {status}")
         return files
 
     @log_service_operation("toggle_file_selection")
@@ -213,7 +215,7 @@ class FileService(BaseService):
         self.db.commit()
         self.db.refresh(file)
 
-        self.logger.info(f"Toggled selection for file {file_id}: {file.is_selected}")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Toggled selection for file {file_id}: {file.is_selected}")
         return file
 
     @log_service_operation("select_all_files")
@@ -232,7 +234,7 @@ class FileService(BaseService):
         count = query.update({File.is_selected: True})
         self.db.commit()
 
-        self.logger.info(f"Selected {count} files")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Selected {count} files")
         return count
 
     @log_service_operation("deselect_all_files")
@@ -251,7 +253,7 @@ class FileService(BaseService):
         count = query.update({File.is_selected: False})
         self.db.commit()
 
-        self.logger.info(f"Deselected {count} files")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Deselected {count} files")
         return count
 
     @log_service_operation("get_selected_files")
@@ -292,7 +294,7 @@ class FileService(BaseService):
         self.db.commit()
         self.db.refresh(file)
 
-        self.logger.info(f"Updated analysis results for file {file_id}")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Updated analysis results for file {file_id}")
         return file
 
     @log_service_operation("delete_file")
@@ -311,7 +313,7 @@ class FileService(BaseService):
         self.db.delete(file)
         self.db.commit()
 
-        self.logger.info(f"Deleted file record {file_id}")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Deleted file record {file_id}")
         return True
 
     @log_service_operation("get_directory_stats")
@@ -507,7 +509,7 @@ class FileService(BaseService):
         """
         List directory content with pagination - ULTRA-FAST VERSION
         """
-        self.logger.info(f"Starting list_directory_content_paginated for: {directory_path}")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Starting list_directory_content_paginated for: {directory_path}")
         try:
             # Vérifier l'accessibilité du disque avant de continuer
             disk_status = self._check_disk_accessibility(directory_path)
@@ -633,7 +635,7 @@ class FileService(BaseService):
                                 "id": file_id
                             }
                             all_files.append(file_info)
-                            self.logger.info(f"FileService: Ajouté le fichier: {item_path.name} (ID: {file_info['id']}, Path: {item_path_str})")
+                            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"FileService: Ajouté le fichier: {item_path.name} (ID: {file_info['id']}, Path: {item_path_str})")
 
                         elif item_path.is_dir():
                             total_subdirectories += 1
@@ -663,7 +665,7 @@ class FileService(BaseService):
                 subdirectories = all_subdirectories
                 
                 # Log des résultats
-                self.logger.info(f"Found {len(all_files)} files and {len(all_subdirectories)} subdirectories in {directory_path}")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Found {len(all_files)} files and {len(all_subdirectories)} subdirectories in {directory_path}")
                 
 
 
@@ -711,12 +713,12 @@ class FileService(BaseService):
             
             # Si le fichier a été modifié après l'analyse
             if file_mtime > db_mtime:
-                self.logger.info(f"Fichier modifié: {file_path.name} (analyse obsolète)")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Fichier modifié: {file_path.name} (analyse obsolète)")
                 return False
                 
             # Vérifier la taille
             if file_path.stat().st_size != db_file.size:
-                self.logger.info(f"Taille modifiée: {file_path.name} (analyse obsolète)")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Taille modifiée: {file_path.name} (analyse obsolète)")
                 return False
                 
             return True
@@ -749,7 +751,7 @@ class FileService(BaseService):
                 db_file.error_message = None
             
             self.db.commit()
-            self.logger.info(f"Statut mis à jour automatiquement: {file_path.name} -> {new_status}")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Statut mis à jour automatiquement: {file_path.name} -> {new_status}")
             
         except Exception as e:
             self.logger.error(f"Erreur mise à jour automatique {file_path}: {str(e)}")
@@ -782,7 +784,7 @@ class FileService(BaseService):
             file_create = FileCreate(**file_info)
             db_file = self._create_file(file_create)
             
-            self.logger.info(f"Fichier créé automatiquement: {file_path.name} (ID: {db_file.id})")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Fichier créé automatiquement: {file_path.name} (ID: {db_file.id})")
             return db_file.id
             
         except Exception as e:
@@ -795,7 +797,7 @@ class FileService(BaseService):
         au démarrage de l'application
         """
         try:
-            self.logger.info("🔄 Synchronisation automatique DB ↔ Système de fichiers")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info("🔄 Synchronisation automatique DB ↔ Système de fichiers")
             
             # Récupérer tous les fichiers en base
             all_db_files = self.db.query(File).all()
@@ -819,9 +821,12 @@ class FileService(BaseService):
             
             if updated_count > 0 or deleted_count > 0:
                 self.db.commit()
-                self.logger.info(f"✅ Synchronisation terminée: {updated_count} mis à jour, {deleted_count} supprimés")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
+                # self.logger.info(f"✅ Synchronisation terminée: {updated_count} mis à jour, {deleted_count} supprimés")
             else:
-                self.logger.info("✅ Base de données déjà synchronisée")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
+                # self.logger.info("✅ Base de données déjà synchronisée")
+                pass
                 
         except Exception as e:
             self.logger.error(f"Erreur synchronisation automatique: {str(e)}")
@@ -852,8 +857,8 @@ class FileService(BaseService):
 
             if orphaned_count > 0:
                 self.db.commit()
-                self.logger.info(
-                    f"Nettoyé {orphaned_count} fichiers orphelins dans {directory_path}")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
+                # self.logger.info(f"Nettoyé {orphaned_count} fichiers orphelins dans {directory_path}")
 
             return orphaned_count
 

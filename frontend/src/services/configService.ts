@@ -54,7 +54,7 @@ export class ConfigService {
     } catch (error) {
       const errorMessage = `Impossible de charger les providers IA: ${handleApiError(error)}`;
       logService.error(errorMessage, 'ConfigService', { error: error.message });
-      console.error('Erreur lors du chargement des providers IA:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       throw new Error(errorMessage);
     }
   }
@@ -76,7 +76,7 @@ export class ConfigService {
           // [FRONTEND] Succès pour ${provider}, clé (masquée): ${'*'.repeat(Math.min(response.data.key.length - 8, 20)) + response.data.key.slice(-8)}
           return response;
         } else {
-          console.error(`❌ [FRONTEND] Incohérence de provider: demandé ${provider}, reçu ${response.data.provider}`);
+          // OPTIMISATION: Suppression des console.error pour éviter la surcharge
           return {
             success: false,
             message: `Incohérence de provider: demandé ${provider}, reçu ${response.data.provider}`
@@ -93,7 +93,7 @@ export class ConfigService {
     } catch (error) {
       const errorMessage = `Erreur lors de la récupération de la clé API pour ${provider}: ${handleApiError(error)}`;
       logService.error(errorMessage, 'ConfigService', { provider, error: error.message });
-      console.error(`❌ [FRONTEND] Erreur pour ${provider}:`, error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       return {
         success: false,
         message: `Erreur lors de la récupération: ${handleApiError(error)}`
@@ -129,7 +129,7 @@ export class ConfigService {
     } catch (error) {
       const errorMessage = `Erreur lors de la suppression de la clé API pour ${provider}: ${handleApiError(error)}`;
       logService.error(errorMessage, 'ConfigService', { provider, error: error.message });
-      console.error(`❌ [FRONTEND] Erreur lors de la suppression de la clé API pour ${provider}:`, error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       return {
         success: false,
         message: `Erreur lors de la suppression: ${handleApiError(error)}`
@@ -169,7 +169,7 @@ export class ConfigService {
     } catch (error) {
       const errorMessage = `Erreur lors de la sauvegarde de la clé API pour ${provider}: ${handleApiError(error)}`;
       logService.error(errorMessage, 'ConfigService', { provider, error: error.message });
-      console.error(`❌ [FRONTEND] Erreur lors de la sauvegarde de la clé API pour ${provider}:`, error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       return {
         success: false,
         message: `Erreur lors de la sauvegarde: ${handleApiError(error)}`
@@ -208,7 +208,7 @@ export class ConfigService {
     } catch (error) {
       const errorMessage = `Erreur lors du test du provider ${provider}: ${handleApiError(error)}`;
       logService.error(errorMessage, 'ConfigService', { provider, error: error.message });
-      console.error(`Erreur lors du test du provider ${provider}:`, error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       return {
         success: false,
         message: `Erreur de test: ${handleApiError(error)}`,
@@ -241,7 +241,7 @@ export class ConfigService {
     } catch (error) {
       const errorMessage = `Erreur lors de la définition de la priorité pour ${provider}: ${handleApiError(error)}`;
       logService.error(errorMessage, 'ConfigService', { provider, priority, error: error.message });
-      console.error(`Erreur lors de la définition de la priorité pour ${provider}:`, error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       return {
         success: false,
         message: `Erreur lors de la mise à jour: ${handleApiError(error)}`
@@ -257,7 +257,7 @@ export class ConfigService {
       });
       return response.priority || {};
     } catch (error) {
-      console.error('Erreur lors du chargement des priorités:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       return {};
     }
   }
@@ -285,7 +285,7 @@ export class ConfigService {
     } catch (error) {
       const errorMessage = `Erreur lors de la définition de la stratégie: ${handleApiError(error)}`;
       logService.error(errorMessage, 'ConfigService', { strategy, error: error.message });
-      console.error('Erreur lors de la définition de la stratégie:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       return {
         success: false,
         message: `Erreur lors de la mise à jour: ${handleApiError(error)}`
@@ -301,7 +301,7 @@ export class ConfigService {
       });
       return response.strategy || 'priority';
     } catch (error) {
-      console.error('Erreur lors du chargement de la stratégie:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       return 'priority';
     }
   }
@@ -314,7 +314,7 @@ export class ConfigService {
       });
       return response.metrics || {};
     } catch (error) {
-      console.error('Erreur lors du chargement des métriques:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       return {};
     }
   }
@@ -332,7 +332,7 @@ export class ConfigService {
         fixes: response.fixes_applied
       };
     } catch (error) {
-      console.error('Erreur lors de la validation des priorités:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       return {
         success: false,
         message: `Erreur lors de la validation: ${handleApiError(error)}`
@@ -352,7 +352,7 @@ export class ConfigService {
         message: response.message || 'Priorités réinitialisées'
       };
     } catch (error) {
-      console.error('Erreur lors de la réinitialisation des priorités:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       return {
         success: false,
         message: `Erreur lors de la réinitialisation: ${handleApiError(error)}`
@@ -368,7 +368,7 @@ export class ConfigService {
       });
       return response.functional_providers || [];
     } catch (error) {
-      console.error('Erreur lors du chargement des providers fonctionnels:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       return [];
     }
   }
@@ -385,7 +385,7 @@ export class ConfigService {
         message: response.message || `Statut de ${provider} mis à jour`
       };
     } catch (error) {
-      console.error(`Erreur lors du changement de statut pour ${provider}:`, error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       return {
         success: false,
         message: `Erreur lors du changement de statut: ${handleApiError(error)}`
@@ -406,7 +406,7 @@ export class ConfigService {
         is_functional: response.is_functional
       };
     } catch (error) {
-      console.error(`Erreur lors de la récupération du statut pour ${provider}:`, error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       return {
         success: false
       };

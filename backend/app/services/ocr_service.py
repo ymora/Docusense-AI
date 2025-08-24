@@ -64,7 +64,7 @@ class OCRService(BaseService):
             file.extracted_text = text
             file.status = FileStatus.COMPLETED
             self.db.commit()
-            self.logger.info(f"Extracted text from file {file_id}: {len(text)} characters")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Extracted text from file {file_id}: {len(text)} characters")
             return text
         else:
             file.status = FileStatus.FAILED
@@ -330,7 +330,7 @@ class OCRService(BaseService):
         """Logic for cleaning up temp files"""
         # Clean up any temporary files
         # This would be implemented based on your temporary file strategy
-        self.logger.info("Cleaned up temporary OCR files")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info("Cleaned up temporary OCR files")
 
     @log_service_operation("is_ocr_needed")
     def is_ocr_needed(self, file_path: str) -> bool:

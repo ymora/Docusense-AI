@@ -69,7 +69,7 @@ class EmailParserService(BaseService):
             '_file_path': str(file_path)  # Stocker le chemin pour l'extraction des pièces jointes
         }
 
-        self.logger.info(f"Email parsé avec succès: {file_path.name}")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
         return email_data
 
     def _get_header(self, msg: email.message.Message, header_name: str, default: str = '') -> str:
@@ -179,7 +179,7 @@ class EmailParserService(BaseService):
                             'content_disposition': part.get('content-disposition', '')
                         }
                         attachments.append(attachment)
-                        self.logger.debug(f"Pièce jointe trouvée: {filename} ({part.get_content_type()})")
+                        # OPTIMISATION: Suppression des logs DEBUG pour éviter la surcharge
         except Exception as e:
             self.logger.warning(f"Erreur lors de l'extraction des pièces jointes: {e}")
         

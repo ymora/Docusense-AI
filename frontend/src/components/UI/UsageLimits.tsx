@@ -62,7 +62,7 @@ export const UsageLimits: React.FC<UsageLimitsProps> = ({ className = '' }) => {
           });
         }
       } catch (error) {
-        console.error('Erreur lors du chargement des statistiques:', error);
+        // OPTIMISATION: Suppression des console.error pour éviter la surcharge // console.error('Erreur lors du chargement des statistiques:', error);
       }
     };
 

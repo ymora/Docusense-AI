@@ -1,0 +1,46 @@
+# Réglementation Environnementale RE2020
+
+Réglementation environnementale pour les bâtiments neufs
+
+==================================================
+
+
+# Réglementation Environnementale RE2020
+
+## Objectifs
+La RE2020 vise à :
+- Réduire l'impact carbone des bâtiments
+- Améliorer la performance énergétique
+- Garantir le confort en cas de forte chaleur
+
+## Indicateurs de performance
+
+### Bbio (Besoin bioclimatique)
+- Seuil maximal : 60
+- Mesure l'efficacité de la conception bioclimatique
+
+### Cep (Consommation d'énergie primaire)
+- Seuil maximal : 50 kWh/m²/an
+- Mesure la consommation énergétique
+
+### Cep,nr (Consommation d'énergie primaire non renouvelable)
+- Seuil maximal : 70 kWh/m²/an
+- Mesure l'impact environnemental
+
+### Ic (Impact carbone)
+- Seuil maximal : 640 kgCO2/m²
+- Mesure l'impact carbone sur le cycle de vie
+
+## Exigences techniques
+- Isolation renforcée
+- Ventilation performante
+- Étanchéité à l'air
+- Ponts thermiques limités
+- Systèmes de chauffage efficaces
+- Production d'énergie renouvelable
+
+## Contrôles
+- Calculs thermiques
+- Tests d'infiltrométrie
+- Mesures de perméabilité
+- Contrôles de mise en œuvre

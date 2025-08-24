@@ -32,7 +32,7 @@ class DatabaseMigrationManager:
         Returns:
             Dict avec le statut des migrations
         """
-        logger.info("[MIGRATION] Début des migrations automatiques de la base de données")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info("[MIGRATION] Début des migrations automatiques de la base de données")
         
         results = {
             'migrations_applied': [],
@@ -54,7 +54,7 @@ class DatabaseMigrationManager:
             # Migration 4: Mise à jour des métadonnées
             self._update_file_metadata(results)
             
-            logger.info(f"[SUCCESS] Migrations terminées: {len(results['migrations_applied'])} appliquées")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"[SUCCESS] Migrations terminées: {len(results['migrations_applied'])} appliquées")
             
         except Exception as e:
             error_msg = f"Erreur lors des migrations: {str(e)}"
@@ -125,7 +125,7 @@ class DatabaseMigrationManager:
             
             if updated_count > 0:
                 self.db.commit()
-                logger.info(f"📝 Mis à jour {updated_count} types MIME")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"📝 Mis à jour {updated_count} types MIME")
                 results['warnings'].append(f"Mis à jour {updated_count} types MIME")
         
         except Exception as e:
@@ -211,7 +211,7 @@ class DatabaseMigrationManager:
             
             if updated_count > 0:
                 self.db.commit()
-                logger.info(f"📝 Mis à jour {updated_count} métadonnées")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"📝 Mis à jour {updated_count} métadonnées")
                 results['warnings'].append(f"Mis à jour {updated_count} métadonnées")
         
         except Exception as e:

@@ -44,7 +44,7 @@ export const useStartupStore = create<StartupState>()(
               
               if (!authState.isAuthenticated) {
                 // Si pas authentifié, utiliser seulement les données par défaut
-                console.log('🔒 Utilisateur non authentifié - Utilisation des données par défaut');
+                // OPTIMISATION: Suppression des console.log pour éviter la surcharge
                 
                 // Initialiser les prompts avec les données par défaut
                 const { usePromptStore } = await import('../stores/promptStore');
@@ -73,7 +73,7 @@ export const useStartupStore = create<StartupState>()(
               }
 
               // Si authentifié, charger toutes les données
-              console.log('✅ Utilisateur authentifié - Chargement complet des données');
+              // OPTIMISATION: Suppression des console.log pour éviter la surcharge
               
               // Initialiser les prompts
               const { usePromptStore } = await import('../stores/promptStore');
@@ -105,13 +105,13 @@ export const useStartupStore = create<StartupState>()(
                 startupTime: new Date().toISOString()
               });
 
-            } catch (error) {
-              console.error('❌ Erreur lors de l\'initialisation:', error);
-              set({ 
-                initializationStep: 'error',
-                isInitialized: true
-              });
-            } finally {
+                  } catch (error) {
+        // OPTIMISATION: Suppression des console.error pour éviter la surcharge
+        set({ 
+          initializationStep: 'error',
+          isInitialized: true
+        });
+      } finally {
               isInitializing = false;
             }
           };

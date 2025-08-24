@@ -35,13 +35,13 @@ class LogService {
   
   // NOUVEAU: Configuration pour l'envoi au backend
   private sendToBackend = true;
-  private criticalLevels = ['error', 'warning']; // Niveaux à envoyer au backend
+  private criticalLevels = ['error']; // OPTIMISATION: Seulement ERROR pour éviter la surcharge
 
   constructor() {
     this.loadPersistedLogs();
     // OPTIMISATION: Ne pas initialiser les logs backend automatiquement
     // Ils seront initialisés après authentification via useAuthReload
-    console.log('🔒 LogService initialisé - logs backend différés jusqu\'à authentification');
+    // OPTIMISATION: Suppression des console.log pour éviter la surcharge
   }
 
   private loadPersistedLogs() {
@@ -52,7 +52,7 @@ class LogService {
         // ${this.logs.length} logs frontend chargés depuis le localStorage
       }
     } catch (error) {
-      console.error('Erreur lors du chargement des logs persistés:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
     }
   }
 
@@ -60,7 +60,7 @@ class LogService {
     try {
       localStorage.setItem(this.storageKey, JSON.stringify(this.logs));
     } catch (error) {
-      console.error('Erreur lors de la persistance des logs:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
     }
   }
 
@@ -71,11 +71,11 @@ class LogService {
       const isAuthenticated = authStore.state?.isAuthenticated || false;
       
       if (!isAuthenticated) {
-        console.log('🔒 Utilisateur non authentifié - logs backend non chargés');
+        // OPTIMISATION: Suppression des console.log pour éviter la surcharge
         return;
       }
     } catch (error) {
-      console.log('🔒 Impossible de vérifier l\'authentification - logs backend non chargés');
+      // OPTIMISATION: Suppression des console.log pour éviter la surcharge
       return;
     }
     
@@ -84,7 +84,7 @@ class LogService {
     
     // OPTIMISATION: Ne pas démarrer le streaming automatiquement
     // Le streaming sera démarré après authentification via useAuthReload
-    console.log('🔒 Stream SSE logs backend initialisé (démarrera après authentification)');
+    // OPTIMISATION: Suppression des console.log pour éviter la surcharge
   }
 
   private async loadBackendLogs() {
@@ -101,7 +101,7 @@ class LogService {
     } catch (error) {
       // OPTIMISATION: Ne pas afficher d'erreur si le backend n'est pas disponible
       // C'est normal quand l'utilisateur n'est pas connecté ou le backend n'est pas démarré
-      console.log('🔒 Logs backend non disponibles (backend non démarré ou non authentifié)');
+      // OPTIMISATION: Suppression des console.log pour éviter la surcharge
     }
   }
 
@@ -117,14 +117,14 @@ class LogService {
       const isAuthenticated = authStore.state?.isAuthenticated || false;
       
       if (!isAuthenticated) {
-        console.log('🔒 Utilisateur non authentifié - SSE logs backend désactivé');
+        // OPTIMISATION: Suppression des console.log pour éviter la surcharge
         return;
       }
       
       this.backendSSE = new EventSource('/api/logs/backend/stream');
       
       this.backendSSE.onopen = () => {
-        console.log('✅ SSE logs backend connecté');
+        // OPTIMISATION: Suppression des console.log pour éviter la surcharge
       };
 
       this.backendSSE.onmessage = (event) => {
@@ -153,12 +153,12 @@ class LogService {
             // console.debug('💓 Heartbeat SSE reçu:', data.count || data.timestamp);
           }
         } catch (error) {
-          console.error('Erreur parsing SSE logs backend:', error);
+          // OPTIMISATION: Suppression des console.error pour éviter la surcharge
         }
       };
 
       this.backendSSE.onerror = (error) => {
-        console.error('Erreur SSE logs backend:', error);
+        // OPTIMISATION: Suppression des console.error pour éviter la surcharge
         
         // OPTIMISATION: Tentative de reconnexion plus intelligente avec limite
         if (this.backendSSE && this.backendSSE.readyState === EventSource.CLOSED) {
@@ -167,17 +167,17 @@ class LogService {
           const isAuthenticated = authStore.state?.isAuthenticated || false;
           
           if (isAuthenticated) {
-            console.log('🔄 Tentative de reconnexion SSE logs backend dans 5s...');
+            // OPTIMISATION: Suppression des console.log pour éviter la surcharge
             setTimeout(() => {
               this.startBackendLogStream();
             }, 5000); // Augmenté à 5s pour éviter les boucles
           } else {
-            console.log('🔒 Utilisateur déconnecté - Arrêt des tentatives de reconnexion SSE');
+            // OPTIMISATION: Suppression des console.log pour éviter la surcharge
           }
         }
       };
     } catch (error) {
-      console.error('Erreur connexion SSE logs backend:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
     }
   }
 
@@ -191,9 +191,9 @@ class LogService {
     this.listeners.forEach(callback => {
       try {
         callback(allLogs);
-      } catch (error) {
-        console.error('Erreur callback logs:', error);
-      }
+          } catch (error) {
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
+    }
     });
   }
 
@@ -354,14 +354,12 @@ class LogService {
         },
         body: JSON.stringify(backendLogData)
       }).catch(error => {
-        // Erreur silencieuse pour ne pas créer une boucle de logs
-        console.warn('Impossible d\'envoyer le log au backend:', error);
+        // OPTIMISATION: Suppression des console.warn pour éviter la surcharge
       });
       */
 
     } catch (error) {
-      // Erreur silencieuse
-      console.warn('Erreur lors de l\'envoi du log au backend:', error);
+      // OPTIMISATION: Suppression des console.warn pour éviter la surcharge
     }
   }
 
@@ -412,7 +410,7 @@ class LogService {
       this.backendLogs = [];
       this.notifyListeners();
     } catch (error) {
-      console.error('Erreur lors de la suppression des logs backend:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       throw error;
     }
   }
@@ -451,14 +449,14 @@ class LogService {
 
   // NOUVEAU: Méthode pour redémarrer le stream SSE après authentification
   restartBackendLogStream() {
-    console.log('🔄 Redémarrage du stream SSE logs backend...');
+    // OPTIMISATION: Suppression des console.log pour éviter la surcharge
     this.startBackendLogStream();
   }
 
   // NOUVEAU: Méthode pour arrêter le stream SSE lors de la déconnexion
   stopBackendLogStream() {
     if (this.backendSSE) {
-      console.log('🛑 Arrêt du stream SSE logs backend...');
+      // OPTIMISATION: Suppression des console.log pour éviter la surcharge
       this.backendSSE.close();
       this.backendSSE = null;
     }

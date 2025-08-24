@@ -1,39 +1,49 @@
 import { useState, useCallback, useEffect } from 'react';
 
 /**
- * Système de cache intelligent pour éviter les requêtes redondantes
+ * Système de cache intelligent pour optimiser les performances
  */
 
 interface CacheEntry<T> {
   data: T;
   timestamp: number;
+  ttl: number;
+}
+
+interface CacheConfig {
   ttl: number; // Time to live en millisecondes
+  maxSize: number; // Nombre maximum d'entrées
 }
 
-interface CacheOptions {
-  ttl?: number; // Time to live par défaut (5 minutes)
-  maxSize?: number; // Taille maximale du cache
-}
+class SmartCache<T = any> {
+  private cache = new Map<string, CacheEntry<T>>();
+  private config: CacheConfig;
 
-class SmartCache {
-  private cache = new Map<string, CacheEntry<any>>();
-  private readonly defaultTTL: number;
-  private readonly maxSize: number;
-
-  constructor(options: CacheOptions = {}) {
-    this.defaultTTL = options.ttl || 5 * 60 * 1000; // 5 minutes par défaut
-    this.maxSize = options.maxSize || 100;
+  constructor(config: CacheConfig) {
+    this.config = config;
+    this.startCleanupInterval();
   }
 
-  /**
-   * Obtenir une valeur du cache
-   */
-  get<T>(key: string): T | null {
-    const entry = this.cache.get(key);
-    
-    if (!entry) {
-      return null;
+  set(key: string, data: T, ttl?: number): void {
+    // Nettoyer les entrées expirées avant d'ajouter
+    this.cleanup();
+
+    // Si le cache est plein, supprimer l'entrée la plus ancienne
+    if (this.cache.size >= this.config.maxSize) {
+      const oldestKey = this.cache.keys().next().value;
+      this.cache.delete(oldestKey);
     }
+
+    this.cache.set(key, {
+      data,
+      timestamp: Date.now(),
+      ttl: ttl || this.config.ttl
+    });
+  }
+
+  get(key: string): T | null {
+    const entry = this.cache.get(key);
+    if (!entry) return null;
 
     // Vérifier si l'entrée a expiré
     if (Date.now() - entry.timestamp > entry.ttl) {
@@ -44,88 +54,37 @@ class SmartCache {
     return entry.data;
   }
 
-  /**
-   * Stocker une valeur dans le cache
-   */
-  set<T>(key: string, data: T, ttl?: number): void {
-    // Nettoyer le cache si nécessaire
-    this.cleanup();
-
-    // Supprimer l'entrée existante si elle existe
-    this.cache.delete(key);
-
-    // Ajouter la nouvelle entrée
-    this.cache.set(key, {
-      data,
-      timestamp: Date.now(),
-      ttl: ttl || this.defaultTTL
-    });
-  }
-
-  /**
-   * Vérifier si une clé existe et n'a pas expiré
-   */
   has(key: string): boolean {
     return this.get(key) !== null;
   }
 
-  /**
-   * Supprimer une entrée du cache
-   */
   delete(key: string): boolean {
     return this.cache.delete(key);
   }
 
-  /**
-   * Vider tout le cache
-   */
   clear(): void {
     this.cache.clear();
   }
 
-  /**
-   * Nettoyer les entrées expirées
-   */
-  private cleanup(): void {
-    const now = Date.now();
-    const expiredKeys: string[] = [];
-
-    for (const [key, entry] of this.cache.entries()) {
-      if (now - entry.timestamp > entry.ttl) {
-        expiredKeys.push(key);
-      }
-    }
-
-    expiredKeys.forEach(key => this.cache.delete(key));
-
-    // Si le cache est trop grand, supprimer les entrées les plus anciennes
-    if (this.cache.size > this.maxSize) {
-      const entries = Array.from(this.cache.entries());
-      entries.sort((a, b) => a[1].timestamp - b[1].timestamp);
-      
-      const toDelete = entries.slice(0, this.cache.size - this.maxSize);
-      toDelete.forEach(([key]) => this.cache.delete(key));
-    }
-  }
-
-  /**
-   * Obtenir la taille du cache
-   */
   size(): number {
     this.cleanup();
     return this.cache.size;
   }
 
-  /**
-   * Obtenir les statistiques du cache
-   */
-  getStats() {
-    this.cleanup();
-    return {
-      size: this.cache.size,
-      maxSize: this.maxSize,
-      defaultTTL: this.defaultTTL
-    };
+  private cleanup(): void {
+    const now = Date.now();
+    for (const [key, entry] of this.cache.entries()) {
+      if (now - entry.timestamp > entry.ttl) {
+        this.cache.delete(key);
+      }
+    }
+  }
+
+  private startCleanupInterval(): void {
+    // Nettoyer toutes les 5 minutes
+    setInterval(() => {
+      this.cleanup();
+    }, 5 * 60 * 1000);
   }
 }
 
@@ -147,81 +106,57 @@ export const configCache = new SmartCache({
   maxSize: 10
 });
 
-/**
- * Hook pour utiliser le cache avec une fonction de chargement
- */
-export const useCachedData = <T>(
+// Cache spécifique pour les utilisateurs (TTL moyen)
+export const userCache = new SmartCache({
+  ttl: 3 * 60 * 1000, // 3 minutes
+  maxSize: 30
+});
+
+// Fonction utilitaire pour les requêtes avec cache
+export async function cachedRequest<T>(
+  cache: SmartCache<T>,
   key: string,
-  loader: () => Promise<T>,
-  cache: SmartCache = globalCache,
+  requestFn: () => Promise<T>,
   ttl?: number
-) => {
-  const [data, setData] = useState<T | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const loadData = useCallback(async (forceRefresh = false) => {
-    // Vérifier le cache d'abord
-    if (!forceRefresh) {
-      const cached = cache.get<T>(key);
-      if (cached) {
-        setData(cached);
-        return;
-      }
-    }
-
-    setLoading(true);
-    setError(null);
-
-    try {
-      const result = await loader();
-      cache.set(key, result, ttl);
-      setData(result);
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Erreur de chargement';
-      setError(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  }, [key, loader, cache, ttl]);
-
-  const refresh = useCallback(() => {
-    loadData(true);
-  }, [loadData]);
-
-  useEffect(() => {
-    loadData();
-  }, [loadData]);
-
-  return { data, loading, error, refresh };
-};
-
-/**
- * Fonction utilitaire pour invalider le cache
- */
-export const invalidateCache = (pattern?: string) => {
-  if (pattern) {
-    // Invalider les clés qui correspondent au pattern
-    const keys = Array.from(globalCache['cache'].keys());
-    keys.forEach(key => {
-      if (key.includes(pattern)) {
-        globalCache.delete(key);
-      }
-    });
-  } else {
-    // Vider tout le cache
-    globalCache.clear();
+): Promise<T> {
+  // Vérifier le cache d'abord
+  const cached = cache.get(key);
+  if (cached) {
+    return cached;
   }
-};
 
-/**
- * Fonction pour nettoyer automatiquement le cache
- */
-export const startCacheCleanup = () => {
-  // Nettoyer le cache toutes les 5 minutes
-  setInterval(() => {
-    globalCache['cleanup']();
-    analysisCache['cleanup']();
-    configCache['cleanup']();
-  }, 5 * 60 * 1000);
-};
+  // Faire la requête si pas en cache
+  try {
+    const data = await requestFn();
+    cache.set(key, data, ttl);
+    return data;
+  } catch (error) {
+    // OPTIMISATION: Suppression des console.error pour éviter la surcharge
+    throw error;
+  }
+}
+
+// Fonction pour invalider le cache
+export function invalidateCache(cache: SmartCache, pattern?: string): void {
+  if (!pattern) {
+    cache.clear();
+    return;
+  }
+
+  // Supprimer les entrées qui correspondent au pattern
+  for (const key of cache['cache'].keys()) {
+    if (key.includes(pattern)) {
+      cache.delete(key);
+    }
+  }
+}
+
+// Fonction pour obtenir des statistiques du cache
+export function getCacheStats() {
+  return {
+    global: globalCache.size(),
+    analysis: analysisCache.size(),
+    config: configCache.size(),
+    user: userCache.size()
+  };
+}

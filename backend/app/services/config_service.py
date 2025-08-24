@@ -42,7 +42,7 @@ class ConfigService(BaseService):
             configs = self.db.query(Config).all()
             for config in configs:
                 self._cache[config.key] = config.value
-            self.logger.info(f"Loaded {len(configs)} configurations into cache")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Loaded {len(configs)} configurations into cache")
         except Exception as e:
             self.logger.error(f"Error loading cache: {e}")
     
@@ -55,7 +55,9 @@ class ConfigService(BaseService):
         """Logic for loading default configs"""
         try:
             # Load default configurations from settings
-            self.logger.info("Loading default configurations")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
+            # self.logger.info("Loading default configurations")
+            pass
         except Exception as e:
             self.logger.error(f"Error loading default configs: {e}")
 
@@ -124,7 +126,7 @@ class ConfigService(BaseService):
         # Update cache
         self._cache[key] = value
 
-        self.logger.info(f"Set config {key}")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Set config {key}")
         return config
 
     @log_service_operation("delete_config")
@@ -147,7 +149,7 @@ class ConfigService(BaseService):
         if key in self._cache:
             del self._cache[key]
 
-        self.logger.info(f"Deleted config {key}")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Deleted config {key}")
         return True
 
     @log_service_operation("get_configs_by_category")
@@ -425,7 +427,7 @@ class ConfigService(BaseService):
             self._initialize_ai_provider_configs()
 
             _config_initialized = True
-            self.logger.info("Configurations par défaut initialisées")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info("Configurations par défaut initialisées")
 
         except Exception as e:
             self.logger.error(f"Error initializing default configs: {str(e)}")
@@ -515,7 +517,7 @@ class ConfigService(BaseService):
                 if not self.get_ai_provider_config(provider):
                     self.set_ai_provider_config(provider, config)
 
-            self.logger.info("Configurations des fournisseurs AI initialisées")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info("Configurations des fournisseurs AI initialisées")
 
         except Exception as e:
             self.logger.error(f"Error initializing AI provider configs: {str(e)}")
@@ -571,7 +573,7 @@ class ConfigService(BaseService):
                         is_encrypted=config_info.get("is_encrypted", False)
                     )
 
-            self.logger.info("Imported configurations successfully")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info("Imported configurations successfully")
             return True
 
         except Exception as e:
@@ -654,7 +656,7 @@ class ConfigService(BaseService):
                 # Si aucun provider configuré, permettre la priorité 1
                 if priority == 1:
                     self._set_provider_priority_internal(provider, priority)
-                    self.logger.info(f"Set priority for {provider}: {priority}")
+                    # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Set priority for {provider}: {priority}")
                     return True
                 else:
                     raise ValueError("No configured providers. Priority must be 1.")
@@ -703,7 +705,7 @@ class ConfigService(BaseService):
             # Set the target provider to the new priority
             self._set_provider_priority_internal(provider, priority)
 
-            self.logger.info(f"Reordered priorities: {provider} {old_priority} -> {priority}")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Reordered priorities: {provider} {old_priority} -> {priority}")
             return True
 
         except Exception as e:
@@ -764,13 +766,13 @@ class ConfigService(BaseService):
 
             # Si aucune priorité n'existe, les initialiser
             if not existing_priorities:
-                self.logger.info("Initializing provider priorities...")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info("Initializing provider priorities...")
                 
                 # Ollama en priorité 1 s'il est configuré
                 ollama_priority = 1
                 if "ollama" in configured_providers:
                     self._set_provider_priority_internal("ollama", ollama_priority)
-                    self.logger.info(f"Set Ollama priority to {ollama_priority}")
+                    # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Set Ollama priority to {ollama_priority}")
                     current_priority = 2
                 else:
                     current_priority = 1
@@ -779,12 +781,12 @@ class ConfigService(BaseService):
                 for provider in configured_providers:
                     if provider.lower() != "ollama":
                         self._set_provider_priority_internal(provider, current_priority)
-                        self.logger.info(f"Set {provider} priority to {current_priority}")
+                        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Set {provider} priority to {current_priority}")
                         current_priority += 1
 
             # Si des priorités existent mais ne sont pas séquentielles, les corriger
             elif len(existing_priorities) != len(configured_providers):
-                self.logger.info("Correcting provider priorities...")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info("Correcting provider priorities...")
                 self._correct_priorities(configured_providers)
 
         except Exception as e:
@@ -799,14 +801,14 @@ class ConfigService(BaseService):
             current_priority = 1
             if "ollama" in configured_providers:
                 self._set_provider_priority_internal("ollama", current_priority)
-                self.logger.info(f"Corrected Ollama priority to {current_priority}")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Corrected Ollama priority to {current_priority}")
                 current_priority += 1
 
             # Les autres providers dans l'ordre
             for provider in configured_providers:
                 if provider.lower() != "ollama":
                     self._set_provider_priority_internal(provider, current_priority)
-                    self.logger.info(f"Corrected {provider} priority to {current_priority}")
+                    # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Corrected {provider} priority to {current_priority}")
                     current_priority += 1
 
         except Exception as e:
@@ -868,7 +870,7 @@ class ConfigService(BaseService):
                 description='AI provider selection strategy (manual priority only)',
                 category='ai'
             )
-            self.logger.info(f"Set AI provider strategy to {strategy} (manual priority)")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Set AI provider strategy to {strategy} (manual priority)")
             return True
         except Exception as e:
             self.logger.error(f"Error setting AI provider strategy: {str(e)}")
@@ -911,7 +913,7 @@ class ConfigService(BaseService):
             
             if duplicates:
                 # Fix duplicate priorities by reassigning them
-                self.logger.info(f"Found duplicate priorities: {duplicates}")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Found duplicate priorities: {duplicates}")
                 
                 # Sort active providers by name for consistent ordering
                 sorted_active_providers = sorted(active_providers)
@@ -926,7 +928,7 @@ class ConfigService(BaseService):
                             "old_priority": old_priority,
                             "new_priority": i
                         })
-                        self.logger.info(f"Fixed priority for {provider}: {old_priority} -> {i}")
+                        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Fixed priority for {provider}: {old_priority} -> {i}")
             
             # Ensure priorities are sequential for active providers
             active_providers_after_fix = []
@@ -988,9 +990,8 @@ class ConfigService(BaseService):
                     category="ai"
                 )
 
-            self.logger.info(
-                f"Reset priorities for all {
-                    len(all_providers)} providers")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
+            # self.logger.info(f"Reset priorities for all {len(all_providers)} providers")
             return True
         except Exception as e:
             self.logger.error(f"Error resetting priorities: {str(e)}")
@@ -1106,7 +1107,7 @@ class ConfigService(BaseService):
                 
                 # Only include providers that are BOTH functional AND active (user has activated them)
                 if not is_functional or status != "valid":
-                    self.logger.debug(f"[PROVIDERS] {provider.upper()}: Skipped (functional={is_functional}, status={status})")
+                    # OPTIMISATION: Suppression des logs DEBUG pour éviter la surcharge
                     continue
                 
                 priority = self.get_ai_provider_priority(provider)
@@ -1172,7 +1173,7 @@ class ConfigService(BaseService):
         try:
             from .ai_service import get_ai_service
             
-            self.logger.info(f"[VALIDATION] Starting API key validation for: {provider.upper()}")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"[VALIDATION] Starting API key validation for: {provider.upper()}")
             
             ai_service = get_ai_service(self.db)
             
@@ -1187,17 +1188,17 @@ class ConfigService(BaseService):
             }
             
             if is_valid:
-                self.logger.info(f"[VALIDATION] {provider.upper()}: API key validation SUCCESSFUL")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"[VALIDATION] {provider.upper()}: API key validation SUCCESSFUL")
                 # Save the API key immediately after successful validation
-                self.logger.info(f"[VALIDATION] {provider.upper()}: Saving API key to database")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"[VALIDATION] {provider.upper()}: Saving API key to database")
                 self.set_ai_provider_key(provider, api_key)
-                self.logger.info(f"[VALIDATION] {provider.upper()}: Updating functionality status to TRUE")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"[VALIDATION] {provider.upper()}: Updating functionality status to TRUE")
                 self.update_provider_functionality_status(provider, True)
             else:
                 result["error_message"] = f"Failed to connect to {provider} with provided API key"
                 self.logger.warning(f"[VALIDATION] {provider.upper()}: API key validation FAILED")
                 # Update status to false for failed validation
-                self.logger.info(f"[VALIDATION] {provider.upper()}: Updating functionality status to FALSE")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"[VALIDATION] {provider.upper()}: Updating functionality status to FALSE")
                 self.update_provider_functionality_status(provider, False)
             
             return result
@@ -1205,7 +1206,7 @@ class ConfigService(BaseService):
         except Exception as e:
             self.logger.error(f"[VALIDATION] {provider.upper()}: Unexpected error during validation: {str(e)}")
             # Update status to false for any error
-            self.logger.info(f"[VALIDATION] {provider.upper()}: Updating functionality status to FALSE due to error")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"[VALIDATION] {provider.upper()}: Updating functionality status to FALSE due to error")
             self.update_provider_functionality_status(provider, False)
             return {
                 "provider": provider,
@@ -1256,7 +1257,7 @@ class ConfigService(BaseService):
                 category="ai"
             )
             
-            self.logger.info(f"Updated functionality status for {provider}: {is_functional}")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Updated functionality status for {provider}: {is_functional}")
             return True
             
         except Exception as e:
@@ -1320,7 +1321,7 @@ class ConfigService(BaseService):
                 category="ai"
             )
             
-            self.logger.info(f"Updated status for {provider}: {status}")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Updated status for {provider}: {status}")
             return True
             
         except Exception as e:
@@ -1367,7 +1368,7 @@ class ConfigService(BaseService):
             # NOUVEAU: Sauvegarder aussi dans les settings pour la persistance
             self._save_api_key_to_settings(provider, api_key)
             
-            self.logger.info(f"Set API key for {provider}")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Set API key for {provider}")
             return True
         except Exception as e:
             self.logger.error(f"Error setting API key for {provider}: {str(e)}")
@@ -1391,7 +1392,7 @@ class ConfigService(BaseService):
             if provider in provider_mapping:
                 attr_name = provider_mapping[provider]
                 setattr(settings, attr_name, api_key)
-                self.logger.info(f"API key saved to settings for {provider}")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"API key saved to settings for {provider}")
             else:
                 self.logger.error(f"Provider {provider} not found in mapping")
                 
@@ -1425,7 +1426,7 @@ class ConfigService(BaseService):
                     attr_name = provider_mapping.get(provider)
                     if attr_name:
                         setattr(settings, attr_name, api_key)
-                        self.logger.info(f"Loaded API key for {provider} from database")
+                        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Loaded API key for {provider} from database")
                         
         except Exception as e:
             self.logger.error(f"Error loading API keys from database: {str(e)}")
@@ -1465,7 +1466,7 @@ class ConfigService(BaseService):
             # Supprimer aussi des settings
             self._delete_api_key_from_settings(provider)
             
-            self.logger.info(f"Deleted API key for {provider}")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Deleted API key for {provider}")
             return success
         except Exception as e:
             self.logger.error(f"Error deleting API key for {provider}: {str(e)}")
@@ -1512,7 +1513,7 @@ class ConfigService(BaseService):
                 description=f"Default model for {provider}",
                 category="ai"
             )
-            self.logger.info(f"Set default model {model} for {provider}")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Set default model {model} for {provider}")
             return True
         except Exception as e:
             self.logger.error(

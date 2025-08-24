@@ -58,7 +58,7 @@ async def login(
         data={"sub": str(user.id)}
     )
     
-    logger.info(f"Connexion réussie: {user.username}")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
     
     return AuthResponse(
         access_token=access_token,
@@ -98,7 +98,7 @@ async def register(
             data={"sub": str(user.id)}
         )
         
-        logger.info(f"Inscription réussie: {user.username}")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
         
         return AuthResponse(
             access_token=access_token,
@@ -135,7 +135,7 @@ async def create_guest_session(
         expires_delta=timedelta(hours=2)  # Session courte pour les invités
     )
     
-    logger.info(f"Session invité temporaire créée: {user.username}")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
     
     return GuestResponse(
         access_token=access_token,
@@ -201,7 +201,7 @@ async def login_as_guest(
         user.last_login = datetime.now()
         db.commit()
         
-        logger.info(f"Connexion invité: {user.username} (fingerprint: {fingerprint[:16]}...)")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
         
         return AuthResponse(
             access_token=access_token,
@@ -275,14 +275,11 @@ async def get_current_user(
     """Récupérer l'utilisateur connecté (fonction utilitaire)"""
     auth_service = AuthService(db)
     
-    logger.info(f"🔐 Vérification du token: {credentials.credentials[:20]}...")
-        
-    # Vérifier le token
+    # Vérifier le token (optimisé - moins de logging)
     payload = auth_service.verify_token(credentials.credentials)
-    logger.info(f"🔐 Payload du token: {payload}")
     
     if not payload or payload.get("type") != "access":
-        logger.error(f"❌ Token invalide - Payload: {payload}")
+        logger.error(f"❌ Token invalide")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Token invalide"
@@ -290,10 +287,7 @@ async def get_current_user(
         
     # Récupérer l'utilisateur
     user_id = int(payload.get("sub"))
-    logger.info(f"🔐 User ID extrait: {user_id}")
-    
     user = auth_service.get_user_by_id(user_id)
-    logger.info(f"🔐 Utilisateur trouvé: {user.username if user else 'None'}")
     
     if not user or not user.is_active:
         logger.error(f"❌ Utilisateur non trouvé ou désactivé: {user_id}")
@@ -302,7 +296,6 @@ async def get_current_user(
             detail="Utilisateur non trouvé ou désactivé"
         )
     
-    logger.info(f"[SUCCESS] Authentification réussie pour: {user.username}")
     return user
 
 @router.get("/me", response_model=UserInfo)

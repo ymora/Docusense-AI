@@ -1,0 +1,31 @@
+# DTU 40.1 - Plomberie sanitaire
+
+Document Technique Unifié pour la plomberie sanitaire
+
+==================================================
+
+
+# DTU 40.1 - Plomberie sanitaire
+
+## Généralités
+Le DTU 40.1 définit les règles d'exécution des installations de plomberie sanitaire.
+
+## Domaine d'application
+- Installations d'eau froide et chaude
+- Installations d'évacuation
+- Installations de ventilation
+- Raccordements
+
+## Exigences techniques
+- Matériaux autorisés
+- Pression et débit
+- Pente des canalisations
+- Ventilation des évacuations
+- Raccordement au réseau
+
+## Points de contrôle
+- Qualité des matériaux
+- Respect des pentes
+- Ventilation correcte
+- Raccordement conforme
+- Tests d'étanchéité

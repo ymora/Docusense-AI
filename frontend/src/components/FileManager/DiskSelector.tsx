@@ -5,6 +5,7 @@ import { useFileService } from '../../services/fileService';
 import { logService } from '../../services/logService';
 import { useBackendConnection } from '../../hooks/useBackendConnection';
 import useAuthStore from '../../stores/authStore';
+import { useStreamService } from '../../services/streamService';
 
 interface DiskSelectorProps {
   onDiskSelect: (disk: string) => void;
@@ -16,15 +17,16 @@ const DiskSelector: React.FC<DiskSelectorProps> = ({ onDiskSelect, currentDisk }
   const fileService = useFileService();
   const { canMakeRequests } = useBackendConnection();
   const { isAuthenticated } = useAuthStore();
+  const { startStream, stopStream } = useStreamService();
   const [isOpen, setIsOpen] = useState(false);
   const [availableDisks, setAvailableDisks] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+  const [diskStatus, setDiskStatus] = useState<Record<string, { status: 'online' | 'offline' | 'error', lastUpdate: string }>>({});
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  // Charger les disques disponibles pour tous les utilisateurs (même si backend déconnecté pour le cache)
+  // Charger les disques disponibles avec streams SSE
   useEffect(() => {
     const fetchDisks = async () => {
-      // Charger pour tous les utilisateurs (invité, user, admin)
       try {
         setIsLoading(true);
         logService.info('Chargement des disques disponibles', 'DiskSelector', {
@@ -33,6 +35,13 @@ const DiskSelector: React.FC<DiskSelectorProps> = ({ onDiskSelect, currentDisk }
         
         const disks = await fileService.getDrives();
         setAvailableDisks(disks);
+        
+        // Initialiser le statut des disques
+        const initialStatus: Record<string, { status: 'online' | 'offline' | 'error', lastUpdate: string }> = {};
+        disks.forEach(disk => {
+          initialStatus[disk] = { status: 'online', lastUpdate: new Date().toISOString() };
+        });
+        setDiskStatus(initialStatus);
         
         logService.info('Disques chargés avec succès', 'DiskSelector', {
           availableDisks: disks,
@@ -56,7 +65,6 @@ const DiskSelector: React.FC<DiskSelectorProps> = ({ onDiskSelect, currentDisk }
           error: error.message,
           timestamp: new Date().toISOString()
         });
-        console.error('Erreur lors du chargement des disques:', error);
         setAvailableDisks([]);
       } finally {
         setIsLoading(false);
@@ -65,6 +73,36 @@ const DiskSelector: React.FC<DiskSelectorProps> = ({ onDiskSelect, currentDisk }
 
     fetchDisks();
   }, [currentDisk, onDiskSelect, isAuthenticated, canMakeRequests]);
+
+  // Stream SSE pour les mises à jour des disques (optionnel)
+  useEffect(() => {
+    if (isAuthenticated && availableDisks.length > 0) {
+      // Démarrer le stream pour les mises à jour des fichiers
+      const streamStarted = startStream('files', {
+        onMessage: (message) => {
+          if (message.type === 'disk_status_update') {
+            setDiskStatus(prev => ({
+              ...prev,
+              [message.disk]: {
+                status: message.status,
+                lastUpdate: new Date().toISOString()
+              }
+            }));
+          }
+        },
+        onError: (error) => {
+          // Erreur silencieuse - utilisation du cache
+          logService.debug('Stream disques non disponible, utilisation du cache', 'DiskSelector');
+        }
+      });
+
+      return () => {
+        if (streamStarted) {
+          stopStream('files');
+        }
+      };
+    }
+  }, [isAuthenticated, availableDisks, startStream, stopStream]);
 
   // Fermer le menu si clic à l'extérieur
   useEffect(() => {
@@ -177,9 +215,21 @@ const DiskSelector: React.FC<DiskSelectorProps> = ({ onDiskSelect, currentDisk }
                   >
                     <FolderIcon className="h-4 w-4 mr-2 flex-shrink-0" style={{ color: colors.primary }} />
                     <div className="flex-1">
-                      <div className="text-xs font-medium">{disk}</div>
+                      <div className="text-xs font-medium flex items-center">
+                        {disk}
+                        {diskStatus[disk] && (
+                          <div 
+                            className={`ml-2 w-2 h-2 rounded-full ${
+                              diskStatus[disk].status === 'online' ? 'bg-green-500' :
+                              diskStatus[disk].status === 'error' ? 'bg-red-500' : 'bg-yellow-500'
+                            }`}
+                            title={`Statut: ${diskStatus[disk].status}`}
+                          />
+                        )}
+                      </div>
                       <div className="text-xs" style={{ color: colors.textSecondary }}>
-                        Disque système
+                        {diskStatus[disk]?.status === 'online' ? 'Disque accessible' :
+                         diskStatus[disk]?.status === 'error' ? 'Erreur d\'accès' : 'Vérification...'}
                       </div>
                     </div>
                     {currentDisk === disk && (

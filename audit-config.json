@@ -1,0 +1,297 @@
+{
+  "audit_config": {
+    "version": "1.0.0",
+    "application_name": "DocuSense AI",
+    "audit_endpoints": {
+      "base_url": "http://localhost:8000",
+      "health": "/api/audit/health",
+      "security": "/api/audit/security",
+      "performance": "/api/audit/performance",
+      "code_quality": "/api/audit/code-quality",
+      "functionality": "/api/audit/functionality",
+      "comprehensive": "/api/audit/comprehensive",
+      "recommendations": "/api/audit/recommendations"
+    },
+    "test_suites": {
+      "backend": {
+        "enabled": true,
+        "path": "tests/backend/",
+        "command": "venv\\Scripts\\python.exe -m pytest",
+        "coverage_threshold": 70,
+        "timeout": 300
+      },
+      "frontend": {
+        "enabled": true,
+        "path": "frontend/",
+        "command": "npm run test:coverage",
+        "coverage_threshold": 70,
+        "timeout": 180
+      },
+      "integration": {
+        "enabled": true,
+        "endpoints": [
+          "/api/health/",
+          "/api/files/drives",
+          "/api/auth/me",
+          "/api/analysis/status/1"
+        ],
+        "timeout": 60
+      },
+      "performance": {
+        "enabled": true,
+        "load_test": {
+          "concurrent_users": 10,
+          "duration_seconds": 30,
+          "ramp_up_seconds": 10
+        },
+        "memory_threshold_mb": 500,
+        "cpu_threshold_percent": 80,
+        "response_time_threshold_ms": 2000
+      }
+    },
+    "quality_gates": {
+      "security_score_min": 80,
+      "performance_score_min": 70,
+      "code_quality_score_min": 75,
+      "functionality_score_min": 90,
+      "overall_score_min": 80
+    },
+    "reporting": {
+      "generate_html": true,
+      "generate_json": true,
+      "generate_pdf": false,
+      "output_directory": "audit-reports/",
+      "include_screenshots": false,
+      "include_logs": true
+    },
+    "notifications": {
+      "email": {
+        "enabled": false,
+        "smtp_server": "",
+        "smtp_port": 587,
+        "username": "",
+        "password": "",
+        "recipients": []
+      },
+      "slack": {
+        "enabled": false,
+        "webhook_url": "",
+        "channel": "#audit-reports"
+      }
+    },
+    "automation": {
+      "schedule": {
+        "enabled": false,
+        "frequency": "daily",
+        "time": "02:00",
+        "timezone": "Europe/Paris"
+      },
+      "ci_cd_integration": {
+        "enabled": true,
+        "fail_on_critical": true,
+        "block_deployment": true
+      }
+    },
+    "custom_checks": {
+      "database_health": {
+        "enabled": true,
+        "connection_timeout": 5,
+        "query_timeout": 10
+      },
+      "file_system": {
+        "enabled": true,
+        "check_disk_space": true,
+        "min_free_space_gb": 1
+      },
+      "external_dependencies": {
+        "enabled": true,
+        "providers": [
+          "openai",
+          "anthropic",
+          "mistral",
+          "ollama"
+        ],
+        "timeout": 10
+      }
+    },
+    "compliance": {
+      "gdpr": {
+        "enabled": true,
+        "check_data_encryption": true,
+        "check_user_consent": true,
+        "check_data_retention": true
+      },
+      "security": {
+        "enabled": true,
+        "check_ssl_certificates": true,
+        "check_security_headers": true,
+        "check_input_validation": true,
+        "check_sql_injection": true,
+        "check_xss_protection": true
+      },
+      "accessibility": {
+        "enabled": true,
+        "wcag_level": "AA",
+        "check_keyboard_navigation": true,
+        "check_screen_reader": true,
+        "check_color_contrast": true
+      }
+    },
+    "performance_benchmarks": {
+      "page_load_time": {
+        "threshold_ms": 3000,
+        "weight": 0.3
+      },
+      "api_response_time": {
+        "threshold_ms": 1000,
+        "weight": 0.4
+      },
+      "memory_usage": {
+        "threshold_mb": 500,
+        "weight": 0.2
+      },
+      "cpu_usage": {
+        "threshold_percent": 80,
+        "weight": 0.1
+      }
+    },
+    "code_analysis": {
+      "static_analysis": {
+        "enabled": true,
+        "tools": ["pylint", "flake8", "mypy", "eslint", "typescript"],
+        "max_errors": 50,
+        "max_warnings": 100
+      },
+      "complexity": {
+        "enabled": true,
+        "max_cyclomatic_complexity": 10,
+        "max_cognitive_complexity": 8
+      },
+      "duplication": {
+        "enabled": true,
+        "max_duplication_percent": 15
+      },
+      "documentation": {
+        "enabled": true,
+        "min_documentation_coverage": 60
+      }
+    },
+    "security_scanning": {
+      "vulnerability_scan": {
+        "enabled": true,
+        "check_dependencies": true,
+        "check_code_vulnerabilities": true,
+        "severity_levels": ["critical", "high", "medium"]
+      },
+      "penetration_testing": {
+        "enabled": false,
+        "scope": ["api_endpoints", "authentication", "file_upload"],
+        "authorized_testing": true
+      }
+    },
+    "monitoring": {
+      "real_time": {
+        "enabled": true,
+        "metrics": ["response_time", "error_rate", "throughput", "resource_usage"],
+        "alerting": {
+          "enabled": true,
+          "response_time_threshold_ms": 5000,
+          "error_rate_threshold_percent": 5
+        }
+      },
+      "logging": {
+        "enabled": true,
+        "level": "INFO",
+        "retention_days": 30,
+        "include_audit_logs": true
+      }
+    }
+  },
+  "recommendations": {
+    "priority_levels": {
+      "critical": {
+        "description": "Problèmes de sécurité ou de stabilité critiques",
+        "action_required": "Immediate",
+        "impact": "High"
+      },
+      "high": {
+        "description": "Problèmes majeurs affectant les performances ou la qualité",
+        "action_required": "Within 1 week",
+        "impact": "Medium"
+      },
+      "medium": {
+        "description": "Améliorations recommandées pour optimiser l'application",
+        "action_required": "Within 1 month",
+        "impact": "Low"
+      },
+      "low": {
+        "description": "Suggestions d'amélioration mineures",
+        "action_required": "Optional",
+        "impact": "Minimal"
+      }
+    },
+    "categories": {
+      "security": {
+        "weight": 0.3,
+        "description": "Sécurité de l'application et protection des données"
+      },
+      "performance": {
+        "weight": 0.25,
+        "description": "Performance et optimisation de l'application"
+      },
+      "code_quality": {
+        "weight": 0.2,
+        "description": "Qualité du code et maintenabilité"
+      },
+      "functionality": {
+        "weight": 0.15,
+        "description": "Fonctionnalités et expérience utilisateur"
+      },
+      "compliance": {
+        "weight": 0.1,
+        "description": "Conformité aux réglementations"
+      }
+    }
+  },
+  "integration": {
+    "ci_cd": {
+      "github_actions": {
+        "enabled": true,
+        "workflow_file": ".github/workflows/audit.yml",
+        "triggers": ["push", "pull_request"]
+      },
+      "gitlab_ci": {
+        "enabled": false,
+        "pipeline_file": ".gitlab-ci.yml"
+      },
+      "jenkins": {
+        "enabled": false,
+        "jenkinsfile": "Jenkinsfile"
+      }
+    },
+    "issue_tracking": {
+      "github_issues": {
+        "enabled": true,
+        "auto_create_issues": true,
+        "labels": ["audit", "security", "performance", "quality"]
+      },
+      "jira": {
+        "enabled": false,
+        "project_key": "",
+        "issue_type": "Bug"
+      }
+    },
+    "monitoring": {
+      "prometheus": {
+        "enabled": true,
+        "metrics_endpoint": "/metrics",
+        "scrape_interval": "15s"
+      },
+      "grafana": {
+        "enabled": true,
+        "dashboard_url": "/grafana",
+        "alerting": true
+      }
+    }
+  }
+}

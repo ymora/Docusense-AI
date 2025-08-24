@@ -1,0 +1,36 @@
+# Code Civil - Livre III - Contrats
+
+Dispositions du Code Civil relatives aux contrats
+
+==================================================
+
+
+# Code Civil - Livre III - Contrats
+
+## Article 1101
+Le contrat est un accord de volontés entre deux ou plusieurs personnes destiné à créer, modifier, transmettre ou éteindre des obligations.
+
+## Article 1102
+Chacun est libre de contracter ou de ne pas contracter, de choisir son cocontractant et de déterminer le contenu et la forme du contrat dans les limites posées par la loi.
+
+## Article 1103
+Les contrats légalement formés tiennent lieu de loi à ceux qui les ont faits.
+
+## Article 1104
+Les contrats doivent être négociés, formés et exécutés de bonne foi.
+
+## Article 1105
+Les contrats, qu'ils aient ou non une dénomination propre, sont soumis à des règles générales qui sont l'objet du présent titre.
+
+## Article 1106
+Le contrat est synallagmatique ou bilatéral lorsque les contractants s'obligent réciproquement les uns envers les autres.
+
+## Article 1107
+Le contrat est unilatéral lorsqu'une ou plusieurs personnes s'obligent envers une ou plusieurs autres sans qu'il y ait d'engagement réciproque de celles-ci.
+
+## Article 1108
+Quatre conditions sont essentielles pour la validité d'une convention :
+1. Le consentement de la partie qui s'oblige
+2. Sa capacité de contracter
+3. Un contenu licite et certain
+4. Une cause licite

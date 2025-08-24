@@ -61,7 +61,7 @@ async def compare_documents(
     }
     db.commit()
     
-    logger.info(f"Created comparison analysis {analysis.id} for {len(file_ids)} files")
+    # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Created comparison analysis {analysis.id} for {len(file_ids)} files")
     
     return ResponseFormatter.success_response(
         data={
@@ -125,7 +125,7 @@ async def analyze_batch(
     
     db.commit()
     
-    logger.info(f"Created {len(created_analyses)} batch analyses for {len(file_ids)} files")
+    # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Created {len(created_analyses)} batch analyses for {len(file_ids)} files")
     
     return ResponseFormatter.success_response(
         data={
@@ -199,7 +199,7 @@ async def analyze_with_multiple_ai(
     
     db.commit()
     
-    logger.info(f"Created multiple AI analysis for {len(file_ids)} files with {len(active_providers)} providers")
+    # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Created multiple AI analysis for {len(file_ids)} files with {len(active_providers)} providers")
     
     return ResponseFormatter.success_response(
         data={
@@ -249,11 +249,11 @@ async def create_pending_analysis(
                 
                 # Use priority-based selection
                 provider, model = await ai_service.select_best_provider_from_priority(priority_string)
-                logger.info(f"Using priority mode with providers: {priority_string} -> selected: {provider}/{model}")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Using priority mode with providers: {priority_string} -> selected: {provider}/{model}")
             else:
                 # Fallback to standard selection
                 provider, model = await ai_service.select_best_provider()
-                logger.info(f"No functional providers for priority mode, using standard: {provider}/{model}")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"No functional providers for priority mode, using standard: {provider}/{model}")
         except Exception as e:
             logger.warning(f"Error in priority mode: {str(e)}, using standard selection")
             provider, model = await ai_service.select_best_provider()
@@ -261,15 +261,17 @@ async def create_pending_analysis(
         try:
             # Get the best available provider if not specified
             provider, model = await ai_service.select_best_provider()
-            logger.info(f"Using best available provider: {provider}/{model}")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Using best available provider: {provider}/{model}")
         except Exception as e:
             logger.warning(f"No functional AI providers available: {str(e)}")
             # Use Ollama as fallback for local analysis
             provider = "ollama"
             model = "llama2"
-            logger.info(f"Using Ollama fallback: {provider}/{model}")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Using Ollama fallback: {provider}/{model}")
     else:
-        logger.info(f"Using specified provider: {provider}/{model}")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
+        # logger.info(f"Using specified provider: {provider}/{model}")
+        pass
     
     # Get the prompt text if prompt_id is provided
     if prompt_id and prompt_id != "default":
@@ -300,7 +302,7 @@ async def create_pending_analysis(
                 db.add(file)
                 db.commit()
                 db.refresh(file)
-                logger.info(f"Created new file record for {file_path}")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Created new file record for {file_path}")
             else:
                 raise HTTPException(status_code=404, detail=f"File not found at path: {file_path}")
         actual_file_id = file.id
@@ -322,7 +324,7 @@ async def create_pending_analysis(
     }
     db.commit()
     
-    logger.info(f"Created pending analysis {analysis.id} for file {actual_file_id}")
+    # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Created pending analysis {analysis.id} for file {actual_file_id}")
     
     return ResponseFormatter.success_response(
         data={
@@ -373,11 +375,11 @@ async def create_pending_analyses_batch(
                 
                 # Use priority-based selection
                 provider, model = await ai_service.select_best_provider_from_priority(priority_string)
-                logger.info(f"Using priority mode for batch with providers: {priority_string} -> selected: {provider}/{model}")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Using priority mode for batch with providers: {priority_string} -> selected: {provider}/{model}")
             else:
                 # Fallback to standard selection
                 provider, model = await ai_service.select_best_provider()
-                logger.info(f"No functional providers for priority mode batch, using standard: {provider}/{model}")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"No functional providers for priority mode batch, using standard: {provider}/{model}")
         except Exception as e:
             logger.warning(f"Error in priority mode batch: {str(e)}, using standard selection")
             provider, model = await ai_service.select_best_provider()
@@ -385,14 +387,16 @@ async def create_pending_analyses_batch(
         try:
             # Get the best available provider if not specified
             provider, model = await ai_service.select_best_provider()
-            logger.info(f"Using best available provider for batch: {provider}/{model}")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Using best available provider for batch: {provider}/{model}")
         except Exception as e:
             logger.warning(f"No functional AI providers available: {str(e)}")
             provider = "ollama"
             model = "llama2"
-            logger.info(f"Using Ollama fallback for batch: {provider}/{model}")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Using Ollama fallback for batch: {provider}/{model}")
     else:
-        logger.info(f"Using specified provider for batch: {provider}/{model}")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
+        # logger.info(f"Using specified provider for batch: {provider}/{model}")
+        pass
     
     created_analyses = []
     
@@ -416,7 +420,7 @@ async def create_pending_analyses_batch(
                     db.add(file)
                     db.commit()
                     db.refresh(file)
-                    logger.info(f"Created new file record for {file_path}")
+                    # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Created new file record for {file_path}")
                 else:
                     logger.warning(f"File not found at path: {file_path}")
                     continue
@@ -478,7 +482,7 @@ async def create_pending_analyses_batch(
     
     db.commit()
     
-    logger.info(f"Created {len(created_analyses)} pending analyses in batch")
+    # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Created {len(created_analyses)} pending analyses in batch")
     
     return ResponseFormatter.success_response(
         data={
@@ -527,11 +531,11 @@ async def analyze_file(
                 
                 # Use priority-based selection
                 provider, model = await ai_service.select_best_provider_from_priority(priority_string)
-                logger.info(f"Using priority mode with providers: {priority_string} -> selected: {provider}/{model}")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Using priority mode with providers: {priority_string} -> selected: {provider}/{model}")
             else:
                 # Fallback to standard selection
                 provider, model = await ai_service.select_best_provider()
-                logger.info(f"No functional providers for priority mode, using standard: {provider}/{model}")
+                # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"No functional providers for priority mode, using standard: {provider}/{model}")
         except Exception as e:
             logger.warning(f"Error in priority mode: {str(e)}, using standard selection")
             provider, model = await ai_service.select_best_provider()
@@ -541,9 +545,12 @@ async def analyze_file(
             provider, model = await ai_service.select_best_provider_from_priority(provider_priority)
         else:
             provider, model = await ai_service.select_best_provider()
-        logger.info(f"Using best available provider: {provider}/{model}")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
+        # logger.info(f"Using best available provider: {provider}/{model}")
     else:
-        logger.info(f"Using specified provider: {provider}/{model}")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge
+        # logger.info(f"Using specified provider: {provider}/{model}")
+        pass
     
     # Get the prompt text
     from ...services.prompt_service import PromptService
@@ -574,7 +581,7 @@ async def analyze_file(
     }
     db.commit()
     
-    logger.info(f"Created analysis {analysis.id} for file {file_id} with prompt {prompt_id}")
+    # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Created analysis {analysis.id} for file {file_id} with prompt {prompt_id}")
     
     return ResponseFormatter.success_response(
         data={

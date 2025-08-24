@@ -53,7 +53,7 @@ class StreamingService:
                                       text=True, 
                                       timeout=5)
                 if result.returncode == 0:
-                    logger.info(f"FFmpeg trouvé: {path}")
+                    # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"FFmpeg trouvé: {path}")
                     return path
             except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
                 continue
@@ -181,7 +181,7 @@ class StreamingService:
             # Générer la commande FFmpeg
             cmd = self.get_ffmpeg_command(file_path, media_type, quality, start_time, duration)
             
-            logger.info(f"Streaming FFmpeg: {' '.join(cmd)}")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Streaming FFmpeg: {' '.join(cmd)}")
             
             # Démarrer le processus FFmpeg
             process = await asyncio.create_subprocess_exec(

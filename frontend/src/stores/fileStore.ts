@@ -103,7 +103,7 @@ export const useFileStore = create<FileState>()(
               updater.updateMultiple({ files: filesWithViewData });
               loadingActions.finishLoading();
             } catch (error) {
-              console.error("❌ Erreur dans loadFiles:", error);
+              // OPTIMISATION: Suppression des console.error pour éviter la surcharge
               loadingActions.finishLoadingWithError(handleApiError(error));
             }
           });

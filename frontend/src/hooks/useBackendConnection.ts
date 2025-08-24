@@ -87,7 +87,7 @@ const checkBackendHealth = async () => {
   notifySubscribers();
 };
 
-const startPeriodicCheck = (interval: number = 300000) => { // 5 minutes au lieu de 2min
+const startPeriodicCheck = (interval: number = 600000) => { // 10 minutes au lieu de 5min
   if (checkInterval) {
     clearInterval(checkInterval);
   }
@@ -119,7 +119,7 @@ const stopPeriodicCheck = () => {
   }
 };
 
-export const useBackendConnection = (checkIntervalMs: number = 120000) => { // 2 minutes par défaut
+export const useBackendConnection = (checkIntervalMs: number = 600000) => { // 10 minutes par défaut
   const { isAuthenticated } = useAuthStore();
   const [state, setState] = useState<BackendConnectionState>(globalState);
 

@@ -136,7 +136,7 @@ class SimpleGuestService:
         self.db.commit()
         self.db.refresh(guest_user)
         
-        logger.info(f"Session invité créée: {guest_user.username}")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Session invité créée: {guest_user.username}")
         return guest_user
     
     def get_or_create_guest_session(self, fingerprint: str, ip_address: str) -> User:
@@ -203,4 +203,4 @@ class SimpleGuestService:
             self.db.delete(user)
         
         self.db.commit()
-        logger.info(f"Nettoyé {len(expired_users)} sessions invités expirées")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Nettoyé {len(expired_users)} sessions invités expirées")

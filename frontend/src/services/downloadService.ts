@@ -37,7 +37,7 @@ export const downloadFile = (file: FileInfo, options: DownloadOptions = {}): Pro
       
       resolve();
     } catch (error) {
-      console.error('❌ Erreur lors du téléchargement:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       reject(error);
     }
   });
@@ -69,7 +69,7 @@ export const downloadMultipleFiles = async (files: FileInfo[], options: Download
     link.click();
     document.body.removeChild(link);
   } catch (error) {
-    console.error('❌ Erreur lors du téléchargement multiple:', error);
+    // OPTIMISATION: Suppression des console.error pour éviter la surcharge
     throw error;
   }
 };
@@ -100,7 +100,7 @@ export const downloadDirectory = (directoryPath: string, options: DownloadOption
       
       resolve();
     } catch (error) {
-      console.error('❌ Erreur lors du téléchargement du répertoire:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge
       reject(error);
     }
   });

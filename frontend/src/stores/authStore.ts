@@ -56,13 +56,13 @@ const useAuthStore = create<AuthStore>()(
         set({ isLoading: true, error: null });
         
         try {
-                  const response = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ username, password }),
-        });
+          const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ username, password }),
+          });
 
           if (!response.ok) {
             const error = await response.json();
@@ -80,11 +80,45 @@ const useAuthStore = create<AuthStore>()(
             error: null,
           });
         } catch (error) {
+          // Améliorer la détection des erreurs de connexion au backend
+          let errorMessage = 'Erreur de connexion';
+          
+          if (error instanceof Error) {
+            // Erreur de connexion réseau (backend non disponible)
+            if (error.message.includes('Failed to fetch') || 
+                error.message.includes('NetworkError') ||
+                error.message.includes('ERR_NETWORK') ||
+                error.message.includes('ERR_CONNECTION_REFUSED') ||
+                error.message.includes('ERR_INTERNET_DISCONNECTED')) {
+              errorMessage = 'Le serveur n\'est pas accessible. Veuillez vérifier que l\'application est bien démarrée.';
+            }
+            // Erreur de timeout
+            else if (error.message.includes('timeout') || error.message.includes('Timeout')) {
+              errorMessage = 'Le serveur met trop de temps à répondre.';
+            }
+            // Erreur d'authentification
+            else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+              errorMessage = 'Nom d\'utilisateur ou mot de passe incorrect';
+            }
+            // Erreur de serveur
+            else if (error.message.includes('500') || error.message.includes('Internal Server Error')) {
+              errorMessage = 'Erreur temporaire du serveur.';
+            }
+            // Autres erreurs spécifiques
+            else if (error.message.includes('Compte désactivé')) {
+              errorMessage = 'Ce compte a été désactivé.';
+            }
+            // Erreur générique avec plus de détails si disponible
+            else if (error.message !== 'Erreur de connexion' && error.message !== 'Erreur inconnue') {
+              errorMessage = error.message;
+            }
+          }
+          
           set({
             isLoading: false,
-            error: error instanceof Error ? error.message : 'Erreur inconnue',
+            error: errorMessage,
           });
-          throw error;
+          throw new Error(errorMessage);
         }
       },
 
@@ -116,11 +150,51 @@ const useAuthStore = create<AuthStore>()(
             error: null,
           });
         } catch (error) {
+          // Améliorer la détection des erreurs de connexion au backend
+          let errorMessage = 'Erreur d\'inscription';
+          
+          if (error instanceof Error) {
+            // Erreur de connexion réseau (backend non disponible)
+            if (error.message.includes('Failed to fetch') || 
+                error.message.includes('NetworkError') ||
+                error.message.includes('ERR_NETWORK') ||
+                error.message.includes('ERR_CONNECTION_REFUSED') ||
+                error.message.includes('ERR_INTERNET_DISCONNECTED')) {
+              errorMessage = 'Le serveur n\'est pas accessible. Veuillez vérifier que l\'application est bien démarrée.';
+            }
+            // Erreur de timeout
+            else if (error.message.includes('timeout') || error.message.includes('Timeout')) {
+              errorMessage = 'Le serveur met trop de temps à répondre.';
+            }
+            // Erreur de validation des données
+            else if (error.message.includes('déjà')) {
+              errorMessage = 'Ce nom d\'utilisateur existe déjà';
+            }
+            else if (error.message.includes('email') || error.message.includes('Email')) {
+              errorMessage = 'Cette adresse email est déjà utilisée';
+            }
+            else if (error.message.includes('mot de passe') || error.message.includes('password')) {
+              errorMessage = 'Le mot de passe doit contenir au moins 8 caractères';
+            }
+            // Erreur de serveur
+            else if (error.message.includes('500') || error.message.includes('Internal Server Error')) {
+              errorMessage = 'Erreur temporaire du serveur.';
+            }
+            // Erreur d'authentification
+            else if (error.message.includes('401') || error.message.includes('Unauthorized')) {
+              errorMessage = 'Erreur d\'authentification.';
+            }
+            // Erreur générique avec plus de détails si disponible
+            else if (error.message !== 'Erreur d\'inscription' && error.message !== 'Erreur inconnue') {
+              errorMessage = error.message;
+            }
+          }
+          
           set({
             isLoading: false,
-            error: error instanceof Error ? error.message : 'Erreur inconnue',
+            error: errorMessage,
           });
-          throw error;
+          throw new Error(errorMessage);
         }
       },
 
@@ -152,7 +226,7 @@ const useAuthStore = create<AuthStore>()(
           }
         } catch (error) {
           // Backend non disponible - continuer en mode local
-          console.log('Backend non disponible, connexion invité en mode local');
+          // OPTIMISATION: Suppression des console.log pour éviter la surcharge
         }
 
         // Mode local - créer un utilisateur invité sans backend

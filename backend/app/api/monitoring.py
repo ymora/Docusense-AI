@@ -142,7 +142,7 @@ async def clear_cache(
     Clear the application cache
     """
     cache.clear()
-    logger.info("Application cache cleared")
+    # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info("Application cache cleared")
     
     return ResponseFormatter.success_response(
         data={"timestamp": datetime.now().isoformat()},

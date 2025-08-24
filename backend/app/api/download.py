@@ -62,7 +62,7 @@ async def download_file(
     decoded_path = urllib.parse.unquote(file_path)
     file_path_obj = Path(decoded_path)
     
-    logger.info(f"Tentative de téléchargement: {file_path_obj}")
+    # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Tentative de téléchargement: {file_path_obj}")
     
     return download_service.download_file(file_path_obj)
 
@@ -93,7 +93,7 @@ async def download_directory(
     decoded_path = urllib.parse.unquote(directory_path)
     directory_path_obj = Path(decoded_path)
     
-    logger.info(f"Tentative de téléchargement du répertoire: {directory_path_obj}")
+    # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Tentative de téléchargement du répertoire: {directory_path_obj}")
     
     return download_service.download_directory(directory_path_obj, zip_name)
 
@@ -118,7 +118,7 @@ async def download_multiple_files(
     # Convertir les chemins en objets Path
     file_paths = [Path(urllib.parse.unquote(path)) for path in request.file_paths]
     
-    logger.info(f"Tentative de téléchargement multiple: {len(file_paths)} fichiers")
+    # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # logger.info(f"Tentative de téléchargement multiple: {len(file_paths)} fichiers")
     
     return download_service.download_multiple_files(file_paths, request.zip_name)
 

@@ -69,7 +69,7 @@ const UnifiedFileViewer: React.FC<UnifiedFileViewerProps> = ({ file, onClose, on
         error: error.message,
         timestamp: new Date().toISOString()
       });
-      console.error('❌ Erreur lors du téléchargement:', error);
+      // OPTIMISATION: Suppression des console.error pour éviter la surcharge // console.error('❌ Erreur lors du téléchargement:', error);
       setError('Erreur lors du téléchargement du fichier');
     }
   };

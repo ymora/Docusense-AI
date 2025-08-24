@@ -50,7 +50,7 @@ class PDFGeneratorService(BaseService):
 
         # Check if PDF already exists
         if analysis.pdf_path and os.path.exists(analysis.pdf_path):
-            self.logger.info(f"PDF already exists for analysis {analysis_id}: {analysis.pdf_path}")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"PDF already exists for analysis {analysis_id}: {analysis.pdf_path}")
             return analysis.pdf_path
 
         # Generate PDF filename with format: nom_original_IA_JJMMAA_01
@@ -66,7 +66,7 @@ class PDFGeneratorService(BaseService):
                 break
             counter += 1
         
-        self.logger.info(f"Generated PDF filename: {pdf_filename} for analysis {analysis_id}")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Generated PDF filename: {pdf_filename} for analysis {analysis_id}")
 
         try:
             # Generate PDF content
@@ -79,7 +79,7 @@ class PDFGeneratorService(BaseService):
             analysis.pdf_path = str(pdf_path)
             self.db.commit()
             
-            self.logger.info(f"Generated PDF for analysis {analysis_id}: {pdf_path}")
+            # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Generated PDF for analysis {analysis_id}: {pdf_path}")
             return str(pdf_path)
             
         except Exception as e:
@@ -354,9 +354,9 @@ RÉSULTAT DE L'ANALYSE:
                 pdf_path = self.generate_analysis_pdf(analysis.id)
                 if pdf_path:
                     generated_count += 1
-                    self.logger.info(f"Generated PDF for analysis {analysis.id}")
+                    # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Generated PDF for analysis {analysis.id}")
             except Exception as e:
                 self.logger.error(f"Failed to generate PDF for analysis {analysis.id}: {str(e)}")
         
-        self.logger.info(f"Generated {generated_count} PDFs for completed analyses")
+        # OPTIMISATION: Suppression des logs INFO pour éviter la surcharge # self.logger.info(f"Generated {generated_count} PDFs for completed analyses")
         return generated_count
