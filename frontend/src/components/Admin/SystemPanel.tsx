@@ -17,7 +17,6 @@ import {
   InformationCircleIcon,
   XCircleIcon,
   CogIcon,
-  DatabaseIcon,
   FolderIcon,
   CodeBracketIcon,
   ArrowPathIcon
@@ -728,7 +727,7 @@ const SystemPanel: React.FC = () => {
                 }}
               >
                 <h2 className="text-lg font-semibold mb-4 flex items-center space-x-2" style={{ color: colors.text }}>
-                  <DatabaseIcon className="h-5 w-5" style={{ color: colors.primary }} />
+                  <ServerIcon className="h-5 w-5" style={{ color: colors.primary }} />
                   <span>Base de Données</span>
                 </h2>
                 

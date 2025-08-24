@@ -19,6 +19,11 @@ from app.core.database import engine, Base
 from app.core.logging import setup_logging
 from app.middleware.log_requests import LoggingMiddleware as OldLoggingMiddleware
 from app.middleware.logging_middleware import LoggingMiddleware
+from app.middleware.optimization_middleware import (
+    OptimizationMiddleware,
+    PerformanceMonitoringMiddleware,
+    ResourceOptimizationMiddleware
+)
 from app.api import (
     analysis_router, auth_router, config_router, download_router, emails_router, files_router, health_router, 
     monitoring_router, multimedia_router, prompts_router, video_converter_router, secure_streaming_router, pdf_files_router, logs_router, streams_router, admin_router
@@ -27,6 +32,7 @@ from app.api.reference_documents import router as reference_documents_router
 from app.api.system_logs import router as system_logs_router
 from app.api.database import router as database_router
 from app.api.audit import router as audit_router
+from app.api.optimization import router as optimization_router
 
 # Setup logging
 setup_logging()
@@ -135,6 +141,11 @@ app.add_middleware(
 if settings.compression_enabled:
     app.add_middleware(GZipMiddleware, minimum_size=settings.gzip_min_size)
 
+# Middlewares d'optimisation
+app.add_middleware(ResourceOptimizationMiddleware, max_request_size_mb=100)
+app.add_middleware(PerformanceMonitoringMiddleware, alert_threshold_ms=5000)
+app.add_middleware(OptimizationMiddleware, enable_cache=True, enable_metrics=True)
+
 app.add_middleware(LoggingMiddleware)
 
 # Include routers
@@ -159,6 +170,7 @@ app.include_router(reference_documents_router, tags=["Reference Documents"])
 app.include_router(system_logs_router, tags=["System Logs"])
 app.include_router(database_router)
 app.include_router(audit_router)
+app.include_router(optimization_router, prefix="/api/optimization", tags=["Optimization"])
 
 
 @app.get("/")

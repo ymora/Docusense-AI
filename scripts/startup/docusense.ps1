@@ -8,6 +8,15 @@ param(
 function Test-NodeJSInstallation {
     Write-Host "Verification de Node.js et npm (necessaire pour le frontend)..." -ForegroundColor Cyan
     
+    # Ajouter Node.js au PATH si il existe
+    $nodejsPath = "C:\Program Files\nodejs"
+    if (Test-Path $nodejsPath) {
+        if ($env:PATH -notlike "*$nodejsPath*") {
+            $env:PATH += ";$nodejsPath"
+            Write-Host "Node.js ajoute au PATH temporairement" -ForegroundColor Yellow
+        }
+    }
+    
     $nodeInstalled = $false
     $npmInstalled = $false
     
@@ -220,7 +229,12 @@ function Start-Docusense {
 
     # DEMARRER LE FRONTEND EN PREMIER (il demarre vite)
     Write-Host "Demarrage du frontend en premier (demarrage rapide)..." -ForegroundColor Yellow
-    Start-Process -FilePath "powershell.exe" -ArgumentList "-NoExit", "-Command", "cd '$PWD\frontend'; npm run dev" -WindowStyle Normal
+    
+    # Ajouter Node.js au PATH pour le nouveau processus
+    $nodejsPath = "C:\Program Files\nodejs"
+    $env:PATH += ";$nodejsPath"
+    
+    Start-Process -FilePath "powershell.exe" -ArgumentList "-NoExit", "-Command", "cd '$PWD\frontend'; `$env:PATH += ';$nodejsPath'; npm run dev" -WindowStyle Normal
 
     # Attendre que le frontend demarre
     Write-Host "Attente du demarrage du frontend..." -ForegroundColor Cyan
@@ -401,7 +415,8 @@ function Start-DocusenseFrontend {
     Write-Host ""
 
     # Demarrer le frontend dans un terminal externe pour voir les logs
-    Start-Process -FilePath "powershell.exe" -ArgumentList "-NoExit", "-Command", "cd '$PWD\frontend'; npm run dev" -WindowStyle Normal
+    $nodejsPath = "C:\Program Files\nodejs"
+    Start-Process -FilePath "powershell.exe" -ArgumentList "-NoExit", "-Command", "cd '$PWD\frontend'; `$env:PATH += ';$nodejsPath'; npm run dev" -WindowStyle Normal
 }
 
 function Stop-Docusense {

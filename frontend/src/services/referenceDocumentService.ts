@@ -1,4 +1,4 @@
-import { apiRequest } from './apiService';
+import { apiRequest } from '../utils/apiUtils';
 
 export interface ReferenceDocument {
   id: string;
